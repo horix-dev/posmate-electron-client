@@ -75,6 +75,51 @@ src/
 
 ### November 27, 2025
 
+#### UI Color Scheme - Purple Theme (Complete)
+
+**Feature**: Updated app color scheme from neutral to purple primary with yellow accents.
+
+**Design Decisions**:
+- **Primary**: Purple (#7c3aed / HSL 262 83% 58%) - Brand identity, buttons, links
+- **Accent**: Yellow (#eab308 / HSL 45 93% 58%) - Badges, notifications, highlights only
+- **Hover States**: Darker purple shades (not yellow) - Industry standard approach
+- **Category Colors**: 12 vibrant colors for POS category grid
+
+**Why not yellow hover?**
+Purple → Yellow on hover creates jarring contrast. Standard UI practice uses darker/lighter shades of the same color family for hover states.
+
+**Files Modified**:
+- `src/index.css` - CSS variables for colors, hover states, category colors
+- `tailwind.config.js` - Added category colors and hover variants
+- `src/components/layout/Sidebar.tsx` - Fixed hover from yellow to light purple
+- `src/components/ui/tooltip.tsx` - Changed to neutral dark (gray-900)
+- `src/components/ui/button.tsx` - Fixed outline/ghost variants to use muted instead of accent
+- `src/components/ui/select.tsx` - Fixed focus state from accent to muted
+- `src/components/ui/dropdown-menu.tsx` - Fixed all focus/hover states to use muted
+- `src/components/common/SyncStatusIndicator.tsx` - Removed accent hover
+
+**CSS Variables Added**:
+```css
+--primary: 262 83% 58%        /* Purple */
+--primary-hover: 262 83% 50%  /* Darker purple for hover */
+--accent: 45 93% 58%          /* Yellow for accents */
+--category-1 through --category-12  /* POS grid colors */
+```
+
+**Usage**:
+```tsx
+// Buttons use purple with darker hover
+<Button className="hover:bg-primary-hover">Save</Button>
+
+// Yellow only for accent elements
+<Badge className="bg-accent">New Item</Badge>
+
+// Category colors for POS grid
+<div className="bg-category-1">Beverages</div>
+```
+
+---
+
 #### Offline App Loading (Complete)
 
 **Problem**: App wouldn't load UI at all when offline - showed blank screen.

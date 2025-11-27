@@ -222,7 +222,7 @@ const PopoverContentView = memo(function PopoverContentView({
             size="sm"
             variant="ghost"
             onClick={onViewAll}
-            className="w-full justify-between h-9 hover:bg-accent"
+            className="w-full justify-between h-9"
           >
             View All Records
             <ChevronRight className="h-4 w-4" />

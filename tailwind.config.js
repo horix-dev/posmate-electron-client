@@ -22,11 +22,13 @@ export default {
   			foreground: 'hsl(var(--foreground))',
   			primary: {
   				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
+  				foreground: 'hsl(var(--primary-foreground))',
+  				hover: 'hsl(var(--primary-hover))'
   			},
   			secondary: {
   				DEFAULT: 'hsl(var(--secondary))',
-  				foreground: 'hsl(var(--secondary-foreground))'
+  				foreground: 'hsl(var(--secondary-foreground))',
+  				hover: 'hsl(var(--secondary-hover))'
   			},
   			destructive: {
   				DEFAULT: 'hsl(var(--destructive))',
@@ -62,6 +64,20 @@ export default {
   				success: 'hsl(var(--pos-success))',
   				warning: 'hsl(var(--pos-warning))',
   				danger: 'hsl(var(--pos-danger))'
+  			},
+  			category: {
+  				1: 'hsl(var(--category-1))',
+  				2: 'hsl(var(--category-2))',
+  				3: 'hsl(var(--category-3))',
+  				4: 'hsl(var(--category-4))',
+  				5: 'hsl(var(--category-5))',
+  				6: 'hsl(var(--category-6))',
+  				7: 'hsl(var(--category-7))',
+  				8: 'hsl(var(--category-8))',
+  				9: 'hsl(var(--category-9))',
+  				10: 'hsl(var(--category-10))',
+  				11: 'hsl(var(--category-11))',
+  				12: 'hsl(var(--category-12))'
   			},
   			chart: {
   				'1': 'hsl(var(--chart-1))',
