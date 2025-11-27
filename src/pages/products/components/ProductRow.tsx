@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
+import { cn, getImageUrl } from '@/lib/utils'
 import type { Product } from '@/types/api.types'
 import { getStockStatus, getTotalStock, getSalePrice, getPurchasePrice } from '../hooks'
 
@@ -65,9 +65,9 @@ function ProductRowComponent({
             role="img"
             aria-label={product.productPicture ? product.productName : 'No product image'}
           >
-            {product.productPicture ? (
+            {getImageUrl(product.productPicture) ? (
               <img
-                src={product.productPicture}
+                src={getImageUrl(product.productPicture)!}
                 alt={product.productName}
                 className="h-10 w-10 rounded-lg object-cover"
                 loading="lazy"

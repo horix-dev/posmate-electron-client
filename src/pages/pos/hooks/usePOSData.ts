@@ -62,7 +62,7 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([])
   const [vats, setVats] = useState<Vat[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isProductsLoading] = useState(false)
+  const [isProductsLoading, setIsProductsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
   // Load cached data from IndexedDB and localStorage
@@ -103,8 +103,12 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
   }, [])
 
   // Fetch all initial data from API
-  const fetchData = useCallback(async () => {
-    setIsLoading(true)
+  const fetchData = useCallback(async (showLoadingState = true) => {
+    if (showLoadingState) {
+      setIsLoading(true)
+    } else {
+      setIsProductsLoading(true)
+    }
     setError(null)
 
     // If offline, only load from cache
@@ -117,6 +121,7 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
         toast.info('Working offline with cached data')
       }
       setIsLoading(false)
+      setIsProductsLoading(false)
       return
     }
 
@@ -139,33 +144,57 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
     } catch (err) {
       console.warn('[usePOSData] API fetch failed, trying cached data:', err)
       
-      // Try to load from cache on network error
-      const hasCached = await loadCachedData()
-      
-      if (hasCached) {
-        toast.warning('Network error. Using cached data.')
+      // Only load from cache if we don't already have data
+      if (products.length === 0) {
+        const hasCached = await loadCachedData()
+        
+        if (hasCached) {
+          toast.warning('Network error. Using cached data.')
+        } else {
+          const appError = createAppError(err, 'POS data loading')
+          setError(appError)
+          toast.error('Failed to load POS data and no cache available.')
+        }
       } else {
-        const appError = createAppError(err, 'POS data loading')
-        setError(appError)
-        toast.error('Failed to load POS data and no cache available.')
+        // Already have data, just show a subtle warning
+        toast.warning('Could not refresh data. Using current data.')
       }
     } finally {
       setIsLoading(false)
+      setIsProductsLoading(false)
     }
-  }, [loadCachedData])
+  }, [loadCachedData, products.length])
 
   // Use online status hook with callbacks
   const { isOffline } = useOnlineStatus({
     onOnline: () => {
-      // Refetch fresh data when coming back online
-      fetchData()
+      // Refetch fresh data when coming back online (don't show loading)
+      fetchData(false)
     },
   })
 
-  // Initial fetch
+  // Initial fetch - load cache first for instant display, then refresh from API
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    const initialize = async () => {
+      // First, quickly load cached data for instant UI
+      const hasCached = await loadCachedData()
+      
+      if (hasCached) {
+        // We have cached data, show it immediately
+        setIsLoading(false)
+        
+        // Then refresh from API in background if online
+        if (navigator.onLine) {
+          fetchData(false) // false = don't show loading state
+        }
+      } else {
+        // No cache, need to fetch from API
+        fetchData(true)
+      }
+    }
+    
+    initialize()
+  }, []) // Empty deps - only run on mount
 
   // Filter products based on search and category
   const filteredProducts = useMemo(() => {

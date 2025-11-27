@@ -75,6 +75,78 @@ src/
 
 ### November 27, 2025
 
+#### Production Build Fixes (Complete)
+
+**Problem 1**: App crashed on startup with `Cannot read properties of undefined (reading 'on')`
+
+**Cause**: `src/main.tsx` was calling `window.ipcRenderer.on()` directly, but in production builds with `contextBridge`, this isn't exposed.
+
+**Solution**: Changed to use the properly exposed API:
+```tsx
+// Before (broken)
+window.ipcRenderer.on('main-process-message', ...)
+
+// After (fixed)
+if (window.electronAPI?.onMainProcessMessage) {
+  window.electronAPI.onMainProcessMessage((message) => { ... })
+}
+```
+
+**Files Modified**: `src/main.tsx`
+
+---
+
+**Problem 2**: API calls failing with `file:///D:/undefined/api/v1/...`
+
+**Cause**: `VITE_API_BASE_URL` environment variable was undefined in production because `.env.production` didn't exist.
+
+**Solution**: 
+1. Created `.env.production` with the production API URL
+2. Added fallback in `src/api/axios.ts`:
+```typescript
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.posmate.app'
+```
+
+**Files Created**: `.env.production`
+**Files Modified**: `src/api/axios.ts`
+
+---
+
+**Problem 3**: Product images showing as broken (file:///D:/uploads/...)
+
+**Cause**: Product images are stored as relative paths (`/uploads/25/08/...`) in the API. In Electron, these become `file:///D:/uploads/...` instead of the actual server URL.
+
+**Solution**: Created `getImageUrl()` utility in `src/lib/utils.ts`:
+```typescript
+export function getImageUrl(path: string | undefined | null): string | null {
+  if (!path) return null
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `${API_BASE_URL}${normalizedPath}`
+}
+```
+
+**Files Modified**:
+- `src/lib/utils.ts` - Added `getImageUrl()` helper
+- `src/pages/pos/components/ProductCard.tsx` - Use `getImageUrl()`
+- `src/pages/products/components/ProductRow.tsx` - Use `getImageUrl()`
+- `src/pages/products/components/ProductDetailsDialog.tsx` - Use `getImageUrl()`
+- `src/pages/products/components/ProductFormDialog.tsx` - Use `getImageUrl()`
+
+---
+
+#### Build Configuration (Complete)
+
+**Updated electron-builder.json5**:
+- `appId`: `com.posmate.app`
+- `productName`: `POSMATE`
+
+**Build Output**:
+- Windows: `release/1.0.0/POS Mate-Windows-1.0.0-Setup.exe`
+- Executable: `release/1.0.0/win-unpacked/POSMATE.exe`
+
+---
+
 #### UI Color Scheme - Purple Theme (Complete)
 
 **Feature**: Updated app color scheme from neutral to purple primary with yellow accents.
@@ -381,9 +453,17 @@ npm run build:linux # Linux AppImage
 ```
 
 ### Output
-- Windows: `release/[version]/Horix POS Pro Setup.exe`
-- macOS: `release/[version]/Horix POS Pro.dmg`
-- Linux: `release/[version]/Horix POS Pro.AppImage`
+- Windows: `release/[version]/POSMATE-Windows-[version]-Setup.exe`
+- macOS: `release/[version]/POSMATE-Mac-[version]-Installer.dmg`
+- Linux: `release/[version]/POSMATE-Linux-[version].AppImage`
+
+### Environment Files
+```
+.env.development    # Development API (localhost or dev server)
+.env.production     # Production API URL - MUST be set before building
+```
+
+**Important**: Always verify `.env.production` has the correct `VITE_API_BASE_URL` before running production builds.
 
 ---
 
@@ -416,6 +496,16 @@ useAuthStore()   // Auth state + actions
 useCartStore()   // POS cart (persisted)
 useSyncStore()   // Sync queue state
 useUIStore()     // Theme, sidebar state
+```
+
+### Image URLs
+```typescript
+import { getImageUrl } from '@/lib/utils'
+
+// Convert relative API paths to absolute URLs
+const imageUrl = getImageUrl(product.productPicture)
+// Input:  "/uploads/25/08/image.png"
+// Output: "http://api.example.com/uploads/25/08/image.png"
 ```
 
 ---

@@ -29,6 +29,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { toast } from 'sonner'
+import { getImageUrl } from '@/lib/utils'
 import type { Product, Category, Brand, Unit } from '@/types/api.types'
 import {
   productFormSchema,
@@ -96,7 +97,7 @@ function ProductFormDialogComponent({
     if (open) {
       if (product) {
         form.reset(productToFormData(product))
-        setImagePreview(product.productPicture || null)
+        setImagePreview(getImageUrl(product.productPicture))
       } else {
         form.reset(defaultProductFormValues)
         setImagePreview(null)

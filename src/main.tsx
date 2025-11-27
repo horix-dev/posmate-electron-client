@@ -13,7 +13,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 )
 
-// Use contextBridge
-window.ipcRenderer.on('main-process-message', (_event, message) => {
-  console.log(message)
-})
+// Listen for main process messages (only in Electron)
+if (window.electronAPI?.onMainProcessMessage) {
+  window.electronAPI.onMainProcessMessage((message) => {
+    console.log('[Electron Main Process]', message)
+  })
+}

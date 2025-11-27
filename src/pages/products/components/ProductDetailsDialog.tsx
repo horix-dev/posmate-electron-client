@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { cn } from '@/lib/utils'
+import { cn, getImageUrl } from '@/lib/utils'
 import type { Product } from '@/types/api.types'
 import { getStockStatus } from '../hooks'
 
@@ -95,9 +95,9 @@ function ProductDetailsDialogComponent({
             role="img"
             aria-label={product.productPicture ? product.productName : 'No product image'}
           >
-            {product.productPicture ? (
+            {getImageUrl(product.productPicture) ? (
               <img
-                src={product.productPicture}
+                src={getImageUrl(product.productPicture)!}
                 alt={product.productName}
                 className="max-h-48 rounded-lg object-contain"
                 loading="lazy"

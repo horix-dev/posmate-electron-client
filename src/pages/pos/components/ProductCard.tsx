@@ -3,7 +3,7 @@ import { Package, Plus, AlertTriangle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, getImageUrl } from '@/lib/utils'
 import type { Product, Stock } from '@/types/api.types'
 
 // ============================================
@@ -43,6 +43,7 @@ function ProductCardComponent({
   onAddToCart,
 }: ProductCardProps) {
   const { stock, totalStock, salePrice, isLowStock, isOutOfStock } = getStockInfo(product)
+  const imageUrl = getImageUrl(product.productPicture)
 
   const handleClick = useCallback(() => {
     if (stock && !isOutOfStock) {
@@ -71,9 +72,9 @@ function ProductCardComponent({
       <CardContent className="p-3">
         {/* Product Image */}
         <div className="relative mb-2 aspect-square overflow-hidden rounded-lg bg-muted">
-          {product.productPicture ? (
+          {imageUrl ? (
             <img
-              src={product.productPicture}
+              src={imageUrl}
               alt={product.productName}
               className="h-full w-full object-cover transition-transform group-hover:scale-105"
               loading="lazy"
