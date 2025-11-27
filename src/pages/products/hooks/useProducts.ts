@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { productsService, categoriesService, brandsService, unitsService } from '@/api/services'
+import { productRepository } from '@/lib/db/repositories'
+import { db } from '@/lib/db/schema'
+import { setCache, getCache, CacheKeys } from '@/lib/cache'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { NoDataAvailableError, createAppError } from '@/lib/errors'
 import type { Product, Category, Brand, Unit } from '@/types/api.types'
 
 // ============================================
@@ -37,6 +42,7 @@ interface UseProductsReturn {
 
   // Loading & Error States
   isLoading: boolean
+  isOffline: boolean
   error: Error | null
 
   // Filtered data
@@ -123,10 +129,64 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
+  // Load cached data from IndexedDB and localStorage
+  const loadCachedData = useCallback(async (): Promise<boolean> => {
+    try {
+      // Load products from IndexedDB
+      const cachedProducts = await productRepository.getAll()
+      if (cachedProducts.length > 0) {
+        const convertedProducts: Product[] = cachedProducts.map((p) => ({
+          ...p,
+          stocks: p.stock ? [p.stock] : [],
+        }))
+        setProducts(convertedProducts)
+        
+        // Calculate stock value
+        const value = convertedProducts.reduce((sum, p) => {
+          const stock = p.stocks_sum_product_stock ?? p.productStock ?? 0
+          const price = p.stocks?.[0]?.productPurchasePrice ?? 0
+          return sum + stock * price
+        }, 0)
+        setTotalStockValue(value)
+      }
+
+      // Load categories from IndexedDB
+      const cachedCategories = await db.categories.toArray()
+      if (cachedCategories.length > 0) {
+        setCategories(cachedCategories)
+      }
+
+      // Load brands/units from cache (with TTL validation)
+      const cachedBrands = getCache<Brand[]>(CacheKeys.PRODUCTS_BRANDS)
+      if (cachedBrands) setBrands(cachedBrands)
+
+      const cachedUnits = getCache<Unit[]>(CacheKeys.PRODUCTS_UNITS)
+      if (cachedUnits) setUnits(cachedUnits)
+
+      return cachedProducts.length > 0
+    } catch (err) {
+      console.warn('[useProducts] Failed to load cached data:', err)
+      return false
+    }
+  }, [])
+
   // Fetch all data
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     setError(null)
+
+    // If offline, only load from cache
+    if (!navigator.onLine) {
+      const hasCached = await loadCachedData()
+      if (!hasCached) {
+        setError(new NoDataAvailableError('products'))
+        toast.error('You are offline. No cached data available.')
+      } else {
+        toast.info('Working offline with cached data')
+      }
+      setIsLoading(false)
+      return
+    }
 
     try {
       const [productsRes, categoriesRes, brandsRes, unitsRes] = await Promise.all([
@@ -141,14 +201,35 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
       setCategories(categoriesRes.data)
       setBrands(brandsRes.data)
       setUnits(unitsRes.data)
+
+      // Cache data for offline use (with TTL)
+      setCache(CacheKeys.PRODUCTS_BRANDS, brandsRes.data)
+      setCache(CacheKeys.PRODUCTS_UNITS, unitsRes.data)
     } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to fetch products')
-      setError(error)
-      toast.error('Failed to load products. Please try again.')
+      console.warn('[useProducts] API fetch failed, trying cached data:', err)
+      
+      // Try to load from cache on network error
+      const hasCached = await loadCachedData()
+      
+      if (hasCached) {
+        toast.warning('Network error. Using cached data.')
+      } else {
+        const appError = createAppError(err, 'Products loading')
+        setError(appError)
+        toast.error('Failed to load products and no cache available.')
+      }
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [loadCachedData])
+
+  // Use online status hook with callbacks
+  const { isOffline } = useOnlineStatus({
+    onOnline: () => {
+      // Refetch fresh data when coming back online
+      fetchData()
+    },
+  })
 
   // Initial fetch
   useEffect(() => {
@@ -242,6 +323,7 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
     units,
     totalStockValue,
     isLoading,
+    isOffline,
     error,
     filteredProducts,
     stats,

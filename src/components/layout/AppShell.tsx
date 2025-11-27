@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { OfflineBanner } from '@/components/common/OfflineBanner'
 import { useUIStore } from '@/stores'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +20,9 @@ export function AppShell() {
           sidebarState === 'expanded' ? 'ml-64' : 'ml-16'
         )}
       >
+        {/* Offline Banner */}
+        <OfflineBanner />
+
         {/* Header */}
         <Header />
 

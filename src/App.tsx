@@ -7,30 +7,44 @@ import { useSyncStore } from '@/stores/sync.store'
 function App() {
   const hydrateFromStorage = useAuthStore((state) => state.hydrateFromStorage)
   const theme = useUIStore((state) => state.theme)
-  const { checkNeedsInitialSync, startDataSync, startQueueSync, updatePendingSyncCount } = useSyncStore()
+  const { checkNeedsInitialSync, startDataSync, startQueueSync, updatePendingSyncCount, isOnline } = useSyncStore()
 
   // Hydrate auth state from secure storage on app load
   useEffect(() => {
     hydrateFromStorage()
   }, [hydrateFromStorage])
 
-  // Initialize offline support
+  // Initialize offline support (non-blocking background sync)
   useEffect(() => {
     const initializeOffline = async () => {
-      // Update pending sync count
-      await updatePendingSyncCount()
+      // Update pending sync count (fast, local operation)
+      await updatePendingSyncCount().catch((e) => {
+        console.warn('[App] Failed to update pending sync count:', e)
+      })
 
-      // Check if initial data sync is needed
-      const needsSync = await checkNeedsInitialSync()
-      if (needsSync) {
-        console.log('[App] Performing initial data sync...')
-        await startDataSync()
+      // Only attempt sync if online - don't block UI
+      if (navigator.onLine) {
+        // Check if initial data sync is needed (non-blocking)
+        checkNeedsInitialSync()
+          .then((needsSync) => {
+            if (needsSync) {
+              console.log('[App] Performing initial data sync in background...')
+              startDataSync().catch((e) => {
+                console.warn('[App] Background data sync failed:', e)
+              })
+            }
+          })
+          .catch((e) => {
+            console.warn('[App] Failed to check sync status:', e)
+          })
       }
 
       // Trigger sync when coming back online
       const handleOnline = () => {
         console.log('[App] Connection restored, starting sync...')
-        startQueueSync()
+        startQueueSync().catch((e) => {
+          console.warn('[App] Queue sync failed:', e)
+        })
       }
 
       window.addEventListener('online', handleOnline)
@@ -38,7 +52,7 @@ function App() {
     }
 
     initializeOffline()
-  }, [checkNeedsInitialSync, startDataSync, startQueueSync, updatePendingSyncCount])
+  }, [checkNeedsInitialSync, startDataSync, startQueueSync, updatePendingSyncCount, isOnline])
 
   // Apply theme on mount
   useEffect(() => {

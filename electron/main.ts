@@ -73,6 +73,92 @@ function createWindow() {
     win.loadURL(VITE_DEV_SERVER_URL)
     // Open DevTools in development
     win.webContents.openDevTools()
+    
+    // Handle load failure in development (e.g., simulated offline)
+    win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+      console.warn(`[Electron] Failed to load: ${errorCode} - ${errorDescription}`)
+      
+      // Show offline fallback page
+      const offlineHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="UTF-8">
+            <title>Offline - Horix POS</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                color: #fff;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
+              .container {
+                text-align: center;
+                padding: 2rem;
+                max-width: 500px;
+              }
+              .icon {
+                font-size: 4rem;
+                margin-bottom: 1.5rem;
+                opacity: 0.8;
+              }
+              h1 {
+                font-size: 1.5rem;
+                font-weight: 600;
+                margin-bottom: 1rem;
+              }
+              p {
+                color: #a0aec0;
+                margin-bottom: 2rem;
+                line-height: 1.6;
+              }
+              button {
+                background: #4f46e5;
+                color: white;
+                border: none;
+                padding: 0.75rem 2rem;
+                border-radius: 0.5rem;
+                font-size: 1rem;
+                cursor: pointer;
+                transition: background 0.2s;
+              }
+              button:hover {
+                background: #4338ca;
+              }
+              .dev-note {
+                margin-top: 2rem;
+                padding: 1rem;
+                background: rgba(255,255,255,0.1);
+                border-radius: 0.5rem;
+                font-size: 0.85rem;
+                color: #94a3b8;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="icon">📡</div>
+              <h1>You're Offline</h1>
+              <p>
+                Unable to connect to the application server. 
+                Please check your internet connection and try again.
+              </p>
+              <button onclick="location.reload()">Try Again</button>
+              <div class="dev-note">
+                <strong>Development Mode:</strong><br>
+                The Vite dev server at ${VITE_DEV_SERVER_URL} is not reachable.<br>
+                In production builds, the app works fully offline.
+              </div>
+            </div>
+          </body>
+        </html>
+      `
+      win?.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(offlineHtml)}`)
+    })
   } else {
     win.loadFile(path.join(RENDERER_DIST, 'index.html'))
   }
