@@ -1,8 +1,8 @@
 {
-  "name": "horix-pos-pro",
+  "name": "posmate-desktop-client",
   "private": true,
   "version": "1.0.0",
-  "description": "Horix POS Pro Desktop Client - Point of Sale Application",
+  "description": "POSMATE Desktop Client - Point of Sale Application",
   "author": "Horix",
   "type": "module",
   "main": "dist-electron/main.js",
