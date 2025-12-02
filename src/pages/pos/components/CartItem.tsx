@@ -1,8 +1,8 @@
 import { memo, useCallback } from 'react'
-import { Minus, Plus, Trash2 } from 'lucide-react'
+import { Minus, Plus, Trash2, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
+import { cn, getImageUrl } from '@/lib/utils'
 
 // ============================================
 // Types
@@ -14,6 +14,7 @@ export interface CartItemDisplay {
   productId: number
   productName: string
   productCode: string
+  productImage?: string | null
   quantity: number
   salePrice: number
   maxStock: number
@@ -43,8 +44,9 @@ function CartItemComponent({
   onUpdateQuantity,
   onRemove,
 }: CartItemProps) {
-  const { productId, productName, productCode, quantity, salePrice, maxStock } = item
+  const { productId, productName, productCode, productImage, quantity, salePrice, maxStock } = item
   const lineTotal = quantity * salePrice
+  const imageUrl = getImageUrl(productImage)
 
   const handleDecrement = useCallback(() => {
     if (quantity > 1) {
@@ -75,17 +77,31 @@ function CartItemComponent({
   return (
     <div
       className={cn(
-        'group flex items-start gap-3 rounded-lg border p-3 transition-colors bg-background',
+        'group flex items-start gap-3 rounded-lg border p-3 transition-colors bg-card',
         isEditing && 'border-primary bg-primary/5'
       )}
       role="listitem"
       aria-label={`${productName}, quantity ${quantity}, ${currencySymbol}${lineTotal.toLocaleString()}`}
     >
+      {/* Product Image */}
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-muted overflow-hidden">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={productName}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <Package className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+        )}
+      </div>
+
       {/* Product Info */}
       <div className="min-w-0 flex-1">
         <h4 className="truncate font-medium leading-tight">{productName}</h4>
         <p className="text-xs text-muted-foreground">{productCode}</p>
-        <p className="mt-1 text-sm">
+        <p className="mt-1 text-sm text-muted-foreground">
           {currencySymbol}
           {salePrice.toLocaleString()} × {quantity}
         </p>

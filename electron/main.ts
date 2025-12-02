@@ -40,13 +40,14 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
-    title: 'Horix POS Pro',
+    title: 'POSMATE',
     show: false, // Show when ready to prevent visual flash
+    frame: false, // Hide native title bar and frame
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: false, // Disable sandbox for -webkit-app-region to work
     },
   })
 
@@ -198,6 +199,27 @@ app.on('activate', () => {
 // ============================================
 // IPC Handlers
 // ============================================
+
+// Window control handlers
+ipcMain.on('window-minimize', () => {
+  win?.minimize()
+})
+
+ipcMain.on('window-maximize', () => {
+  if (win?.isMaximized()) {
+    win.unmaximize()
+  } else {
+    win?.maximize()
+  }
+})
+
+ipcMain.on('window-close', () => {
+  win?.close()
+})
+
+ipcMain.handle('window-is-maximized', () => {
+  return win?.isMaximized() ?? false
+})
 
 // Secure store handlers
 ipcMain.handle('secure-store-get', (_event, key: string) => {

@@ -2,6 +2,14 @@ import { ipcRenderer, contextBridge } from 'electron'
 
 // --------- Expose Electron API to the Renderer process ---------
 contextBridge.exposeInMainWorld('electronAPI', {
+  // Window Controls
+  windowControls: {
+    minimize: () => ipcRenderer.send('window-minimize'),
+    maximize: () => ipcRenderer.send('window-maximize'),
+    close: () => ipcRenderer.send('window-close'),
+    isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  },
+
   // Secure Store
   secureStore: {
     get: (key: string) => ipcRenderer.invoke('secure-store-get', key),

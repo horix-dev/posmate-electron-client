@@ -109,14 +109,14 @@ export function Sidebar() {
     <TooltipProvider>
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-card transition-all duration-300',
+          'fixed left-0 top-0 bottom-0 z-50 flex flex-col border-r bg-card transition-all duration-300',
           isCollapsed ? 'w-16' : 'w-64'
         )}
       >
-        {/* Logo / Business Name */}
-        <div className="flex h-16 items-center justify-between border-b px-4">
+        {/* Logo / Business Name - Matches unified title bar height */}
+        <div className="flex h-12 items-center justify-between border-b px-4">
           {!isCollapsed && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <ShoppingCart className="h-4 w-4" />
               </div>
@@ -124,7 +124,6 @@ export function Sidebar() {
                 <span className="text-sm font-semibold">
                   {business?.companyName || 'POS Mate'}
                 </span>
-                <span className="text-xs text-muted-foreground">Point of Sale</span>
               </div>
             </div>
           )}

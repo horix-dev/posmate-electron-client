@@ -1,6 +1,14 @@
 // Electron API types exposed via contextBridge
 
+export interface WindowControls {
+  minimize: () => void
+  maximize: () => void
+  close: () => void
+  isMaximized: () => Promise<boolean>
+}
+
 export interface ElectronAPI {
+  windowControls: WindowControls
   secureStore: {
     get: <T = unknown>(key: string) => Promise<T | undefined>
     set: (key: string, value: unknown) => Promise<boolean>

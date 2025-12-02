@@ -449,6 +449,7 @@ export function POSPage() {
         productId: item.product.id,
         productName: item.product.productName,
         productCode: item.product.productCode || `SKU-${item.product.id}`,
+        productImage: item.product.productPicture,
         quantity: item.quantity,
         salePrice: item.unitPrice,
         maxStock: item.stock.productStock,
@@ -461,9 +462,9 @@ export function POSPage() {
   // Render
   // ----------------------------------------
   return (
-    <div className="flex h-[calc(100vh-7rem)] gap-4">
+    <div className="flex h-[calc(100vh-6rem)] gap-4">
       {/* Products Section */}
-      <div className="flex-1 overflow-hidden p-4">
+      <div className="flex-[4] overflow-hidden p-4">
         <ProductGrid
           products={filteredProducts}
           categories={categories}
@@ -480,7 +481,7 @@ export function POSPage() {
       </div>
 
       {/* Cart Sidebar */}
-      <aside className="flex h-full w-[400px] flex-shrink-0 flex-col border-l bg-background p-4">
+      <aside className="flex-[3] flex h-full flex-shrink-0 flex-col border-l bg-background p-4">
         <CartSidebar
           items={adaptedCartItems}
           customer={customer}

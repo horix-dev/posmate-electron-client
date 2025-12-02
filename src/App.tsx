@@ -70,10 +70,10 @@ function App() {
   }, [theme])
 
   return (
-    <>
+    <div className="h-screen w-screen overflow-hidden">
       <AppRouter />
       <Toaster position="top-right" richColors closeButton />
-    </>
+    </div>
   )
 }
 

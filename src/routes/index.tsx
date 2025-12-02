@@ -12,7 +12,6 @@ import { PublicRoute } from './PublicRoute'
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'))
 const SignUpPage = lazy(() => import('@/pages/auth/SignUpPage'))
 const OtpPage = lazy(() => import('@/pages/auth/OtpPage'))
-const SetupPage = lazy(() => import('@/pages/auth/SetupPage'))
 
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'))
 const POSPage = lazy(() => import('@/pages/pos/POSPage'))
@@ -70,16 +69,6 @@ const router = createBrowserRouter([
       <Suspense fallback={<PageLoader />}>
         <OtpPage />
       </Suspense>
-    ),
-  },
-  {
-    path: '/setup',
-    element: (
-      <ProtectedRoute>
-        <Suspense fallback={<PageLoader />}>
-          <SetupPage />
-        </Suspense>
-      </ProtectedRoute>
     ),
   },
 

@@ -1,30 +1,31 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
-import { Header } from './Header'
+import { TitleBar } from './TitleBar'
 import { OfflineBanner } from '@/components/common/OfflineBanner'
 import { useUIStore } from '@/stores'
 import { cn } from '@/lib/utils'
 
 export function AppShell() {
+  const navigate = useNavigate()
   const sidebarState = useUIStore((state) => state.sidebarState)
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
+    <div className="flex h-full w-full overflow-hidden bg-background">
       {/* Sidebar */}
       <Sidebar />
+
+      {/* Title Bar with navigation */}
+      <TitleBar onNavigate={navigate} />
 
       {/* Main Content Area */}
       <div
         className={cn(
-          'flex flex-1 flex-col transition-all duration-300',
+          'flex flex-1 flex-col pt-12 transition-all duration-300',
           sidebarState === 'expanded' ? 'ml-64' : 'ml-16'
         )}
       >
         {/* Offline Banner */}
         <OfflineBanner />
-
-        {/* Header */}
-        <Header />
 
         {/* Page Content */}
         <main className="flex-1 overflow-auto p-6">

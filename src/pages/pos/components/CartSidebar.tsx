@@ -273,7 +273,7 @@ function CartSidebarComponent({
             onOpenHeldCarts={onOpenHeldCarts}
           />
         ) : (
-          <ScrollArea className="h-full bg-gray-200">
+          <ScrollArea className="h-full">
             <div className="space-y-2 p-4" role="list" aria-label="Cart items">
               {items.map((item) => (
                 <CartItem

@@ -62,7 +62,7 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-card px-6">
+    <header className="sticky top-8 z-30 flex h-16 items-center justify-between border-b bg-card px-6">
       {/* Search Bar */}
       <div className="flex flex-1 items-center gap-4">
         <div className="relative w-full max-w-md">

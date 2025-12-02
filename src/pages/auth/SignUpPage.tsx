@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { TitleBar } from '@/components/layout'
 import { useAuthStore } from '@/stores'
 import { getApiErrorMessage } from '@/api/axios'
 import { toast } from 'sonner'
@@ -68,8 +69,10 @@ export function SignUpPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+    <>
+      <TitleBar />
+      <div className="flex min-h-screen items-center justify-center bg-background p-4 pt-16">
+        <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <ShoppingCart className="h-6 w-6" />
@@ -203,7 +206,8 @@ export function SignUpPage() {
           </CardFooter>
         </form>
       </Card>
-    </div>
+      </div>
+    </>
   )
 }
 
