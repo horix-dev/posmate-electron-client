@@ -28,8 +28,12 @@ export interface LocalProduct {
   description?: string
   stock?: {
     id?: number
+    product_id?: number
     productStock?: number
     stockAlert?: number
+    productPurchasePrice?: number
+    productSalePrice?: number
+    productWholeSalePrice?: number
   }
   lastSyncedAt?: string
 }
@@ -423,30 +427,41 @@ export class SQLiteService {
         product_name = excluded.product_name,
         product_code = excluded.product_code,
         category_id = excluded.category_id,
+        brand_id = excluded.brand_id,
+        unit_id = excluded.unit_id,
         sale_price = excluded.sale_price,
         purchase_price = excluded.purchase_price,
+        wholesale_price = excluded.wholesale_price,
+        product_picture = excluded.product_picture,
+        stock_id = excluded.stock_id,
         stock_quantity = excluded.stock_quantity,
+        stock_alert = excluded.stock_alert,
         last_synced_at = excluded.last_synced_at,
         updated_at = datetime('now')
     `)
 
     const insertMany = this.db.transaction((products: LocalProduct[]) => {
       for (const p of products) {
+        // Get prices from stock object (where API stores them) or fallback to top-level
+        const purchasePrice = p.stock?.productPurchasePrice ?? p.purchasePrice ?? 0
+        const salePrice = p.stock?.productSalePrice ?? p.salePrice ?? 0
+        const wholesalePrice = p.stock?.productWholeSalePrice ?? p.wholesalePrice ?? 0
+        
         upsert.run(
           p.id,
           p.productName,
           p.productCode,
-          p.categoryId,
-          p.brandId,
-          p.unitId,
-          p.purchasePrice || 0,
-          p.salePrice || 0,
-          p.wholesalePrice || 0,
+          p.categoryId ?? (p as any).category_id,
+          p.brandId ?? (p as any).brand_id,
+          p.unitId ?? (p as any).unit_id,
+          purchasePrice,
+          salePrice,
+          wholesalePrice,
           p.productPicture,
           p.description,
           p.stock?.id,
           p.stock?.productStock || 0,
-          p.stock?.stockAlert || 10,
+          p.stock?.stockAlert ?? (p as any).alert_qty ?? 10,
           p.lastSyncedAt || new Date().toISOString()
         )
       }
@@ -463,15 +478,21 @@ export class SQLiteService {
       categoryId: row.category_id,
       brandId: row.brand_id,
       unitId: row.unit_id,
+      // Keep prices at top level for compatibility
       purchasePrice: row.purchase_price,
       salePrice: row.sale_price,
       wholesalePrice: row.wholesale_price,
       productPicture: row.product_picture,
       description: row.description,
+      // Also include prices in stock object (where UI components expect them)
       stock: {
         id: row.stock_id,
+        product_id: row.id,
         productStock: row.stock_quantity,
         stockAlert: row.stock_alert,
+        productPurchasePrice: row.purchase_price,
+        productSalePrice: row.sale_price,
+        productWholeSalePrice: row.wholesale_price,
       },
       lastSyncedAt: row.last_synced_at,
     }

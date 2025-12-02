@@ -8,11 +8,13 @@ import {
   Users,
   ArrowUpRight,
   ArrowDownRight,
+  WifiOff,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { dashboardService } from '@/api/services'
-import { useBusinessStore } from '@/stores'
+import { useBusinessStore, useSyncStore } from '@/stores'
+import { getCache, setCache, CacheKeys } from '@/lib/cache'
 import type { DashboardSummary, DashboardData } from '@/types/api.types'
 
 function StatCard({
@@ -81,12 +83,27 @@ export function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isOfflineData, setIsOfflineData] = useState(false)
 
   const business = useBusinessStore((state) => state.business)
+  const isOnline = useSyncStore((state) => state.isOnline)
   const currencySymbol = business?.business_currency?.symbol || '$'
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      // If offline, load from cache only
+      if (!isOnline || !navigator.onLine) {
+        const cachedSummary = getCache<DashboardSummary>(CacheKeys.DASHBOARD_SUMMARY)
+        const cachedDashboard = getCache<DashboardData>(CacheKeys.DASHBOARD_DATA)
+        
+        if (cachedSummary) setSummary(cachedSummary)
+        if (cachedDashboard) setDashboardData(cachedDashboard)
+        
+        setIsOfflineData(true)
+        setLoading(false)
+        return
+      }
+
       try {
         const [summaryRes, dashboardRes] = await Promise.all([
           dashboardService.getSummary(),
@@ -95,15 +112,31 @@ export function DashboardPage() {
 
         setSummary(summaryRes.data)
         setDashboardData(dashboardRes.data)
+        setIsOfflineData(false)
+
+        // Cache for offline use (5 minutes TTL)
+        setCache(CacheKeys.DASHBOARD_SUMMARY, summaryRes.data, { ttl: 5 * 60 * 1000 })
+        setCache(CacheKeys.DASHBOARD_DATA, dashboardRes.data, { ttl: 5 * 60 * 1000 })
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err)
+        
+        // Try to load from cache on error
+        const cachedSummary = getCache<DashboardSummary>(CacheKeys.DASHBOARD_SUMMARY)
+        const cachedDashboard = getCache<DashboardData>(CacheKeys.DASHBOARD_DATA)
+        
+        if (cachedSummary) setSummary(cachedSummary)
+        if (cachedDashboard) setDashboardData(cachedDashboard)
+        
+        if (cachedSummary || cachedDashboard) {
+          setIsOfflineData(true)
+        }
       } finally {
         setLoading(false)
       }
     }
 
     fetchDashboardData()
-  }, [])
+  }, [isOnline])
 
   const formatCurrency = (value: number) => {
     return `${currencySymbol}${value.toLocaleString()}`
@@ -116,6 +149,12 @@ export function DashboardPage() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
           Welcome back! Here's an overview of your business.
+          {isOfflineData && (
+            <span className="ml-2 inline-flex items-center gap-1 text-yellow-600 dark:text-yellow-500">
+              <WifiOff className="h-3 w-3" />
+              <span className="text-xs">(Cached data)</span>
+            </span>
+          )}
         </p>
       </div>
 

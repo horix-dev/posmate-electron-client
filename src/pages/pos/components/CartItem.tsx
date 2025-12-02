@@ -2,6 +2,7 @@ import { memo, useCallback } from 'react'
 import { Minus, Plus, Trash2, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CachedImage } from '@/components/common/CachedImage'
 import { cn, getImageUrl } from '@/lib/utils'
 
 // ============================================
@@ -86,11 +87,12 @@ function CartItemComponent({
       {/* Product Image */}
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-muted overflow-hidden">
         {imageUrl ? (
-          <img
+          <CachedImage
             src={imageUrl}
             alt={productName}
             className="h-full w-full object-cover"
             loading="lazy"
+            fallback={<Package className="h-6 w-6 text-muted-foreground" aria-hidden="true" />}
           />
         ) : (
           <Package className="h-6 w-6 text-muted-foreground" aria-hidden="true" />

@@ -27,8 +27,6 @@
  *    Client uses to detect clock drift
  */
 
-import { v4 as uuid } from 'uuid'
-
 /**
  * Generate idempotency key for offline operations
  * Format: {entity}_{operation}_{timestamp}_{random}
@@ -40,6 +38,13 @@ export function generateIdempotencyKey(
   const timestamp = Date.now()
   const random = Math.random().toString(36).substring(2, 8)
   return `${entity}_${operation.toLowerCase()}_${timestamp}_${random}`
+}
+
+/**
+ * Generate UUID v4
+ */
+export function generateUUID(): string {
+  return crypto.randomUUID()
 }
 
 /**

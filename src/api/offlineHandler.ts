@@ -7,6 +7,7 @@ import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axio
 import api from './axios'
 import { useSyncStore } from '@/stores/sync.store'
 import { syncQueueRepository } from '@/lib/db/repositories'
+import { generateIdempotencyKey } from '@/lib/db/types/enhancedSync.types'
 
 // Check if request is a mutation (creates/updates/deletes data)
 function isMutationRequest(config: InternalAxiosRequestConfig): boolean {
@@ -81,6 +82,8 @@ export function initializeOfflineHandling() {
             attempts: 0,
             createdAt: new Date().toISOString(),
             status: 'pending',
+            idempotencyKey: generateIdempotencyKey(entityType, operation),
+            offlineTimestamp: new Date().toISOString(),
           })
 
           // Update pending sync count
@@ -138,6 +141,8 @@ export function initializeOfflineHandling() {
               attempts: 0,
               createdAt: new Date().toISOString(),
               status: 'pending',
+              idempotencyKey: generateIdempotencyKey(entityType, operation),
+              offlineTimestamp: new Date().toISOString(),
             })
 
             await syncStore.updatePendingSyncCount()

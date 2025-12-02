@@ -72,6 +72,8 @@ const createMockQueueItem = (
   attempts: 0,
   maxAttempts: 5,
   createdAt: new Date().toISOString(),
+  idempotencyKey: 'sale_create_1234567890_abc123',
+  offlineTimestamp: new Date().toISOString(),
   ...overrides,
 })
 

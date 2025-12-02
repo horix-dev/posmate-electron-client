@@ -6,12 +6,12 @@ import {
   paymentTypesService,
   vatsService,
 } from '@/api/services'
-import { productRepository } from '@/lib/db/repositories'
-import { db } from '@/lib/db/schema'
+import { storage } from '@/lib/storage'
+import type { LocalProduct, LocalCategory } from '@/lib/db/schema'
 import { setCache, getCache, CacheKeys } from '@/lib/cache'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { NoDataAvailableError, createAppError } from '@/lib/errors'
-import type { Product, Category, PaymentType, Vat } from '@/types/api.types'
+import type { Product, Category, PaymentType, Vat, Stock } from '@/types/api.types'
 
 // ============================================
 // Types
@@ -65,26 +65,41 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
   const [isProductsLoading, setIsProductsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
-  // Load cached data from IndexedDB and localStorage
+  // Load cached data from local storage (SQLite in Electron, IndexedDB otherwise)
   const loadCachedData = useCallback(async (): Promise<boolean> => {
     try {
-      // Load products from IndexedDB
-      const cachedProducts = await productRepository.getAll()
-      if (cachedProducts.length > 0) {
-        const convertedProducts: Product[] = cachedProducts.map((p) => ({
-          ...p,
-          stocks: p.stock ? [p.stock] : [],
-        }))
-        setProducts(convertedProducts)
-      }
-
-      // Load categories from IndexedDB
-      const cachedCategories = await db.categories.toArray()
+      // Load categories from storage first (needed for product join)
+      const cachedCategories = await storage.categories.getAll()
       if (cachedCategories.length > 0) {
         setCategories(cachedCategories)
       }
 
-      // Load payment types and VATs from cache (with TTL validation)
+      // Create category lookup map
+      const categoryMap = new Map(cachedCategories.map(c => [c.id, c]))
+
+      // Load products from storage
+      const cachedProducts = await storage.products.getAll()
+      if (cachedProducts.length > 0) {
+        const convertedProducts: Product[] = cachedProducts.map((p: LocalProduct) => {
+          // Get category ID - SQLite returns camelCase, but type uses snake_case
+          const catId = (p as any).categoryId ?? p.category_id
+          
+          return {
+            ...p,
+            stocks: p.stock ? [p.stock] : [],
+            // Ensure stock values are available at top level for UI components
+            stocks_sum_product_stock: p.stock?.productStock ?? 0,
+            productStock: p.stock?.productStock ?? 0,
+            // Normalize ID to snake_case
+            category_id: catId,
+            // Join category object for display
+            category: catId ? categoryMap.get(catId) : undefined,
+          }
+        })
+        setProducts(convertedProducts)
+      }
+
+      // Load payment types and VATs from localStorage cache (with TTL validation)
       const cachedPaymentTypes = getCache<PaymentType[]>(CacheKeys.POS_PAYMENT_TYPES)
       if (cachedPaymentTypes) {
         setPaymentTypes(cachedPaymentTypes)
@@ -138,7 +153,31 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
       setPaymentTypes(paymentTypesRes.data)
       setVats(vatsRes.data)
 
-      // Cache data for offline use (with TTL)
+      // Cache products to SQLite/IndexedDB for offline use
+      const localProducts: LocalProduct[] = productsRes.data.map((product) => {
+        const stock: Stock = product.stocks?.[0] || {
+          id: product.id,
+          product_id: product.id,
+          productStock: product.stocks_sum_product_stock ?? product.productStock ?? 0,
+          productPurchasePrice: 0,
+          productSalePrice: 0,
+        }
+        return {
+          ...product,
+          stock,
+          lastSyncedAt: new Date().toISOString(),
+        }
+      })
+      await storage.products.bulkUpsert(localProducts)
+
+      // Cache categories to SQLite/IndexedDB for offline use
+      const localCategories: LocalCategory[] = categoriesRes.data.map((cat) => ({
+        ...cat,
+        lastSyncedAt: new Date().toISOString(),
+      }))
+      await storage.categories.bulkUpsert(localCategories)
+
+      // Cache payment types and VATs to localStorage (with TTL)
       setCache(CacheKeys.POS_PAYMENT_TYPES, paymentTypesRes.data)
       setCache(CacheKeys.POS_VATS, vatsRes.data)
     } catch (err) {

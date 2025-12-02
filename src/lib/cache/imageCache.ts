@@ -22,6 +22,11 @@ interface ImageCacheSchema extends DBSchema {
       size: number
       expiresAt?: number
     }
+    indexes: {
+      cachedAt: number
+      lastAccessed: number
+      size: number
+    }
   }
   metadata: {
     key: string
@@ -230,7 +235,11 @@ class ImageCacheManager {
       await this.updateCacheSize(-deletedSize)
     }
 
-    await this.db!.put('metadata', { lastCleanup: now }, 'cleanup')
+    const metadata = await this.db!.get('metadata', 'cleanup')
+    await this.db!.put('metadata', { 
+      totalSize: metadata?.totalSize || 0,
+      lastCleanup: now 
+    }, 'cleanup')
   }
 
   /**

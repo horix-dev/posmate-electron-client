@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { CachedImage } from '@/components/common/CachedImage'
 import { cn, getImageUrl } from '@/lib/utils'
 import type { Product } from '@/types/api.types'
 import { getStockStatus, getTotalStock, getSalePrice, getPurchasePrice } from '../hooks'
@@ -66,11 +67,12 @@ function ProductRowComponent({
             aria-label={product.productPicture ? product.productName : 'No product image'}
           >
             {getImageUrl(product.productPicture) ? (
-              <img
-                src={getImageUrl(product.productPicture)!}
+              <CachedImage
+                src={getImageUrl(product.productPicture)}
                 alt={product.productName}
                 className="h-10 w-10 rounded-lg object-cover"
                 loading="lazy"
+                fallback={<Package className="h-5 w-5 text-muted-foreground" aria-hidden="true" />}
               />
             ) : (
               <Package className="h-5 w-5 text-muted-foreground" aria-hidden="true" />

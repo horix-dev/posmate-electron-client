@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { productsService, categoriesService, brandsService, unitsService } from '@/api/services'
-import { productRepository } from '@/lib/db/repositories'
-import { db } from '@/lib/db/schema'
+import { storage } from '@/lib/storage'
+import type { LocalProduct, LocalCategory } from '@/lib/db/schema'
 import { setCache, getCache, CacheKeys } from '@/lib/cache'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { NoDataAvailableError, createAppError } from '@/lib/errors'
-import type { Product, Category, Brand, Unit } from '@/types/api.types'
+import type { Product, Category, Brand, Unit, Stock } from '@/types/api.types'
 
 // ============================================
 // Types
@@ -129,16 +129,52 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  // Load cached data from IndexedDB and localStorage
+  // Load cached data from local storage (SQLite in Electron, IndexedDB otherwise)
   const loadCachedData = useCallback(async (): Promise<boolean> => {
     try {
-      // Load products from IndexedDB
-      const cachedProducts = await productRepository.getAll()
+      // Load categories from storage first (needed for product join)
+      const cachedCategories = await storage.categories.getAll()
+      if (cachedCategories.length > 0) {
+        setCategories(cachedCategories)
+      }
+
+      // Load brands/units from localStorage cache (with TTL validation)
+      const cachedBrands = getCache<Brand[]>(CacheKeys.PRODUCTS_BRANDS)
+      if (cachedBrands) setBrands(cachedBrands)
+
+      const cachedUnits = getCache<Unit[]>(CacheKeys.PRODUCTS_UNITS)
+      if (cachedUnits) setUnits(cachedUnits)
+
+      // Create lookup maps for joining
+      const categoryMap = new Map(cachedCategories.map(c => [c.id, c]))
+      const brandMap = cachedBrands ? new Map(cachedBrands.map(b => [b.id, b])) : new Map()
+      const unitMap = cachedUnits ? new Map(cachedUnits.map(u => [u.id, u])) : new Map()
+
+      // Load products from storage
+      const cachedProducts = await storage.products.getAll()
       if (cachedProducts.length > 0) {
-        const convertedProducts: Product[] = cachedProducts.map((p) => ({
-          ...p,
-          stocks: p.stock ? [p.stock] : [],
-        }))
+        const convertedProducts: Product[] = cachedProducts.map((p: LocalProduct) => {
+          // Get IDs - SQLite returns camelCase, but type uses snake_case
+          const catId = (p as any).categoryId ?? p.category_id
+          const brId = (p as any).brandId ?? p.brand_id
+          const uId = (p as any).unitId ?? p.unit_id
+          
+          return {
+            ...p,
+            stocks: p.stock ? [p.stock] : [],
+            // Ensure stock values are available at top level for getTotalStock()
+            stocks_sum_product_stock: p.stock?.productStock ?? 0,
+            productStock: p.stock?.productStock ?? 0,
+            // Normalize IDs to snake_case for consistency
+            category_id: catId,
+            brand_id: brId,
+            unit_id: uId,
+            // Join category and brand objects for display
+            category: catId ? categoryMap.get(catId) : undefined,
+            brand: brId ? brandMap.get(brId) : undefined,
+            unit: uId ? unitMap.get(uId) : undefined,
+          }
+        })
         setProducts(convertedProducts)
         
         // Calculate stock value
@@ -149,19 +185,6 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
         }, 0)
         setTotalStockValue(value)
       }
-
-      // Load categories from IndexedDB
-      const cachedCategories = await db.categories.toArray()
-      if (cachedCategories.length > 0) {
-        setCategories(cachedCategories)
-      }
-
-      // Load brands/units from cache (with TTL validation)
-      const cachedBrands = getCache<Brand[]>(CacheKeys.PRODUCTS_BRANDS)
-      if (cachedBrands) setBrands(cachedBrands)
-
-      const cachedUnits = getCache<Unit[]>(CacheKeys.PRODUCTS_UNITS)
-      if (cachedUnits) setUnits(cachedUnits)
 
       return cachedProducts.length > 0
     } catch (err) {
@@ -202,7 +225,31 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
       setBrands(brandsRes.data)
       setUnits(unitsRes.data)
 
-      // Cache data for offline use (with TTL)
+      // Cache products to local storage for offline use
+      const localProducts: LocalProduct[] = productsRes.data.map((product) => {
+        const stock: Stock = product.stocks?.[0] || {
+          id: product.id,
+          product_id: product.id,
+          productStock: product.stocks_sum_product_stock ?? product.productStock ?? 0,
+          productPurchasePrice: 0,
+          productSalePrice: 0,
+        }
+        return {
+          ...product,
+          stock,
+          lastSyncedAt: new Date().toISOString(),
+        }
+      })
+      await storage.products.bulkUpsert(localProducts)
+
+      // Cache categories to local storage for offline use
+      const localCategories: LocalCategory[] = categoriesRes.data.map((cat) => ({
+        ...cat,
+        lastSyncedAt: new Date().toISOString(),
+      }))
+      await storage.categories.bulkUpsert(localCategories)
+
+      // Cache brands/units to localStorage (with TTL)
       setCache(CacheKeys.PRODUCTS_BRANDS, brandsRes.data)
       setCache(CacheKeys.PRODUCTS_UNITS, unitsRes.data)
     } catch (err) {

@@ -78,7 +78,7 @@ const FilterPopoverContent = memo(function FilterPopoverContent({
   )
 
   return (
-    <div className="w-72 space-y-4" role="group" aria-label="Product filters">
+    <div className="w-full space-y-4" role="group" aria-label="Product filters">
       <div className="flex items-center justify-between">
         <h4 className="font-medium">Filters</h4>
         {hasFilters && (
@@ -105,7 +105,7 @@ const FilterPopoverContent = memo(function FilterPopoverContent({
           <SelectTrigger id="filter-category" aria-label="Filter by category">
             <SelectValue placeholder="All categories" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper" sideOffset={4}>
             <SelectItem value="all">All categories</SelectItem>
             {categories.map((cat) => (
               <SelectItem key={cat.id} value={cat.id.toString()}>
@@ -125,7 +125,7 @@ const FilterPopoverContent = memo(function FilterPopoverContent({
           <SelectTrigger id="filter-brand" aria-label="Filter by brand">
             <SelectValue placeholder="All brands" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper" sideOffset={4}>
             <SelectItem value="all">All brands</SelectItem>
             {brands.map((brand) => (
               <SelectItem key={brand.id} value={brand.id.toString()}>
@@ -145,7 +145,7 @@ const FilterPopoverContent = memo(function FilterPopoverContent({
           <SelectTrigger id="filter-stock" aria-label="Filter by stock status">
             <SelectValue placeholder="All stock levels" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper" sideOffset={4}>
             <SelectItem value="all">All stock levels</SelectItem>
             <SelectItem value="in">In Stock</SelectItem>
             <SelectItem value="low">Low Stock</SelectItem>
@@ -243,7 +243,7 @@ function ProductFiltersBarComponent({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="p-4">
+        <PopoverContent align="end" side="bottom" sideOffset={8} className="p-4 w-80">
           <FilterPopoverContent
             categories={categories}
             brands={brands}

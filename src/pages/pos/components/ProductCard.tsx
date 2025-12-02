@@ -3,6 +3,7 @@ import { Package, Plus, AlertTriangle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { CachedImage } from '@/components/common/CachedImage'
 import { cn, getImageUrl } from '@/lib/utils'
 import type { Product, Stock } from '@/types/api.types'
 
@@ -73,11 +74,16 @@ function ProductCardComponent({
         {/* Product Image */}
         <div className="relative mb-2 aspect-square overflow-hidden rounded-lg bg-muted">
           {imageUrl ? (
-            <img
+            <CachedImage
               src={imageUrl}
               alt={product.productName}
               className="h-full w-full object-cover transition-transform group-hover:scale-105"
               loading="lazy"
+              fallback={
+                <div className="flex h-full items-center justify-center">
+                  <Package className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
+                </div>
+              }
             />
           ) : (
             <div className="flex h-full items-center justify-center">

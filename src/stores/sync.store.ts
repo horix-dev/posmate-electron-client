@@ -3,7 +3,6 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { dataSyncService, enhancedSyncService } from '@/lib/db/services'
 import { syncQueueRepository } from '@/lib/db/repositories'
 import type { SyncProgress } from '@/lib/db/services/sync.service'
-import type { EnhancedSyncProgress } from '@/lib/db/services/enhancedSync.service'
 
 export type SyncStatus = 'idle' | 'syncing' | 'error' | 'offline'
 

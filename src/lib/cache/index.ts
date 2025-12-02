@@ -135,6 +135,10 @@ export const CacheKeys = {
   // Products
   PRODUCTS_BRANDS: 'cache:products:brands',
   PRODUCTS_UNITS: 'cache:products:units',
+  
+  // Dashboard
+  DASHBOARD_SUMMARY: 'cache:dashboard:summary',
+  DASHBOARD_DATA: 'cache:dashboard:data',
 } as const
 
 // ============================================

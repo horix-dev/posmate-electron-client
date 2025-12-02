@@ -73,6 +73,77 @@ src/
 
 ## Feature Implementation Log
 
+### November 28, 2025
+
+#### Offline Support - Storage Layer Fix (Complete)
+
+**Problem**: Products showed "Out of Stock" (0 quantity) when offline, even though they had stock when online.
+
+**Root Cause**: The app uses SQLite via `storage` abstraction in Electron, but the product/POS hooks were directly writing to IndexedDB using `productRepository.bulkSync()` and `db.categories.bulkPut()`. This meant:
+- Products fetched from API were displayed correctly when online
+- Products were saved to IndexedDB (wrong database)
+- When offline, the app read from SQLite (correct database) which had no cached data
+- Result: empty/zero stock displayed
+
+**Solution**: Updated hooks to use the platform-agnostic `storage` abstraction:
+
+```typescript
+// Before (IndexedDB only)
+await productRepository.bulkSync(localProducts)
+await db.categories.bulkPut(localCategories)
+
+// After (SQLite in Electron, IndexedDB fallback)
+await storage.products.bulkUpsert(localProducts)
+await storage.categories.bulkUpsert(localCategories)
+```
+
+**Files Modified**:
+- `src/pages/pos/hooks/usePOSData.ts` - Use storage.products/categories.bulkUpsert()
+- `src/pages/products/hooks/useProducts.ts` - Use storage.products.bulkUpsert()
+
+**Key Learning**: Always use the `storage` abstraction from `@/lib/storage` for data persistence. It auto-detects the environment:
+- Electron: Uses SQLite via `window.electronAPI.sqlite`
+- Browser: Falls back to IndexedDB
+
+---
+
+#### Offline Support - Image Caching (Complete)
+
+**Problem**: Product images didn't display when offline.
+
+**Solution**: Created `CachedImage` component that uses `useImageCache` hook to cache images in IndexedDB.
+
+**Files Created**:
+- `src/components/common/CachedImage.tsx`
+
+**Files Modified**:
+- `src/pages/products/components/ProductRow.tsx` - Use CachedImage
+- `src/pages/pos/components/ProductCard.tsx` - Use CachedImage
+- `src/pages/pos/components/CartItem.tsx` - Use CachedImage
+
+---
+
+#### Offline Support - Dashboard Caching (Complete)
+
+**Problem**: Dashboard was making API requests even when offline.
+
+**Solution**: Added offline detection and localStorage caching to DashboardPage.
+
+**Files Modified**:
+- `src/pages/dashboard/DashboardPage.tsx` - Check online status before API calls, cache to localStorage
+- `src/lib/cache/index.ts` - Added DASHBOARD_SUMMARY, DASHBOARD_DATA cache keys
+
+---
+
+#### Documentation (Complete)
+
+Created comprehensive offline architecture documentation.
+
+**Files Created**:
+- `OFFLINE_SUPPORT_ARCHITECTURE.md` - Full documentation with diagrams
+
+---
+
 ### November 27, 2025
 
 #### Production Build Fixes (Complete)
@@ -495,6 +566,131 @@ console.log(syncStatus) // 'idle' | 'syncing' | 'error' | 'offline'
 ```
 
 ---
+
+#### TypeScript Compilation Fixes (December 2, 2025)
+
+**Problem**: Build failed with 10 TypeScript errors after adding sync integration features:
+- Missing required fields `idempotencyKey` and `offlineTimestamp` in sync queue enqueue calls
+- Test mock factory not generating required fields
+- Pre-existing type errors in `imageCache.ts` (IndexedDB schema issues)
+
+**Solution Implemented**:
+
+1. **Fixed offlineHandler.ts** (2 errors):
+   - Added `generateIdempotencyKey()` import from `enhancedSync.types.ts`
+   - Added `idempotencyKey: generateIdempotencyKey(entityType, operation)` to both enqueue calls
+   - Added `offlineTimestamp: new Date().toISOString()` to both enqueue calls
+
+2. **Fixed sync.service.test.ts** (1 error):
+   - Updated `createMockQueueItem()` factory to include:
+     - `idempotencyKey: 'sale_create_1234567890_abc123'`
+     - `offlineTimestamp: new Date().toISOString()`
+
+3. **Fixed imageCache.ts** (5 errors):
+   - Added `indexes` definition to `ImageCacheSchema.images` store:
+     ```typescript
+     indexes: {
+       cachedAt: number
+       lastAccessed: number
+       size: number
+     }
+     ```
+   - Fixed metadata put call to include both `totalSize` and `lastCleanup`:
+     ```typescript
+     const metadata = await this.db!.get('metadata', 'cleanup')
+     await this.db!.put('metadata', { 
+       totalSize: metadata?.totalSize || 0,
+       lastCleanup: now 
+     }, 'cleanup')
+     ```
+
+4. **Cleaned up unused imports** (2 warnings):
+   - Removed unused `EnhancedSyncProgress` from `sync.store.ts`
+   - Removed unused `uuid` import from `enhancedSync.types.ts`, added `generateUUID()` using native `crypto.randomUUID()`
+
+**Files Modified**:
+- `src/api/offlineHandler.ts` - Added idempotency keys and offline timestamps
+- `src/__tests__/services/sync.service.test.ts` - Updated mock factory
+- `src/lib/cache/imageCache.ts` - Fixed IndexedDB schema types
+- `src/stores/sync.store.ts` - Removed unused import
+- `src/lib/db/types/enhancedSync.types.ts` - Replaced uuid with native crypto
+
+**Build Status**: ✅ **All TypeScript errors fixed - Build successful!**
+
+**Production Build Output**:
+```
+✓ 1784 modules transformed.
+dist/index.html                    0.48 kB
+dist/assets/index-CYrNsV_9.css    54.56 kB
+dist/assets/index-Co7QymoM.js    617.61 kB
+✓ built in 7.42s
+✓ Electron app packaged successfully
+```
+
+---
+
+#### Offline Image Caching & Dashboard Offline Support (December 3, 2025)
+
+**Problems Identified**:
+1. Product images not retained when offline - images were being fetched fresh each time instead of from cache
+2. API requests being made while offline (dashboard, summary endpoints)
+
+**Root Causes**:
+1. `useImageCache` hook existed but wasn't being used in any component - images loaded via `<img src={url}>` directly
+2. Dashboard page (`DashboardPage.tsx`) had no offline detection - made API calls regardless of connection status
+
+**Solutions Implemented**:
+
+1. **Created `CachedImage` Component** (`src/components/common/CachedImage.tsx`):
+   ```typescript
+   // Displays images with automatic offline caching
+   // When online: Fetches image and caches to IndexedDB
+   // When offline: Loads from IndexedDB cache
+   <CachedImage
+     src={getImageUrl(product.productPicture)}
+     alt={product.productName}
+     fallback={<Package className="h-5 w-5" />}
+   />
+   ```
+
+2. **Updated ProductRow Component** (`src/pages/products/components/ProductRow.tsx`):
+   - Replaced `<img>` with `<CachedImage>` component
+   - Images now automatically cached when first loaded
+   - Shows fallback icon when offline and no cache available
+
+3. **Added Dashboard Offline Support** (`src/pages/dashboard/DashboardPage.tsx`):
+   - Added `isOnline` check from `useSyncStore`
+   - Skip API calls when offline, load from cache only
+   - Cache dashboard data after successful API response
+   - Show "(Cached data)" indicator when using cached data
+
+4. **Added Dashboard Cache Keys** (`src/lib/cache/index.ts`):
+   ```typescript
+   CacheKeys = {
+     // ... existing keys
+     DASHBOARD_SUMMARY: 'cache:dashboard:summary',
+     DASHBOARD_DATA: 'cache:dashboard:data',
+   }
+   ```
+
+**Files Created**:
+- `src/components/common/CachedImage.tsx` - Offline-aware image component
+
+**Files Modified**:
+- `src/pages/products/components/ProductRow.tsx` - Use CachedImage
+- `src/pages/dashboard/DashboardPage.tsx` - Added offline handling
+- `src/lib/cache/index.ts` - Added dashboard cache keys
+
+**Behavior Changes**:
+- Images are cached to IndexedDB on first load
+- When offline, images load from IndexedDB cache
+- Dashboard shows cached data with "(Cached data)" indicator when offline
+- No unnecessary API requests when detected offline
+
+**Note**: `navigator.onLine` can return `true` even without actual connectivity. The app may still attempt requests when WiFi is connected but has no internet. Requests will fail gracefully and fall back to cached data.
+
+---
+
 
 ## Offline Support System
 
