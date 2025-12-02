@@ -1,9 +1,15 @@
 /**
  * Offline-Aware Sales Service
  * Wraps the sales service to handle offline scenarios
+ * 
+ * Uses backend sync API format:
+ * - Idempotency keys for duplicate prevention
+ * - Device-specific offline invoice numbers
+ * - Batch sync compatible data format
  */
 
 import { salesService } from '@/api/services/sales.service'
+import { syncApiService } from '@/api/services/sync.service'
 import { saleRepository, syncQueueRepository } from '@/lib/db/repositories'
 import { useSyncStore } from '@/stores/sync.store'
 import { isOfflineQueuedError } from '@/api/offlineHandler'
@@ -38,40 +44,83 @@ export const offlineSalesService = {
     // Save offline
     console.log('[Offline Sales] Creating sale offline...')
     
-    // Generate temporary invoice number
-    const tempInvoiceNo = `OFFLINE-${Date.now()}`
+    // Generate offline invoice number in backend-expected format
+    const offlineInvoiceNo = syncApiService.generateOfflineInvoiceNo()
+    
+    // Generate idempotency key for this sale
+    const idempotencyKey = syncApiService.generateIdempotencyKey('sale', 'create')
+    
+    // Create temp ID for local reference
+    const tempId = `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const now = new Date().toISOString()
 
     // Create local sale record
     const localSale: Omit<LocalSale, 'id' | 'isOffline' | 'isSynced'> = {
-      invoiceNumber: tempInvoiceNo,
+      invoiceNumber: offlineInvoiceNo,
       customerId: saleData.party_id || null,
-      saleDate: saleData.saleDate || new Date().toISOString(),
+      saleDate: saleData.saleDate || now,
       totalAmount: saleData.totalAmount,
       discountAmount: saleData.discountAmount || 0,
       paidAmount: saleData.paidAmount,
       dueAmount: saleData.dueAmount || 0,
       paymentTypeId: saleData.payment_type_id || null,
       note: saleData.note || null,
-      // These fields are required by Sale interface
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      tempId: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: now,
+      updatedAt: now,
+      tempId,
     } as any
 
     // Save to IndexedDB
     const localId = await saleRepository.createOffline(localSale as any)
 
-    // Add to sync queue
+    // Format data for backend batch sync
+    // Parse products from JSON string if needed
+    let parsedProducts: Array<{ stock_id: number; quantities: number; price: number; lossProfit?: number }> = []
+    try {
+      if (typeof saleData.products === 'string') {
+        parsedProducts = JSON.parse(saleData.products)
+      }
+    } catch {
+      console.warn('[Offline Sales] Failed to parse products JSON')
+    }
+
+    const batchSyncData = {
+      local_id: localId,
+      offline_invoice_no: offlineInvoiceNo,
+      party_id: saleData.party_id,
+      totalAmount: saleData.totalAmount,
+      paidAmount: saleData.paidAmount,
+      dueAmount: saleData.dueAmount || 0,
+      isPaid: (saleData.dueAmount || 0) === 0,
+      discountAmount: saleData.discountAmount || 0,
+      vat_amount: saleData.vat_amount || 0,
+      payment_type_id: saleData.payment_type_id,
+      saleDate: saleData.saleDate || now,
+      meta: {
+        note: saleData.note,
+        customer_phone: saleData.customer_phone,
+      },
+      products: parsedProducts.map(p => ({
+        stock_id: p.stock_id,
+        quantities: p.quantities,
+        price: p.price,
+        lossProfit: p.lossProfit || 0,
+      })),
+    }
+
+    // Add to sync queue with idempotency key
     await syncQueueRepository.enqueue({
+      idempotencyKey,
       operation: 'CREATE',
       entity: 'sale',
       entityId: localId,
-      data: saleData,
-      endpoint: '/sales',
+      data: batchSyncData,
+      endpoint: '/sync/batch', // Will be processed via batch sync
       method: 'POST',
       maxAttempts: 5,
       attempts: 0,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      offlineTimestamp: now,
       status: 'pending',
     })
 
@@ -81,18 +130,17 @@ export const offlineSalesService = {
     // Return a mock response
     const mockSale: Sale = {
       id: localId,
-      invoiceNumber: tempInvoiceNo,
+      invoiceNumber: offlineInvoiceNo,
       customerId: saleData.party_id || null,
-      saleDate: saleData.saleDate || new Date().toISOString(),
+      saleDate: saleData.saleDate || now,
       totalAmount: saleData.totalAmount,
       discountAmount: saleData.discountAmount || 0,
       paidAmount: saleData.paidAmount,
       dueAmount: saleData.dueAmount || 0,
       paymentTypeId: saleData.payment_type_id || null,
       note: saleData.note || null,
-      // Add other required Sale fields
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       saleItems: [],
     } as Sale
 

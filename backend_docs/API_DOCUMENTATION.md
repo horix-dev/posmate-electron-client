@@ -35,6 +35,7 @@
 25. [Users & Staff](#25-users--staff)
 26. [Settings](#26-settings)
 27. [Bulk Upload](#27-bulk-upload)
+28. [Additional Resources](#28-additional-resources)
 
 ---
 
@@ -107,11 +108,11 @@ Creates a new user account.
 
 ---
 
-### 1.2 Login
+### 1.2 Sign In
 
 Authenticates user and returns access token.
 
-**Endpoint:** `POST /login`  
+**Endpoint:** `POST /sign-in`  
 **Auth Required:** No
 
 **Request Body:**
@@ -189,7 +190,7 @@ Resends OTP to email.
 
 Logs out current user and invalidates token.
 
-**Endpoint:** `POST /sign-out`  
+**Endpoint:** `GET /sign-out`  
 **Auth Required:** Yes
 
 **Response:**
@@ -205,7 +206,7 @@ Logs out current user and invalidates token.
 
 Generates a new access token.
 
-**Endpoint:** `POST /refresh-token`  
+**Endpoint:** `GET /refresh-token`  
 **Auth Required:** Yes
 
 **Response:**
@@ -221,8 +222,8 @@ Generates a new access token.
 
 Checks if a module is enabled.
 
-**Endpoint:** `POST /module-check`  
-**Auth Required:** Yes
+**Endpoint:** `GET /module-check`  
+**Auth Required:** No
 
 **Query Parameters:**
 - `module_name` - Name of the module to check
@@ -231,6 +232,84 @@ Checks if a module is enabled.
 ```json
 {
   "status": true
+}
+```
+
+---
+
+### 1.8 Get OTP Settings
+
+Retrieves OTP/email verification settings.
+
+**Endpoint:** `GET /otp-settings`  
+**Auth Required:** No
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "otp_status": "on|off",
+    "otp_time": 3
+  }
+}
+```
+
+---
+
+### 1.9 Send Password Reset Code
+
+Initiates password reset by sending code to email.
+
+**Endpoint:** `POST /send-reset-code`  
+**Auth Required:** No
+
+**Request Body:**
+```json
+{
+  "email": "string (required, email)"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Reset code sent to your email"
+}
+```
+
+---
+
+### 1.10 Verify Reset Code
+
+Verifies the password reset code.
+
+**Endpoint:** `POST /verify-reset-code`  
+**Auth Required:** No
+
+**Request Body:**
+```json
+{
+  "email": "string (required, email)",
+  "code": "string (required)"
+}
+```
+
+---
+
+### 1.11 Reset Password
+
+Resets password using verified code.
+
+**Endpoint:** `POST /password-reset`  
+**Auth Required:** No
+
+**Request Body:**
+```json
+{
+  "email": "string (required, email)",
+  "code": "string (required)",
+  "password": "string (required, min: 6)"
 }
 ```
 
@@ -2056,6 +2135,135 @@ Bulk uploads products from Excel/CSV file.
 {
   "file": "file (required, xlsx|xls|csv)"
 }
+```
+
+---
+
+## 28. Additional Resources
+
+### 28.1 List Languages
+
+Lists available languages for the app.
+
+**Endpoint:** `GET /lang`  
+**Auth Required:** Yes
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [
+    {
+      "id": 1,
+      "code": "en",
+      "name": "English"
+    }
+  ]
+}
+```
+
+---
+
+### 28.2 Create/Store Language
+
+**Endpoint:** `POST /lang`  
+**Auth Required:** Yes
+
+---
+
+### 28.3 List Banners
+
+Lists promotional banners.
+
+**Endpoint:** `GET /banners`  
+**Auth Required:** Yes
+
+---
+
+### 28.4 List Plans
+
+Lists available subscription plans.
+
+**Endpoint:** `GET /plans`  
+**Auth Required:** Yes
+
+---
+
+### 28.5 List Subscriptions
+
+Lists active subscriptions.
+
+**Endpoint:** `GET /subscribes`  
+**Auth Required:** Yes
+
+---
+
+### 28.6 Update Invoice Settings (Alternative)
+
+Updates invoice size settings.
+
+**Endpoint:** `POST /invoice-settings/update`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "invoice_size": "enum: a4|3_inch_80mm|2_inch_58mm (required)"
+}
+```
+
+---
+
+### 28.7 Get Update Expiry Date
+
+Updates business expiry date.
+
+**Endpoint:** `GET /update-expire-date`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `days` - Number of days (required)
+- `operation` - `add` or `sub` (required)
+
+**Response:**
+```json
+{
+  "message": "Expiry date updated successfully.",
+  "will_expire": "2024-12-31"
+}
+```
+
+---
+
+### 28.8 Bulk Upload Products
+
+Bulk imports products from Excel/CSV.
+
+**Endpoint:** `POST /bulk-uploads`  
+**Auth Required:** Yes
+
+**Request Body (multipart/form-data):**
+```json
+{
+  "file": "file (required, xlsx|xls|csv)"
+}
+```
+
+---
+
+### 28.9 Get New Invoice Number
+
+Generates next invoice number.
+
+**Endpoint:** `GET /new-invoice`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `platform` (required) - Invoice type: `sales`, `purchases`, `due_collects`, `sales_return`, `purchases_return`
+
+**Response:**
+```json
+"S-00001"
 ```
 
 ---

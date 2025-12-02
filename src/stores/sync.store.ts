@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { syncService, dataSyncService } from '@/lib/db/services'
+import { dataSyncService, enhancedSyncService } from '@/lib/db/services'
 import { syncQueueRepository } from '@/lib/db/repositories'
 import type { SyncProgress } from '@/lib/db/services/sync.service'
+import type { EnhancedSyncProgress } from '@/lib/db/services/enhancedSync.service'
 
 export type SyncStatus = 'idle' | 'syncing' | 'error' | 'offline'
 
@@ -216,21 +217,36 @@ export const useSyncStore = create<SyncState>()(
 
         set({ syncStatus: 'syncing', syncError: null })
 
-        // Subscribe to progress updates
-        const unsubscribe = syncService.onProgress((progress) => {
-          get().setSyncProgress(progress)
+        // Subscribe to progress updates from enhanced sync service
+        const unsubscribe = enhancedSyncService.onProgress((progress) => {
+          // Convert EnhancedSyncProgress to SyncProgress format
+          get().setSyncProgress({
+            total: progress.total,
+            completed: progress.completed,
+            failed: progress.failed,
+            inProgress: progress.phase !== 'complete' && progress.phase !== 'error',
+          })
           get().setPendingSyncCount(progress.total - progress.completed)
         })
 
         try {
-          const result = await syncService.start()
+          // Use enhanced sync service with batch sync
+          const result = await enhancedSyncService.fullSync()
           
           if (result.success) {
             set({ syncStatus: 'idle', syncError: null })
             get().updateLastSyncTime()
+            
+            // Log sync results
+            console.log('[SyncStore] Sync completed:', {
+              uploaded: result.upload.success,
+              failed: result.upload.failed,
+              conflicts: result.upload.conflicts,
+              downloaded: result.download,
+            })
           } else {
-            const errorMsg = result.errors.map((e) => e.error).join(', ')
-            set({ syncStatus: 'error', syncError: errorMsg })
+            const errorMsg = result.upload.errors.map((e) => e.error).join(', ')
+            set({ syncStatus: 'error', syncError: errorMsg || 'Sync failed' })
           }
 
           // Update pending count

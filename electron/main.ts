@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import Store from 'electron-store'
+import { sqliteService } from './sqlite.service'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -264,4 +265,107 @@ ipcMain.handle('get-app-info', () => {
 // App Ready
 // ============================================
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  // Initialize SQLite database
+  const result = sqliteService.initialize()
+  if (!result.success) {
+    console.error('[Main] Failed to initialize SQLite:', result.error)
+  }
+  
+  createWindow()
+})
+
+// Close database when app quits
+app.on('before-quit', () => {
+  sqliteService.close()
+})
+
+// ============================================
+// SQLite IPC Handlers
+// ============================================
+
+// Database lifecycle
+ipcMain.handle('sqlite:initialize', () => sqliteService.initialize())
+ipcMain.handle('sqlite:close', () => sqliteService.close())
+
+// Products
+ipcMain.handle('sqlite:product:getById', (_, id: number) => sqliteService.productGetById(id))
+ipcMain.handle('sqlite:product:getAll', () => sqliteService.productGetAll())
+ipcMain.handle('sqlite:product:create', (_, product) => sqliteService.productCreate(product))
+ipcMain.handle('sqlite:product:update', (_, id: number, product) => sqliteService.productUpdate(id, product))
+ipcMain.handle('sqlite:product:delete', (_, id: number) => sqliteService.productDelete(id))
+ipcMain.handle('sqlite:product:count', () => sqliteService.productCount())
+ipcMain.handle('sqlite:product:clear', () => sqliteService.productClear())
+ipcMain.handle('sqlite:product:search', (_, query: string) => sqliteService.productSearch(query))
+ipcMain.handle('sqlite:product:getByBarcode', (_, barcode: string) => sqliteService.productGetByBarcode(barcode))
+ipcMain.handle('sqlite:product:getByCategory', (_, categoryId: number) => sqliteService.productGetByCategory(categoryId))
+ipcMain.handle('sqlite:product:getLowStock', (_, threshold?: number) => sqliteService.productGetLowStock(threshold))
+ipcMain.handle('sqlite:product:bulkUpsert', (_, products) => sqliteService.productBulkUpsert(products))
+
+// Categories
+ipcMain.handle('sqlite:category:getById', (_, id: number) => sqliteService.categoryGetById(id))
+ipcMain.handle('sqlite:category:getAll', () => sqliteService.categoryGetAll())
+ipcMain.handle('sqlite:category:create', (_, category) => sqliteService.categoryCreate(category))
+ipcMain.handle('sqlite:category:update', (_, id: number, category) => sqliteService.categoryUpdate(id, category))
+ipcMain.handle('sqlite:category:delete', (_, id: number) => sqliteService.categoryDelete(id))
+ipcMain.handle('sqlite:category:count', () => sqliteService.categoryCount())
+ipcMain.handle('sqlite:category:clear', () => sqliteService.categoryClear())
+ipcMain.handle('sqlite:category:getByName', (_, name: string) => sqliteService.categoryGetByName(name))
+ipcMain.handle('sqlite:category:bulkUpsert', (_, categories) => sqliteService.categoryBulkUpsert(categories))
+
+// Parties
+ipcMain.handle('sqlite:party:getById', (_, id: number) => sqliteService.partyGetById(id))
+ipcMain.handle('sqlite:party:getAll', () => sqliteService.partyGetAll())
+ipcMain.handle('sqlite:party:create', (_, party) => sqliteService.partyCreate(party))
+ipcMain.handle('sqlite:party:update', (_, id: number, party) => sqliteService.partyUpdate(id, party))
+ipcMain.handle('sqlite:party:delete', (_, id: number) => sqliteService.partyDelete(id))
+ipcMain.handle('sqlite:party:count', () => sqliteService.partyCount())
+ipcMain.handle('sqlite:party:clear', () => sqliteService.partyClear())
+ipcMain.handle('sqlite:party:search', (_, query: string) => sqliteService.partySearch(query))
+ipcMain.handle('sqlite:party:getByPhone', (_, phone: string) => sqliteService.partyGetByPhone(phone))
+ipcMain.handle('sqlite:party:getCustomers', () => sqliteService.partyGetCustomers())
+ipcMain.handle('sqlite:party:getSuppliers', () => sqliteService.partyGetSuppliers())
+ipcMain.handle('sqlite:party:getWithBalance', () => sqliteService.partyGetWithBalance())
+ipcMain.handle('sqlite:party:bulkUpsert', (_, parties) => sqliteService.partyBulkUpsert(parties))
+
+// Sales
+ipcMain.handle('sqlite:sale:getById', (_, id: number) => sqliteService.saleGetById(id))
+ipcMain.handle('sqlite:sale:getAll', () => sqliteService.saleGetAll())
+ipcMain.handle('sqlite:sale:create', (_, sale) => sqliteService.saleCreate(sale))
+ipcMain.handle('sqlite:sale:createOffline', (_, sale) => sqliteService.saleCreateOffline(sale))
+ipcMain.handle('sqlite:sale:update', (_, id: number, sale) => sqliteService.saleUpdate(id, sale))
+ipcMain.handle('sqlite:sale:delete', (_, id: number) => sqliteService.saleDelete(id))
+ipcMain.handle('sqlite:sale:count', () => sqliteService.saleCount())
+ipcMain.handle('sqlite:sale:clear', () => sqliteService.saleClear())
+ipcMain.handle('sqlite:sale:getOffline', () => sqliteService.saleGetOffline())
+ipcMain.handle('sqlite:sale:markAsSynced', (_, id: number, serverId?: number) => sqliteService.saleMarkAsSynced(id, serverId))
+ipcMain.handle('sqlite:sale:getByInvoiceNumber', (_, invoiceNo: string) => sqliteService.saleGetByInvoiceNumber(invoiceNo))
+ipcMain.handle('sqlite:sale:getByDateRange', (_, startDate: string, endDate: string) => sqliteService.saleGetByDateRange(startDate, endDate))
+ipcMain.handle('sqlite:sale:getToday', () => sqliteService.saleGetToday())
+ipcMain.handle('sqlite:sale:getSummary', (_, startDate: string, endDate: string) => sqliteService.saleGetSummary(startDate, endDate))
+
+// Sync Queue
+ipcMain.handle('sqlite:syncQueue:getById', (_, id: number) => sqliteService.syncQueueGetById(id))
+ipcMain.handle('sqlite:syncQueue:getAll', () => sqliteService.syncQueueGetAll())
+ipcMain.handle('sqlite:syncQueue:create', (_, item) => sqliteService.syncQueueCreate(item))
+ipcMain.handle('sqlite:syncQueue:update', (_, id: number, item) => sqliteService.syncQueueUpdate(id, item))
+ipcMain.handle('sqlite:syncQueue:delete', (_, id: number) => sqliteService.syncQueueDelete(id))
+ipcMain.handle('sqlite:syncQueue:count', () => sqliteService.syncQueueCount())
+ipcMain.handle('sqlite:syncQueue:clear', () => sqliteService.syncQueueClear())
+ipcMain.handle('sqlite:syncQueue:enqueue', (_, item) => sqliteService.syncQueueEnqueue(item))
+ipcMain.handle('sqlite:syncQueue:getPending', (_, limit?: number) => sqliteService.syncQueueGetPending(limit))
+ipcMain.handle('sqlite:syncQueue:getFailed', () => sqliteService.syncQueueGetFailed())
+ipcMain.handle('sqlite:syncQueue:markAsProcessing', (_, id: number) => sqliteService.syncQueueMarkAsProcessing(id))
+ipcMain.handle('sqlite:syncQueue:markAsCompleted', (_, id: number) => sqliteService.syncQueueMarkAsCompleted(id))
+ipcMain.handle('sqlite:syncQueue:markAsFailed', (_, id: number, error: string) => sqliteService.syncQueueMarkAsFailed(id, error))
+ipcMain.handle('sqlite:syncQueue:clearCompleted', () => sqliteService.syncQueueClearCompleted())
+ipcMain.handle('sqlite:syncQueue:getStats', () => sqliteService.syncQueueGetStats())
+
+// Sync Metadata
+ipcMain.handle('sqlite:getLastSyncTime', (_, entity: string) => sqliteService.getLastSyncTime(entity))
+ipcMain.handle('sqlite:setLastSyncTime', (_, entity: string, timestamp?: string) => sqliteService.setLastSyncTime(entity, timestamp))
+
+// Database utilities
+ipcMain.handle('sqlite:getDatabaseSize', () => sqliteService.getDatabaseSize())
+ipcMain.handle('sqlite:vacuum', () => sqliteService.vacuum())
+ipcMain.handle('sqlite:exportData', () => sqliteService.exportData())

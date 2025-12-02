@@ -4,6 +4,25 @@ import axiosRetry from 'axios-retry'
 // Get API base URL with fallback
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.posmate.app'
 
+// Device ID cache
+let cachedDeviceId: string | null = null
+
+/**
+ * Get device ID (cached for performance)
+ */
+async function getDeviceId(): Promise<string> {
+  if (cachedDeviceId) return cachedDeviceId
+  
+  if (window.electronAPI?.getDeviceId) {
+    cachedDeviceId = await window.electronAPI.getDeviceId()
+  } else {
+    cachedDeviceId = localStorage.getItem('device_id') || `WEB-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`
+    localStorage.setItem('device_id', cachedDeviceId)
+  }
+  
+  return cachedDeviceId
+}
+
 // Create axios instance
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
@@ -49,21 +68,40 @@ export const clearAuthToken = () => {
   }
 }
 
-// Request interceptor - Add auth token
+// Request interceptor - Add auth token and device ID
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    // Add auth token
     const token = await getAuthToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    
+    // Add device ID for sync-related endpoints
+    const isSyncEndpoint = config.url?.includes('/sync') || 
+                           config.url?.includes('/sales') ||
+                           config.url?.includes('/parties')
+    if (isSyncEndpoint) {
+      const deviceId = await getDeviceId()
+      config.headers['X-Device-ID'] = deviceId
+    }
+    
     return config
   },
   (error) => Promise.reject(error)
 )
 
-// Response interceptor - Handle errors and token refresh
+// Response interceptor - Handle errors, token refresh, and server timestamp
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Capture server timestamp from headers or body
+    const serverTimestamp = response.headers['x-server-timestamp'] || 
+                           response.data?._server_timestamp
+    if (serverTimestamp) {
+      localStorage.setItem('last_server_timestamp', serverTimestamp)
+    }
+    return response
+  },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
 

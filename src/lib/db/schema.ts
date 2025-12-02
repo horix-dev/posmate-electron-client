@@ -20,21 +20,48 @@ import type {
 
 /**
  * Sync queue item for operations that need to be synced to server
+ * Enhanced with idempotency and version support for backend sync API
  */
 export interface SyncQueueItem {
   id?: number
+  
+  // Idempotency key - unique identifier for this operation (prevents duplicates)
+  idempotencyKey: string
+  
+  // Operation details
   operation: 'CREATE' | 'UPDATE' | 'DELETE'
   entity: 'sale' | 'purchase' | 'expense' | 'income' | 'due_collection' | 'product' | 'customer' | 'party' | 'stock'
   entityId: string | number // Local ID (may be temporary for creates)
+  
+  // Version for optimistic locking (for updates)
+  expectedVersion?: number
+  
+  // Request payload
   data: unknown // The actual payload to send
   endpoint: string // API endpoint to call
   method: 'POST' | 'PUT' | 'DELETE'
+  
+  // Retry logic
   attempts: number
   maxAttempts: number
   lastAttemptAt?: string
+  nextRetryAt?: string
+  
+  // Timestamps
   createdAt: string
+  offlineTimestamp: string // When operation was created offline
+  
+  // Status tracking
+  status: 'pending' | 'processing' | 'failed' | 'completed' | 'conflict'
   error?: string
-  status: 'pending' | 'processing' | 'failed' | 'completed'
+  errorCode?: string
+  
+  // Conflict resolution
+  conflictData?: unknown // Server data on conflict
+  
+  // Result tracking
+  serverId?: number // Server-assigned ID after sync
+  serverResponse?: unknown
 }
 
 /**
@@ -43,6 +70,7 @@ export interface SyncQueueItem {
 export interface LocalProduct extends Product {
   stock: Stock
   lastSyncedAt: string
+  version?: number // For optimistic locking
 }
 
 /**
@@ -50,6 +78,7 @@ export interface LocalProduct extends Product {
  */
 export interface LocalCategory extends Category {
   lastSyncedAt: string
+  version?: number // For optimistic locking
 }
 
 /**
@@ -57,6 +86,7 @@ export interface LocalCategory extends Category {
  */
 export interface LocalParty extends Party {
   lastSyncedAt: string
+  version?: number // For optimistic locking
 }
 
 /**
@@ -64,6 +94,7 @@ export interface LocalParty extends Party {
  */
 export interface LocalPaymentType extends PaymentType {
   lastSyncedAt: string
+  version?: number
 }
 
 /**

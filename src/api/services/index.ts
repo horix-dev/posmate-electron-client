@@ -20,6 +20,26 @@ export { settingsService } from './settings.service'
 export { stocksService } from './stocks.service'
 export { warehousesService } from './warehouses.service'
 
+// Sync services
+export { syncApiService } from './sync.service'
+export { offlineSalesService } from './offlineSales.service'
+
+// Export sync types
+export type {
+  DeviceRegistrationRequest,
+  DeviceRegistrationResponse,
+  FullSyncResponse,
+  IncrementalSyncResponse,
+  BatchSyncRequest,
+  BatchSyncResponse,
+  BatchOperation,
+  BatchOperationResult,
+  EntityChanges,
+  VersionConflict,
+  ConflictResponse,
+  StockDiscrepancyWarning,
+} from './sync.service'
+
 // Export axios instance and types
 export { default as api, setAuthToken, getAuthToken, clearAuthToken, getApiErrorMessage } from '../axios'
 export type { ApiResponse, PaginatedApiResponse, ApiError } from '../axios'

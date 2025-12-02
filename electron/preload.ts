@@ -18,6 +18,105 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clear: () => ipcRenderer.invoke('secure-store-clear'),
   },
 
+  // SQLite Database
+  sqlite: {
+    // Database lifecycle
+    initialize: () => ipcRenderer.invoke('sqlite:initialize'),
+    close: () => ipcRenderer.invoke('sqlite:close'),
+
+    // Products
+    product: {
+      getById: (id: number) => ipcRenderer.invoke('sqlite:product:getById', id),
+      getAll: () => ipcRenderer.invoke('sqlite:product:getAll'),
+      create: (product: any) => ipcRenderer.invoke('sqlite:product:create', product),
+      update: (id: number, product: any) => ipcRenderer.invoke('sqlite:product:update', id, product),
+      delete: (id: number) => ipcRenderer.invoke('sqlite:product:delete', id),
+      count: () => ipcRenderer.invoke('sqlite:product:count'),
+      clear: () => ipcRenderer.invoke('sqlite:product:clear'),
+      search: (query: string) => ipcRenderer.invoke('sqlite:product:search', query),
+      getByBarcode: (barcode: string) => ipcRenderer.invoke('sqlite:product:getByBarcode', barcode),
+      getByCategory: (categoryId: number) => ipcRenderer.invoke('sqlite:product:getByCategory', categoryId),
+      getLowStock: (threshold?: number) => ipcRenderer.invoke('sqlite:product:getLowStock', threshold),
+      bulkUpsert: (products: any[]) => ipcRenderer.invoke('sqlite:product:bulkUpsert', products),
+    },
+
+    // Categories
+    category: {
+      getById: (id: number) => ipcRenderer.invoke('sqlite:category:getById', id),
+      getAll: () => ipcRenderer.invoke('sqlite:category:getAll'),
+      create: (category: any) => ipcRenderer.invoke('sqlite:category:create', category),
+      update: (id: number, category: any) => ipcRenderer.invoke('sqlite:category:update', id, category),
+      delete: (id: number) => ipcRenderer.invoke('sqlite:category:delete', id),
+      count: () => ipcRenderer.invoke('sqlite:category:count'),
+      clear: () => ipcRenderer.invoke('sqlite:category:clear'),
+      getByName: (name: string) => ipcRenderer.invoke('sqlite:category:getByName', name),
+      bulkUpsert: (categories: any[]) => ipcRenderer.invoke('sqlite:category:bulkUpsert', categories),
+    },
+
+    // Parties
+    party: {
+      getById: (id: number) => ipcRenderer.invoke('sqlite:party:getById', id),
+      getAll: () => ipcRenderer.invoke('sqlite:party:getAll'),
+      create: (party: any) => ipcRenderer.invoke('sqlite:party:create', party),
+      update: (id: number, party: any) => ipcRenderer.invoke('sqlite:party:update', id, party),
+      delete: (id: number) => ipcRenderer.invoke('sqlite:party:delete', id),
+      count: () => ipcRenderer.invoke('sqlite:party:count'),
+      clear: () => ipcRenderer.invoke('sqlite:party:clear'),
+      search: (query: string) => ipcRenderer.invoke('sqlite:party:search', query),
+      getByPhone: (phone: string) => ipcRenderer.invoke('sqlite:party:getByPhone', phone),
+      getCustomers: () => ipcRenderer.invoke('sqlite:party:getCustomers'),
+      getSuppliers: () => ipcRenderer.invoke('sqlite:party:getSuppliers'),
+      getWithBalance: () => ipcRenderer.invoke('sqlite:party:getWithBalance'),
+      bulkUpsert: (parties: any[]) => ipcRenderer.invoke('sqlite:party:bulkUpsert', parties),
+    },
+
+    // Sales
+    sale: {
+      getById: (id: number) => ipcRenderer.invoke('sqlite:sale:getById', id),
+      getAll: () => ipcRenderer.invoke('sqlite:sale:getAll'),
+      create: (sale: any) => ipcRenderer.invoke('sqlite:sale:create', sale),
+      createOffline: (sale: any) => ipcRenderer.invoke('sqlite:sale:createOffline', sale),
+      update: (id: number, sale: any) => ipcRenderer.invoke('sqlite:sale:update', id, sale),
+      delete: (id: number) => ipcRenderer.invoke('sqlite:sale:delete', id),
+      count: () => ipcRenderer.invoke('sqlite:sale:count'),
+      clear: () => ipcRenderer.invoke('sqlite:sale:clear'),
+      getOffline: () => ipcRenderer.invoke('sqlite:sale:getOffline'),
+      markAsSynced: (id: number, serverId?: number) => ipcRenderer.invoke('sqlite:sale:markAsSynced', id, serverId),
+      getByInvoiceNumber: (invoiceNo: string) => ipcRenderer.invoke('sqlite:sale:getByInvoiceNumber', invoiceNo),
+      getByDateRange: (startDate: string, endDate: string) => ipcRenderer.invoke('sqlite:sale:getByDateRange', startDate, endDate),
+      getToday: () => ipcRenderer.invoke('sqlite:sale:getToday'),
+      getSummary: (startDate: string, endDate: string) => ipcRenderer.invoke('sqlite:sale:getSummary', startDate, endDate),
+    },
+
+    // Sync Queue
+    syncQueue: {
+      getById: (id: number) => ipcRenderer.invoke('sqlite:syncQueue:getById', id),
+      getAll: () => ipcRenderer.invoke('sqlite:syncQueue:getAll'),
+      create: (item: any) => ipcRenderer.invoke('sqlite:syncQueue:create', item),
+      update: (id: number, item: any) => ipcRenderer.invoke('sqlite:syncQueue:update', id, item),
+      delete: (id: number) => ipcRenderer.invoke('sqlite:syncQueue:delete', id),
+      count: () => ipcRenderer.invoke('sqlite:syncQueue:count'),
+      clear: () => ipcRenderer.invoke('sqlite:syncQueue:clear'),
+      enqueue: (item: any) => ipcRenderer.invoke('sqlite:syncQueue:enqueue', item),
+      getPending: (limit?: number) => ipcRenderer.invoke('sqlite:syncQueue:getPending', limit),
+      getFailed: () => ipcRenderer.invoke('sqlite:syncQueue:getFailed'),
+      markAsProcessing: (id: number) => ipcRenderer.invoke('sqlite:syncQueue:markAsProcessing', id),
+      markAsCompleted: (id: number) => ipcRenderer.invoke('sqlite:syncQueue:markAsCompleted', id),
+      markAsFailed: (id: number, error: string) => ipcRenderer.invoke('sqlite:syncQueue:markAsFailed', id, error),
+      clearCompleted: () => ipcRenderer.invoke('sqlite:syncQueue:clearCompleted'),
+      getStats: () => ipcRenderer.invoke('sqlite:syncQueue:getStats'),
+    },
+
+    // Sync Metadata
+    getLastSyncTime: (entity: string) => ipcRenderer.invoke('sqlite:getLastSyncTime', entity),
+    setLastSyncTime: (entity: string, timestamp?: string) => ipcRenderer.invoke('sqlite:setLastSyncTime', entity, timestamp),
+
+    // Database utilities
+    getDatabaseSize: () => ipcRenderer.invoke('sqlite:getDatabaseSize'),
+    vacuum: () => ipcRenderer.invoke('sqlite:vacuum'),
+    exportData: () => ipcRenderer.invoke('sqlite:exportData'),
+  },
+
   // Device Info
   getDeviceId: () => ipcRenderer.invoke('get-device-id'),
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),

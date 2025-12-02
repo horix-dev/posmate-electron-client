@@ -9,7 +9,7 @@
 **Project**: Horix POS Pro - Desktop POS Client  
 **Stack**: Electron 30+ | React 18 | TypeScript 5 | Vite | Tailwind CSS | shadcn/ui  
 **Backend**: Laravel API (external)  
-**Offline Storage**: IndexedDB (Dexie.js)  
+**Offline Storage**: SQLite (better-sqlite3) in Electron, IndexedDB fallback in browser  
 **State Management**: Zustand  
 
 ---
@@ -299,6 +299,203 @@ Purple → Yellow on hover creates jarring contrast. Standard UI practice uses d
 
 ---
 
+### December 2025
+
+#### SQLite Migration (Complete)
+
+**Feature**: Migrated offline storage from IndexedDB (Dexie.js) to SQLite (better-sqlite3) for improved reliability and performance in desktop environment.
+
+**Why SQLite?**
+- Better reliability for large datasets and concurrent operations
+- True ACID transactions (IndexedDB has quirks)
+- Better tooling (can open `.db` file directly for debugging)
+- Standard in desktop applications
+- Faster bulk operations
+
+**Architecture**:
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Renderer Process                         │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐ │
+│  │ React App    │──▶│ SQLiteAdapter│──▶│ window.electronAPI│ │
+│  └──────────────┘   └──────────────┘   │ .sqlite.*        │ │
+│                                         └────────┬─────────┘ │
+└──────────────────────────────────────────────────┼───────────┘
+                                              IPC Bridge
+┌──────────────────────────────────────────────────┼───────────┐
+│                      Main Process                 ▼          │
+│  ┌──────────────┐   ┌──────────────────────────────────────┐ │
+│  │ ipcMain      │──▶│ SQLiteService (better-sqlite3)       │ │
+│  │ handlers     │   │ - Products, Categories, Parties      │ │
+│  └──────────────┘   │ - Sales, SyncQueue, Metadata         │ │
+│                     └──────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+                     📁 userData/posmate.db
+```
+
+**Files Created**:
+- `electron/sqlite.service.ts` - Complete SQLite database service with all CRUD operations
+- `src/lib/storage/interface.ts` - Storage adapter interface for abstraction
+- `src/lib/storage/adapters/sqlite.adapter.ts` - SQLite adapter using IPC bridge
+- `src/lib/storage/adapters/indexeddb.adapter.ts` - IndexedDB adapter (legacy)
+- `src/lib/storage/migration.tsx` - React component for one-time data migration
+
+**Files Modified**:
+- `electron/main.ts` - Added SQLite initialization and IPC handlers (20+ handlers)
+- `electron/preload.ts` - Exposed `sqlite` API via contextBridge
+- `src/lib/storage/index.ts` - Auto-detects environment, uses SQLite in Electron
+- `src/types/electron.d.ts` - Added SQLiteAPI types
+
+**Storage Adapter Pattern**:
+```typescript
+// Same interface, swappable implementations
+interface StorageAdapter {
+  products: ProductRepository
+  categories: CategoryRepository
+  parties: PartyRepository
+  sales: SaleRepository
+  syncQueue: SyncQueueRepository
+}
+
+// Automatically uses SQLite in Electron, IndexedDB in browser
+import { storage } from '@/lib/storage'
+const products = await storage.products.getAll()
+```
+
+**Migration Component**:
+- Shows progress UI during one-time migration
+- Migrates: Products, Categories, Parties, Sales, SyncQueue
+- Sets localStorage flag when complete
+- Can be triggered by: `import { needsMigration } from '@/lib/storage'`
+
+**Dependencies Added**:
+- `better-sqlite3` - Native SQLite binding for Node.js
+- `@types/better-sqlite3` - TypeScript definitions
+- Rebuilt native modules with `npx electron-rebuild`
+
+**Usage**:
+```typescript
+// Import works the same way
+import { storage } from '@/lib/storage'
+
+// All operations are the same
+const products = await storage.products.getAll()
+await storage.sales.createOffline(saleData)
+await storage.syncQueue.enqueue(operation)
+```
+
+---
+
+#### Backend Sync API Integration (Complete)
+
+**Feature**: Full integration with backend's offline-first sync API (`/api/v1/sync/*`).
+
+**What was implemented**:
+1. **Sync API Service** - Client for all backend sync endpoints
+2. **Batch Sync** - Upload multiple offline operations in one request
+3. **Incremental Sync** - Download only changes since last sync
+4. **Idempotency Keys** - Prevent duplicate operations on retry
+5. **Version Conflict Handling** - Detect and handle optimistic locking conflicts
+6. **Device Registration** - Register device with backend on first run
+
+**Backend Endpoints Supported**:
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/sync/health` | GET | Health check with server timestamp |
+| `/sync/register` | POST | Register device |
+| `/sync/full` | GET | Full initial data download |
+| `/sync/changes` | GET | Incremental sync (changes since timestamp) |
+| `/sync/batch` | POST | Batch upload offline operations |
+
+**Files Created**:
+- `src/api/services/sync.service.ts` - Sync API client with all endpoints
+- `src/lib/db/services/enhancedSync.service.ts` - Enhanced sync with batch processing
+- `src/hooks/useDeviceRegistration.ts` - Device registration hook
+
+**Files Modified**:
+- `src/api/axios.ts` - Added `X-Device-ID` header, server timestamp capture
+- `src/lib/db/schema.ts` - Added `idempotencyKey`, `version`, `offlineTimestamp` to SyncQueueItem
+- `src/api/services/offlineSales.service.ts` - Updated to use batch sync format
+- `src/stores/sync.store.ts` - Uses `enhancedSyncService` for batch sync
+- `src/api/services/index.ts` - Export sync service and types
+- `vite.config.ts` - Externalize `better-sqlite3` for native module support
+
+**Sync Flow**:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        OFFLINE SALE                              │
+│  1. User creates sale while offline                             │
+│  2. Generate idempotency key: sale_create_1733123456789_abc123  │
+│  3. Generate offline invoice: OFF-D001-1733123456789            │
+│  4. Save to local SQLite                                         │
+│  5. Add to sync queue with idempotency key                      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼ (When online)
+┌─────────────────────────────────────────────────────────────────┐
+│                       BATCH SYNC                                 │
+│  POST /sync/batch                                                │
+│  {                                                               │
+│    "operations": [                                               │
+│      {                                                           │
+│        "idempotency_key": "sale_create_...",                    │
+│        "entity": "sale",                                         │
+│        "action": "create",                                       │
+│        "data": { "offline_invoice_no": "OFF-D001-...", ... }    │
+│      }                                                           │
+│    ],                                                            │
+│    "device_id": "D001",                                          │
+│    "client_timestamp": "2025-12-02T10:00:00Z"                   │
+│  }                                                               │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      RESPONSE                                    │
+│  {                                                               │
+│    "results": [                                                  │
+│      { "idempotency_key": "...", "status": "created",           │
+│        "server_id": 1234, "invoice_number": "INV-001234" }      │
+│    ],                                                            │
+│    "server_timestamp": "2025-12-02T10:00:01Z"                   │
+│  }                                                               │
+│  → Update local sale with server_id and real invoice number     │
+│  → Mark sync queue item as completed                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Conflict Handling**:
+```typescript
+// When server returns 409 Conflict:
+{
+  "status": "conflict",
+  "conflict_data": { /* server's current data */ }
+}
+
+// Frontend stores conflict for resolution:
+enhancedSyncService.getConflicts() // Returns pending conflicts
+enhancedSyncService.resolveConflict(id, 'client_wins' | 'server_wins' | 'discard')
+```
+
+**Usage**:
+```typescript
+// Sync is automatic when online, or trigger manually:
+import { useSyncStore } from '@/stores/sync.store'
+
+const { startQueueSync, pendingSyncCount, syncStatus } = useSyncStore()
+
+// Start sync
+await startQueueSync()
+
+// Check status
+console.log(pendingSyncCount) // Number of pending operations
+console.log(syncStatus) // 'idle' | 'syncing' | 'error' | 'offline'
+```
+
+---
+
 ## Offline Support System
 
 ### Data Flow
@@ -519,4 +716,59 @@ const imageUrl = getImageUrl(product.productPicture)
 
 ---
 
-*Last Updated: November 27, 2025*
+## Storage Abstraction Layer (Added)
+
+### December 2024
+
+**Feature**: Created storage abstraction layer for future SQLite migration.
+
+**Problem**: IndexedDB has limitations for POS applications:
+- ~2GB storage limit
+- No true ACID transactions
+- Limited query capabilities
+- No encryption support
+
+**Solution**: Created adapter pattern for storage:
+
+**Files Created**:
+- `src/lib/storage/interface.ts` - TypeScript interfaces for all repositories
+- `src/lib/storage/adapters/indexeddb.adapter.ts` - Current IndexedDB implementation
+- `src/lib/storage/adapters/sqlite.adapter.ts` - SQLite placeholder for v2.0
+- `src/lib/storage/index.ts` - Factory and main export
+- `src/lib/storage/README.md` - Usage documentation
+
+**Architecture**:
+```
+src/lib/storage/
+├── index.ts           # Factory + default export
+├── interface.ts       # StorageAdapter interface
+└── adapters/
+    ├── indexeddb.adapter.ts  # Wraps existing Dexie.js
+    └── sqlite.adapter.ts     # Placeholder for v2.0
+```
+
+**Usage**:
+```typescript
+import { storage } from '@/lib/storage'
+
+// All operations go through unified interface
+const products = await storage.products.getAll()
+await storage.sales.createOffline(saleData)
+await storage.syncQueue.enqueue({ ... })
+```
+
+**Migration to SQLite (v2.0)**:
+1. Install better-sqlite3
+2. Complete sqlite.adapter.ts
+3. Change export in index.ts
+4. Run data migration
+
+**Benefits**:
+- Application code unchanged when switching databases
+- Easier testing with mock adapters
+- Type-safe operations
+- Consistent API across adapters
+
+---
+
+*Last Updated: December 2024*

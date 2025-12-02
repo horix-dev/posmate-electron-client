@@ -5,3 +5,4 @@
 
 export * from './sync.service'
 export * from './dataSync.service'
+export * from './enhancedSync.service'
