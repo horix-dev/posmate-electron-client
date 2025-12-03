@@ -107,6 +107,80 @@ await storage.categories.bulkUpsert(localCategories)
 
 ---
 
+#### Offline Support - Price/Category/Brand Fix (Complete)
+
+**Problem**: When offline, products showed price as 0, category and brand as empty even though they existed when online.
+
+**Root Cause 1 - Prices**: SQLite `productBulkUpsert` was reading prices from `p.purchasePrice` and `p.salePrice` but the data was actually nested in `p.stock.productPurchasePrice` and `p.stock.productSalePrice`.
+
+**Root Cause 2 - Category/Brand**: When loading cached data, the code converted LocalProduct to Product but didn't join the category, brand, and unit objects from their respective caches.
+
+**Solution**:
+1. Fixed `electron/sqlite.service.ts` to read prices from `p.stock.productSalePrice` and return them in the `stock` object
+2. Fixed `loadCachedData()` in both hooks to create lookup maps and join category/brand/unit objects
+
+**Files Modified**:
+- `electron/sqlite.service.ts` - Fixed productBulkUpsert and mapProduct for prices
+- `src/pages/pos/hooks/usePOSData.ts` - Added category/brand/unit lookup and join
+- `src/pages/products/hooks/useProducts.ts` - Same fix
+
+---
+
+#### Electron Routing Fix (Complete)
+
+**Problem**: App showed 404 error on startup in Electron.
+
+**Cause**: `BrowserRouter` uses HTML5 history API which doesn't work with `file://` protocol in Electron.
+
+**Solution**: Use `HashRouter` (via `createHashRouter`) when running in Electron, `BrowserRouter` for web:
+
+```typescript
+const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined
+const routerCreator = isElectron ? createHashRouter : createBrowserRouter
+```
+
+**Files Modified**:
+- `src/routes/index.tsx` - Conditional router based on environment
+
+---
+
+#### Sync Queue Display Fix (Complete)
+
+**Problem**: After making an offline sale, the pending queue didn't show until back online.
+
+**Cause**: `useSyncQueue` hook only polled the queue when `isSyncing` was true.
+
+**Solution**: Changed to constant 2-second polling regardless of sync state:
+
+```typescript
+useEffect(() => {
+  fetchItems() // Initial fetch
+  const interval = setInterval(fetchItems, 2000) // Poll every 2s
+  return () => clearInterval(interval)
+}, [])
+```
+
+**Files Modified**:
+- `src/hooks/useSyncQueue.ts` - Always poll every 2 seconds
+
+---
+
+#### UI Fix - Filter Popover Overflow (Complete)
+
+**Problem**: Filter fields were overflowing outside the popover container.
+
+**Solution**: Added proper positioning to PopoverContent and SelectContent:
+
+```tsx
+<PopoverContent side="bottom" sideOffset={5}>
+<SelectContent position="popper">
+```
+
+**Files Modified**:
+- `src/pages/products/components/ProductFiltersBar.tsx`
+
+---
+
 #### Offline Support - Image Caching (Complete)
 
 **Problem**: Product images didn't display when offline.

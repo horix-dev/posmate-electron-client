@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, createHashRouter, RouterProvider } from 'react-router-dom'
 import { Suspense, lazy } from 'react'
 
 // Layout
@@ -41,7 +41,11 @@ function PageLoader() {
 }
 
 // Router configuration
-const router = createBrowserRouter([
+// Use HashRouter for Electron (file:// protocol), BrowserRouter for web
+const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined
+const routerCreator = isElectron ? createHashRouter : createBrowserRouter
+
+const router = routerCreator([
   // Public routes (auth)
   {
     path: '/login',

@@ -139,19 +139,16 @@ export function useSyncQueue(): UseSyncQueueReturn {
     }
   }, [setPendingSyncCount])
 
-  // Initial fetch and refresh interval
+  // Initial fetch
   useEffect(() => {
     fetchItems()
-    
-    // Refresh every 5 seconds when syncing
-    const interval = setInterval(() => {
-      if (isSyncing) {
-        fetchItems()
-      }
-    }, 5000)
-    
+  }, [fetchItems])
+
+  // Poll for changes every 2 seconds (handles offline sale creation, sync progress, etc.)
+  useEffect(() => {
+    const interval = setInterval(fetchItems, 2000)
     return () => clearInterval(interval)
-  }, [fetchItems, isSyncing])
+  }, [fetchItems])
 
   // Derived data
   const pendingItems = useMemo(

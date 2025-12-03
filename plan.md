@@ -6,6 +6,7 @@
 **Tech Stack:** Electron.js + React + TypeScript  
 **UI Framework:** shadcn/ui + Tailwind CSS  
 **API Client:** Axios  
+**Offline Storage:** SQLite (better-sqlite3) in Electron, IndexedDB fallback in browser  
 **Target Platforms:** Windows, macOS, Linux
 
 ---
@@ -40,6 +41,11 @@
 │  │  IPC Handler  │  │  Auto Update  │  │  Native APIs        │  │
 │  │               │  │  Module       │  │  (Print, FS, etc.)  │  │
 │  └───────────────┘  └───────────────┘  └─────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │           SQLite Database (better-sqlite3)              │   │
+│  │           - Products, Categories, Parties               │   │
+│  │           - Sales, Sync Queue                           │   │
+│  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                               │ IPC Bridge
 ┌─────────────────────────────────────────────────────────────────┐
@@ -56,7 +62,8 @@
 │  │  └─────────────┘  └─────────────┘  └─────────────────┘  │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │              IndexedDB (Dexie.js) - Offline Storage      │   │
+│  │        Storage Abstraction Layer (src/lib/storage)       │   │
+│  │        - Auto-detects SQLite (Electron) vs IndexedDB     │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -102,9 +109,9 @@
 | Package | Purpose |
 |---------|---------|
 | Zustand | Lightweight global state management |
-| TanStack Query (React Query) | Server state, caching, sync |
-| Dexie.js | IndexedDB wrapper for offline storage |
-| Immer | Immutable state updates |
+| better-sqlite3 | SQLite database in Electron main process |
+| Dexie.js | IndexedDB wrapper (fallback for browser) |
+| Storage Abstraction | Unified API for SQLite/IndexedDB (`src/lib/storage`) |
 
 ### API & Networking
 
@@ -246,7 +253,7 @@ posmate-custom-frontend/
 │   │   ├── BusinessContext.tsx
 │   │   └── ThemeContext.tsx
 │   │
-│   ├── db/                            # IndexedDB (Dexie)
+│   ├── db/                            # IndexedDB (Dexie) - Fallback/Sync Queue
 │   │   ├── database.ts                # Dexie database definition
 │   │   ├── schemas/                   # Table schemas
 │   │   │   ├── products.schema.ts
@@ -258,6 +265,13 @@ posmate-custom-frontend/
 │   │   │   ├── sales.repository.ts
 │   │   │   └── sync.repository.ts
 │   │   └── migrations/                # DB version migrations
+│   │
+│   ├── lib/
+│   │   ├── storage/                   # Storage abstraction layer ✅
+│   │   │   ├── index.ts               # Unified storage API
+│   │   │   ├── sqlite-adapter.ts      # SQLite adapter (Electron)
+│   │   │   └── idb-adapter.ts         # IndexedDB adapter (Browser)
+│   │   └── ...
 │   │
 │   ├── features/                      # Feature-based modules
 │   │   ├── auth/
@@ -394,8 +408,8 @@ posmate-custom-frontend/
 │   │   ├── validators.ts              # Zod schemas
 │   │   └── calculations.ts            # Price, tax calculations
 │   │
-│   ├── routes/                        # Routing
-│   │   ├── index.tsx                  # Route definitions
+│   ├── routes/                        # Routing ✅
+│   │   ├── index.tsx                  # Route definitions (HashRouter for Electron)
 │   │   ├── ProtectedRoute.tsx
 │   │   └── routes.ts                  # Route constants
 │   │
@@ -456,7 +470,7 @@ posmate-custom-frontend/
 
 ## 4. Feature Modules
 
-### 4.1 Authentication Module
+### 4.1 Authentication Module ✅
 
 | Feature | Description | API Endpoints |
 |---------|-------------|---------------|
@@ -467,7 +481,7 @@ posmate-custom-frontend/
 | Token Refresh | Auto token renewal | `POST /refresh-token` |
 | Session Persistence | Remember me functionality | Local secure storage |
 
-### 4.2 Dashboard Module
+### 4.2 Dashboard Module ✅
 
 | Feature | Description | API Endpoints |
 |---------|-------------|---------------|
@@ -476,7 +490,7 @@ posmate-custom-frontend/
 | Quick Stats | Stock value, total due, profit/loss | `GET /dashboard` |
 | Recent Transactions | Latest sales/purchases | Combined from sales/purchases APIs |
 
-### 4.3 Point of Sale (POS) Module
+### 4.3 Point of Sale (POS) Module ✅
 
 | Feature | Description |
 |---------|-------------|
@@ -492,10 +506,10 @@ posmate-custom-frontend/
 | Multiple Payment Types | Cash, card, split payments |
 | Change Calculation | Automatic change computation |
 | Receipt Printing | Thermal & A4 invoice printing |
-| Offline Sales | Queue sales when offline |
+| Offline Sales | Queue sales when offline ✅ |
 | Hold & Recall | Save and retrieve pending sales |
 
-### 4.4 Products Module
+### 4.4 Products Module ✅
 
 | Feature | Description | API Endpoints |
 |---------|-------------|---------------|
@@ -506,8 +520,9 @@ posmate-custom-frontend/
 | Low Stock Alerts | Visual indicators for low stock | Alert qty logic |
 | Bulk Upload | Excel/CSV import | `POST /bulk-upload` |
 | Image Management | Product image upload | Multipart form |
+| Offline Support | SQLite caching with full data ✅ | Local storage |
 
-### 4.5 Inventory Module
+### 4.5 Inventory Module ✅
 
 | Feature | Description | API Endpoints |
 |---------|-------------|---------------|
@@ -518,7 +533,7 @@ posmate-custom-frontend/
 | Warehouses | Warehouse management | `/warehouses` |
 | Stock Adjustments | Manual stock corrections | `/stocks` |
 
-### 4.6 Sales Module
+### 4.6 Sales Module ✅
 
 | Feature | Description | API Endpoints |
 |---------|-------------|---------------|
@@ -529,7 +544,7 @@ posmate-custom-frontend/
 | Invoice Print | Print/reprint invoices | N/A (local) |
 | Sale Returns | Process returns | `/sale-returns` |
 
-### 4.7 Purchases Module
+### 4.7 Purchases Module ✅
 
 | Feature | Description | API Endpoints |
 |---------|-------------|---------------|
@@ -539,7 +554,7 @@ posmate-custom-frontend/
 | Purchase Returns | Return to supplier | `/purchase-returns` |
 | Supplier Management | Via parties module | `/parties` |
 
-### 4.8 Parties Module
+### 4.8 Parties Module ✅
 
 | Feature | Description | API Endpoints |
 |---------|-------------|---------------|
@@ -550,7 +565,7 @@ posmate-custom-frontend/
 | Credit Limits | Enforce credit limits | Credit limit field |
 | Due Collection | Record payments | `/dues` |
 
-### 4.9 Finance Module
+### 4.9 Finance Module ✅
 
 | Feature | Description | API Endpoints |
 |---------|-------------|---------------|
@@ -560,7 +575,7 @@ posmate-custom-frontend/
 | Income Categories | Categorize income | `/income-categories` |
 | Due Collection | Collect outstanding dues | `/dues` |
 
-### 4.10 Settings Module
+### 4.10 Settings Module ✅
 
 | Feature | Description | API Endpoints |
 |---------|-------------|---------------|
@@ -575,21 +590,21 @@ posmate-custom-frontend/
 
 ---
 
-## 5. Offline-First Strategy
+## 5. Offline-First Strategy ✅
 
 ### 5.1 Data Classification
 
 | Data Type | Sync Strategy | Storage |
 |-----------|---------------|---------|
-| Master Data | Sync on login + periodic | IndexedDB |
-| Products | Full sync + incremental | IndexedDB |
-| Parties | Full sync + incremental | IndexedDB |
-| Categories/Brands/Units | Full sync | IndexedDB |
-| Payment Types | Full sync | IndexedDB |
-| VAT Rates | Full sync | IndexedDB |
-| Sales | Offline queue → sync | IndexedDB |
+| Master Data | Sync on login + periodic | SQLite (Electron) / IndexedDB (Web) |
+| Products | Full sync + incremental | SQLite (Electron) / IndexedDB (Web) |
+| Parties | Full sync + incremental | SQLite (Electron) / IndexedDB (Web) |
+| Categories/Brands/Units | Full sync | SQLite (Electron) / IndexedDB (Web) |
+| Payment Types | Full sync | SQLite (Electron) / IndexedDB (Web) |
+| VAT Rates | Full sync | SQLite (Electron) / IndexedDB (Web) |
+| Sales | Offline queue → sync | IndexedDB (sync queue) |
 | Purchases | Online only | N/A |
-| Settings | Sync on change | IndexedDB |
+| Settings | Sync on change | SQLite (Electron) / IndexedDB (Web) |
 
 ### 5.2 Sync Queue Structure
 
@@ -608,7 +623,7 @@ interface SyncQueueItem {
 }
 ```
 
-### 5.3 Offline Sale Flow
+### 5.3 Offline Sale Flow ✅
 
 ```
 ┌──────────────────┐
@@ -619,7 +634,7 @@ interface SyncQueueItem {
          ▼
 ┌──────────────────┐     ┌──────────────────┐
 │  Check Online    │─No──│  Save to         │
-│  Status          │     │  IndexedDB       │
+│  Status          │     │  SQLite/IDB      │
 └────────┬─────────┘     │  + Sync Queue    │
          │Yes            └────────┬─────────┘
          ▼                        │
@@ -632,7 +647,7 @@ interface SyncQueueItem {
          ▼                        ▼
 ┌──────────────────┐     ┌──────────────────┐
 │  Save to         │     │  Show Pending    │
-│  IndexedDB       │     │  Sync Indicator  │
+│  SQLite/IDB      │     │  Sync Indicator  │
 └──────────────────┘     └──────────────────┘
 ```
 
@@ -658,7 +673,7 @@ interface InvoiceNumberConfig {
 
 ---
 
-## 6. State Management
+## 6. State Management ✅
 
 ### 6.1 Zustand Store Architecture
 
@@ -728,9 +743,51 @@ interface CartState {
 
 ---
 
-## 7. Database & Storage
+## 7. Database & Storage ✅
 
-### 7.1 IndexedDB Schema (Dexie.js)
+### 7.1 Storage Architecture
+
+The application uses a **storage abstraction layer** (`src/lib/storage`) that provides a unified API:
+
+- **Electron (Desktop):** SQLite via better-sqlite3 in main process, accessed via IPC
+- **Browser (Web):** IndexedDB via Dexie.js as fallback
+
+```typescript
+// Storage abstraction - src/lib/storage/index.ts
+export const storage = {
+  products: productStorageAdapter,   // SQLite in Electron, IDB in browser
+  categories: categoryStorageAdapter,
+  brands: brandStorageAdapter,
+  units: unitStorageAdapter,
+  sales: saleStorageAdapter,
+  // ... other adapters
+};
+```
+
+### 7.2 SQLite Schema (Electron - Primary)
+
+```typescript
+// electron/sqlite.service.ts
+// Tables: products, categories, brands, units, parties, sales, etc.
+// Accessed via IPC: window.electronAPI.sqlite.*
+
+interface LocalProduct {
+  id: number;
+  productCode: string;
+  productName: string;
+  alertQty: number;
+  productStock: number;
+  category_id: number | null;
+  brand_id: number | null;
+  unit_id: number | null;
+  stock: {
+    productSalePrice: number;
+    productPurchasePrice: number;
+  };
+}
+```
+
+### 7.3 IndexedDB Schema (Browser Fallback / Sync Queue)
 
 ```typescript
 class PosDatabase extends Dexie {
@@ -744,7 +801,7 @@ class PosDatabase extends Dexie {
   saleDetails!: Table<SaleDetail>;
   paymentTypes!: Table<PaymentType>;
   vats!: Table<Vat>;
-  syncQueue!: Table<SyncQueueItem>;
+  syncQueue!: Table<SyncQueueItem>;  // Always uses IndexedDB
   heldCarts!: Table<HeldCart>;
   settings!: Table<Setting>;
   
