@@ -7,6 +7,7 @@ export { ProductFormDialog } from './ProductFormDialog'
 export { DeleteProductDialog } from './DeleteProductDialog'
 export { ProductTable } from './ProductTable'
 export { EmptyState, NoResultsState, TableSkeleton } from './ProductStates'
+export { VariantManager } from './VariantManager'
 
 // Types
 export type { ProductRowProps } from './ProductRow'
@@ -16,3 +17,4 @@ export type { ProductDetailsDialogProps } from './ProductDetailsDialog'
 export type { ProductFormDialogProps } from './ProductFormDialog'
 export type { DeleteProductDialogProps } from './DeleteProductDialog'
 export type { ProductTableProps } from './ProductTable'
+export type { VariantManagerProps } from './VariantManager'

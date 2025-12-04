@@ -130,6 +130,9 @@ export interface Currency {
 // Product Types
 // ============================================
 
+// Import variant types
+import type { ProductVariant, ProductAttribute } from './variant.types'
+
 export interface Product {
   id: number
   productName: string
@@ -137,7 +140,7 @@ export interface Product {
   productPurchasePrice?: number
   productStock?: number
   alert_qty?: number
-  product_type: 'single' | 'variant'
+  product_type: 'simple' | 'variable'
   productPicture?: string
   stocks_sum_product_stock?: number
   category_id?: number
@@ -152,11 +155,18 @@ export interface Product {
   category?: Category
   product_model?: ProductModel
   stocks?: Stock[]
+  // Variant product fields
+  has_variants?: boolean
+  variant_sku_format?: string
+  variants?: ProductVariant[]
+  attributes?: ProductAttribute[]
+  variants_total_stock?: number
 }
 
 export interface Stock {
   id: number
   product_id: number
+  variant_id?: number | null // For variable products
   batch_no?: string
   productStock: number
   productPurchasePrice: number
@@ -180,7 +190,7 @@ export interface CreateProductRequest {
   vat_id?: number
   vat_type?: string
   alert_qty?: number
-  product_type: 'single' | 'variant'
+  product_type: 'simple' | 'variable'
   productPurchasePrice?: number
   productSalePrice?: number
   productDealerPrice?: number
@@ -359,11 +369,14 @@ export interface SaleDetail {
   id: number
   product_id: number
   stock_id: number
+  variant_id?: number | null
+  variant_name?: string | null
   quantities: number
   price: number
   lossProfit?: number
   product?: Product
   stock?: Stock
+  variant?: ProductVariant
 }
 
 export interface CreateSaleRequest {
@@ -392,6 +405,8 @@ export interface SaleProductItem {
   quantities: number
   price: number
   lossProfit: number
+  variant_id?: number
+  variant_name?: string
 }
 
 // ============================================

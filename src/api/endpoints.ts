@@ -212,4 +212,32 @@ export const API_ENDPOINTS = {
 
   // Bulk Upload
   BULK_UPLOAD: '/bulk-upload',
+
+  // Attributes (Variant System)
+  ATTRIBUTES: {
+    LIST: '/attributes',
+    GET: (id: number) => `/attributes/${id}`,
+    CREATE: '/attributes',
+    UPDATE: (id: number) => `/attributes/${id}`,
+    DELETE: (id: number) => `/attributes/${id}`,
+    ADD_VALUE: (id: number) => `/attributes/${id}/values`,
+  },
+
+  // Attribute Values
+  ATTRIBUTE_VALUES: {
+    UPDATE: (id: number) => `/attribute-values/${id}`,
+    DELETE: (id: number) => `/attribute-values/${id}`,
+  },
+
+  // Product Variants
+  VARIANTS: {
+    LIST: (productId: number) => `/products/${productId}/variants`,
+    CREATE: (productId: number) => `/products/${productId}/variants`,
+    GENERATE: (productId: number) => `/products/${productId}/variants/generate`,
+    FIND_BY_ATTRIBUTES: (productId: number) => `/products/${productId}/variants/find`,
+    GET: (id: number) => `/variants/${id}`,
+    UPDATE: (id: number) => `/variants/${id}`,
+    DELETE: (id: number) => `/variants/${id}`,
+    UPDATE_STOCK: (id: number) => `/variants/${id}/stock`,
+  },
 } as const

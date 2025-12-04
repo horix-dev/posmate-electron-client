@@ -74,6 +74,30 @@
 | PUT | `/product-models/{id}` | ✅ | Update model |
 | DELETE | `/product-models/{id}` | ✅ | Delete model |
 
+### Attributes (Variable Products)
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/attributes` | ✅ | List all attributes |
+| GET | `/attributes/{id}` | ✅ | Get single attribute |
+| POST | `/attributes` | ✅ | Create attribute |
+| PUT | `/attributes/{id}` | ✅ | Update attribute |
+| DELETE | `/attributes/{id}` | ✅ | Delete attribute |
+| POST | `/attributes/{id}/values` | ✅ | Add value to attribute |
+| PUT | `/attribute-values/{id}` | ✅ | Update attribute value |
+| DELETE | `/attribute-values/{id}` | ✅ | Delete attribute value |
+
+### Product Variants
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/products/{id}/variants` | ✅ | List product variants |
+| POST | `/products/{id}/variants` | ✅ | Create single variant |
+| POST | `/products/{id}/variants/generate` | ✅ | Bulk generate variants |
+| POST | `/products/{id}/variants/find` | ✅ | Find variant by attributes |
+| GET | `/variants/{id}` | ✅ | Get variant details |
+| PUT | `/variants/{id}` | ✅ | Update variant |
+| DELETE | `/variants/{id}` | ✅ | Delete variant |
+| PUT | `/variants/{id}/stock` | ✅ | Update variant stock |
+
 ## Transactions
 
 ### Parties (Customers/Suppliers)
@@ -297,4 +321,164 @@ No specific rate limits enforced. Recommended best practices:
 
 ---
 
-**Last Updated:** November 26, 2025
+## Example: Create Variable Product with Variants (Single API Call)
+
+**NOTE:** As of Phase 2.7, the API now supports creating a product and all its variants in a single POST call, eliminating the need for multiple API requests.
+
+### Step-by-Step Workflow
+
+#### Step 1: Create Attributes (Optional - if not already created)
+
+```bash
+curl -X POST http://localhost:8000/api/v1/attributes \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Size",
+    "values": ["Small", "Medium", "Large"]
+  }'
+
+# Response includes attribute_id: 1, value_ids: [1, 2, 3]
+
+curl -X POST http://localhost:8000/api/v1/attributes \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Color",
+    "values": ["Red", "Blue", "Green"]
+  }'
+
+# Response includes attribute_id: 2, value_ids: [4, 5, 6]
+```
+
+#### Step 2: Create Variable Product with Variants (Single Call)
+
+```bash
+curl -X POST http://localhost:8000/api/v1/products \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "productName": "Premium T-Shirt",
+    "productCode": "TSHIRT-PREM-001",
+    "category_id": 2,
+    "brand_id": 1,
+    "product_type": "variable",
+    "description": "High-quality cotton t-shirt",
+    "variants": [
+      {
+        "sku": "TSHIRT-S-RED",
+        "cost_price": 300,
+        "price": 599,
+        "dealer_price": 549,
+        "wholesale_price": 499,
+        "attribute_value_ids": [1, 4]
+      },
+      {
+        "sku": "TSHIRT-S-BLUE",
+        "cost_price": 300,
+        "price": 599,
+        "dealer_price": 549,
+        "wholesale_price": 499,
+        "attribute_value_ids": [1, 5]
+      },
+      {
+        "sku": "TSHIRT-M-RED",
+        "cost_price": 320,
+        "price": 649,
+        "dealer_price": 599,
+        "wholesale_price": 549,
+        "attribute_value_ids": [2, 4]
+      },
+      {
+        "sku": "TSHIRT-M-BLUE",
+        "cost_price": 320,
+        "price": 649,
+        "dealer_price": 599,
+        "wholesale_price": 549,
+        "attribute_value_ids": [2, 5]
+      },
+      {
+        "sku": "TSHIRT-L-RED",
+        "cost_price": 350,
+        "price": 699,
+        "dealer_price": 649,
+        "wholesale_price": 599,
+        "attribute_value_ids": [3, 4]
+      },
+      {
+        "sku": "TSHIRT-L-BLUE",
+        "cost_price": 350,
+        "price": 699,
+        "dealer_price": 649,
+        "wholesale_price": 599,
+        "attribute_value_ids": [3, 5]
+      }
+    ]
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Product created successfully",
+  "data": {
+    "id": 245,
+    "productName": "Premium T-Shirt",
+    "product_type": "variable",
+    "business_id": 1,
+    "variants": [
+      {
+        "id": 156,
+        "sku": "TSHIRT-S-RED",
+        "variant_name": "Small, Red",
+        "price": 599,
+        "attributeValues": [
+          {"id": 1, "attribute_id": 1, "value": "Small"},
+          {"id": 4, "attribute_id": 2, "value": "Red"}
+        ]
+      },
+      {
+        "id": 157,
+        "sku": "TSHIRT-S-BLUE",
+        "variant_name": "Small, Blue",
+        "price": 599,
+        "attributeValues": [
+          {"id": 1, "attribute_id": 1, "value": "Small"},
+          {"id": 5, "attribute_id": 2, "value": "Blue"}
+        ]
+      }
+    ]
+  }
+}
+```
+
+#### Step 3: Add Stock to Variants
+
+Stock is added separately via the stock/inventory API:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/stock \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "variant_id": 156,
+    "quantity": 100,
+    "cost_price": 300,
+    "warehouse_id": 1,
+    "reference": "PO-001"
+  }'
+```
+
+#### Step 4: Find Variant by Attributes (For POS)
+curl -X POST http://localhost/api/v1/products/1/variants/find \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "attribute_value_ids": [1, 4]
+  }'
+```
+
+---
+
+**Last Updated:** December 4, 2025

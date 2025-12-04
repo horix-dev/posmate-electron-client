@@ -1,11 +1,12 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Product, Stock, Party, PaymentType, Vat } from '@/types/api.types'
+import type { ProductVariant } from '@/types/variant.types'
 import { heldCartRepository } from '@/lib/db/repositories'
 import type { HeldCart as DBHeldCart } from '@/lib/db/schema'
 
 export interface CartItem {
-  id: string // Unique ID for cart item (stock_id + timestamp)
+  id: string // Unique ID for cart item (stock_id + timestamp OR variant_id + timestamp)
   product: Product
   stock: Stock
   quantity: number
@@ -13,6 +14,10 @@ export interface CartItem {
   discount: number
   discountType: 'fixed' | 'percentage'
   total: number
+  // Variant support
+  variant?: ProductVariant | null
+  variantId?: number | null
+  variantName?: string | null
 }
 
 export interface HeldCart {
@@ -51,7 +56,7 @@ interface CartState {
   changeAmount: number
 
   // Actions
-  addItem: (product: Product, stock: Stock, quantity?: number) => void
+  addItem: (product: Product, stock: Stock, quantity?: number, variant?: ProductVariant | null) => void
   updateItemQuantity: (itemId: string, quantity: number) => void
   updateItemPrice: (itemId: string, price: number) => void
   updateItemDiscount: (itemId: string, discount: number, type: 'fixed' | 'percentage') => void
@@ -77,6 +82,34 @@ const calculateItemTotal = (item: Omit<CartItem, 'total'>): number => {
   const discount =
     item.discountType === 'percentage' ? subtotal * (item.discount / 100) : item.discount
   return Math.max(0, subtotal - discount)
+}
+
+/**
+ * Generate unique cart item ID
+ * For variants: variant_id + timestamp
+ * For simple products: stock_id + timestamp
+ */
+const generateCartItemId = (stock: Stock, variant?: ProductVariant | null): string => {
+  if (variant) {
+    return `variant-${variant.id}-${Date.now()}`
+  }
+  return `${stock.id}-${Date.now()}`
+}
+
+/**
+ * Get variant display name for cart
+ */
+const getVariantDisplayName = (variant: ProductVariant): string => {
+  if (variant.variant_name) {
+    return variant.variant_name
+  }
+  if (variant.attributes_map) {
+    return Object.values(variant.attributes_map).join(' / ')
+  }
+  if (variant.attribute_values?.length) {
+    return variant.attribute_values.map((v) => v.value).join(' / ')
+  }
+  return variant.sku
 }
 
 // Held carts storage key
@@ -106,11 +139,17 @@ export const useCartStore = create<CartState>()(
       changeAmount: 0,
 
       // Actions
-      addItem: (product: Product, stock: Stock, quantity = 1) => {
+      addItem: (product: Product, stock: Stock, quantity = 1, variant?: ProductVariant | null) => {
         const state = get()
 
-        // Check if item with same stock already exists
-        const existingItem = state.items.find((item) => item.stock.id === stock.id)
+        // For variants, check if same variant exists
+        // For simple products, check if same stock exists
+        const existingItem = state.items.find((item) => {
+          if (variant && item.variantId) {
+            return item.variantId === variant.id
+          }
+          return !item.variantId && item.stock.id === stock.id
+        })
 
         if (existingItem) {
           // Update quantity of existing item
@@ -129,16 +168,23 @@ export const useCartStore = create<CartState>()(
             ),
           })
         } else {
+          // Determine price: variant price > stock price
+          const unitPrice = variant?.effective_price ?? variant?.price ?? stock.productSalePrice
+
           // Add new item
           const newItem: CartItem = {
-            id: `${stock.id}-${Date.now()}`,
+            id: generateCartItemId(stock, variant),
             product,
             stock,
             quantity,
-            unitPrice: stock.productSalePrice,
+            unitPrice,
             discount: 0,
             discountType: 'fixed',
-            total: quantity * stock.productSalePrice,
+            total: quantity * unitPrice,
+            // Variant fields
+            variant: variant ?? null,
+            variantId: variant?.id ?? null,
+            variantName: variant ? getVariantDisplayName(variant) : null,
           }
 
           set({ items: [...state.items, newItem] })

@@ -15,27 +15,29 @@
 5. [Brands](#5-brands)
 6. [Units](#6-units)
 7. [Product Models](#7-product-models)
-8. [Parties (Customers/Suppliers)](#8-parties-customerssuppliers)
-9. [Sales](#9-sales)
-10. [Purchases](#10-purchases)
-11. [Sale Returns](#11-sale-returns)
-12. [Purchase Returns](#12-purchase-returns)
-13. [Due Collection](#13-due-collection)
-14. [Expenses](#14-expenses)
-15. [Incomes](#15-incomes)
-16. [Expense Categories](#16-expense-categories)
-17. [Income Categories](#17-income-categories)
-18. [VAT/Tax](#18-vattax)
-19. [Payment Types](#19-payment-types)
-20. [Stocks](#20-stocks)
-21. [Warehouses](#21-warehouses)
-22. [Currencies](#22-currencies)
-23. [Invoices](#23-invoices)
-24. [Dashboard & Statistics](#24-dashboard--statistics)
-25. [Users & Staff](#25-users--staff)
-26. [Settings](#26-settings)
-27. [Bulk Upload](#27-bulk-upload)
-28. [Additional Resources](#28-additional-resources)
+8. [Attributes (Variable Products)](#8-attributes-variable-products)
+9. [Product Variants](#9-product-variants)
+10. [Parties (Customers/Suppliers)](#10-parties-customerssuppliers)
+11. [Sales](#11-sales)
+12. [Purchases](#12-purchases)
+13. [Sale Returns](#13-sale-returns)
+14. [Purchase Returns](#14-purchase-returns)
+15. [Due Collection](#15-due-collection)
+16. [Expenses](#16-expenses)
+17. [Incomes](#17-incomes)
+18. [Expense Categories](#18-expense-categories)
+19. [Income Categories](#19-income-categories)
+20. [VAT/Tax](#20-vattax)
+21. [Payment Types](#21-payment-types)
+22. [Stocks](#22-stocks)
+23. [Warehouses](#23-warehouses)
+24. [Currencies](#24-currencies)
+25. [Invoices](#25-invoices)
+26. [Dashboard & Statistics](#26-dashboard--statistics)
+27. [Users & Staff](#27-users--staff)
+28. [Settings](#28-settings)
+29. [Bulk Upload](#29-bulk-upload)
+30. [Additional Resources](#30-additional-resources)
 
 ---
 
@@ -603,53 +605,290 @@ Retrieves a specific product by ID.
 
 ### 3.3 Create Product
 
-Creates a new product.
+Creates a new product. Supports three product types:
+- **single**: Simple product with one pricing/stock entry
+- **variant**: Batch product with multiple stock entries (tracked by batch_no)
+- **variable**: Attribute-based variants (e.g., Size: S, M, L; Color: Red, Blue)
 
 **Endpoint:** `POST /products`  
 **Auth Required:** Yes
 
-**Request Body (multipart/form-data):**
-
-**For Single Product:**
+**Response Format:**
 ```json
 {
-  "productName": "string (required, max: 250)",
-  "productCode": "string (optional, unique per business)",
-  "category_id": "integer (optional, exists)",
-  "brand_id": "integer (optional, exists)",
-  "unit_id": "integer (optional, exists)",
-  "model_id": "integer (optional, exists)",
-  "vat_id": "integer (optional, exists)",
-  "vat_type": "string (optional)",
-  "alert_qty": "integer (optional, default: 0)",
-  "product_type": "single",
-  "productPurchasePrice": "numeric (optional)",
-  "productSalePrice": "numeric (optional)",
-  "productDealerPrice": "numeric (optional)",
-  "productWholeSalePrice": "numeric (optional)",
-  "productStock": "integer (optional)",
-  "profit_percent": "numeric (optional)",
-  "mfg_date": "date (optional)",
-  "expire_date": "date (optional)",
-  "productPicture": "file (optional, image)"
+  "success": true,
+  "message": "string",
+  "data": {
+    "id": "integer",
+    "productName": "string",
+    "product_type": "string",
+    "business_id": "integer",
+    "variants": []
+  }
 }
 ```
 
-**For Variant Product:**
+---
+
+#### 3.3.1 Create Single Product
+
+Simple product with standard pricing and stock.
+
+**Request Body (multipart/form-data):**
 ```json
 {
-  "productName": "string (required)",
-  "product_type": "variant",
-  "batch_no[]": ["BATCH001", "BATCH002"],
-  "productPurchasePrice[]": [100, 110],
-  "productSalePrice[]": [150, 160],
-  "productDealerPrice[]": [130, 140],
-  "productWholeSalePrice[]": [120, 130],
-  "productStock[]": [50, 30],
-  "profit_percent[]": [50, 45],
-  "mfg_date[]": ["2024-01-01", "2024-02-01"],
-  "expire_date[]": ["2025-12-31", "2025-11-30"]
+  "productName": "Laptop Charger",
+  "productCode": "CHARGER-001",
+  "category_id": 5,
+  "brand_id": 3,
+  "product_type": "single",
+  "productPurchasePrice": 800,
+  "productSalePrice": 1200,
+  "productDealerPrice": 1100,
+  "productWholeSalePrice": 1050,
+  "productStock": 100,
+  "profit_percent": 50,
+  "alert_qty": 10,
+  "productPicture": "<file>"
 }
+```
+
+**cURL Example:**
+```bash
+curl -X POST http://localhost:8000/api/v1/products \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "productName=Laptop Charger" \
+  -F "product_type=single" \
+  -F "productPurchasePrice=800" \
+  -F "productSalePrice=1200" \
+  -F "productStock=100"
+```
+
+---
+
+#### 3.3.2 Create Variant (Batch) Product
+
+Product with multiple stock entries tracked by batch numbers.
+
+**Request Body (multipart/form-data):**
+```json
+{
+  "productName": "Medicine Tablets",
+  "productCode": "MED-001",
+  "category_id": 8,
+  "product_type": "variant",
+  "variants": [
+    {
+      "batch_no": "BATCH20240101",
+      "enabled": 1,
+      "cost_price": 50,
+      "price": 100,
+      "dealer_price": 90,
+      "wholesale_price": 85,
+      "profit_percent": 100,
+      "mfg_date": "2024-01-01",
+      "expire_date": "2025-01-01"
+    },
+    {
+      "batch_no": "BATCH20240201",
+      "enabled": 1,
+      "cost_price": 52,
+      "price": 105,
+      "dealer_price": 95,
+      "wholesale_price": 90,
+      "profit_percent": 102,
+      "mfg_date": "2024-02-01",
+      "expire_date": "2025-02-01"
+    }
+  ]
+}
+```
+
+**Note:** Stock for variants is added separately via purchases module.
+
+---
+
+#### 3.3.3 Create Variable Product with Attribute-Based Variants
+
+Product with attribute-based variants. All variants are created in a single API call.
+
+**Requirements:**
+1. Attributes must be created first via `POST /api/v1/attributes`
+2. Attribute values must exist for the attributes
+3. Provide `attribute_value_ids` for each variant
+
+**Request Body (JSON):**
+```json
+{
+  "productName": "T-Shirt",
+  "productCode": "TSHIRT-001",
+  "category_id": 2,
+  "brand_id": 1,
+  "product_type": "variable",
+  "description": "Premium cotton T-shirt available in multiple sizes and colors",
+  "variants": [
+    {
+      "sku": "TSHIRT-S-RED",
+      "enabled": 1,
+      "cost_price": 300,
+      "price": 599,
+      "dealer_price": 549,
+      "wholesale_price": 499,
+      "is_active": 1,
+      "attribute_value_ids": [1, 5]
+    },
+    {
+      "sku": "TSHIRT-S-BLUE",
+      "enabled": 1,
+      "cost_price": 300,
+      "price": 599,
+      "dealer_price": 549,
+      "wholesale_price": 499,
+      "is_active": 1,
+      "attribute_value_ids": [1, 6]
+    },
+    {
+      "sku": "TSHIRT-M-RED",
+      "enabled": 1,
+      "cost_price": 320,
+      "price": 649,
+      "dealer_price": 599,
+      "wholesale_price": 549,
+      "is_active": 1,
+      "attribute_value_ids": [2, 5]
+    },
+    {
+      "sku": "TSHIRT-M-BLUE",
+      "enabled": 1,
+      "cost_price": 320,
+      "price": 649,
+      "dealer_price": 599,
+      "wholesale_price": 549,
+      "is_active": 1,
+      "attribute_value_ids": [2, 6]
+    },
+    {
+      "sku": "TSHIRT-L-RED",
+      "enabled": 1,
+      "cost_price": 350,
+      "price": 699,
+      "dealer_price": 649,
+      "wholesale_price": 599,
+      "is_active": 1,
+      "attribute_value_ids": [3, 5]
+    },
+    {
+      "sku": "TSHIRT-L-BLUE",
+      "enabled": 1,
+      "cost_price": 350,
+      "price": 699,
+      "dealer_price": 649,
+      "wholesale_price": 599,
+      "is_active": 1,
+      "attribute_value_ids": [3, 6]
+    }
+  ]
+}
+```
+
+**Attribute Value Reference (example):**
+- ID 1: Size = Small
+- ID 2: Size = Medium  
+- ID 3: Size = Large
+- ID 5: Color = Red
+- ID 6: Color = Blue
+
+**cURL Example:**
+```bash
+curl -X POST http://localhost:8000/api/v1/products \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "productName": "T-Shirt",
+    "productCode": "TSHIRT-001",
+    "category_id": 2,
+    "product_type": "variable",
+    "variants": [
+      {
+        "sku": "TSHIRT-S-RED",
+        "cost_price": 300,
+        "price": 599,
+        "attribute_value_ids": [1, 5]
+      },
+      {
+        "sku": "TSHIRT-M-RED",
+        "cost_price": 320,
+        "price": 649,
+        "attribute_value_ids": [2, 5]
+      }
+    ]
+  }'
+```
+
+**Response (Variable Product):**
+```json
+{
+  "success": true,
+  "message": "Product created successfully",
+  "data": {
+    "id": 245,
+    "productName": "T-Shirt",
+    "product_type": "variable",
+    "business_id": 1,
+    "variants": [
+      {
+        "id": 156,
+        "product_id": 245,
+        "sku": "TSHIRT-S-RED",
+        "cost_price": 300.00,
+        "price": 599.00,
+        "dealer_price": 549.00,
+        "wholesale_price": 499.00,
+        "is_active": 1,
+        "variant_name": "Small, Red",
+        "attributeValues": [
+          {"id": 1, "attribute_id": 1, "value": "Small"},
+          {"id": 5, "attribute_id": 2, "value": "Red"}
+        ]
+      },
+      {
+        "id": 157,
+        "product_id": 245,
+        "sku": "TSHIRT-S-BLUE",
+        "cost_price": 300.00,
+        "price": 599.00,
+        "dealer_price": 549.00,
+        "wholesale_price": 499.00,
+        "is_active": 1,
+        "variant_name": "Small, Blue",
+        "attributeValues": [
+          {"id": 1, "attribute_id": 1, "value": "Small"},
+          {"id": 6, "attribute_id": 2, "value": "Blue"}
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Stock Management for Variable Products:**
+
+Variable products don't have stock entries created during product creation. Stock is managed through the purchases/inventory module:
+
+1. **Via Web UI:** Navigate to Purchases → Create Purchase Order, select variant, specify quantity
+2. **Via API:** `POST /api/v1/stock` with `variant_id` and quantity
+
+Example stock addition:
+```bash
+curl -X POST http://localhost:8000/api/v1/stock \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "variant_id": 156,
+    "quantity": 50,
+    "cost_price": 300,
+    "warehouse_id": 1
+  }'
 ```
 
 ---
@@ -873,7 +1112,374 @@ Deletes a product.
 
 ---
 
-## 8. Parties (Customers/Suppliers)
+## 8. Attributes (Variable Products)
+
+Attributes define product variation types like Size, Color, Material, etc.
+
+### 8.1 List Attributes
+
+Retrieves all attributes with their values.
+
+**Endpoint:** `GET /attributes`  
+**Auth Required:** Yes
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Attributes retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "name": "Size",
+      "slug": "size",
+      "is_active": true,
+      "sort_order": 0,
+      "values": [
+        {
+          "id": 1,
+          "value": "Small",
+          "slug": "small",
+          "sort_order": 0
+        },
+        {
+          "id": 2,
+          "value": "Medium",
+          "slug": "medium",
+          "sort_order": 1
+        },
+        {
+          "id": 3,
+          "value": "Large",
+          "slug": "large",
+          "sort_order": 2
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### 8.2 Get Single Attribute
+
+**Endpoint:** `GET /attributes/{id}`  
+**Auth Required:** Yes
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Attribute retrieved successfully",
+  "data": {
+    "id": 1,
+    "name": "Size",
+    "slug": "size",
+    "is_active": true,
+    "values": [...]
+  }
+}
+```
+
+---
+
+### 8.3 Create Attribute
+
+**Endpoint:** `POST /attributes`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "name": "string (required, max: 100)",
+  "slug": "string (optional, auto-generated from name)",
+  "is_active": "boolean (optional, default: true)",
+  "sort_order": "integer (optional, default: 0)",
+  "values": [
+    {
+      "value": "string (required)",
+      "slug": "string (optional)",
+      "color_code": "string (optional, for color attributes)",
+      "sort_order": "integer (optional)"
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Attribute created successfully",
+  "data": {
+    "id": 1,
+    "name": "Color",
+    "slug": "color",
+    "values": [...]
+  }
+}
+```
+
+---
+
+### 8.4 Update Attribute
+
+**Endpoint:** `PUT /attributes/{id}`  
+**Auth Required:** Yes
+
+**Request Body:** Same as Create Attribute
+
+---
+
+### 8.5 Delete Attribute
+
+**Endpoint:** `DELETE /attributes/{id}`  
+**Auth Required:** Yes
+
+**Note:** Cannot delete attributes that are used by product variants.
+
+---
+
+### 8.6 Add Value to Attribute
+
+**Endpoint:** `POST /attributes/{id}/values`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "value": "string (required)",
+  "slug": "string (optional)",
+  "color_code": "string (optional)",
+  "sort_order": "integer (optional)"
+}
+```
+
+---
+
+### 8.7 Update Attribute Value
+
+**Endpoint:** `PUT /attribute-values/{id}`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "value": "string (required)",
+  "slug": "string (optional)",
+  "color_code": "string (optional)",
+  "is_active": "boolean (optional)",
+  "sort_order": "integer (optional)"
+}
+```
+
+---
+
+### 8.8 Delete Attribute Value
+
+**Endpoint:** `DELETE /attribute-values/{id}`  
+**Auth Required:** Yes
+
+**Note:** Cannot delete values that are used by product variants.
+
+---
+
+## 9. Product Variants
+
+Product variants represent specific combinations of attribute values (e.g., "Large Red T-Shirt").
+
+### 9.1 List Product Variants
+
+**Endpoint:** `GET /products/{product_id}/variants`  
+**Auth Required:** Yes
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Variants retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "product_id": 1,
+      "sku": "TSHIRT-LRG-RED",
+      "variant_name": "Large / Red",
+      "price": 29.99,
+      "cost_price": 15.00,
+      "stock_quantity": 50,
+      "low_stock_threshold": 5,
+      "is_active": true,
+      "sort_order": 0,
+      "attribute_values": [
+        {
+          "id": 3,
+          "attribute_id": 1,
+          "attribute_name": "Size",
+          "value": "Large"
+        },
+        {
+          "id": 5,
+          "attribute_id": 2,
+          "attribute_name": "Color",
+          "value": "Red"
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### 9.2 Create Single Variant
+
+**Endpoint:** `POST /products/{product_id}/variants`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "sku": "string (optional, auto-generated if not provided)",
+  "variant_name": "string (optional, auto-generated from attribute values)",
+  "price": "decimal (required)",
+  "cost_price": "decimal (optional)",
+  "stock_quantity": "integer (optional, default: 0)",
+  "low_stock_threshold": "integer (optional)",
+  "is_active": "boolean (optional, default: true)",
+  "attribute_value_ids": [1, 5]
+}
+```
+
+---
+
+### 9.3 Generate Variants (Bulk)
+
+Generates all possible variant combinations from selected attribute values.
+
+**Endpoint:** `POST /products/{product_id}/variants/generate`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "attribute_value_ids": [1, 2, 3, 4, 5, 6],
+  "base_price": 29.99,
+  "base_cost_price": 15.00,
+  "base_sku": "TSHIRT"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Generated 6 variants successfully",
+  "data": {
+    "created": 6,
+    "skipped": 0,
+    "variants": [...]
+  }
+}
+```
+
+---
+
+### 9.4 Find Variant by Attributes
+
+Finds a specific variant by its attribute value combination. Used in POS for variant selection.
+
+**Endpoint:** `POST /products/{product_id}/variants/find`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "attribute_value_ids": [3, 5]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Variant found",
+  "data": {
+    "id": 1,
+    "sku": "TSHIRT-LRG-RED",
+    "variant_name": "Large / Red",
+    "price": 29.99,
+    "stock_quantity": 50,
+    "attribute_values": [...]
+  }
+}
+```
+
+**Response (Not Found):**
+```json
+{
+  "success": false,
+  "message": "Variant not found for selected attributes"
+}
+```
+
+---
+
+### 9.5 Get Variant Details
+
+**Endpoint:** `GET /variants/{id}`  
+**Auth Required:** Yes
+
+---
+
+### 9.6 Update Variant
+
+**Endpoint:** `PUT /variants/{id}`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "sku": "string (optional)",
+  "variant_name": "string (optional)",
+  "price": "decimal (optional)",
+  "cost_price": "decimal (optional)",
+  "stock_quantity": "integer (optional)",
+  "low_stock_threshold": "integer (optional)",
+  "is_active": "boolean (optional)",
+  "sort_order": "integer (optional)"
+}
+```
+
+---
+
+### 9.7 Delete Variant
+
+**Endpoint:** `DELETE /variants/{id}`  
+**Auth Required:** Yes
+
+**Note:** Cannot delete variants that have been used in sales.
+
+---
+
+### 9.8 Update Variant Stock
+
+Quick stock update for a variant.
+
+**Endpoint:** `PUT /variants/{id}/stock`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "quantity": "integer (required)",
+  "operation": "string (optional: 'set', 'add', 'subtract', default: 'set')"
+}
+```
+
+---
+
+## 10. Parties (Customers/Suppliers)
 
 ### 8.1 List Parties
 
@@ -964,9 +1570,9 @@ Sends SMS reminder for due amount.
 
 ---
 
-## 9. Sales
+## 11. Sales
 
-### 9.1 List Sales
+### 11.1 List Sales
 
 Retrieves all sales.
 
@@ -1045,7 +1651,7 @@ Retrieves all sales.
 
 ---
 
-### 9.2 Create Sale
+### 11.2 Create Sale
 
 Creates a new sale transaction.
 
@@ -1104,7 +1710,7 @@ Creates a new sale transaction.
 
 ---
 
-### 9.3 Update Sale
+### 11.3 Update Sale
 
 Updates an existing sale.
 
@@ -1117,7 +1723,7 @@ Updates an existing sale.
 
 ---
 
-### 9.4 Delete Sale
+### 11.4 Delete Sale
 
 **Endpoint:** `DELETE /sales/{id}`  
 **Auth Required:** Yes
@@ -1126,9 +1732,9 @@ Updates an existing sale.
 
 ---
 
-## 10. Purchases
+## 12. Purchases
 
-### 10.1 List Purchases
+### 12.1 List Purchases
 
 **Endpoint:** `GET /purchases`  
 **Auth Required:** Yes
@@ -1176,7 +1782,7 @@ Updates an existing sale.
 
 ---
 
-### 10.2 Create Purchase
+### 12.2 Create Purchase
 
 **Endpoint:** `POST /purchases`  
 **Auth Required:** Yes
@@ -1213,7 +1819,7 @@ Updates an existing sale.
 
 ---
 
-### 10.3 Update Purchase
+### 12.3 Update Purchase
 
 **Endpoint:** `PUT /purchases/{id}`  
 **Auth Required:** Yes
@@ -1222,16 +1828,16 @@ Updates an existing sale.
 
 ---
 
-### 10.4 Delete Purchase
+### 12.4 Delete Purchase
 
 **Endpoint:** `DELETE /purchases/{id}`  
 **Auth Required:** Yes
 
 ---
 
-## 11. Sale Returns
+## 13. Sale Returns
 
-### 11.1 List Sale Returns
+### 13.1 List Sale Returns
 
 **Endpoint:** `GET /sale-returns`  
 **Auth Required:** Yes
@@ -1295,16 +1901,16 @@ Updates an existing sale.
 
 ---
 
-### 11.3 Get Sale Return Details
+### 13.3 Get Sale Return Details
 
 **Endpoint:** `GET /sale-returns/{id}`  
 **Auth Required:** Yes
 
 ---
 
-## 12. Purchase Returns
+## 14. Purchase Returns
 
-### 12.1 List Purchase Returns
+### 14.1 List Purchase Returns
 
 **Endpoint:** `GET /purchase-returns`  
 **Auth Required:** Yes
@@ -1315,7 +1921,7 @@ Updates an existing sale.
 
 ---
 
-### 12.2 Create Purchase Return
+### 14.2 Create Purchase Return
 
 **Endpoint:** `POST /purchase-returns`  
 **Auth Required:** Yes
@@ -1337,16 +1943,16 @@ Updates an existing sale.
 
 ---
 
-### 12.3 Get Purchase Return Details
+### 14.3 Get Purchase Return Details
 
 **Endpoint:** `GET /purchase-returns/{id}`  
 **Auth Required:** Yes
 
 ---
 
-## 13. Due Collection
+## 15. Due Collection
 
-### 13.1 List Due Collections
+### 15.1 List Due Collections
 
 **Endpoint:** `GET /dues`  
 **Auth Required:** Yes
@@ -1402,9 +2008,9 @@ Updates an existing sale.
 
 ---
 
-## 14. Expenses
+## 16. Expenses
 
-### 14.1 List Expenses
+### 16.1 List Expenses
 
 **Endpoint:** `GET /expenses`  
 **Auth Required:** Yes
@@ -1436,7 +2042,7 @@ Updates an existing sale.
 
 ---
 
-### 14.2 Create Expense
+### 16.2 Create Expense
 
 **Endpoint:** `POST /expenses`  
 **Auth Required:** Yes
@@ -1453,16 +2059,16 @@ Updates an existing sale.
 
 ---
 
-## 15. Incomes
+## 17. Incomes
 
-### 15.1 List Incomes
+### 17.1 List Incomes
 
 **Endpoint:** `GET /incomes`  
 **Auth Required:** Yes
 
 ---
 
-### 15.2 Create Income
+### 17.2 Create Income
 
 **Endpoint:** `POST /incomes`  
 **Auth Required:** Yes
@@ -1479,16 +2085,16 @@ Updates an existing sale.
 
 ---
 
-## 16. Expense Categories
+## 18. Expense Categories
 
-### 16.1 List Expense Categories
+### 18.1 List Expense Categories
 
 **Endpoint:** `GET /expense-categories`  
 **Auth Required:** Yes
 
 ---
 
-### 16.2 Create Expense Category
+### 18.2 Create Expense Category
 
 **Endpoint:** `POST /expense-categories`  
 **Auth Required:** Yes
@@ -1503,30 +2109,30 @@ Updates an existing sale.
 
 ---
 
-### 16.3 Update Expense Category
+### 18.3 Update Expense Category
 
 **Endpoint:** `PUT /expense-categories/{id}`  
 **Auth Required:** Yes
 
 ---
 
-### 16.4 Delete Expense Category
+### 18.4 Delete Expense Category
 
 **Endpoint:** `DELETE /expense-categories/{id}`  
 **Auth Required:** Yes
 
 ---
 
-## 17. Income Categories
+## 19. Income Categories
 
-### 17.1 List Income Categories
+### 19.1 List Income Categories
 
 **Endpoint:** `GET /income-categories`  
 **Auth Required:** Yes
 
 ---
 
-### 17.2 Create Income Category
+### 19.2 Create Income Category
 
 **Endpoint:** `POST /income-categories`  
 **Auth Required:** Yes
@@ -1548,16 +2154,16 @@ Updates an existing sale.
 
 ---
 
-### 17.4 Delete Income Category
+### 19.4 Delete Income Category
 
 **Endpoint:** `DELETE /income-categories/{id}`  
 **Auth Required:** Yes
 
 ---
 
-## 18. VAT/Tax
+## 20. VAT/Tax
 
-### 18.1 List VAT/Taxes
+### 20.1 List VAT/Taxes
 
 **Endpoint:** `GET /vats`  
 **Auth Required:** Yes
@@ -1596,7 +2202,7 @@ Updates an existing sale.
 
 ---
 
-### 18.2 Create VAT
+### 20.2 Create VAT
 
 **Endpoint:** `POST /vats`  
 **Auth Required:** Yes
@@ -1619,14 +2225,14 @@ Updates an existing sale.
 
 ---
 
-### 18.3 Update VAT
+### 20.3 Update VAT
 
 **Endpoint:** `PUT /vats/{id}`  
 **Auth Required:** Yes
 
 ---
 
-### 18.4 Delete VAT
+### 20.4 Delete VAT
 
 **Endpoint:** `DELETE /vats/{id}`  
 **Auth Required:** Yes
@@ -1635,9 +2241,9 @@ Updates an existing sale.
 
 ---
 
-## 19. Payment Types
+## 21. Payment Types
 
-### 19.1 List Payment Types
+### 21.1 List Payment Types
 
 **Endpoint:** `GET /payment-types`  
 **Auth Required:** Yes
@@ -1675,23 +2281,23 @@ Updates an existing sale.
 
 ---
 
-### 19.3 Update Payment Type
+### 21.3 Update Payment Type
 
 **Endpoint:** `PUT /payment-types/{id}`  
 **Auth Required:** Yes
 
 ---
 
-### 19.4 Delete Payment Type
+### 21.4 Delete Payment Type
 
 **Endpoint:** `DELETE /payment-types/{id}`  
 **Auth Required:** Yes
 
 ---
 
-## 20. Stocks
+## 22. Stocks
 
-### 20.1 Add Stock
+### 22.1 Add Stock
 
 Adds stock quantity to existing stock entry.
 
@@ -1708,7 +2314,7 @@ Adds stock quantity to existing stock entry.
 
 ---
 
-### 20.2 Update Stock
+### 22.2 Update Stock
 
 Updates stock details.
 
@@ -1731,16 +2337,16 @@ Updates stock details.
 
 ---
 
-### 20.3 Delete Stock
+### 22.3 Delete Stock
 
 **Endpoint:** `DELETE /stocks/{id}`  
 **Auth Required:** Yes
 
 ---
 
-## 21. Warehouses
+## 23. Warehouses
 
-### 21.1 List Warehouses
+### 23.1 List Warehouses
 
 **Endpoint:** `GET /warehouses`  
 **Auth Required:** Yes
@@ -1782,23 +2388,23 @@ Updates stock details.
 
 ---
 
-### 21.3 Update Warehouse
+### 23.3 Update Warehouse
 
 **Endpoint:** `PUT /warehouses/{id}`  
 **Auth Required:** Yes
 
 ---
 
-### 21.4 Delete Warehouse
+### 23.4 Delete Warehouse
 
 **Endpoint:** `DELETE /warehouses/{id}`  
 **Auth Required:** Yes
 
 ---
 
-## 22. Currencies
+## 24. Currencies
 
-### 22.1 List Currencies
+### 24.1 List Currencies
 
 Lists all available currencies.
 
@@ -1827,7 +2433,7 @@ Lists all available currencies.
 
 ---
 
-### 22.2 Change Currency
+### 24.2 Change Currency
 
 Changes the business currency.
 
@@ -1836,9 +2442,9 @@ Changes the business currency.
 
 ---
 
-## 23. Invoices
+## 25. Invoices
 
-### 23.1 Get Party Invoices with Due
+### 25.1 Get Party Invoices with Due
 
 Gets all invoices with due amounts for a party.
 
@@ -1889,9 +2495,9 @@ Generates a new invoice number.
 
 ---
 
-## 24. Dashboard & Statistics
+## 26. Dashboard & Statistics
 
-### 24.1 Get Summary
+### 26.1 Get Summary
 
 Gets today's summary statistics.
 
@@ -1916,7 +2522,7 @@ Gets today's summary statistics.
 
 ---
 
-### 24.2 Get Dashboard
+### 26.2 Get Dashboard
 
 Gets comprehensive dashboard data with charts.
 
@@ -1963,9 +2569,9 @@ Gets comprehensive dashboard data with charts.
 
 ---
 
-## 25. Users & Staff
+## 27. Users & Staff
 
-### 25.1 List Staff
+### 27.1 List Staff
 
 Lists all staff members.
 
@@ -1994,7 +2600,7 @@ Lists all staff members.
 
 ---
 
-### 25.2 Create Staff
+### 27.2 Create Staff
 
 **Endpoint:** `POST /users`  
 **Auth Required:** Yes
@@ -2012,7 +2618,7 @@ Lists all staff members.
 
 ---
 
-### 25.3 Update Staff
+### 27.3 Update Staff
 
 **Endpoint:** `PUT /users/{id}`  
 **Auth Required:** Yes
@@ -2030,16 +2636,16 @@ Lists all staff members.
 
 ---
 
-### 25.4 Delete Staff
+### 27.4 Delete Staff
 
 **Endpoint:** `DELETE /users/{id}`  
 **Auth Required:** Yes
 
 ---
 
-## 26. Settings
+## 28. Settings
 
-### 26.1 Get Product Settings
+### 28.1 Get Product Settings
 
 **Endpoint:** `GET /product-settings`  
 **Auth Required:** Yes
@@ -2067,7 +2673,7 @@ Lists all staff members.
 
 ---
 
-### 26.2 Update Product Settings
+### 28.2 Update Product Settings
 
 **Endpoint:** `POST /product-settings`  
 **Auth Required:** Yes
@@ -2093,14 +2699,14 @@ Lists all staff members.
 
 ---
 
-### 26.3 Get Invoice Settings
+### 28.3 Get Invoice Settings
 
 **Endpoint:** `GET /invoice-settings`  
 **Auth Required:** Yes
 
 ---
 
-### 26.4 Update Invoice Settings
+### 28.4 Update Invoice Settings
 
 **Endpoint:** `POST /invoice-settings`  
 **Auth Required:** Yes
@@ -2114,16 +2720,16 @@ Lists all staff members.
 
 ---
 
-### 26.5 Get Business Settings (Invoice Logo)
+### 28.5 Get Business Settings (Invoice Logo)
 
 **Endpoint:** `GET /business-settings`  
 **Auth Required:** Yes
 
 ---
 
-## 27. Bulk Upload
+## 29. Bulk Upload
 
-### 27.1 Upload Products
+### 29.1 Upload Products
 
 Bulk uploads products from Excel/CSV file.
 
@@ -2139,9 +2745,9 @@ Bulk uploads products from Excel/CSV file.
 
 ---
 
-## 28. Additional Resources
+## 30. Additional Resources
 
-### 28.1 List Languages
+### 30.1 List Languages
 
 Lists available languages for the app.
 
@@ -2164,14 +2770,14 @@ Lists available languages for the app.
 
 ---
 
-### 28.2 Create/Store Language
+### 30.2 Create/Store Language
 
 **Endpoint:** `POST /lang`  
 **Auth Required:** Yes
 
 ---
 
-### 28.3 List Banners
+### 30.3 List Banners
 
 Lists promotional banners.
 
@@ -2180,7 +2786,7 @@ Lists promotional banners.
 
 ---
 
-### 28.4 List Plans
+### 30.4 List Plans
 
 Lists available subscription plans.
 
@@ -2189,7 +2795,7 @@ Lists available subscription plans.
 
 ---
 
-### 28.5 List Subscriptions
+### 30.5 List Subscriptions
 
 Lists active subscriptions.
 
@@ -2198,7 +2804,7 @@ Lists active subscriptions.
 
 ---
 
-### 28.6 Update Invoice Settings (Alternative)
+### 30.6 Update Invoice Settings (Alternative)
 
 Updates invoice size settings.
 
@@ -2214,7 +2820,7 @@ Updates invoice size settings.
 
 ---
 
-### 28.7 Get Update Expiry Date
+### 30.7 Get Update Expiry Date
 
 Updates business expiry date.
 
@@ -2235,7 +2841,7 @@ Updates business expiry date.
 
 ---
 
-### 28.8 Bulk Upload Products
+### 30.8 Bulk Upload Products
 
 Bulk imports products from Excel/CSV.
 
@@ -2251,7 +2857,7 @@ Bulk imports products from Excel/CSV.
 
 ---
 
-### 28.9 Get New Invoice Number
+### 30.9 Get New Invoice Number
 
 Generates next invoice number.
 

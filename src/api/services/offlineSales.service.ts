@@ -75,7 +75,14 @@ export const offlineSalesService = {
 
     // Format data for backend batch sync
     // Parse products from JSON string if needed
-    let parsedProducts: Array<{ stock_id: number; quantities: number; price: number; lossProfit?: number }> = []
+    let parsedProducts: Array<{ 
+      stock_id: number
+      quantities: number
+      price: number
+      lossProfit?: number
+      variant_id?: number
+      variant_name?: string
+    }> = []
     try {
       if (typeof saleData.products === 'string') {
         parsedProducts = JSON.parse(saleData.products)
@@ -105,6 +112,9 @@ export const offlineSalesService = {
         quantities: p.quantities,
         price: p.price,
         lossProfit: p.lossProfit || 0,
+        // Include variant info if present
+        variant_id: p.variant_id,
+        variant_name: p.variant_name,
       })),
     }
 

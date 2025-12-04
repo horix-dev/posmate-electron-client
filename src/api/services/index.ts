@@ -24,6 +24,28 @@ export { warehousesService } from './warehouses.service'
 export { syncApiService } from './sync.service'
 export { offlineSalesService } from './offlineSales.service'
 
+// Variant services
+export {
+  attributesService,
+  attributeValuesService,
+  getAttributeValueDisplayName,
+  sortAttributes,
+  sortAttributeValues,
+  getActiveAttributes,
+  getActiveValues,
+} from './attributes.service'
+export {
+  variantsService,
+  getVariantDisplayName,
+  getVariantEffectivePrice,
+  getVariantTotalStock,
+  isVariantInStock,
+  sortVariants,
+  getActiveVariants,
+  generateAttributeCombinations,
+  buildVariantSku,
+} from './variants.service'
+
 // Export sync types
 export type {
   DeviceRegistrationRequest,

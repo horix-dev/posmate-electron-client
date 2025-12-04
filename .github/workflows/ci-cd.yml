@@ -1,0 +1,183 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # Job 1: Lint and Type Check
+  lint-and-type-check:
+    runs-on: ubuntu-latest
+    name: Lint & Type Check
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: false
+
+      - name: Run TypeScript type check
+        run: npm run type-check
+        continue-on-error: false
+
+  # Job 2: Build
+  build:
+    runs-on: ubuntu-latest
+    name: Build
+    needs: lint-and-type-check
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist
+          path: dist/
+          retention-days: 5
+
+  # Job 3: Tests
+  test:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+    needs: lint-and-type-check
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test -- --coverage
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/coverage-final.json
+          flags: unittests
+          name: codecov-umbrella
+
+  # Job 4: Security scanning (optional but recommended)
+  security:
+    runs-on: ubuntu-latest
+    name: Security Checks
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Snyk Security Scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+
+  # Job 5: Code Quality
+  code-quality:
+    runs-on: ubuntu-latest
+    name: Code Quality
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check code complexity
+        run: npm run complexity
+        continue-on-error: true
+
+  # Job 6: Deploy to Staging (only on develop branch)
+  deploy-staging:
+    runs-on: ubuntu-latest
+    name: Deploy to Staging
+    needs: [build, test]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to staging server
+        run: echo "Deploying to staging environment..."
+        # Add your staging deployment commands here
+
+  # Job 7: Deploy to Production (only on main branch with releases)
+  deploy-production:
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    needs: [build, test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: dist
+
+      - name: Deploy to production server
+        run: echo "Deploying to production environment..."
+        # Add your production deployment commands here
+
+  # Summary Job
+  ci-summary:
+    runs-on: ubuntu-latest
+    name: CI Summary
+    needs: [lint-and-type-check, build, test]
+    if: always()
+
+    steps:
+      - name: Check job status
+        run: |
+          if [ "${{ needs.lint-and-type-check.result }}" == "failure" ] || \
+             [ "${{ needs.build.result }}" == "failure" ] || \
+             [ "${{ needs.test.result }}" == "failure" ]; then
+            echo "❌ CI Pipeline failed"
+            exit 1
+          else
+            echo "✅ CI Pipeline passed"
+          fi

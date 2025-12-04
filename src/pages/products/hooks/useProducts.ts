@@ -7,6 +7,7 @@ import { setCache, getCache, CacheKeys } from '@/lib/cache'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { NoDataAvailableError, createAppError } from '@/lib/errors'
 import type { Product, Category, Brand, Unit, Stock } from '@/types/api.types'
+import type { VariableProductPayload } from '../schemas'
 
 // ============================================
 // Types
@@ -53,8 +54,8 @@ interface UseProductsReturn {
 
   // Actions
   refetch: () => Promise<void>
-  createProduct: (data: FormData) => Promise<Product>
-  updateProduct: (id: number, data: FormData) => Promise<Product>
+  createProduct: (data: FormData | VariableProductPayload, isVariable?: boolean) => Promise<Product>
+  updateProduct: (id: number, data: FormData | VariableProductPayload, isVariable?: boolean) => Promise<Product>
   deleteProduct: (id: number) => Promise<void>
 
   // Local state updates (optimistic)
@@ -330,15 +331,15 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
   }, [products])
 
   // CRUD Operations
-  const createProduct = useCallback(async (data: FormData): Promise<Product> => {
-    const result = await productsService.create(data)
+  const createProduct = useCallback(async (data: FormData | VariableProductPayload, isVariable = false): Promise<Product> => {
+    const result = await productsService.create(data, isVariable)
     setProducts((prev) => [result.data, ...prev])
     toast.success('Product created successfully')
     return result.data
   }, [])
 
-  const updateProduct = useCallback(async (id: number, data: FormData): Promise<Product> => {
-    const result = await productsService.update(id, data)
+  const updateProduct = useCallback(async (id: number, data: FormData | VariableProductPayload, isVariable = false): Promise<Product> => {
+    const result = await productsService.update(id, data, isVariable)
     setProducts((prev) => prev.map((p) => (p.id === id ? result.data : p)))
     toast.success('Product updated successfully')
     return result.data

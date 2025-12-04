@@ -22,7 +22,7 @@ const createMockProduct = (overrides: Partial<Product> = {}): Product => ({
   id: 1,
   productName: 'Test Product',
   productCode: 'TP001',
-  product_type: 'single',
+  product_type: 'simple',
   ...overrides,
 })
 

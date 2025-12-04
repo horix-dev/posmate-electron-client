@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Package } from 'lucide-react'
+import { Package, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -125,7 +125,14 @@ function ProductDetailsDialogComponent({
               >
                 {stockStatus.label}
               </Badge>
-              <Badge variant="secondary">{product.product_type}</Badge>
+              <Badge 
+                variant="secondary"
+                className={cn(
+                  product.product_type === 'variable' && 'bg-purple-100 text-purple-700'
+                )}
+              >
+                {product.product_type === 'variable' ? 'Variable Product' : 'Simple Product'}
+              </Badge>
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -136,6 +143,122 @@ function ProductDetailsDialogComponent({
             </div>
           </div>
         </div>
+
+        {/* Variant Information - For Variable Products */}
+        {product.product_type === 'variable' && product.variants && product.variants.length > 0 && (
+          <>
+            <Separator />
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <Settings2 className="h-4 w-4 text-muted-foreground" />
+                <h4 className="font-medium">
+                  Product Variants ({product.variants.length})
+                </h4>
+              </div>
+              <ScrollArea className="max-h-64">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Variant</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="text-right">Stock</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {product.variants.map((variant) => {
+                      // Get variant name from attribute values
+                      const variantName = variant.attribute_values
+                        ?.map((av) => av.value)
+                        .join(' / ') || `Variant ${variant.id}`
+                      
+                      // Get stock info for this variant
+                      const variantStock = product.stocks?.find(
+                        (s) => s.variant_id === variant.id
+                      )
+                      const stockQty = variantStock?.productStock ?? 0
+                      
+                      return (
+                        <TableRow key={variant.id}>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {variant.attribute_values?.map((av) => (
+                                <Badge
+                                  key={av.id}
+                                  variant="secondary"
+                                  className="text-xs"
+                                >
+                                  {av.attribute?.name}: {av.value}
+                                </Badge>
+                              ))}
+                              {(!variant.attribute_values || variant.attribute_values.length === 0) && (
+                                <span className="text-muted-foreground">
+                                  {variantName}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {variant.sku || '-'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {variant.price ? (
+                              <span>
+                                {currencySymbol}
+                                {variant.price.toLocaleString()}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Base</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Badge
+                              variant={stockQty > 0 ? 'default' : 'destructive'}
+                              className={cn(
+                                'text-xs',
+                                stockQty > 0 && 'bg-green-100 text-green-700 hover:bg-green-100'
+                              )}
+                            >
+                              {stockQty}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={variant.is_active ? 'default' : 'secondary'}
+                              className={cn(
+                                'text-xs',
+                                variant.is_active && 'bg-blue-100 text-blue-700 hover:bg-blue-100'
+                              )}
+                            >
+                              {variant.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </div>
+          </>
+        )}
+
+        {/* Variable product without variants message */}
+        {product.product_type === 'variable' && (!product.variants || product.variants.length === 0) && (
+          <>
+            <Separator />
+            <div className="rounded-lg border border-dashed p-4 text-center">
+              <Settings2 className="mx-auto h-8 w-8 text-muted-foreground/50" />
+              <p className="mt-2 text-sm text-muted-foreground">
+                No variants configured for this variable product.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Edit the product to add variants.
+              </p>
+            </div>
+          </>
+        )}
 
         {/* Stock Information */}
         {product.stocks && product.stocks.length > 0 && (

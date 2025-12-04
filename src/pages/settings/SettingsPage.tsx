@@ -1,4 +1,5 @@
-import { Store, Receipt, Bell, Palette, Lock, Users } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Store, Receipt, Bell, Palette, Lock, Users, Tag } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
@@ -6,11 +7,35 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useUIStore, useBusinessStore } from '@/stores'
+import { attributesService } from '@/api/services'
+import { AttributesSettings } from './components'
+import type { Attribute } from '@/types/variant.types'
 
 export function SettingsPage() {
   const { theme, setTheme, soundEnabled, setSoundEnabled, autoPrintReceipt, setAutoPrintReceipt } =
     useUIStore()
   const business = useBusinessStore((state) => state.business)
+
+  // Attributes state
+  const [attributes, setAttributes] = useState<Attribute[]>([])
+  const [attributesLoading, setAttributesLoading] = useState(false)
+
+  // Fetch attributes
+  const fetchAttributes = async () => {
+    setAttributesLoading(true)
+    try {
+      const response = await attributesService.getAll()
+      setAttributes(response.data || [])
+    } catch (error) {
+      console.error('Failed to fetch attributes:', error)
+    } finally {
+      setAttributesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchAttributes()
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -23,6 +48,10 @@ export function SettingsPage() {
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="business">Business</TabsTrigger>
+          <TabsTrigger value="attributes">
+            <Tag className="mr-1 h-3 w-3" />
+            Attributes
+          </TabsTrigger>
           <TabsTrigger value="invoice">Invoice</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
@@ -127,6 +156,14 @@ export function SettingsPage() {
               <Button>Save Changes</Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="attributes" className="space-y-4">
+          <AttributesSettings
+            attributes={attributes}
+            isLoading={attributesLoading}
+            onRefresh={fetchAttributes}
+          />
         </TabsContent>
 
         <TabsContent value="invoice" className="space-y-4">

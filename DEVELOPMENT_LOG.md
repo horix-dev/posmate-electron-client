@@ -73,6 +73,77 @@ src/
 
 ## Feature Implementation Log
 
+### [Current Date - Update with today's date]
+
+#### Variable Products - Single API Request Implementation (Complete)
+
+**Problem**: The previous implementation of variable products required two API calls - first to create the product, then a separate call to generate variants. The backend API was updated to support creating/updating products with variants in a single request.
+
+**New API Format**: Variable products now accept variants in the same request body:
+```json
+{
+  "productName": "T-Shirt",
+  "product_type": "variable",
+  "variants": [{
+    "sku": "TSHIRT-S-RED",
+    "enabled": 1,
+    "cost_price": 300,
+    "price": 599,
+    "attribute_value_ids": [1, 5]
+  }]
+}
+```
+
+**Solution**: 
+1. Updated `VariantManager.tsx` to manage variants locally (no API calls during variant selection)
+2. Variants are generated from selected attribute values using cartesian product
+3. When saving, variants are included in the product payload for variable products
+4. Simple products continue to use FormData (multipart/form-data)
+5. Variable products use JSON body (application/json)
+
+**Files Modified**:
+- `src/types/variant.types.ts` - Added `VariantInput` interface with `attribute_value_ids`
+- `src/pages/products/schemas/product.schema.ts` - Added `variantInputSchema`, `VariableProductPayload` type, `formDataToVariableProductPayload()` function
+- `src/pages/products/schemas/index.ts` - Export new types and functions
+- `src/api/services/products.service.ts` - Updated `create()` and `update()` to accept `isVariable` parameter, send JSON for variable products
+- `src/pages/products/components/VariantManager.tsx` - Complete rewrite for local variant management with attribute selection
+- `src/pages/products/components/ProductFormDialog.tsx` - Updated to manage variants state, pass to `VariantManager`, include in submission
+- `src/pages/products/hooks/useProducts.ts` - Updated `createProduct()` and `updateProduct()` signatures to accept `isVariable` parameter
+- `src/pages/products/ProductsPage.tsx` - Updated form submit handler to pass `isVariable` flag
+
+**Key Changes**:
+
+1. **VariantManager Component** (new implementation):
+   - Accepts `variants` and `onVariantsChange` props for controlled state
+   - `generateCombinations()` creates variants from selected attribute values (cartesian product)
+   - Inline editing for SKU, cost price, sale price per variant
+   - Auto-generates SKU from product code and attribute values
+
+2. **Product Service**:
+   ```typescript
+   create(data, isVariable = false) {
+     if (isVariable) {
+       // Send JSON with variants array
+       return api.post(url, data, { headers: { 'Content-Type': 'application/json' } })
+     }
+     // Send FormData for simple products
+     return api.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+   }
+   ```
+
+3. **Form Dialog**:
+   - Manages `variants: VariantInputData[]` state
+   - Validates that variable products have at least one variant
+   - Calls appropriate payload converter based on product type
+
+**Testing Notes**:
+- Create simple product: Should use FormData, work as before
+- Create variable product: Should include variants in JSON body
+- Edit variable product: Should load existing variants and allow modification
+- Verify variants are created with correct `attribute_value_ids`
+
+---
+
 ### November 28, 2025
 
 #### Offline Support - Storage Layer Fix (Complete)
@@ -441,6 +512,337 @@ Purple → Yellow on hover creates jarring contrast. Standard UI practice uses d
 - Login/SignUp/OTP flow
 - Token refresh with interceptors
 - Secure token storage (Electron Store)
+
+---
+
+### December 4, 2025
+
+#### Variant Product System - Frontend Implementation (Complete)
+
+**Feature**: Full frontend support for variant products (products with multiple variations like Size, Color, Material, etc.)
+
+**Backend Reference**: Phase 2: Variant Product System from BACKEND_DEVELOPMENT_LOG.md
+
+**What was implemented**:
+
+1. **Type Definitions** (`src/types/variant.types.ts`):
+   - `ProductType`: `'simple'` | `'variable'`
+   - `AttributeType`: `'button'` | `'color'` | `'select'`
+   - `Attribute`: Name, type, values, display order
+   - `AttributeValue`: Value with optional color_code
+   - `ProductVariant`: SKU, attribute values, stock info, pricing
+   - `VariantStockInfo`: Stock details for variants
+
+2. **API Types Updated** (`src/types/api.types.ts`):
+   - `Product.product_type`: Changed from `'single'|'variant'` to `'simple'|'variable'`
+   - `Product.variants`: Optional `ProductVariant[]` array
+   - `Product.attributes`: Optional `ProductAttribute[]` array
+   - `Stock.variant_id`: Links stock to variant
+   - `SaleDetail.variant_id`, `variant_sku`, `variant_name`: Variant info in sales
+
+3. **API Endpoints** (`src/api/endpoints.ts`):
+   ```typescript
+   ATTRIBUTES: {
+     BASE: '/product-attributes',
+     BY_ID: (id) => `/product-attributes/${id}`,
+     VALUES: (id) => `/product-attributes/${id}/values`,
+   },
+   VARIANTS: {
+     BY_PRODUCT: (productId) => `/products/${productId}/variants`,
+     BY_ID: (productId, variantId) => `/products/${productId}/variants/${variantId}`,
+     GENERATE: (productId) => `/products/${productId}/variants/generate`,
+     UPDATE_STOCK: (productId, variantId) => `/products/${productId}/variants/${variantId}/stock`,
+   }
+   ```
+
+4. **API Services Created**:
+   - `attributes.service.ts`: CRUD for product attributes
+   - `variants.service.ts`: CRUD for variants, stock updates, generation
+
+5. **Cart Store Updated** (`src/stores/cart.store.ts`):
+   ```typescript
+   interface CartItem {
+     // ... existing fields
+     variant?: ProductVariant    // Selected variant
+     variantName?: string        // Display name (e.g., "Size: Large, Color: Blue")
+   }
+   ```
+
+6. **VariantSelectionDialog** (`src/pages/pos/components/VariantSelectionDialog.tsx`):
+   - Opens when clicking a variable product in POS
+   - Displays all product attributes with smart selectors:
+     - **Button selector**: For Size, Material, etc.
+     - **Color swatch selector**: Visual color picker with contrast-aware checkmarks
+     - **Dropdown selector**: For attributes with many values
+   - Shows only available combinations (based on stock)
+   - Displays matched variant price, SKU, and stock
+   - Handles out-of-stock variants gracefully
+
+7. **ProductCard Updated** (`src/pages/pos/components/ProductCard.tsx`):
+   - Shows "Options" badge for variable products
+   - Calls `onSelectVariant` callback instead of directly adding to cart
+   - Differentiates between simple and variable product handling
+
+8. **CartItem Updated** (`src/pages/pos/components/CartItem.tsx`):
+   - Displays variant name below product name (e.g., "Size: L, Color: Red")
+   - Uses muted styling for variant info
+
+9. **Offline Sales Support** (`src/api/services/offlineSales.service.ts`):
+   - Includes `variant_id` in sale detail when syncing offline sales
+
+**Type Standardization**:
+- Standardized `product_type` across codebase to use `'simple'` | `'variable'`
+- Updated files: `api.types.ts`, `product.schema.ts`, `cart.store.test.ts`
+
+**Files Created**:
+- `src/types/variant.types.ts`
+- `src/api/services/attributes.service.ts`
+- `src/api/services/variants.service.ts`
+- `src/pages/pos/components/VariantSelectionDialog.tsx`
+
+**Files Modified**:
+- `src/types/api.types.ts` - Added variant fields, standardized product_type
+- `src/api/endpoints.ts` - Added ATTRIBUTES and VARIANTS endpoints
+- `src/api/services/index.ts` - Exported new services
+- `src/stores/cart.store.ts` - Added variant support to CartItem
+- `src/pages/pos/components/ProductCard.tsx` - Handle variable products
+- `src/pages/pos/components/CartItem.tsx` - Display variant info
+- `src/pages/pos/components/index.ts` - Export new dialog
+- `src/api/services/offlineSales.service.ts` - Include variant_id in sync
+- `src/pages/products/schemas/product.schema.ts` - Updated to 'simple'|'variable'
+- `src/__tests__/stores/cart.store.test.ts` - Fixed product_type in mock
+
+**Usage Example**:
+```tsx
+// In POS, when clicking a variable product:
+<VariantSelectionDialog
+  open={showVariantDialog}
+  onOpenChange={setShowVariantDialog}
+  product={selectedProduct}
+  currencySymbol={currencySymbol}
+  onSelectVariant={(product, stock, variant) => {
+    addItem(product, stock, variant)
+  }}
+/>
+
+// Cart item with variant:
+{
+  product: { id: 1, productName: "T-Shirt", product_type: "variable" },
+  stock: { id: 5, variant_id: 3, productSalePrice: 29.99 },
+  variant: { id: 3, sku: "TSHIRT-L-RED", attribute_values: [...] },
+  variantName: "Size: L, Color: Red",
+  quantity: 2
+}
+```
+
+**Pending Implementation**:
+- [x] Products page: Add/Edit variable products with variant management UI ✅
+- [x] Product form: Attribute selection and variant generation ✅
+- [ ] Variant stock management: Update stock for individual variants
+- [ ] Variant pricing: Individual prices per variant
+- [ ] Bulk variant operations: Enable/disable, delete multiple variants
+
+---
+
+#### Variable Product Management - Products Page (Complete)
+
+**Feature**: Full variant management UI in Products page for creating and editing variable products with variants.
+
+**What was implemented**:
+
+1. **useAttributes Hook** (`src/pages/products/hooks/useAttributes.ts`):
+   - Fetches product attributes with React Query pattern
+   - CRUD operations: `createAttribute`, `createAttributeValue`
+   - Error handling with toast notifications
+   - Loading states for UI feedback
+
+2. **VariantManager Component** (`src/pages/products/components/VariantManager.tsx`):
+   - **AttributeSelector**: Select which attributes apply to the product
+   - **Attribute Value Selection**: Checkbox-based selection of values (e.g., S, M, L for Size)
+   - **Generate Variants Button**: Bulk creates variants from selected attribute value combinations
+   - **VariantTable**: Displays existing variants with:
+     - Attribute badges (Size: M, Color: Red)
+     - Editable SKU field
+     - Price display
+     - Stock quantity with color-coded badges
+     - Status toggle (Active/Inactive)
+     - Delete action per variant
+   - Collapsible attribute sections for compact UI
+
+3. **ProductFormDialog Updates** (`src/pages/products/components/ProductFormDialog.tsx`):
+   - Added tab-based UI: **General** (basic info) | **Variants** (for variable products)
+   - New props: `attributes`, `attributesLoading`, `currencySymbol`
+   - Variants tab only visible for `product_type === 'variable'`
+   - Variant state management with `useState`
+   - Passes product ID and variants to VariantManager when editing
+
+4. **ProductsPage Integration** (`src/pages/products/ProductsPage.tsx`):
+   - Integrated `useAttributes` hook
+   - Passes attributes and loading state to ProductFormDialog
+
+5. **ProductRow Variant Display** (`src/pages/products/components/ProductRow.tsx`):
+   - Shows "Variable" badge for variable products
+   - Displays variant count (e.g., "12 variants")
+   - Settings icon indicator for variable products
+   - Variable pricing display instead of fixed price
+
+6. **ProductDetailsDialog Variant Section** (`src/pages/products/components/ProductDetailsDialog.tsx`):
+   - New "Product Variants" section for variable products
+   - Displays all variants in a read-only table:
+     - Attribute badges per variant
+     - SKU, Price, Stock, Status columns
+     - Color-coded stock and status badges
+   - Shows message when no variants configured
+   - Improved product type badge (Simple/Variable Product)
+
+**Shadcn Components Added**:
+- `checkbox` - For attribute value selection
+- `collapsible` - For expandable attribute sections
+- `alert` - For informational messages
+
+**Files Created**:
+- `src/pages/products/hooks/useAttributes.ts`
+- `src/pages/products/components/VariantManager.tsx`
+
+**Files Modified**:
+- `src/pages/products/hooks/index.ts` - Export useAttributes
+- `src/pages/products/components/index.ts` - Export VariantManager
+- `src/pages/products/components/ProductFormDialog.tsx` - Added tabs and variant support
+- `src/pages/products/ProductsPage.tsx` - Integrated useAttributes
+- `src/pages/products/components/ProductRow.tsx` - Show variant info
+- `src/pages/products/components/ProductDetailsDialog.tsx` - Display variants
+
+---
+
+#### Product Attributes Settings (Complete)
+
+**Feature**: Centralized attribute management in Settings page, following industry best practices (WooCommerce, Magento pattern).
+
+**Industry Practice Analysis**:
+| Platform | Attribute Location | Approach |
+|----------|-------------------|----------|
+| WooCommerce | Products → Attributes | Centralized + inline |
+| Shopify | Product Options | Inline only |
+| Magento | Stores → Attributes | Centralized |
+| Square POS | Items → Variations | Inline only |
+
+We implemented the **hybrid approach**: centralized management in Settings with reference from product form.
+
+**What was implemented**:
+
+1. **AttributesSettings Component** (`src/pages/settings/components/AttributesSettings.tsx`):
+   - Full CRUD for product attributes
+   - Create new attributes with name and display type (Button, Color Swatch, Dropdown)
+   - Add/delete values for each attribute
+   - Color picker for color-type attributes
+   - Delete confirmation dialogs
+   - Loading states for all operations
+
+2. **Settings Page Integration** (`src/pages/settings/SettingsPage.tsx`):
+   - Added "Attributes" tab with Tag icon
+   - Fetches attributes on mount
+   - Passes refresh callback to AttributesSettings
+
+**Component Features**:
+- **AttributeCard**: Displays attribute with its values
+- **CreateAttributeDialog**: Form for new attributes with type selection
+- **AddValueForm**: Inline form to add values with color picker for color types
+- **Delete confirmations**: AlertDialog for destructive actions
+
+**Files Created**:
+- `src/pages/settings/components/AttributesSettings.tsx`
+- `src/pages/settings/components/index.ts`
+
+**Files Modified**:
+- `src/pages/settings/SettingsPage.tsx` - Added Attributes tab
+
+**UX Flow**:
+1. User goes to Settings → Attributes
+2. Creates attributes (Size, Color, Material)
+3. Adds values to each attribute (S, M, L, XL for Size)
+4. Goes to Products → Add Variable Product
+5. In Variants tab, selects attributes and values
+6. Generates variants from combinations
+
+---
+
+#### Bug Fix: Variant Value Selection Reset (Complete)
+
+**Problem**: In VariantManager, users could only select 2 attribute values before the selection would reset.
+
+**Root Cause**: The `useEffect` in `VariantManager` had `[product]` as dependency, causing it to re-run on every parent re-render (since `product` prop reference changes). This reset `selectedValues` state back to the values from existing variants.
+
+**Solution**: Added `loadedProductId` state to track which product was already loaded:
+```typescript
+const [loadedProductId, setLoadedProductId] = useState<number | null>(null)
+
+useEffect(() => {
+  // Only load variants if product ID changed (not on every re-render)
+  if (product?.id && product.id !== loadedProductId) {
+    setLoadedProductId(product.id)
+    // ... load variant data
+  }
+}, [product?.id, product?.variants, loadedProductId])
+```
+
+**Files Modified**:
+- `src/pages/products/components/VariantManager.tsx` - Added loadedProductId tracking
+
+---
+
+#### Enhancement: Full Product Details on Edit (Complete)
+
+**Problem**: Edit product dialog wasn't showing variants because product data from list didn't include full variant details.
+
+**Solution**: Fetch complete product details via `productsService.getById()` when opening edit dialog:
+```typescript
+const handleEdit = useCallback(async (product: Product) => {
+  setIsLoadingProduct(true)
+  setIsFormDialogOpen(true)
+  
+  try {
+    const response = await productsService.getById(product.id)
+    setEditProduct(response.data)
+  } catch (error) {
+    setEditProduct(product) // Fallback to list data
+  } finally {
+    setIsLoadingProduct(false)
+  }
+}, [])
+```
+
+**Files Modified**:
+- `src/pages/products/ProductsPage.tsx` - Added async product fetch on edit/view
+- `src/pages/products/components/ProductFormDialog.tsx` - Added `isLoadingProduct` prop with loading UI
+
+---
+
+- `src/pages/products/components/ProductRow.tsx` - Show variant info
+- `src/pages/products/components/ProductDetailsDialog.tsx` - Display variants
+
+**UI/UX Details**:
+- Tab navigation prevents losing form state when switching tabs
+- Only shows Variants tab when product_type is 'variable'
+- Attribute values shown as checkable badges
+- Variant generation creates all combinations of selected values
+- Stock shown with green/red color coding
+- Status toggleable directly from variant table
+
+---
+
+#### Auto-Update System (Complete)
+
+**Feature**: Implemented automatic update system for production deployment using electron-updater.
+
+**Files Created**:
+- `electron/autoUpdater.ts` - Auto-update service with GitHub Releases
+- `src/components/common/UpdateNotification.tsx` - Update UI component
+
+**Update Flow**:
+1. App checks for updates on startup and every hour
+2. Shows notification when update available
+3. Downloads in background with progress
+4. Prompts user to restart and install
 
 ---
 

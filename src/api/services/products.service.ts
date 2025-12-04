@@ -1,11 +1,21 @@
 import api, { ApiResponse } from '../axios'
 import { API_ENDPOINTS } from '../endpoints'
 import type { Product, CreateProductRequest } from '@/types/api.types'
+import type { VariableProductPayload } from '@/pages/products/schemas/product.schema'
 
 interface ProductsListResponse {
   message: string
   total_stock_value: number
   data: Product[]
+}
+
+/**
+ * Response format for variable product creation
+ */
+interface VariableProductResponse {
+  success: boolean
+  message: string
+  data: Product
 }
 
 export const productsService = {
@@ -27,8 +37,26 @@ export const productsService = {
 
   /**
    * Create new product
+   * - Simple products use multipart/form-data
+   * - Variable products use JSON body with variants
    */
-  create: async (productData: CreateProductRequest | FormData): Promise<ApiResponse<Product>> => {
+  create: async (
+    productData: CreateProductRequest | FormData | VariableProductPayload | Record<string, unknown>,
+    isVariable = false
+  ): Promise<ApiResponse<Product>> => {
+    if (isVariable) {
+      // Variable product: send JSON body
+      const { data } = await api.post<VariableProductResponse>(
+        API_ENDPOINTS.PRODUCTS.CREATE,
+        productData,
+        {
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+      return { message: data.message, data: data.data }
+    }
+
+    // Simple product: send FormData
     const formData =
       productData instanceof FormData
         ? productData
@@ -41,11 +69,27 @@ export const productsService = {
 
   /**
    * Update existing product
+   * - Simple products use multipart/form-data  
+   * - Variable products use JSON body with variants
    */
   update: async (
     id: number,
-    productData: Partial<CreateProductRequest> | FormData
+    productData: Partial<CreateProductRequest> | FormData | VariableProductPayload | Record<string, unknown>,
+    isVariable = false
   ): Promise<ApiResponse<Product>> => {
+    if (isVariable) {
+      // Variable product: send JSON body
+      const { data } = await api.put<VariableProductResponse>(
+        API_ENDPOINTS.PRODUCTS.UPDATE(id),
+        productData,
+        {
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+      return { message: data.message, data: data.data }
+    }
+
+    // Simple product: send FormData
     const formData =
       productData instanceof FormData
         ? productData

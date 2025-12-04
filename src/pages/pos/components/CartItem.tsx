@@ -19,6 +19,10 @@ export interface CartItemDisplay {
   quantity: number
   salePrice: number
   maxStock: number
+  // Variant support
+  variantId?: number | null
+  variantName?: string | null
+  variantSku?: string | null
 }
 
 export interface CartItemProps {
@@ -102,7 +106,15 @@ function CartItemComponent({
       {/* Product Info */}
       <div className="min-w-0 flex-1">
         <h4 className="truncate font-medium leading-tight">{productName}</h4>
-        <p className="text-xs text-muted-foreground">{productCode}</p>
+        {/* Show variant name if present */}
+        {item.variantName && (
+          <p className="text-xs text-primary truncate">
+            {item.variantName}
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          {item.variantSku || productCode}
+        </p>
         <p className="mt-1 text-sm text-muted-foreground">
           {currencySymbol}
           {salePrice.toLocaleString()} × {quantity}

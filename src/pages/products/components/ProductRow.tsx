@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Package, MoreHorizontal, Pencil, Trash2, Eye, AlertTriangle } from 'lucide-react'
+import { Package, MoreHorizontal, Pencil, Trash2, Eye, AlertTriangle, Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { TableCell, TableRow } from '@/components/ui/table'
@@ -51,6 +51,8 @@ function ProductRowComponent({
   const totalStock = getTotalStock(product)
   const salePrice = getSalePrice(product)
   const purchasePrice = getPurchasePrice(product)
+  const isVariable = product.product_type === 'variable'
+  const variantCount = product.variants?.length ?? 0
 
   const handleView = () => onView(product)
   const handleEdit = () => onEdit(product)
@@ -79,7 +81,15 @@ function ProductRowComponent({
             )}
           </div>
           <div>
-            <p className="font-medium">{product.productName}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium">{product.productName}</p>
+              {isVariable && (
+                <Badge variant="outline" className="text-xs font-normal">
+                  <Layers className="mr-1 h-3 w-3" />
+                  {variantCount} variants
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {product.productCode || `SKU-${product.id}`}
             </p>
@@ -104,14 +114,28 @@ function ProductRowComponent({
       {/* Price */}
       <TableCell>
         <div className="text-right">
-          <p className="font-medium">
-            {currencySymbol}
-            {salePrice.toLocaleString()}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Cost: {currencySymbol}
-            {purchasePrice.toLocaleString()}
-          </p>
+          {isVariable && variantCount > 0 ? (
+            <>
+              <p className="font-medium text-muted-foreground text-sm">
+                Variable pricing
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Base: {currencySymbol}
+                {salePrice.toLocaleString()}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium">
+                {currencySymbol}
+                {salePrice.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Cost: {currencySymbol}
+                {purchasePrice.toLocaleString()}
+              </p>
+            </>
+          )}
         </div>
       </TableCell>
 

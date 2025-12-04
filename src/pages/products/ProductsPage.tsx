@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useBusinessStore } from '@/stores'
 import { useDebounce } from '@/hooks'
+import { productsService } from '@/api/services'
 import type { Product } from '@/types/api.types'
+import type { VariableProductPayload } from './schemas'
 
 // Local imports
 import {
@@ -15,7 +17,7 @@ import {
   ProductFormDialog,
   DeleteProductDialog,
 } from './components'
-import { useProducts, DEFAULT_FILTERS } from './hooks'
+import { useProducts, useAttributes, DEFAULT_FILTERS } from './hooks'
 import type { ProductFilters } from './hooks'
 
 // ============================================
@@ -65,6 +67,12 @@ export function ProductsPage() {
     deleteProduct,
   } = useProducts(debouncedFilters)
 
+  // Attributes for variant products
+  const {
+    attributes,
+    isLoading: attributesLoading,
+  } = useAttributes()
+
   // ============================================
   // Business Store
   // ============================================
@@ -78,6 +86,7 @@ export function ProductsPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
+  const [isLoadingProduct, setIsLoadingProduct] = useState(false)
   const [deleteProductState, setDeleteProductState] = useState<Product | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -91,16 +100,38 @@ export function ProductsPage() {
     setIsFormDialogOpen(true)
   }, [])
 
-  // Open view product dialog
-  const handleView = useCallback((product: Product) => {
-    setViewProduct(product)
+  // Open view product dialog - fetch full product details
+  const handleView = useCallback(async (product: Product) => {
     setIsViewDialogOpen(true)
+    
+    try {
+      // Fetch full product details including variants
+      const response = await productsService.getById(product.id)
+      setViewProduct(response.data)
+    } catch (error) {
+      console.error('Failed to fetch product details:', error)
+      // Fall back to the list product data
+      setViewProduct(product)
+    }
   }, [])
 
-  // Open edit product dialog
-  const handleEdit = useCallback((product: Product) => {
-    setEditProduct(product)
+  // Open edit product dialog - fetch full product details
+  const handleEdit = useCallback(async (product: Product) => {
+    setIsLoadingProduct(true)
     setIsFormDialogOpen(true)
+    
+    try {
+      // Fetch full product details including variants
+      const response = await productsService.getById(product.id)
+      setEditProduct(response.data)
+    } catch (error) {
+      console.error('Failed to fetch product details:', error)
+      toast.error('Failed to load product details')
+      // Fall back to the list product data
+      setEditProduct(product)
+    } finally {
+      setIsLoadingProduct(false)
+    }
   }, [])
 
   // Open delete confirmation dialog
@@ -131,11 +162,11 @@ export function ProductsPage() {
 
   // Form submit handler
   const handleFormSubmit = useCallback(
-    async (data: FormData, isEdit: boolean) => {
+    async (data: FormData | VariableProductPayload, isEdit: boolean, isVariable: boolean) => {
       if (isEdit && editProduct) {
-        await updateProduct(editProduct.id, data)
+        await updateProduct(editProduct.id, data, isVariable)
       } else {
-        await createProduct(data)
+        await createProduct(data, isVariable)
       }
     },
     [editProduct, createProduct, updateProduct]
@@ -241,9 +272,13 @@ export function ProductsPage() {
         open={isFormDialogOpen}
         onOpenChange={handleFormDialogClose}
         product={editProduct}
+        isLoadingProduct={isLoadingProduct}
         categories={categories}
         brands={brands}
         units={units}
+        attributes={attributes}
+        attributesLoading={attributesLoading}
+        currencySymbol={currencySymbol}
         onSubmit={handleFormSubmit}
       />
 
