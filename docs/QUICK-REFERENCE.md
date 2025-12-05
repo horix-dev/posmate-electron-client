@@ -1,6 +1,6 @@
 # Team Collaboration Quick Reference
 
-## 🚀 For Colleagues (Contributors)
+## 🚀 For Developers
 
 ### Starting Work
 ```powershell
