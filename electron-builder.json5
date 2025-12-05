@@ -11,6 +11,15 @@
     "dist",
     "dist-electron"
   ],
+  // Auto-update configuration
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "horix-dev",
+      "repo": "posmate-electron-client",
+      "releaseType": "release"
+    }
+  ],
   "mac": {
     "target": [
       "dmg"
