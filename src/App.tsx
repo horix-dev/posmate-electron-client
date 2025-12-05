@@ -3,6 +3,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { AppRouter } from '@/routes'
 import { useAuthStore, useUIStore } from '@/stores'
 import { useSyncStore } from '@/stores/sync.store'
+import { UpdateNotification } from '@/components/common/UpdateNotification'
 
 function App() {
   const hydrateFromStorage = useAuthStore((state) => state.hydrateFromStorage)
@@ -73,6 +74,7 @@ function App() {
     <div className="h-screen w-screen overflow-hidden">
       <AppRouter />
       <Toaster position="top-right" richColors closeButton />
+      <UpdateNotification />
     </div>
   )
 }

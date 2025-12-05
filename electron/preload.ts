@@ -121,6 +121,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getDeviceId: () => ipcRenderer.invoke('get-device-id'),
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
 
+  // Auto-Update
+  updater: {
+    checkForUpdates: () => ipcRenderer.invoke('updater:checkForUpdates'),
+    downloadUpdate: () => ipcRenderer.invoke('updater:downloadUpdate'),
+    quitAndInstall: () => ipcRenderer.invoke('updater:quitAndInstall'),
+    onUpdateStatus: (callback: (data: { status: string; data: unknown }) => void) => {
+      ipcRenderer.on('update-status', (_event, data) => callback(data))
+    },
+    removeUpdateListener: () => {
+      ipcRenderer.removeAllListeners('update-status')
+    },
+  },
+
   // Event listeners
   onMainProcessMessage: (callback: (message: string) => void) => {
     ipcRenderer.on('main-process-message', (_event, message) => callback(message))

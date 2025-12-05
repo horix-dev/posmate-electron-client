@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import Store from 'electron-store'
 import { sqliteService } from './sqlite.service'
+import { initAutoUpdater, getAutoUpdater } from './autoUpdater'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -273,10 +274,21 @@ app.whenReady().then(() => {
   }
   
   createWindow()
+
+  // Initialize auto-updater (only in production)
+  if (app.isPackaged && win) {
+    initAutoUpdater(win)
+  }
 })
 
 // Close database when app quits
 app.on('before-quit', () => {
+  // Cleanup auto-updater
+  const updater = getAutoUpdater()
+  if (updater) {
+    updater.cleanup()
+  }
+  
   sqliteService.close()
 })
 
@@ -369,3 +381,28 @@ ipcMain.handle('sqlite:setLastSyncTime', (_, entity: string, timestamp?: string)
 ipcMain.handle('sqlite:getDatabaseSize', () => sqliteService.getDatabaseSize())
 ipcMain.handle('sqlite:vacuum', () => sqliteService.vacuum())
 ipcMain.handle('sqlite:exportData', () => sqliteService.exportData())
+
+// ============================================
+// Auto-Update IPC Handlers
+// ============================================
+
+ipcMain.handle('updater:checkForUpdates', () => {
+  const updater = getAutoUpdater()
+  if (updater) {
+    updater.checkForUpdatesManual()
+  }
+})
+
+ipcMain.handle('updater:downloadUpdate', () => {
+  const updater = getAutoUpdater()
+  if (updater) {
+    updater.downloadUpdate()
+  }
+})
+
+ipcMain.handle('updater:quitAndInstall', () => {
+  const updater = getAutoUpdater()
+  if (updater) {
+    updater.quitAndInstall()
+  }
+})
