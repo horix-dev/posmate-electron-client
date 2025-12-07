@@ -288,6 +288,12 @@ const VariantTable = memo(function VariantTable({
                   value={variant.barcode || ''}
                   onChange={(e) => onUpdateVariant(index, { barcode: e.target.value })}
                   placeholder="Scannable barcode"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }
+                  }}
                   className="h-8 font-mono text-sm"
                 />
               </TableCell>
