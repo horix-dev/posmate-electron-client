@@ -73,7 +73,98 @@ src/
 
 ## Feature Implementation Log
 
-### [Current Date - Update with today's date]
+### December 7, 2025
+
+#### Invoice Update Detection and Reprint System (Complete)
+
+**Problem**: When a sale is created and printed while offline, the printed invoice uses a temporary offline number (e.g., `OFF-D001-1732710524`). After the sale syncs to the backend, the local database is updated with the real invoice number (e.g., `INV-001234`), but users were not notified about the change and couldn't reprint the receipt with the correct invoice number.
+
+**Solution**: Implemented a comprehensive invoice update detection and reprint system with the following components:
+
+1. **Database Schema Update** (Version 2):
+   - Added `printedReceipts` table to track offline-printed receipts
+   - Stores: saleId, offlineInvoiceNumber, finalInvoiceNumber, status, timestamps
+   - Status values: 'pending_update', 'updated', 'reprinted'
+
+2. **Printed Receipt Repository** (`src/lib/db/repositories/printedReceipt.repository.ts`):
+   - CRUD operations for printed receipt tracking
+   - Methods: create, findBySaleId, markAsReprinted, updateWithFinalInvoice
+   - Query methods: findByStatus, findNeedingReprint
+
+3. **Enhanced Sync Service** (`src/lib/db/services/enhancedSync.service.ts`):
+   - Added `handleInvoiceNumberChange()` method
+   - Detects when invoice number changes after sync
+   - Checks if receipt was printed offline
+   - Shows toast notification with reprint action button
+   - Triggers custom 'reprint-receipt' event for UI handling
+
+4. **Receipt Printer Component** (`src/components/receipt/ReceiptPrinter.tsx`):
+   - Print-ready receipt template with business info
+   - Displays temporary invoice warning badge
+   - Shows reprint information with original and new invoice numbers
+   - Includes timestamps for reprints
+   - Print mode support with `print:` CSS classes
+
+5. **Offline Sales Service Updates** (`src/api/services/offlineSales.service.ts`):
+   - New methods: `trackPrintedReceipt()`, `markAsReprinted()`, `getPrintedReceipt()`
+   - Automatically tracks receipts when offline sales are created
+   - Provides reprint workflow management
+
+6. **Sale Details Dialog Enhancement** (`src/pages/sales/components/SaleDetailsDialog.tsx`):
+   - Loads printed receipt info when dialog opens
+   - Shows alert when invoice number has been updated
+   - Displays reprint button with printer icon
+   - Shows temporary invoice warning for offline sales
+   - Displays reprint status badge
+   - Integrates ReceiptPrinter component for print functionality
+
+7. **POS Page Integration** (`src/pages/pos/POSPage.tsx`):
+   - Automatically tracks printed receipts on offline sale creation
+   - Integrated with offlineSales service
+
+8. **Sales Page Integration** (`src/pages/sales/SalesPage.tsx`):
+   - Listens for 'reprint-receipt' custom events
+   - Opens sale details dialog when reprint is requested from notification
+
+**Flow**:
+```
+1. User creates sale offline → Generate OFF-D001-XXX invoice
+2. Track printed receipt in IndexedDB (status: pending_update)
+3. Sale syncs to backend → Receives real invoice INV-001234
+4. Sync service detects invoice change → Updates printedReceipts
+5. Show toast notification: "Invoice updated, click to reprint"
+6. User clicks reprint → Opens SaleDetailsDialog
+7. User clicks reprint button → Prints with new invoice
+8. Mark as reprinted (status: reprinted) → Record timestamp
+```
+
+**Benefits**:
+- ✅ Users are notified when invoice numbers change
+- ✅ Easy reprint with correct invoice number
+- ✅ Complete audit trail of printed receipts
+- ✅ Clear visual distinction between temporary and final invoices
+- ✅ Professional receipt handling for offline scenarios
+- ✅ Reduced customer confusion about invoice numbers
+
+**Files Created**:
+- `src/lib/db/repositories/printedReceipt.repository.ts`
+- `src/components/receipt/ReceiptPrinter.tsx`
+- `src/components/receipt/index.ts`
+
+**Files Modified**:
+- `src/lib/db/schema.ts` - Added PrintedReceipt interface and table (schema v2)
+- `src/lib/db/repositories/index.ts` - Export printedReceipt repository
+- `src/lib/db/services/enhancedSync.service.ts` - Invoice change detection
+- `src/api/services/offlineSales.service.ts` - Receipt tracking methods
+- `src/pages/sales/components/SaleDetailsDialog.tsx` - Reprint UI
+- `src/pages/pos/POSPage.tsx` - Track receipts on sale creation
+- `src/pages/sales/SalesPage.tsx` - Reprint event handling
+
+**Database Migration**: The schema automatically migrates from v1 to v2, adding the `printedReceipts` table without data loss.
+
+---
+
+### [Earlier Date]
 
 #### Variable Products - Single API Request Implementation (Complete)
 
