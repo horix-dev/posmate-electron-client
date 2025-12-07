@@ -10,7 +10,7 @@
 
 import { salesService } from '@/api/services/sales.service'
 import { syncApiService } from '@/api/services/sync.service'
-import { saleRepository, syncQueueRepository } from '@/lib/db/repositories'
+import { saleRepository, syncQueueRepository, printedReceiptRepository } from '@/lib/db/repositories'
 import { useSyncStore } from '@/stores/sync.store'
 import { isOfflineQueuedError } from '@/api/offlineHandler'
 import type { CreateSaleRequest, Sale } from '@/types/api.types'
@@ -212,5 +212,51 @@ export const offlineSalesService = {
    */
   async getOfflineSales(): Promise<LocalSale[]> {
     return await saleRepository.getOfflineSales()
+  },
+
+  /**
+   * Track printed receipt for offline sale
+   * Call this after printing an offline receipt
+   */
+  async trackPrintedReceipt(saleId: number, offlineInvoiceNumber: string): Promise<void> {
+    try {
+      await printedReceiptRepository.create({
+        saleId,
+        offlineInvoiceNumber,
+        printedAt: new Date().toISOString(),
+        status: 'pending_update',
+      })
+      console.log(`[Offline Sales] Tracked printed receipt for sale ${saleId}`)
+    } catch (error) {
+      console.error('[Offline Sales] Error tracking printed receipt:', error)
+    }
+  },
+
+  /**
+   * Mark receipt as reprinted
+   */
+  async markAsReprinted(printedReceiptId: number): Promise<void> {
+    try {
+      await printedReceiptRepository.markAsReprinted(printedReceiptId)
+      console.log(`[Offline Sales] Marked receipt ${printedReceiptId} as reprinted`)
+    } catch (error) {
+      console.error('[Offline Sales] Error marking receipt as reprinted:', error)
+    }
+  },
+
+  /**
+   * Get printed receipt for a sale
+   */
+  async getPrintedReceipt(saleId: number) {
+    return await printedReceiptRepository.findBySaleId(saleId)
+  },
+
+  /**
+   * Check if a sale needs reprint
+   * Returns true if receipt was printed offline and invoice has been updated
+   */
+  async needsReprint(saleId: number): Promise<boolean> {
+    const printedReceipt = await printedReceiptRepository.findBySaleId(saleId)
+    return printedReceipt?.status === 'updated'
   },
 }

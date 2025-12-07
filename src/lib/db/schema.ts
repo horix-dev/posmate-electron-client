@@ -140,6 +140,19 @@ export interface HeldCart {
 }
 
 /**
+ * Printed receipt tracking for offline invoice number updates
+ */
+export interface PrintedReceipt {
+  id?: number
+  saleId: number // Local sale ID
+  offlineInvoiceNumber: string // The temporary offline invoice number (e.g., OFF-D001-1732710524)
+  printedAt: string // When the receipt was printed
+  status: 'pending_update' | 'updated' | 'reprinted' // Receipt status
+  finalInvoiceNumber?: string // The actual invoice number from backend (e.g., INV-001234)
+  reprintedAt?: string // When the receipt was reprinted with final invoice number
+}
+
+/**
  * App metadata for tracking sync state
  */
 export interface AppMetadata {
@@ -163,6 +176,7 @@ export class POSDatabase extends Dexie {
   // Transaction Tables
   sales!: Table<LocalSale, number>
   heldCarts!: Table<HeldCart, number>
+  printedReceipts!: Table<PrintedReceipt, number>
 
   // Sync Infrastructure
   syncQueue!: Table<SyncQueueItem, number>
@@ -185,6 +199,28 @@ export class POSDatabase extends Dexie {
       sales:
         '++id, invoiceNo, tempId, customerId, isOffline, isSynced, createdAt, lastSyncedAt',
       heldCarts: '++id, cartId, customerId, createdAt',
+
+      // Sync infrastructure
+      syncQueue:
+        '++id, entity, status, createdAt, lastAttemptAt, [status+createdAt]',
+      metadata: 'key, updatedAt',
+    })
+
+    // Schema version 2 - Add printedReceipts table for invoice update tracking
+    this.version(2).stores({
+      // Master data with indexes for efficient querying
+      products:
+        '++id, productCode, productName, categoryId, lastSyncedAt, [categoryId+productName]',
+      categories: '++id, categoryName, lastSyncedAt',
+      parties: '++id, partyType, partyName, phoneNo, lastSyncedAt',
+      paymentTypes: '++id, name, lastSyncedAt',
+      vats: '++id, vatName, lastSyncedAt',
+
+      // Transaction tables
+      sales:
+        '++id, invoiceNo, tempId, customerId, isOffline, isSynced, createdAt, lastSyncedAt',
+      heldCarts: '++id, cartId, customerId, createdAt',
+      printedReceipts: '++id, saleId, status, printedAt, [saleId+status]',
 
       // Sync infrastructure
       syncQueue:

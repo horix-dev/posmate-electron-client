@@ -10,9 +10,10 @@
  * - Incremental sync for data download
  */
 
-import { syncQueueRepository, saleRepository, productRepository } from '../repositories'
+import { syncQueueRepository, saleRepository, productRepository, printedReceiptRepository } from '../repositories'
 import { db, type SyncQueueItem, type LocalProduct, type LocalCategory, type LocalParty } from '../schema'
 import { syncApiService, type BatchOperation, type BatchOperationResult, type EntityChanges } from '@/api/services/sync.service'
+import { toast } from 'sonner'
 
 // ============================================
 // Types
@@ -266,11 +267,24 @@ export class EnhancedSyncService {
     switch (item.entity) {
       case 'sale':
         if (typeof item.entityId === 'number') {
+          // Get current sale to check if invoice number changed
+          const currentSale = await db.sales.get(item.entityId)
+          const oldInvoiceNumber = currentSale?.invoiceNumber
+          
           await saleRepository.markAsSynced(item.entityId, result.server_id)
           
           // Also update invoice number if provided
           if (result.invoice_number) {
             await db.sales.update(item.entityId, { invoiceNumber: result.invoice_number })
+            
+            // Check if invoice number changed and notify user
+            if (oldInvoiceNumber && oldInvoiceNumber !== result.invoice_number) {
+              await this.handleInvoiceNumberChange(
+                item.entityId,
+                oldInvoiceNumber,
+                result.invoice_number
+              )
+            }
           }
         }
         break
@@ -285,6 +299,47 @@ export class EnhancedSyncService {
           })
         }
         break
+    }
+  }
+
+  /**
+   * Handle invoice number change after sync
+   * Checks if receipt was printed offline and notifies user
+   */
+  private async handleInvoiceNumberChange(
+    saleId: number,
+    oldInvoiceNumber: string,
+    newInvoiceNumber: string
+  ): Promise<void> {
+    try {
+      console.log(`[EnhancedSync] Invoice number changed for sale ${saleId}: ${oldInvoiceNumber} → ${newInvoiceNumber}`)
+      
+      // Check if this receipt was printed offline
+      const printedReceipt = await printedReceiptRepository.findBySaleId(saleId)
+      
+      if (printedReceipt) {
+        // Update the printed receipt with final invoice number
+        await printedReceiptRepository.updateWithFinalInvoice(printedReceipt.id!, newInvoiceNumber)
+        
+        // Show notification to user with reprint option
+        toast.info('Invoice number updated', {
+          description: `Receipt ${oldInvoiceNumber} is now ${newInvoiceNumber}. Click to reprint.`,
+          duration: 10000, // Show for 10 seconds
+          action: {
+            label: 'Reprint',
+            onClick: () => {
+              // Trigger reprint - this will be handled by the UI component
+              window.dispatchEvent(new CustomEvent('reprint-receipt', {
+                detail: { saleId, printedReceiptId: printedReceipt.id }
+              }))
+            }
+          }
+        })
+        
+        console.log(`[EnhancedSync] Printed receipt updated for sale ${saleId}`)
+      }
+    } catch (error) {
+      console.error('[EnhancedSync] Error handling invoice number change:', error)
     }
   }
 
