@@ -215,10 +215,10 @@ function ProductFormDialogComponent({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="max-w-3xl max-h-[90vh] overflow-y-auto"
+        className="max-w-3xl max-h-[90vh] flex flex-col p-0"
         aria-describedby="product-form-description"
       >
-        <DialogHeader>
+        <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
           <DialogTitle>{isEdit ? 'Edit Product' : 'Add New Product'}</DialogTitle>
           <DialogDescription id="product-form-description">
             {isEdit
@@ -229,13 +229,14 @@ function ProductFormDialogComponent({
 
         {/* Loading state while fetching product details */}
         {isLoadingProduct ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-12 px-6">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <span className="ml-2 text-muted-foreground">Loading product details...</span>
           </div>
         ) : (
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 overflow-y-auto px-6 space-y-6">
             {/* Product Type Selection - Always visible at top */}
             <FormField
               control={form.control}
@@ -586,10 +587,11 @@ function ProductFormDialogComponent({
                 )}
               </TabsContent>
             </Tabs>
+            </div>
 
-            <Separator />
+            <Separator className="shrink-0" />
 
-            <DialogFooter>
+            <DialogFooter className="px-6 py-4 shrink-0">
               <Button
                 type="button"
                 variant="outline"
