@@ -228,6 +228,7 @@ const VariantTable = memo(function VariantTable({
             <TableHead className="w-[50px] bg-background">Active</TableHead>
             <TableHead className="min-w-[150px] bg-background">Variant</TableHead>
             <TableHead className="min-w-[120px] bg-background">SKU</TableHead>
+            <TableHead className="min-w-[120px] bg-background">Barcode</TableHead>
             <TableHead className="min-w-[100px] text-right bg-background">Cost ({currencySymbol})</TableHead>
             <TableHead className="min-w-[100px] text-right bg-background">Price ({currencySymbol})</TableHead>
             <TableHead className="min-w-[100px] text-right bg-background">Dealer ({currencySymbol})</TableHead>
@@ -280,6 +281,14 @@ const VariantTable = memo(function VariantTable({
                     </p>
                   )}
                 </div>
+              </TableCell>
+              <TableCell>
+                <Input
+                  value={variant.barcode || ''}
+                  onChange={(e) => onUpdateVariant(index, { barcode: e.target.value })}
+                  placeholder="Scannable barcode"
+                  className="h-8 font-mono text-sm"
+                />
               </TableCell>
               <TableCell>
                 <Input

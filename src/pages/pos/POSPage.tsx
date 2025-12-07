@@ -15,6 +15,7 @@ import { salesService } from '@/api/services/sales.service'
 import { offlineSalesService } from '@/api/services/offlineSales.service'
 import { partiesService } from '@/api/services/parties.service'
 import type { Product, Stock, PaymentType, Party as Customer } from '@/types/api.types'
+import type { ProductVariant } from '@/types/variant.types'
 
 // Components
 import {
@@ -137,9 +138,18 @@ export function POSPage() {
   // Cart Handlers
   // ----------------------------------------
   const handleAddToCart = useCallback(
-    (product: Product, stock: Stock) => {
-      addItem(product, stock, 1)
-      toast.success(`Added ${product.productName} to cart`)
+    (product: Product, stock: Stock | null, variant?: ProductVariant | null) => {
+      // For variants, use variant stock if available
+      const effectiveStock = variant?.stocks?.[0] || stock
+      if (!effectiveStock) {
+        toast.error('No stock information available')
+        return
+      }
+      addItem(product, effectiveStock, 1, variant)
+      const name = variant 
+        ? `${product.productName} (${variant.sku})`
+        : product.productName
+      toast.success(`Added ${name} to cart`)
     },
     [addItem]
   )
@@ -349,10 +359,28 @@ export function POSPage() {
   // ----------------------------------------
   const handleBarcodeScan = useCallback(
     (barcode: string) => {
-      // Find product by barcode/code
-      const product = products.find(
-        (p) => p.productCode?.toLowerCase() === barcode.toLowerCase()
+      const normalizedBarcode = barcode.toLowerCase()
+      
+      // First, try to find by product code (simple products)
+      let product = products.find(
+        (p) => p.productCode?.toLowerCase() === normalizedBarcode
       )
+
+      // If not found, search in variant barcodes
+      if (!product) {
+        for (const p of products) {
+          if (p.product_type === 'variable' && p.variants) {
+            const matchedVariant = p.variants.find(
+              (v) => v.barcode?.toLowerCase() === normalizedBarcode
+            )
+            if (matchedVariant) {
+              // Found variant by barcode - add to cart with variant selected
+              handleAddToCart(p, matchedVariant.stocks?.[0] || null, matchedVariant)
+              return
+            }
+          }
+        }
+      }
 
       if (product && product.stocks?.[0]) {
         handleAddToCart(product, product.stocks[0])

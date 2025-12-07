@@ -353,6 +353,8 @@ curl -X POST http://localhost:8000/api/v1/attributes \
 
 #### Step 2: Create Variable Product with Variants (Single Call)
 
+*Note:* `barcode` is optional but must be unique per business when provided.
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/products \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -367,6 +369,7 @@ curl -X POST http://localhost:8000/api/v1/products \
     "variants": [
       {
         "sku": "TSHIRT-S-RED",
+        "barcode": "8901234567001",
         "cost_price": 300,
         "price": 599,
         "dealer_price": 549,
@@ -375,6 +378,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-S-BLUE",
+        "barcode": "8901234567002",
         "cost_price": 300,
         "price": 599,
         "dealer_price": 549,
@@ -383,6 +387,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-M-RED",
+        "barcode": "8901234567003",
         "cost_price": 320,
         "price": 649,
         "dealer_price": 599,
@@ -391,6 +396,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-M-BLUE",
+        "barcode": "8901234567004",
         "cost_price": 320,
         "price": 649,
         "dealer_price": 599,
@@ -399,6 +405,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-L-RED",
+        "barcode": "8901234567005",
         "cost_price": 350,
         "price": 699,
         "dealer_price": 649,
@@ -407,6 +414,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-L-BLUE",
+        "barcode": "8901234567006",
         "cost_price": 350,
         "price": 699,
         "dealer_price": 649,
@@ -431,6 +439,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       {
         "id": 156,
         "sku": "TSHIRT-S-RED",
+        "barcode": "8901234567001",
         "variant_name": "Small, Red",
         "price": 599,
         "attributeValues": [
@@ -441,6 +450,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       {
         "id": 157,
         "sku": "TSHIRT-S-BLUE",
+        "barcode": "8901234567002",
         "variant_name": "Small, Blue",
         "price": 599,
         "attributeValues": [

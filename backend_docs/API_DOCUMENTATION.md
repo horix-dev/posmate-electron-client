@@ -716,6 +716,7 @@ Product with attribute-based variants. All variants are created in a single API 
 1. Attributes must be created first via `POST /api/v1/attributes`
 2. Attribute values must exist for the attributes
 3. Provide `attribute_value_ids` for each variant
+4. `barcode` is optional; if provided it must be unique per business
 
 **Request Body (JSON):**
 ```json
@@ -729,6 +730,7 @@ Product with attribute-based variants. All variants are created in a single API 
   "variants": [
     {
       "sku": "TSHIRT-S-RED",
+      "barcode": "8901234567001",
       "enabled": 1,
       "cost_price": 300,
       "price": 599,
@@ -739,6 +741,7 @@ Product with attribute-based variants. All variants are created in a single API 
     },
     {
       "sku": "TSHIRT-S-BLUE",
+      "barcode": "8901234567002",
       "enabled": 1,
       "cost_price": 300,
       "price": 599,
@@ -811,12 +814,14 @@ curl -X POST http://localhost:8000/api/v1/products \
     "variants": [
       {
         "sku": "TSHIRT-S-RED",
+        "barcode": "8901234567001",
         "cost_price": 300,
         "price": 599,
         "attribute_value_ids": [1, 5]
       },
       {
         "sku": "TSHIRT-M-RED",
+        "barcode": "8901234567003",
         "cost_price": 320,
         "price": 649,
         "attribute_value_ids": [2, 5]
@@ -840,6 +845,7 @@ curl -X POST http://localhost:8000/api/v1/products \
         "id": 156,
         "product_id": 245,
         "sku": "TSHIRT-S-RED",
+        "barcode": "8901234567001",
         "cost_price": 300.00,
         "price": 599.00,
         "dealer_price": 549.00,
@@ -855,6 +861,7 @@ curl -X POST http://localhost:8000/api/v1/products \
         "id": 157,
         "product_id": 245,
         "sku": "TSHIRT-S-BLUE",
+        "barcode": "8901234567002",
         "cost_price": 300.00,
         "price": 599.00,
         "dealer_price": 549.00,

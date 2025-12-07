@@ -5,6 +5,7 @@ import { z } from 'zod'
  */
 export const variantInputSchema = z.object({
   sku: z.string().optional(),
+  barcode: z.string().optional(),
   enabled: z.union([z.literal(0), z.literal(1)]).default(1),
   cost_price: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
@@ -136,6 +137,7 @@ export function productToFormData(product: {
   }>
   variants?: Array<{
     sku: string
+    barcode?: string | null
     price?: number | null
     cost_price?: number | null
     dealer_price?: number | null
@@ -149,6 +151,7 @@ export function productToFormData(product: {
   // Convert existing variants to form format
   const variants: VariantInputData[] = product.variants?.map(v => ({
     sku: v.sku || '',
+    barcode: v.barcode || '',
     enabled: 1 as const,
     cost_price: v.cost_price ?? undefined,
     price: v.price ?? undefined,
