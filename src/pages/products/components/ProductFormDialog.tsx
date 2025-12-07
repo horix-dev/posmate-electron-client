@@ -236,7 +236,7 @@ function ProductFormDialogComponent({
         ) : (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
-            <div className="flex-1 overflow-y-auto px-6 space-y-6">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
             {/* Product Type Selection - Always visible at top */}
             <FormField
               control={form.control}
