@@ -246,7 +246,11 @@ export class POSDatabase extends Dexie {
    * Clear all transaction data
    */
   async clearTransactionData() {
-    await Promise.all([this.sales.clear(), this.heldCarts.clear()])
+    await Promise.all([
+      this.sales.clear(),
+      this.heldCarts.clear(),
+      this.printedReceipts.clear(),
+    ])
   }
 
   /**

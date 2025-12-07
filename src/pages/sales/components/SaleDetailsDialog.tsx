@@ -105,14 +105,16 @@ function SaleDetailsDialogComponent({
     try {
       setShowReceipt(true)
       
-      // Wait for render then print
-      setTimeout(() => {
-        window.print()
-        // Mark as reprinted
-        offlineSalesService.markAsReprinted(printedReceipt.id!)
-        toast.success('Receipt reprinted successfully')
-        loadPrintedReceipt() // Reload to update status
-      }, 100)
+      // Wait for DOM to update before printing
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.print()
+          // Mark as reprinted (id is guaranteed to exist by guard above)
+          offlineSalesService.markAsReprinted(printedReceipt.id!)
+          toast.success('Receipt reprinted successfully')
+          loadPrintedReceipt() // Reload to update status
+        })
+      })
     } catch (error) {
       console.error('Error reprinting receipt:', error)
       toast.error('Failed to reprint receipt')

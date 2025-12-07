@@ -16,6 +16,13 @@ import { syncApiService, type BatchOperation, type BatchOperationResult, type En
 import { toast } from 'sonner'
 
 // ============================================
+// Constants
+// ============================================
+
+/** Duration to show invoice update notification (milliseconds) */
+const INVOICE_UPDATE_TOAST_DURATION = 10000
+
+// ============================================
 // Types
 // ============================================
 
@@ -324,7 +331,7 @@ export class EnhancedSyncService {
         // Show notification to user with reprint option
         toast.info('Invoice number updated', {
           description: `Receipt ${oldInvoiceNumber} is now ${newInvoiceNumber}. Click to reprint.`,
-          duration: 10000, // Show for 10 seconds
+          duration: INVOICE_UPDATE_TOAST_DURATION,
           action: {
             label: 'Reprint',
             onClick: () => {
