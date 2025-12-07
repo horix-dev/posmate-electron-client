@@ -210,9 +210,32 @@ function ProductFormDialogComponent({
         }
         
         onOpenChange(false)
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Failed to save product:', error)
-        toast.error(isEdit ? 'Failed to update product' : 'Failed to create product')
+        
+        // Extract error message from various error formats (Axios, Error, string)
+        let errorMessage = ''
+        if (error && typeof error === 'object') {
+          // Axios error: error.response.data.message
+          const axiosError = error as { response?: { data?: { message?: string } }; message?: string }
+          errorMessage = axiosError.response?.data?.message || axiosError.message || String(error)
+        } else {
+          errorMessage = String(error)
+        }
+        
+        // Parse backend error for duplicate SKU
+        const duplicateSkuMatch = errorMessage.match(/Duplicate entry '[\d]+-([^']+)' for key 'product_variants\.unique_sku_business'/)
+        
+        if (duplicateSkuMatch) {
+          const duplicateSku = duplicateSkuMatch[1]
+          toast.error(`SKU "${duplicateSku}" already exists in another product. Please use a different SKU.`)
+          setActiveTab('variants')
+        } else if (errorMessage.includes('Duplicate entry') || errorMessage.includes('unique_sku')) {
+          toast.error('A variant with this SKU already exists. Please use a unique SKU.')
+          setActiveTab('variants')
+        } else {
+          toast.error(isEdit ? 'Failed to update product' : 'Failed to create product')
+        }
       } finally {
         setIsSubmitting(false)
       }
