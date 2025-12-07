@@ -75,6 +75,20 @@ src/
 
 ### [Current Date - Update with today's date]
 
+#### Variable Products - Initial Stock Support (Dec 8, 2025)
+
+**Problem**: Backend now supports `initial_stock` per variant in a single create call; frontend needed to collect and send it.
+
+**Solution**:
+1. Added `initial_stock` to variant schema and payload for create/update
+2. Added Initial Stock column to Variant Manager table (per-variant input)
+3. Type updates so ProductVariant and form mapping accept `initial_stock`
+
+**Files Modified**:
+- `src/pages/products/schemas/product.schema.ts` – schema + form mapping includes `initial_stock`
+- `src/pages/products/components/VariantManager.tsx` – UI column for initial stock
+- `src/types/variant.types.ts` – allow `initial_stock` on ProductVariant
+
 #### Variable Products - Single API Request Implementation (Complete)
 
 **Problem**: The previous implementation of variable products required two API calls - first to create the product, then a separate call to generate variants. The backend API was updated to support creating/updating products with variants in a single request.

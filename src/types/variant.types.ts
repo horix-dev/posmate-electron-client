@@ -71,6 +71,7 @@ export interface ProductVariant {
   business_id: number
   sku: string
   barcode?: string | null
+  initial_stock?: number | null
   price: number | null // Null means inherit from parent product
   image?: string | null
   is_active: boolean
