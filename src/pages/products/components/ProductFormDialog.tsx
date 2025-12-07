@@ -175,6 +175,26 @@ function ProductFormDialogComponent({
         return
       }
 
+      // Check for duplicate SKUs in variants
+      if (data.product_type === 'variable' && variants.length > 0) {
+        const skuCounts = new Map<string, number>()
+        variants.forEach((variant) => {
+          const sku = variant.sku?.trim().toUpperCase()
+          if (sku) {
+            skuCounts.set(sku, (skuCounts.get(sku) || 0) + 1)
+          }
+        })
+        const duplicates = Array.from(skuCounts.entries())
+          .filter(([_, count]) => count > 1)
+          .map(([sku]) => sku)
+        
+        if (duplicates.length > 0) {
+          toast.error(`Duplicate SKUs found: ${duplicates.join(', ')}. Each variant must have a unique SKU.`)
+          setActiveTab('variants')
+          return
+        }
+      }
+
       setIsSubmitting(true)
       try {
         const isVariable = data.product_type === 'variable'

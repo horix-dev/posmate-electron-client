@@ -189,6 +189,27 @@ const VariantTable = memo(function VariantTable({
     return map
   }, [attributes])
 
+  // Check for duplicate SKUs
+  const duplicateSkus = useMemo(() => {
+    const skuCounts = new Map<string, number[]>()
+    variants.forEach((variant, index) => {
+      const sku = variant.sku?.trim().toUpperCase()
+      if (sku) {
+        const indices = skuCounts.get(sku) || []
+        indices.push(index)
+        skuCounts.set(sku, indices)
+      }
+    })
+    // Return Set of indices that have duplicate SKUs
+    const duplicates = new Set<number>()
+    skuCounts.forEach((indices) => {
+      if (indices.length > 1) {
+        indices.forEach((idx) => duplicates.add(idx))
+      }
+    })
+    return duplicates
+  }, [variants])
+
   if (variants.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
@@ -242,12 +263,23 @@ const VariantTable = memo(function VariantTable({
                 </div>
               </TableCell>
               <TableCell>
-                <Input
-                  value={variant.sku || ''}
-                  onChange={(e) => onUpdateVariant(index, { sku: e.target.value })}
-                  placeholder="Auto-generated"
-                  className="h-8 font-mono text-sm"
-                />
+                <div className="space-y-1">
+                  <Input
+                    value={variant.sku || ''}
+                    onChange={(e) => onUpdateVariant(index, { sku: e.target.value })}
+                    placeholder="Auto-generated"
+                    className={cn(
+                      "h-8 font-mono text-sm",
+                      duplicateSkus.has(index) && "border-destructive focus-visible:ring-destructive"
+                    )}
+                  />
+                  {duplicateSkus.has(index) && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Duplicate SKU
+                    </p>
+                  )}
+                </div>
               </TableCell>
               <TableCell>
                 <Input
