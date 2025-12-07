@@ -302,6 +302,17 @@ export function POSPage() {
         // Success
         if (result.isOffline) {
           toast.success('Sale saved offline - will sync when online')
+          
+          // Track printed receipt if printing offline
+          // Note: This would be called after actual print operation
+          // For now, we track it immediately when sale is created offline
+          // TODO: Integrate with actual print functionality
+          if (result.data.id && result.data.invoiceNumber) {
+            await offlineSalesService.trackPrintedReceipt(
+              result.data.id,
+              result.data.invoiceNumber
+            )
+          }
         } else {
           toast.success('Sale completed successfully!')
         }

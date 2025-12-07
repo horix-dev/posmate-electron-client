@@ -75,7 +75,6 @@ function SaleDetailsDialogComponent({
   currencySymbol,
 }: SaleDetailsDialogProps) {
   const [printedReceipt, setPrintedReceipt] = useState<PrintedReceipt | null>(null)
-  const [isLoadingReceipt, setIsLoadingReceipt] = useState(false)
   const [showReceipt, setShowReceipt] = useState(false)
 
   if (!sale) return null
@@ -92,14 +91,11 @@ function SaleDetailsDialogComponent({
 
   const loadPrintedReceipt = async () => {
     if (!sale?.id) return
-    setIsLoadingReceipt(true)
     try {
       const receipt = await offlineSalesService.getPrintedReceipt(sale.id)
       setPrintedReceipt(receipt || null)
     } catch (error) {
       console.error('Error loading printed receipt:', error)
-    } finally {
-      setIsLoadingReceipt(false)
     }
   }
 

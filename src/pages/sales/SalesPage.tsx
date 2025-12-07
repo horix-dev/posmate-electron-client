@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { RefreshCw, Download } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -119,6 +119,27 @@ export function SalesPage() {
     // TODO: Implement CSV/PDF export
     console.log('Export sales')
   }, [])
+
+  // ============================================
+  // Event Listeners
+  // ============================================
+  
+  // Listen for reprint events from toast notifications
+  useEffect(() => {
+    const handleReprintEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<{ saleId: number; printedReceiptId: number }>
+      const { saleId } = customEvent.detail
+      
+      // Find and open the sale details dialog
+      const sale = sales.find(s => s.id === saleId) || offlineSales.find(s => s.id === saleId)
+      if (sale) {
+        handleView(sale as Sale)
+      }
+    }
+
+    window.addEventListener('reprint-receipt', handleReprintEvent)
+    return () => window.removeEventListener('reprint-receipt', handleReprintEvent)
+  }, [sales, offlineSales, handleView])
 
   // ============================================
   // Render
