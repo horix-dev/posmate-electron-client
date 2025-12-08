@@ -145,6 +145,7 @@ export function productToFormData(product: {
     dealer_price?: number | null
     wholesale_price?: number | null
     is_active: boolean
+    attribute_value_ids?: number[]
     attribute_values?: Array<{ id: number }>
   }>
 }): ProductFormData {
@@ -161,7 +162,9 @@ export function productToFormData(product: {
     dealer_price: v.dealer_price ?? undefined,
     wholesale_price: v.wholesale_price ?? undefined,
     is_active: v.is_active ? 1 as const : 0 as const,
-    attribute_value_ids: v.attribute_values?.map(av => av.id) || [],
+    attribute_value_ids: v.attribute_value_ids
+      ? v.attribute_value_ids
+      : v.attribute_values?.map(av => av.id) || [],
   })) || []
 
   return {
