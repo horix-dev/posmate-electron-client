@@ -542,57 +542,6 @@ function ProductFormDialogComponent({
                   </div>
                 )}
 
-                {/* Default Pricing for Variable Products */}
-                {isVariableProduct && (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                      control={form.control}
-                      name="productPurchasePrice"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Purchase Price</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="0.00"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Base price for variants that don't have their own price
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="productSalePrice"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Sale Price</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="0.00"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Base price for variants that don't have their own price
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-
                 {/* Alert Quantity */}
                 <FormField
                   control={form.control}
@@ -618,8 +567,6 @@ function ProductFormDialogComponent({
                     attributesLoading={attributesLoading}
                     variants={variants}
                     onVariantsChange={handleVariantsChange}
-                    defaultCostPrice={parseFloat(form.watch('productPurchasePrice') || '0')}
-                    defaultSalePrice={parseFloat(form.watch('productSalePrice') || '0')}
                     currencySymbol={currencySymbol}
                   />
                 ) : (
