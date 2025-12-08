@@ -20,6 +20,8 @@ export interface ProductCardProps {
   onAddToCart: (product: Product, stock: Stock) => void
   /** Callback when variable product is clicked to open variant selection */
   onSelectVariant?: (product: Product) => void
+  /** Layout mode */
+  layout?: 'grid' | 'list'
 }
 
 // ============================================
@@ -32,10 +34,10 @@ function getStockInfo(product: Product) {
   // For variable products, calculate total stock from all variants
   let totalStock = 0
   if (isVariable && product.variants?.length) {
-    totalStock = product.variants_total_stock ?? 
+    totalStock = product.variants_total_stock ??
       product.variants.reduce((sum, v) => sum + (v.total_stock ?? 0), 0)
   } else {
-    totalStock = product.stocks_sum_product_stock ?? product.productStock ?? 
+    totalStock = product.stocks_sum_product_stock ?? product.productStock ??
       product.stocks?.[0]?.productStock ?? 0
   }
 
@@ -60,12 +62,12 @@ function getStockInfo(product: Product) {
     }
   }
 
-  return { 
-    stock, 
-    totalStock, 
-    salePrice: priceDisplay, 
-    isLowStock, 
-    isOutOfStock, 
+  return {
+    stock,
+    totalStock,
+    salePrice: priceDisplay,
+    isLowStock,
+    isOutOfStock,
     isVariable,
     hasPriceRange,
     variantCount: product.variants?.filter((v) => v.is_active).length ?? 0
@@ -81,13 +83,14 @@ function ProductCardComponent({
   currencySymbol,
   onAddToCart,
   onSelectVariant,
+  layout = 'grid',
 }: ProductCardProps) {
-  const { 
-    stock, 
-    totalStock, 
-    salePrice, 
-    isLowStock, 
-    isOutOfStock, 
+  const {
+    stock,
+    totalStock,
+    salePrice,
+    isLowStock,
+    isOutOfStock,
     isVariable,
     hasPriceRange,
     variantCount
@@ -109,17 +112,86 @@ function ProductCardComponent({
     }
   }, [product, stock, isOutOfStock, isVariable, onAddToCart, onSelectVariant])
 
+  if (layout === 'list') {
+    return (
+      <div
+        className={cn(
+          'group relative flex items-center gap-4 rounded-lg border bg-card p-3 shadow-sm transition-all hover:bg-muted/50 hover:shadow-md cursor-pointer',
+          isOutOfStock && 'opacity-50 cursor-not-allowed hover:shadow-none hover:bg-transparent'
+        )}
+        onClick={handleClick}
+        role="button"
+        tabIndex={isOutOfStock ? -1 : 0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleClick()
+          }
+        }}
+      >
+        {/* List View Image */}
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted">
+          {imageUrl ? (
+            <CachedImage
+              src={imageUrl}
+              alt={product.productName}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <Package className="h-6 w-6 text-muted-foreground/50" />
+            </div>
+          )}
+        </div>
+
+        {/* List View Details */}
+        <div className="flex flex-1 items-center justify-between gap-4 overflow-hidden">
+          <div className="space-y-1 min-w-0">
+            <h3 className="font-medium leading-none truncate">{product.productName}</h3>
+            <p className="text-sm text-muted-foreground truncate">
+              {product.productCode || `SKU-${product.id}`}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-6 shrink-0">
+            {/* Stock Status */}
+            <div className="flex flex-col items-end text-sm">
+              <span className={cn(
+                "font-medium",
+                isOutOfStock ? "text-destructive" : isLowStock ? "text-yellow-600" : "text-muted-foreground"
+              )}>
+                {isOutOfStock ? 'Out of Stock' : `${totalStock} in stock`}
+              </span>
+              {isVariable && (
+                <span className="text-xs text-muted-foreground">{variantCount} options</span>
+              )}
+            </div>
+
+            {/* Price */}
+            <div className="text-right min-w-[5rem]">
+              <span className="block font-bold text-primary">
+                {hasPriceRange && <span className="text-xs font-normal text-muted-foreground mr-1">from</span>}
+                {currencySymbol}{salePrice.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Card
       className={cn(
-        'group relative cursor-pointer transition-all hover:shadow-md',
-        isOutOfStock && 'opacity-50 cursor-not-allowed'
+        'group relative cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/50 dark:hover:border-primary/50 overflow-hidden',
+        isOutOfStock && 'opacity-50 cursor-not-allowed hover:translate-y-0 hover:shadow-none'
       )}
       onClick={handleClick}
       role="button"
       tabIndex={isOutOfStock ? -1 : 0}
-      aria-label={isVariable 
-        ? `Select options for ${product.productName}` 
+      aria-label={isVariable
+        ? `Select options for ${product.productName}`
         : `Add ${product.productName} to cart`
       }
       aria-disabled={isOutOfStock}
@@ -183,9 +255,9 @@ function ProductCardComponent({
           {!isOutOfStock && (
             <Button
               size="icon"
-              className="absolute bottom-1 right-1 h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
-              aria-label={isVariable 
-                ? `Select options for ${product.productName}` 
+              className="absolute bottom-1 right-1 h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 shadow-md"
+              aria-label={isVariable
+                ? `Select options for ${product.productName}`
                 : `Quick add ${product.productName}`
               }
             >
@@ -209,8 +281,7 @@ function ProductCardComponent({
           <div className="flex items-center justify-between">
             <span className="text-base font-bold text-primary">
               {hasPriceRange && 'From '}
-              {currencySymbol}
-              {salePrice.toLocaleString()}
+              {currencySymbol}{salePrice.toLocaleString()}
             </span>
             <span className="text-xs text-muted-foreground">
               Stock: {totalStock}

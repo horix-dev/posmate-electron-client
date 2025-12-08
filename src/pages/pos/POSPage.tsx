@@ -305,7 +305,7 @@ export function POSPage() {
         } else {
           toast.success('Sale completed successfully!')
         }
-        
+
         clearCart()
         closeDialog('payment')
 
@@ -462,26 +462,28 @@ export function POSPage() {
   // Render
   // ----------------------------------------
   return (
-    <div className="flex h-[calc(100vh-6rem)] gap-4">
+    <div className="flex h-[calc(100vh-6rem)] gap-3 p-3 overflow-hidden bg-muted">
       {/* Products Section */}
-      <div className="flex-[4] overflow-hidden p-4">
-        <ProductGrid
-          products={filteredProducts}
-          categories={categories}
-          selectedCategoryId={filters.categoryId}
-          searchQuery={filters.search}
-          currencySymbol={currencySymbol}
-          isLoading={isLoading}
-          viewMode={viewMode}
-          onCategoryChange={handleCategoryChange}
-          onSearchChange={handleSearchChange}
-          onAddToCart={handleAddToCart}
-          onViewModeChange={setViewMode}
-        />
+      <div className="flex-[7] flex flex-col h-full min-w-0 bg-background rounded-xl border shadow-sm overflow-hidden">
+        <div className="p-4 h-full relative">
+          <ProductGrid
+            products={filteredProducts}
+            categories={categories}
+            selectedCategoryId={filters.categoryId}
+            searchQuery={filters.search}
+            currencySymbol={currencySymbol}
+            isLoading={isLoading}
+            viewMode={viewMode}
+            onCategoryChange={handleCategoryChange}
+            onSearchChange={handleSearchChange}
+            onAddToCart={handleAddToCart}
+            onViewModeChange={setViewMode}
+          />
+        </div>
       </div>
 
       {/* Cart Sidebar */}
-      <aside className="flex-[3] flex h-full flex-shrink-0 flex-col border-l bg-background p-4">
+      <aside className="flex-[3] flex h-full min-w-[400px] max-w-[600px] flex-shrink-0 flex-col rounded-xl overflow-hidden border shadow-lg bg-background z-20">
         <CartSidebar
           items={adaptedCartItems}
           customer={customer}
@@ -509,19 +511,19 @@ export function POSPage() {
 
       {/* Keyboard Shortcuts Button */}
       <TooltipProvider>
-        <Tooltip>
+        <Tooltip delayDuration={300}>
           <TooltipTrigger asChild>
             <Button
               variant="outline"
               size="icon"
-              className="fixed bottom-4 right-4 h-10 w-10 rounded-full shadow-lg"
+              className="fixed bottom-4 right-4 h-12 w-12 rounded-full shadow-lg z-50 transition-transform active:scale-95 bg-background"
               onClick={() => openDialog('shortcuts')}
             >
-              <Keyboard className="h-5 w-5" />
+              <Keyboard className="h-6 w-6" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">
-            <p>Keyboard Shortcuts (F1)</p>
+          <TooltipContent side="top">
+            <p className="font-semibold">Keyboard Shortcuts (F1)</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

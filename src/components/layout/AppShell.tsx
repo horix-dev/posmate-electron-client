@@ -20,7 +20,7 @@ export function AppShell() {
       {/* Main Content Area */}
       <div
         className={cn(
-          'flex flex-1 flex-col pt-12 transition-all duration-300',
+          'flex flex-1 flex-col pt-12 transition-all duration-300 bg-muted',
           sidebarState === 'expanded' ? 'ml-64' : 'ml-16'
         )}
       >

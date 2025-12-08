@@ -77,7 +77,7 @@ const CategoryCombobox = memo(function CategoryCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[240px] justify-between"
+          className="w-[240px] justify-between h-10 border-muted-foreground/20 bg-background/50 hover:bg-background/80"
         >
           {selectedCategory?.categoryName ?? 'All Categories'}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -157,11 +157,11 @@ const SearchBar = memo(function SearchBar({
           placeholder="Search products or scan barcode..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9"
+          className="pl-9 h-10 bg-muted/40 border-muted-foreground/20 focus-visible:ring-primary/20"
           aria-label="Search products"
         />
       </div>
-      <div className="flex items-center rounded-lg border bg-muted p-1">
+      <div className="flex items-center rounded-lg border border-muted-foreground/20 bg-muted/40 p-1 h-10">
         <Button
           variant={viewMode === 'grid' ? 'default' : 'ghost'}
           size="icon"
@@ -235,10 +235,9 @@ function ProductGridComponent({
   const gridClassName = useMemo(
     () =>
       cn(
-        'grid gap-3',
         viewMode === 'grid'
-          ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-          : 'grid-cols-1'
+          ? 'grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+          : 'flex flex-col gap-2'
       ),
     [viewMode]
   )
@@ -246,18 +245,20 @@ function ProductGridComponent({
   return (
     <div className="flex h-full flex-col gap-4">
       {/* Header with Search and Category Filter */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 pb-4">
         <CategoryCombobox
           categories={categories}
           selectedCategoryId={selectedCategoryId}
           onCategoryChange={onCategoryChange}
         />
-        <SearchBar
-          searchQuery={searchQuery}
-          viewMode={viewMode}
-          onSearchChange={onSearchChange}
-          onViewModeChange={onViewModeChange}
-        />
+        <div className="flex-1">
+          <SearchBar
+            searchQuery={searchQuery}
+            viewMode={viewMode}
+            onSearchChange={onSearchChange}
+            onViewModeChange={onViewModeChange}
+          />
+        </div>
       </div>
 
       {/* Product Grid */}
@@ -282,6 +283,7 @@ function ProductGridComponent({
                 product={product}
                 currencySymbol={currencySymbol}
                 onAddToCart={onAddToCart}
+                layout={viewMode}
               />
             ))}
           </div>

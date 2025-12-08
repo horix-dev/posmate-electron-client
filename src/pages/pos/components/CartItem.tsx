@@ -82,7 +82,7 @@ function CartItemComponent({
   return (
     <div
       className={cn(
-        'group flex items-start gap-3 rounded-lg border p-3 transition-colors bg-card',
+        'group flex items-start gap-3 rounded-lg border p-3 transition-all duration-200 bg-card shadow-sm hover:shadow-md hover:border-primary/30',
         isEditing && 'border-primary bg-primary/5'
       )}
       role="listitem"

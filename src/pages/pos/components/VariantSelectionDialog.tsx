@@ -314,7 +314,7 @@ function VariantSelectionDialogComponent({
   )
 
   // Check if all attributes are selected
-  const allAttributesSelected = attributes.length > 0 && 
+  const allAttributesSelected = attributes.length > 0 &&
     attributes.every((attr) => selectedValues[attr.id] !== undefined)
 
   // Reset selections when dialog opens with new product
@@ -347,7 +347,7 @@ function VariantSelectionDialogComponent({
 
   // Get variant info for display
   const variantStock = matchedVariant?.total_stock ?? 0
-  const variantPrice = matchedVariant?.effective_price ?? matchedVariant?.price ?? 
+  const variantPrice = matchedVariant?.effective_price ?? matchedVariant?.price ??
     product.stocks?.[0]?.productSalePrice ?? 0
   const isOutOfStock = variantStock <= 0
   const isLowStock = variantStock > 0 && variantStock <= (product.alert_qty ?? 5)
@@ -394,8 +394,8 @@ function VariantSelectionDialogComponent({
                 attribute.type === 'color'
                   ? ColorAttributeSelector
                   : attribute.type === 'select'
-                  ? SelectAttributeSelector
-                  : ButtonAttributeSelector
+                    ? SelectAttributeSelector
+                    : ButtonAttributeSelector
 
               return (
                 <SelectorComponent
@@ -413,23 +413,23 @@ function VariantSelectionDialogComponent({
           {matchedVariant && (
             <>
               <Separator />
-              <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
+              <div className="rounded-lg border bg-card p-4 space-y-3 shadow-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">SKU</span>
-                  <span className="text-sm font-mono">{matchedVariant.sku}</span>
+                  <span className="text-sm font-mono font-medium">{matchedVariant.sku}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Price</span>
-                  <span className="text-lg font-bold text-primary">
+                  <span className="text-xl font-bold text-primary">
                     {currencySymbol}{variantPrice.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Stock</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm">{variantStock} units</span>
+                    <span className="text-sm font-medium">{variantStock} units</span>
                     {isLowStock && (
-                      <Badge variant="outline" className="border-yellow-500 text-yellow-600">
+                      <Badge variant="outline" className="border-yellow-500 text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20">
                         <AlertTriangle className="mr-1 h-3 w-3" />
                         Low
                       </Badge>

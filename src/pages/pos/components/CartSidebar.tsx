@@ -248,7 +248,7 @@ function CartSidebarComponent({
 
   return (
     <Card
-      className="flex h-full flex-col"
+      className="flex h-full flex-col border-none shadow-none rounded-none bg-background"
       role="region"
       aria-label="Shopping cart"
       onKeyDown={handleKeyboardPayment}
@@ -266,7 +266,7 @@ function CartSidebarComponent({
       <Separator />
 
       {/* Cart Items */}
-      <CardContent className="flex-1 overflow-hidden p-0">
+      <CardContent className="flex-1 overflow-hidden p-0 relative">
         {isEmpty ? (
           <EmptyCart
             heldCartsCount={heldCartsCount}
@@ -291,23 +291,22 @@ function CartSidebarComponent({
 
       {/* Totals & Actions */}
       {!isEmpty && (
-        <>
-          <Separator />
+        <div className="p-4 pb-2 space-y-4">
           <CartTotalsSection
             totals={totals}
             vatPercentage={vatPercentage}
             currencySymbol={currencySymbol}
           />
-        </>
+        </div>
       )}
 
-      <CardFooter className="flex-col gap-2 px-4 pb-4 pt-2">
+      <CardFooter className="flex-col gap-3 px-4 pb-4 pt-2">
         {/* Action Buttons */}
         <div className="flex w-full gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="flex-1"
+            className="flex-1 border-destructive/20 hover:bg-destructive/10 hover:text-destructive bg-background"
             onClick={onClearCart}
             disabled={isEmpty}
           >
@@ -317,7 +316,7 @@ function CartSidebarComponent({
           <Button
             variant="outline"
             size="sm"
-            className="flex-1"
+            className="flex-1 hover:bg-primary/5 bg-background"
             onClick={onHoldCart}
             disabled={isEmpty}
           >
@@ -329,18 +328,22 @@ function CartSidebarComponent({
         {/* Payment Button */}
         <Button
           size="lg"
-          className="w-full text-base"
+          className="w-full text-lg h-14 font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all"
           onClick={onPayment}
           disabled={isEmpty}
         >
-          <CreditCard className="mr-2 h-5 w-5" aria-hidden="true" />
-          Pay {currencySymbol}
-          {totals.total.toLocaleString()}
+          <div className="flex items-center justify-center gap-2">
+            <CreditCard className="h-5 w-5" aria-hidden="true" />
+            <span>
+              Pay {currencySymbol}
+              {totals.total.toLocaleString()}
+            </span>
+          </div>
         </Button>
 
         {/* Payment Type Hint */}
         {paymentType && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground text-center">
             Payment: {paymentType.name}
           </p>
         )}
