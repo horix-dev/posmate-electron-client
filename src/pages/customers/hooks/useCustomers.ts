@@ -77,7 +77,9 @@ export function useCustomers() {
       const appError = createAppError(error)
       toast.error(appError.message || 'Failed to delete customer')
     },
-  })  const customers = customersQuery.data ?? []
+  })
+
+  const customers = customersQuery.data ?? []
 
   const searchCustomers = (query: string) => {
     const q = query.trim().toLowerCase()
