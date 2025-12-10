@@ -118,7 +118,8 @@ function SupplierFormDialogComponent({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-4 overflow-y-auto">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 overflow-y-auto px-1 space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               {/* Name */}
               <FormField
@@ -329,7 +330,9 @@ function SupplierFormDialogComponent({
               )}
             />
 
-            <DialogFooter className="pt-4">
+            </div>
+
+            <DialogFooter className="pt-4 shrink-0">
               <Button type="button" variant="outline" onClick={handleClose} disabled={isSaving}>
                 Cancel
               </Button>
