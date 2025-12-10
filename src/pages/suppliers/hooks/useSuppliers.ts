@@ -1,11 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { partiesService } from '@/api/services/parties.service'
 import { setCache, getCache } from '@/lib/cache'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { createAppError } from '@/lib/errors'
 import type { Party, CreatePartyRequest, ApiResponse } from '@/types/api.types'
 
 const CACHE_KEY = 'cache:suppliers:list'
 
+/**
+ * Hook for managing suppliers
+ * Provides CRUD operations with caching and offline support
+ */
 export function useSuppliers() {
   const { isOnline } = useOnlineStatus()
   const queryClient = useQueryClient()
@@ -34,7 +40,15 @@ export function useSuppliers() {
 
   const createMutation = useMutation<ApiResponse<Party>, unknown, CreatePartyRequest>({
     mutationFn: (payload: CreatePartyRequest) => partiesService.create({ ...payload, type: 'Supplier' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['suppliers'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      toast.success('Supplier created successfully')
+    },
+    onError: (error) => {
+      console.error('[useSuppliers] Create error:', error)
+      const appError = createAppError(error)
+      toast.error(appError.message || 'Failed to create supplier')
+    },
   })
 
   const updateMutation = useMutation<
@@ -44,12 +58,28 @@ export function useSuppliers() {
   >({
     mutationFn: ({ id, payload }: { id: number; payload: Partial<CreatePartyRequest> }) =>
       partiesService.update(id, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['suppliers'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      toast.success('Supplier updated successfully')
+    },
+    onError: (error) => {
+      console.error('[useSuppliers] Update error:', error)
+      const appError = createAppError(error)
+      toast.error(appError.message || 'Failed to update supplier')
+    },
   })
 
   const deleteMutation = useMutation<void, unknown, number>({
     mutationFn: (id: number) => partiesService.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['suppliers'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      toast.success('Supplier deleted successfully')
+    },
+    onError: (error) => {
+      console.error('[useSuppliers] Delete error:', error)
+      const appError = createAppError(error)
+      toast.error(appError.message || 'Failed to delete supplier')
+    },
   })
 
   const suppliers = suppliersQuery.data ?? []

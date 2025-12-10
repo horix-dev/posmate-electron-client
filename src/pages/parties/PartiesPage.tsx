@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 import { Plus, Search, Filter, WifiOff, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -11,31 +10,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-
-// Suppliers feature imports
 import { useDebounce } from '@/hooks/useDebounce'
 import { useSuppliers } from '../suppliers/hooks/useSuppliers'
 import { useCustomers } from '../customers/hooks/useCustomers'
-import CustomerFormDialog, { CustomerFormValues } from '../customers/components/CustomerFormDialog'
-import SupplierFormDialog, { SupplierFormValues } from '../suppliers/components/SupplierFormDialog'
-import type { CreatePartyRequest } from '@/types/api.types'
-import type { Party } from '@/types/api.types'
-
-// Helper function to extract error message from API response
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    // Check if error has response data with message
-    const errorData = (error as any)?.response?.data
-    if (errorData?.message) {
-      return errorData.message
-    }
-    return error.message
-  }
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    return (error as any).message
-  }
-  return 'Unknown error'
-}
+import { CustomerFormDialog, type CustomerFormData } from '../customers/components/CustomerFormDialog'
+import { SupplierFormDialog, type SupplierFormData } from '../suppliers/components/SupplierFormDialog'
+import type { CreatePartyRequest, Party } from '@/types/api.types'
 
 export function PartiesPage() {
   const [activeTab, setActiveTab] = useState<'customers' | 'suppliers'>('customers')
@@ -98,77 +78,52 @@ export function PartiesPage() {
     setShowCustomerForm(true)
   }
 
-  const handleDelete = (supplier: Party) => {
-    deleteSupplier(supplier.id)
-      .then(() => {
-        toast.success(`Supplier "${supplier.name}" deleted successfully`)
-      })
-      .catch((error) => {
-        console.error('[PartiesPage] delete supplier error:', error)
-        const errorMessage = getErrorMessage(error)
-        toast.error(errorMessage)
-      })
+  // Supplier handlers
+  const handleDelete = async (supplier: Party) => {
+    await deleteSupplier(supplier.id)
   }
 
-  const handleSave = async (data: SupplierFormValues) => {
-    try {
-      const payload: CreatePartyRequest = {
-        name: data.name,
-        type: 'Supplier',
-        phone: data.phone || undefined,
-        email: data.email || undefined,
-        address: data.address || undefined,
-        // API requires opening_balance_type — defaulting to 'due' and 0 balance
-        opening_balance_type: 'due',
-        opening_balance: 0,
-      }
+  const handleSave = async (data: SupplierFormData) => {
+    const payload: CreatePartyRequest = {
+      name: data.name,
+      type: 'Supplier',
+      phone: data.phone || undefined,
+      email: data.email || undefined,
+      address: data.address || undefined,
+      opening_balance_type: 'due',
+      opening_balance: 0,
+    }
 
-      if (!selectedSupplier) {
-        await createSupplier(payload)
-      } else {
-        await updateSupplier(selectedSupplier.id, payload)
-      }
-    } catch (err) {
-      // errors handled in hook via toasts
-      console.debug('[PartiesPage] save error', err)
+    if (!selectedSupplier) {
+      await createSupplier(payload)
+    } else {
+      await updateSupplier(selectedSupplier.id, payload)
     }
   }
 
-  // Customers handlers
+  // Customer handlers
   const [selectedCustomer, setSelectedCustomer] = useState<Party | null>(null)
   const [showCustomerForm, setShowCustomerForm] = useState(false)
 
-  const handleDeleteCustomer = (customer: Party) => {
-    deleteCustomer(customer.id)
-      .then(() => {
-        toast.success(`Customer "${customer.name}" deleted successfully`)
-      })
-      .catch((error) => {
-        console.error('[PartiesPage] delete customer error:', error)
-        const errorMessage = getErrorMessage(error)
-        toast.error(errorMessage)
-      })
+  const handleDeleteCustomer = async (customer: Party) => {
+    await deleteCustomer(customer.id)
   }
 
-  const handleSaveCustomer = async (data: CustomerFormValues) => {
-    try {
-      const payload: CreatePartyRequest = {
-        name: data.name,
-        type: 'Retailer',
-        phone: data.phone || undefined,
-        email: data.email || undefined,
-        address: data.address || undefined,
-        opening_balance_type: 'due',
-        opening_balance: 0,
-      }
+  const handleSaveCustomer = async (data: CustomerFormData) => {
+    const payload: CreatePartyRequest = {
+      name: data.name,
+      type: 'Retailer',
+      phone: data.phone || undefined,
+      email: data.email || undefined,
+      address: data.address || undefined,
+      opening_balance_type: 'due',
+      opening_balance: 0,
+    }
 
-      if (!selectedCustomer) {
-        await createCustomer(payload)
-      } else {
-        await updateCustomer(selectedCustomer.id, payload)
-      }
-    } catch (err) {
-      console.debug('[PartiesPage] save customer error', err)
+    if (!selectedCustomer) {
+      await createCustomer(payload)
+    } else {
+      await updateCustomer(selectedCustomer.id, payload)
     }
   }
 

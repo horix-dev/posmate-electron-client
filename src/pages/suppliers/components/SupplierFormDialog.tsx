@@ -1,228 +1,354 @@
-import React from 'react'
-import { z } from 'zod'
+import { memo, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Loader2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import {
   Select,
-  SelectTrigger,
-  SelectValue,
   SelectContent,
   SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select'
-
 import type { Party } from '@/types/api.types'
+import {
+  supplierFormSchema,
+  type SupplierFormData,
+  defaultSupplierFormValues,
+  partyToSupplierFormData,
+} from '../schemas'
 
-const supplierSchema = z.object({
-  name: z.string().min(1, 'Supplier name is required').max(200),
-  contact_person: z.string().max(100).optional().or(z.literal('')),
-  email: z.string().email('Invalid email address').optional().or(z.literal('')),
-  phone: z.string().max(30).optional().or(z.literal('')),
-  address: z.string().max(500).optional().or(z.literal('')),
-  city: z.string().max(100).optional().or(z.literal('')),
-  state: z.string().max(100).optional().or(z.literal('')),
-  zip_code: z.string().max(30).optional().or(z.literal('')),
-  country: z.string().max(100).optional().or(z.literal('')),
-  tax_number: z.string().max(100).optional().or(z.literal('')),
-  payment_terms: z.string().max(50).optional().or(z.literal('')),
-  notes: z.string().max(1000).optional().or(z.literal('')),
-  is_active: z.boolean().default(true),
-})
+// ============================================
+// Types
+// ============================================
 
-export type SupplierFormValues = z.infer<typeof supplierSchema>
-
-interface Props {
+export interface SupplierFormDialogProps {
+  /** Whether the dialog is open */
   open: boolean
+  /** Callback when dialog open state changes */
   onOpenChange: (open: boolean) => void
-  // initialData may come from a Party (API type) or a partial form payload
-  initialData?: Party | Partial<SupplierFormValues> | null
-  onSave: (data: SupplierFormValues) => Promise<unknown>
+  /** Supplier to edit, null for create mode */
+  initialData?: Party | null
+  /** Callback when form is submitted successfully */
+  onSave: (data: SupplierFormData) => Promise<void>
+  /** Whether the form is currently saving */
   isSaving?: boolean
 }
 
-export function SupplierFormDialog({ open, onOpenChange, initialData, onSave, isSaving }: Props) {
-  // Treat initialData as a partial of the form values to avoid TS errors
-  const init = (initialData as Partial<SupplierFormValues>) ?? {}
+// ============================================
+// Main Component
+// ============================================
 
-  const form = useForm<SupplierFormValues>({
-    resolver: zodResolver(supplierSchema),
-    defaultValues: {
-      name: (initialData as Party)?.name ?? init.name ?? '',
-      contact_person: init.contact_person ?? '',
-      email: init.email ?? (initialData as Party)?.email ?? '',
-      phone: init.phone ?? (initialData as Party)?.phone ?? '',
-      address: init.address ?? (initialData as Party)?.address ?? '',
-      city: init.city ?? '',
-      state: init.state ?? '',
-      zip_code: init.zip_code ?? '',
-      country: init.country ?? '',
-      tax_number: init.tax_number ?? '',
-      payment_terms: init.payment_terms ?? '',
-      notes: init.notes ?? '',
-      is_active: init.is_active ?? true,
+function SupplierFormDialogComponent({
+  open,
+  onOpenChange,
+  initialData,
+  onSave,
+  isSaving = false,
+}: SupplierFormDialogProps) {
+  const isEdit = !!initialData
+
+  // Initialize form with react-hook-form and zod validation
+  const form = useForm<SupplierFormData>({
+    resolver: zodResolver(supplierFormSchema),
+    defaultValues: defaultSupplierFormValues,
+  })
+
+  // Reset form when dialog opens or supplier changes
+  useEffect(() => {
+    if (open) {
+      if (initialData) {
+        const formData = partyToSupplierFormData(initialData)
+        form.reset(formData)
+      } else {
+        form.reset(defaultSupplierFormValues)
+      }
+    }
+  }, [open, initialData, form])
+
+  // Handle form submission
+  const handleSubmit = useCallback(
+    async (data: SupplierFormData) => {
+      await onSave(data)
+      onOpenChange(false)
     },
-  })
+    [onSave, onOpenChange]
+  )
 
-  React.useEffect(() => {
-    // Reset form when initialData changes (open/edit mode)
-    const next = (initialData as Partial<SupplierFormValues>) ?? {}
-    form.reset({
-      name: (initialData as Party)?.name ?? next.name ?? '',
-      contact_person: next.contact_person ?? '',
-      email: next.email ?? (initialData as Party)?.email ?? '',
-      phone: next.phone ?? (initialData as Party)?.phone ?? '',
-      address: next.address ?? (initialData as Party)?.address ?? '',
-      city: next.city ?? '',
-      state: next.state ?? '',
-      zip_code: next.zip_code ?? '',
-      country: next.country ?? '',
-      tax_number: next.tax_number ?? '',
-      payment_terms: next.payment_terms ?? '',
-      notes: next.notes ?? '',
-      is_active: next.is_active ?? true,
-    })
-  }, [initialData])
-
-  const submit = form.handleSubmit(async (values) => {
-    await onSave(values)
-    onOpenChange(false)
-  })
+  // Handle dialog close
+  const handleClose = useCallback(() => {
+    if (!isSaving) {
+      onOpenChange(false)
+    }
+  }, [isSaving, onOpenChange])
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent
+        className="max-w-2xl max-h-[90vh] flex flex-col"
+        aria-describedby="supplier-form-description"
+      >
         <DialogHeader>
-          <DialogTitle>{initialData ? 'Edit Supplier' : 'Add Supplier'}</DialogTitle>
-          <DialogDescription>
-            {initialData ? 'Update supplier details' : 'Create a new supplier'}
+          <DialogTitle>{isEdit ? 'Edit Supplier' : 'Add Supplier'}</DialogTitle>
+          <DialogDescription id="supplier-form-description">
+            {isEdit
+              ? 'Update the supplier information below.'
+              : 'Fill in the supplier details below to add a new supplier.'}
           </DialogDescription>
         </DialogHeader>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            submit()
-          }}
-          className="grid gap-4 pt-2"
-        >
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Name</Label>
-              <Input {...form.register('name')} />
-              {form.formState.errors.name && (
-                <p className="text-xs text-destructive">
-                  {form.formState.errors.name.message as string}
-                </p>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-4 overflow-y-auto">
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Name */}
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter supplier name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Contact Person */}
+              <FormField
+                control={form.control}
+                name="contact_person"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contact Person</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter contact person" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Email */}
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="Enter email" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Phone */}
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter phone number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Address */}
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Address</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Enter address" rows={2} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
+            />
+
+            <div className="grid gap-4 md:grid-cols-3">
+              {/* City */}
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>City</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter city" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* State */}
+              <FormField
+                control={form.control}
+                name="state"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>State/Province</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter state" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* ZIP Code */}
+              <FormField
+                control={form.control}
+                name="zip_code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ZIP/Postal Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter ZIP code" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
-            <div>
-              <Label>Contact Person</Label>
-              <Input {...form.register('contact_person')} />
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Country */}
+              <FormField
+                control={form.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter country" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Tax Number */}
+              <FormField
+                control={form.control}
+                name="tax_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tax / VAT Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter tax number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Payment Terms */}
+              <FormField
+                control={form.control}
+                name="payment_terms"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Terms</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select payment terms" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Net 15">Net 15</SelectItem>
+                        <SelectItem value="Net 30">Net 30</SelectItem>
+                        <SelectItem value="Net 60">Net 60</SelectItem>
+                        <SelectItem value="Due on receipt">Due on receipt</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Active Status */}
+              <FormField
+                control={form.control}
+                name="is_active"
+                render={({ field }) => (
+                  <FormItem className="flex items-center gap-2 space-y-0 pt-6">
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <FormLabel className="!mt-0">Active</FormLabel>
+                  </FormItem>
+                )}
+              />
             </div>
 
-            <div>
-              <Label>Email</Label>
-              <Input {...form.register('email')} />
-              {form.formState.errors.email && (
-                <p className="text-xs text-destructive">
-                  {form.formState.errors.email.message as string}
-                </p>
+            {/* Notes */}
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Enter notes" rows={3} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-            </div>
+            />
 
-            <div>
-              <Label>Phone</Label>
-              <Input {...form.register('phone')} />
-            </div>
-
-            <div className="col-span-2">
-              <Label>Address</Label>
-              <textarea
-                {...form.register('address')}
-                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-            </div>
-
-            <div>
-              <Label>City</Label>
-              <Input {...form.register('city')} />
-            </div>
-
-            <div>
-              <Label>State/Province</Label>
-              <Input {...form.register('state')} />
-            </div>
-
-            <div>
-              <Label>ZIP/Postal Code</Label>
-              <Input {...form.register('zip_code')} />
-            </div>
-
-            <div>
-              <Label>Country</Label>
-              <Input {...form.register('country')} />
-            </div>
-
-            <div>
-              <Label>Tax / VAT Number</Label>
-              <Input {...form.register('tax_number')} />
-            </div>
-
-            <div>
-              <Label>Payment Terms</Label>
-              <Select onValueChange={(val) => form.setValue('payment_terms', val)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select terms" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Net 15">Net 15</SelectItem>
-                  <SelectItem value="Net 30">Net 30</SelectItem>
-                  <SelectItem value="Due on receipt">Due on receipt</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Label className="mb-0">Active</Label>
-              <Switch
-                checked={form.watch('is_active')}
-                onCheckedChange={(v) => form.setValue('is_active', !!v)}
-              />
-            </div>
-
-            <div className="col-span-2">
-              <Label>Notes</Label>
-              <textarea
-                {...form.register('notes')}
-                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={handleClose} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+                {isSaving ? 'Saving...' : isEdit ? 'Update Supplier' : 'Create Supplier'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )
 }
+
+export const SupplierFormDialog = memo(SupplierFormDialogComponent)
+
+SupplierFormDialog.displayName = 'SupplierFormDialog'
+
+export type { SupplierFormData }
 
 export default SupplierFormDialog
