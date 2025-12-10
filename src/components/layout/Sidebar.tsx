@@ -44,7 +44,7 @@ const mainNavItems: NavItem[] = [
   { title: 'Sales', href: '/sales', icon: Receipt },
   { title: 'Purchases', href: '/purchases', icon: Truck },
   { title: 'Parties', href: '/parties', icon: Users },
-  { title: 'Expenses', href: '/expenses', icon: Wallet },
+  { title: 'Finance', href: '/expenses', icon: Wallet },
 ]
 
 const secondaryNavItems: NavItem[] = [
