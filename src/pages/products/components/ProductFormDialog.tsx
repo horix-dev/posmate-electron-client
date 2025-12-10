@@ -168,6 +168,9 @@ function ProductFormDialogComponent({
   // Handle form submission
   const handleSubmit = useCallback(
     async (data: ProductFormData) => {
+      console.log('✅ handleSubmit called with data:', data)
+      console.log('✅ Variants:', variants)
+      
       // Validate variants for variable products
       if (data.product_type === 'variable' && variants.length === 0) {
         toast.error('Variable products must have at least one variant')
@@ -177,6 +180,16 @@ function ProductFormDialogComponent({
 
       // Check for duplicate SKUs in variants
       if (data.product_type === 'variable' && variants.length > 0) {
+        console.log('🔍 Validating variants, checking each variant:')
+        variants.forEach((v, idx) => {
+          console.log(`  Variant ${idx}:`, {
+            sku: v.sku,
+            attribute_value_ids: v.attribute_value_ids,
+            has_attribute_value_ids: !!v.attribute_value_ids,
+            attribute_value_ids_length: v.attribute_value_ids?.length
+          })
+        })
+        
         const skuCounts = new Map<string, number>()
         variants.forEach((variant) => {
           const sku = variant.sku?.trim().toUpperCase()
@@ -198,10 +211,12 @@ function ProductFormDialogComponent({
       setIsSubmitting(true)
       try {
         const isVariable = data.product_type === 'variable'
+        console.log('🚀 isVariable:', isVariable, 'isEdit:', isEdit)
         
         if (isVariable) {
           // Variable products: send JSON payload with variants
           const payload = formDataToVariableProductPayload(data, variants, imageFile)
+          console.log('🚀 Variable product payload:', payload)
           await onSubmit(payload, isEdit, true)
         } else {
           // Simple products: send FormData
@@ -278,7 +293,12 @@ function ProductFormDialogComponent({
           </div>
         ) : (
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
+          <form onSubmit={(e) => {
+            console.log('📝 Form onSubmit event triggered')
+            console.log('📝 Form errors:', form.formState.errors)
+            console.log('📝 Form values:', form.getValues())
+            form.handleSubmit(handleSubmit)(e)
+          }} className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
             {/* Product Type Selection - Always visible at top */}
             <FormField
@@ -590,7 +610,15 @@ function ProductFormDialogComponent({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+                onClick={() => {
+                  console.log('🔘 Update Product button clicked')
+                  console.log('🔘 Form is valid?', form.formState.isValid)
+                  console.log('🔘 Form errors:', form.formState.errors)
+                }}
+              >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
                 {isSubmitting ? 'Saving...' : isEdit ? 'Update Product' : 'Create Product'}
               </Button>

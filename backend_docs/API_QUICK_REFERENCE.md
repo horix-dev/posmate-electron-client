@@ -37,10 +37,22 @@
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/products` | ✅ | List all products |
-| GET | `/products/{id}` | ✅ | Get single product |
-| POST | `/products` | ✅ | Create product |
-| PUT | `/products/{id}` | ✅ | Update product |
+| GET | `/products/{id}` | ✅ | Get single product (includes variants + variant stocks/attributes for variable products) |
+| POST | `/products` | ✅ | Create product (single/batch/variable) |
+| PUT | `/products/{id}` | ✅ | Update product (single/batch only) |
 | DELETE | `/products/{id}` | ✅ | Delete product |
+
+### Product Variants (Attribute-Based)
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/products/{productId}/variants` | ✅ | List variants for a product |
+| GET | `/variants/{variantId}` | ✅ | Get single variant details |
+| POST | `/products/{productId}/variants` | ✅ | Create new variant |
+| PUT | `/variants/{variantId}` | ✅ | Update variant (pricing, SKU, barcode, etc.) |
+| DELETE | `/variants/{variantId}` | ✅ | Delete variant |
+| PUT | `/variants/{variantId}/stock` | ✅ | Update variant stock |
+| POST | `/products/{productId}/variants/find` | ✅ | Find variant by attribute combination |
+| POST | `/products/{productId}/variants/generate` | ✅ | Auto-generate all variants from attributes |
 
 ### Categories
 | Method | Endpoint | Auth | Description |
@@ -374,6 +386,7 @@ curl -X POST http://localhost:8000/api/v1/products \
         "price": 599,
         "dealer_price": 549,
         "wholesale_price": 499,
+        "initial_stock": 20,
         "attribute_value_ids": [1, 4]
       },
       {

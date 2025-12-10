@@ -588,15 +588,58 @@ Retrieves a specific product by ID.
 **Endpoint:** `GET /products/{id}`  
 **Auth Required:** Yes
 
-**Response:**
+**Response (variable product example):**
 ```json
 {
   "message": "Data fetched successfully.",
   "data": {
-    "id": 1,
-    "productName": "Product Name",
-    "productCode": "PRD001",
-    "stocks": [ ]
+    "id": 24,
+    "productName": "Premium T-Shirt",
+    "productCode": "TSHIRT-PREM-001",
+    "product_type": "variable",
+    "stocks": [],
+    "variants": [
+      {
+        "id": 156,
+        "sku": "TSHIRT-S-RED",
+        "barcode": "8901234567001",
+        "price": 599,
+        "cost_price": 300,
+        "wholesale_price": 499,
+        "dealer_price": 549,
+        "is_active": true,
+        "stocks": [
+          {
+            "id": 501,
+            "batch_no": "INIT-TSHIRT-S-RED",
+            "productStock": 20,
+            "productPurchasePrice": 300,
+            "productSalePrice": 599,
+            "productWholeSalePrice": 499,
+            "productDealerPrice": 549
+          }
+        ],
+        "attributeValues": [
+          { "id": 1, "attribute_id": 1, "value": "Small" },
+          { "id": 4, "attribute_id": 2, "value": "Red" }
+        ]
+      },
+      {
+        "id": 157,
+        "sku": "TSHIRT-S-BLUE",
+        "barcode": "8901234567002",
+        "price": 599,
+        "cost_price": 300,
+        "wholesale_price": 499,
+        "dealer_price": 549,
+        "is_active": true,
+        "stocks": [],
+        "attributeValues": [
+          { "id": 1, "attribute_id": 1, "value": "Small" },
+          { "id": 5, "attribute_id": 2, "value": "Blue" }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -606,12 +649,24 @@ Retrieves a specific product by ID.
 ### 3.3 Create Product
 
 Creates a new product. Supports three product types:
-- **single**: Simple product with one pricing/stock entry
-- **variant**: Batch product with multiple stock entries (tracked by batch_no)
-- **variable**: Attribute-based variants (e.g., Size: S, M, L; Color: Red, Blue)
 
 **Endpoint:** `POST /products`  
 **Auth Required:** Yes
+
+**Product Type Comparison:**
+
+| `product_type` Value | Common Name | Use Case | Stock Tracking |
+|---------------------|-------------|----------|----------------|
+| **`single`** | Simple Product | Basic product (e.g., Laptop Charger) | Single stock record |
+| **`variant`** | **Batch Product** | Batch/Lot tracking (e.g., Medicines with expiry dates) | Multiple stock records by `batch_no` |
+| **`variable`** | **Variant Product** | Attribute-based variants (e.g., T-Shirt: Size S/M/L × Color Red/Blue) | Stock per attribute combination |
+
+**⚠️ NAMING NOTE:** The system uses `product_type: 'variant'` for **batch products** and `product_type: 'variable'` for **attribute-based variants**. This may seem counterintuitive, but it's the current implementation.
+
+**⚠️ CRITICAL API DIFFERENCES:**
+
+- **Batch products (`product_type: 'variant'`)**: Use **arrays at root level** (`batch_no[]`, `productSalePrice[]`, `productStock[]`)
+- **Variant products (`product_type: 'variable'`)**: Use **`variants` array** with objects containing `attribute_value_ids`, `sku`, pricing
 
 **Response Format:**
 ```json
@@ -666,9 +721,11 @@ curl -X POST http://localhost:8000/api/v1/products \
 
 ---
 
-#### 3.3.2 Create Variant (Batch) Product
+#### 3.3.2 Create Batch Product (`product_type: 'variant'`)
 
-Product with multiple stock entries tracked by batch numbers.
+Product with multiple stock entries tracked by batch numbers. Used for products where you need to track different batches/lots (e.g., medicines with different expiry dates).
+
+**⚠️ Note:** Despite the naming, use `product_type: 'variant'` for batch products (not `'batch'`).
 
 **Request Body (multipart/form-data):**
 ```json
@@ -676,47 +733,56 @@ Product with multiple stock entries tracked by batch numbers.
   "productName": "Medicine Tablets",
   "productCode": "MED-001",
   "category_id": 8,
+  "brand_id": 3,
   "product_type": "variant",
-  "variants": [
-    {
-      "batch_no": "BATCH20240101",
-      "enabled": 1,
-      "cost_price": 50,
-      "price": 100,
-      "dealer_price": 90,
-      "wholesale_price": 85,
-      "profit_percent": 100,
-      "mfg_date": "2024-01-01",
-      "expire_date": "2025-01-01"
-    },
-    {
-      "batch_no": "BATCH20240201",
-      "enabled": 1,
-      "cost_price": 52,
-      "price": 105,
-      "dealer_price": 95,
-      "wholesale_price": 90,
-      "profit_percent": 102,
-      "mfg_date": "2024-02-01",
-      "expire_date": "2025-02-01"
-    }
-  ]
+  "batch_no": ["BATCH20240101", "BATCH20240201"],
+  "productStock": [50, 45],
+  "productPurchasePrice": [50, 52],
+  "productSalePrice": [100, 105],
+  "productDealerPrice": [90, 95],
+  "productWholeSalePrice": [85, 90],
+  "profit_percent": [100, 102],
+  "mfg_date": ["2024-01-01", "2024-02-01"],
+  "expire_date": ["2025-01-01", "2025-02-01"]
 }
 ```
 
-**Note:** Stock for variants is added separately via purchases module.
+**Important Notes:**
+- All batch-related fields must be **arrays** with matching indices
+- Each index represents one batch (e.g., `batch_no[0]` corresponds to `productStock[0]`, `mfg_date[0]`, etc.)
+- Minimum required: `batch_no[]` array
+- Stock is created immediately for each batch
+
+**cURL Example:**
+```bash
+curl -X POST http://localhost:8000/api/v1/products \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "productName=Medicine Tablets" \
+  -F "product_type=variant" \
+  -F "batch_no[]=BATCH20240101" \
+  -F "batch_no[]=BATCH20240201" \
+  -F "productStock[]=50" \
+  -F "productStock[]=45" \
+  -F "productPurchasePrice[]=50" \
+  -F "productPurchasePrice[]=52" \
+  -F "productSalePrice[]=100" \
+  -F "productSalePrice[]=105"
+```
 
 ---
 
-#### 3.3.3 Create Variable Product with Attribute-Based Variants
+#### 3.3.3 Create Variant Product with Attributes (`product_type: 'variable'`)
 
-Product with attribute-based variants. All variants are created in a single API call.
+Product with attribute-based variants (e.g., Size × Color combinations). All variants are created in a single API call.
+
+**⚠️ Note:** Despite the naming, use `product_type: 'variable'` for attribute-based variants (not `'variant'`).
 
 **Requirements:**
 1. Attributes must be created first via `POST /api/v1/attributes`
 2. Attribute values must exist for the attributes
 3. Provide `attribute_value_ids` for each variant
 4. `barcode` is optional; if provided it must be unique per business
+5. Optional `initial_stock` per variant seeds stock during creation; if omitted, add stock later via `POST /api/v1/stock`
 
 **Request Body (JSON):**
 ```json
@@ -736,6 +802,7 @@ Product with attribute-based variants. All variants are created in a single API 
       "price": 599,
       "dealer_price": 549,
       "wholesale_price": 499,
+      "initial_stock": 20,
       "is_active": 1,
       "attribute_value_ids": [1, 5]
     },
@@ -817,6 +884,7 @@ curl -X POST http://localhost:8000/api/v1/products \
         "barcode": "8901234567001",
         "cost_price": 300,
         "price": 599,
+        "initial_stock": 20,
         "attribute_value_ids": [1, 5]
       },
       {
@@ -880,12 +948,12 @@ curl -X POST http://localhost:8000/api/v1/products \
 
 **Stock Management for Variable Products:**
 
-Variable products don't have stock entries created during product creation. Stock is managed through the purchases/inventory module:
+- `POST /products` (variable) supports optional `variants[*].initial_stock` to seed stock.
+- If omitted, use one of:
+  1. `POST /products/{product}/variants` with `initial_stock` to seed stock for that variant, **or**
+  2. `POST /stock` to add stock (preferred for purchases/inventory flows).
 
-1. **Via Web UI:** Navigate to Purchases → Create Purchase Order, select variant, specify quantity
-2. **Via API:** `POST /api/v1/stock` with `variant_id` and quantity
-
-Example stock addition:
+Example stock addition via stock endpoint:
 ```bash
 curl -X POST http://localhost:8000/api/v1/stock \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -902,12 +970,71 @@ curl -X POST http://localhost:8000/api/v1/stock \
 
 ### 3.4 Update Product
 
-Updates an existing product.
+Updates an existing product. Supports updating single and batch products.
 
 **Endpoint:** `PUT /products/{id}`  
 **Auth Required:** Yes
 
-**Request Body:** Same as Create Product
+---
+
+#### 3.4.1 Update Single Product
+
+**Request Body (multipart/form-data):**
+```json
+{
+  "productName": "Updated Laptop Charger",
+  "productCode": "CHARGER-001-V2",
+  "category_id": 5,
+  "brand_id": 3,
+  "product_type": "single",
+  "productPurchasePrice": 850,
+  "productSalePrice": 1300,
+  "productDealerPrice": 1150,
+  "productWholeSalePrice": 1100,
+  "productStock": 120,
+  "profit_percent": 53,
+  "alert_qty": 15,
+  "productPicture": "<file>"
+}
+```
+
+---
+
+#### 3.4.2 Update Batch Product
+
+**Request Body (multipart/form-data):**
+```json
+{
+  "productName": "Updated Medicine Tablets",
+  "product_type": "variant",
+  "batch_no": ["BATCH20240101", "BATCH20240201", "BATCH20240301"],
+  "productStock": [50, 45, 60],
+  "productPurchasePrice": [50, 52, 54],
+  "productSalePrice": [100, 105, 110],
+  "productDealerPrice": [90, 95, 100],
+  "productWholeSalePrice": [85, 90, 95],
+  "profit_percent": [100, 102, 104],
+  "mfg_date": ["2024-01-01", "2024-02-01", "2024-03-01"],
+  "expire_date": ["2025-01-01", "2025-02-01", "2025-03-01"]
+}
+```
+
+**Note:** Update replaces ALL batch records. Include all batches you want to keep.
+
+---
+
+#### 3.4.3 Update Variant Product (Attribute-Based)
+
+⚠️ **LIMITATION:** Direct update of variable products (`product_type: 'variable'`) with variants is **not currently supported** via the main update endpoint.
+
+**Workaround:** To update attribute-based variants:
+1. Use individual variant endpoints: `PUT /api/v1/product-variants/{variantId}`
+2. Or delete and recreate the product with new variants
+
+**Alternative Endpoint (if available):**
+```
+PUT /api/v1/product-variants/{variantId}
+```
 
 ---
 
@@ -917,6 +1044,245 @@ Deletes a product.
 
 **Endpoint:** `DELETE /products/{id}`  
 **Auth Required:** Yes
+
+---
+
+### 3.6 Product Variants Management
+
+Manage individual variants for products with `product_type: 'variable'`.
+
+---
+
+#### 3.6.1 List Product Variants
+
+Get all variants for a specific product.
+
+**Endpoint:** `GET /products/{productId}/variants`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `active` (optional): Filter by active status (`true`/`false`)
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [
+    {
+      "id": 1,
+      "product_id": 24,
+      "sku": "TSHIRT-S-RED",
+      "barcode": "8901234567001",
+      "price": 599,
+      "cost_price": 300,
+      "wholesale_price": 499,
+      "dealer_price": 549,
+      "is_active": true,
+      "sort_order": 0,
+      "total_stock": 45,
+      "variant_name": "Small / Red",
+      "effective_price": 599,
+      "attributeValues": [
+        {
+          "id": 1,
+          "attribute_id": 1,
+          "value": "Small",
+          "attribute": {
+            "id": 1,
+            "name": "Size"
+          }
+        },
+        {
+          "id": 5,
+          "attribute_id": 2,
+          "value": "Red",
+          "attribute": {
+            "id": 2,
+            "name": "Color"
+          }
+        }
+      ],
+      "stocks": [
+        {
+          "id": 123,
+          "variant_id": 1,
+          "productStock": 45,
+          "warehouse_id": 1
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+#### 3.6.2 Get Single Variant
+
+Get details of a specific variant.
+
+**Endpoint:** `GET /variants/{variantId}`  
+**Auth Required:** Yes
+
+**Response:** Same format as list item above, with additional `product` object.
+
+---
+
+#### 3.6.3 Create New Variant
+
+Add a new variant to an existing variable product.
+
+**Endpoint:** `POST /products/{productId}/variants`  
+**Auth Required:** Yes
+
+**Request Body (JSON):**
+```json
+{
+  "sku": "TSHIRT-XL-RED",
+  "barcode": "8901234567010",
+  "attribute_value_ids": [4, 5],
+  "price": 749,
+  "cost_price": 380,
+  "wholesale_price": 649,
+  "dealer_price": 699,
+  "weight": 0.25,
+  "initial_stock": 30,
+  "is_active": true,
+  "sort_order": 0
+}
+```
+
+**Field Descriptions:**
+- `sku` (required): Unique stock keeping unit
+- `barcode` (optional): Unique barcode
+- `attribute_value_ids` (required): Array of attribute value IDs (e.g., [Size=XL, Color=Red])
+- `price`, `cost_price`, `wholesale_price`, `dealer_price` (optional): Pricing (falls back to parent product prices)
+- `initial_stock` (optional): Initial stock quantity (creates stock record)
+- `is_active` (optional): Enable/disable variant (default: true)
+- `sort_order` (optional): Display order (default: 0)
+
+---
+
+#### 3.6.4 Update Variant
+
+Update an existing variant's details.
+
+**Endpoint:** `PUT /variants/{variantId}`  
+**Auth Required:** Yes
+
+**Request Body (JSON):**
+```json
+{
+  "sku": "TSHIRT-XL-RED-V2",
+  "barcode": "8901234567011",
+  "price": 799,
+  "cost_price": 400,
+  "wholesale_price": 699,
+  "dealer_price": 749,
+  "is_active": true,
+  "sort_order": 1
+}
+```
+
+**Note:** Cannot update `attribute_value_ids`. To change attributes, delete and create a new variant.
+
+---
+
+#### 3.6.5 Delete Variant
+
+Delete a variant from a product.
+
+**Endpoint:** `DELETE /variants/{variantId}`  
+**Auth Required:** Yes
+
+**Validation:**
+- Cannot delete if variant has sale records
+- Cannot delete if variant has stock > 0
+
+**Response:**
+```json
+{
+  "message": "Variant deleted successfully."
+}
+```
+
+---
+
+#### 3.6.6 Update Variant Stock
+
+Update stock quantity for a specific variant.
+
+**Endpoint:** `PUT /variants/{variantId}/stock`  
+**Auth Required:** Yes
+
+**Request Body (JSON):**
+```json
+{
+  "warehouse_id": 1,
+  "quantity": 50,
+  "adjustment_type": "set"
+}
+```
+
+**adjustment_type options:**
+- `set`: Set stock to exact quantity
+- `add`: Add quantity to existing stock
+- `subtract`: Subtract quantity from existing stock
+
+---
+
+#### 3.6.7 Find Variant by Attributes
+
+Find a variant by its attribute combination.
+
+**Endpoint:** `POST /products/{productId}/variants/find`  
+**Auth Required:** Yes
+
+**Request Body (JSON):**
+```json
+{
+  "attribute_value_ids": [1, 5]
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Variant found.",
+  "data": {
+    "id": 1,
+    "sku": "TSHIRT-S-RED",
+    "price": 599,
+    "total_stock": 45
+  }
+}
+```
+
+---
+
+#### 3.6.8 Generate Variants (Bulk)
+
+Auto-generate all possible variants from attribute combinations.
+
+**Endpoint:** `POST /products/{productId}/variants/generate`  
+**Auth Required:** Yes
+
+**Request Body (JSON):**
+```json
+{
+  "attributes": {
+    "1": [1, 2, 3],
+    "2": [5, 6]
+  },
+  "default_price": 599,
+  "default_cost_price": 300
+}
+```
+
+**Explanation:**
+- `attributes`: Object where keys are attribute IDs, values are arrays of attribute value IDs
+- Example generates 6 variants: Size (S/M/L) × Color (Red/Blue) = 6 combinations
+- All variants get the default pricing
 
 ---
 
@@ -1347,14 +1713,18 @@ Product variants represent specific combinations of attribute values (e.g., "Lar
 **Request Body:**
 ```json
 {
-  "sku": "string (optional, auto-generated if not provided)",
-  "variant_name": "string (optional, auto-generated from attribute values)",
-  "price": "decimal (required)",
+  "sku": "string (required, unique per business)",
+  "barcode": "string (optional, unique per business)",
+  "price": "decimal (optional)",
   "cost_price": "decimal (optional)",
-  "stock_quantity": "integer (optional, default: 0)",
-  "low_stock_threshold": "integer (optional)",
+  "wholesale_price": "decimal (optional)",
+  "dealer_price": "decimal (optional)",
+  "weight": "decimal (optional)",
+  "image": "string (optional)",
   "is_active": "boolean (optional, default: true)",
-  "attribute_value_ids": [1, 5]
+  "sort_order": "integer (optional)",
+  "attribute_values": [1, 5],
+  "initial_stock": "integer (optional, >= 0)"
 }
 ```
 
@@ -1447,12 +1817,14 @@ Finds a specific variant by its attribute value combination. Used in POS for var
 **Request Body:**
 ```json
 {
-  "sku": "string (optional)",
-  "variant_name": "string (optional)",
+  "sku": "string (optional, unique per business)",
+  "barcode": "string (optional, unique per business)",
   "price": "decimal (optional)",
   "cost_price": "decimal (optional)",
-  "stock_quantity": "integer (optional)",
-  "low_stock_threshold": "integer (optional)",
+  "wholesale_price": "decimal (optional)",
+  "dealer_price": "decimal (optional)",
+  "weight": "decimal (optional)",
+  "image": "string (optional)",
   "is_active": "boolean (optional)",
   "sort_order": "integer (optional)"
 }

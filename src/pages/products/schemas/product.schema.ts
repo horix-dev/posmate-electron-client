@@ -4,6 +4,7 @@ import { z } from 'zod'
  * Variant input schema for variable products
  */
 export const variantInputSchema = z.object({
+  id: z.number().optional(), // Existing variant ID for updates
   sku: z.string().optional(),
   barcode: z.string().optional(),
   initial_stock: z.number().int().min(0).optional(),
@@ -92,12 +93,10 @@ export const productFormSchema = z.object({
         .optional()
     ),
 
-  // Variants for variable products - managed separately
-  variants: z.array(variantInputSchema).optional(),
-
   // Description field for products
   description: z.string().optional(),
 })
+// Note: variants are managed separately in component state and validated in handleSubmit
 
 export type ProductFormData = z.infer<typeof productFormSchema>
 
@@ -115,7 +114,6 @@ export const defaultProductFormValues: ProductFormData = {
   productPurchasePrice: '',
   productSalePrice: '',
   productStock: '',
-  variants: [],
   description: '',
 }
 
@@ -137,6 +135,7 @@ export function productToFormData(product: {
     productStock: number
   }>
   variants?: Array<{
+    id?: number
     sku: string
     barcode?: string | null
     initial_stock?: number | null
@@ -148,11 +147,12 @@ export function productToFormData(product: {
     attribute_value_ids?: number[]
     attribute_values?: Array<{ id: number }>
   }>
-}): ProductFormData {
+}): ProductFormData & { variants: VariantInputData[] } {
   const stock = product.stocks?.[0]
 
   // Convert existing variants to form format
   const variants: VariantInputData[] = product.variants?.map(v => ({
+    id: v.id, // Preserve variant ID for updates
     sku: v.sku || '',
     barcode: v.barcode || '',
     initial_stock: v.initial_stock ?? undefined,
