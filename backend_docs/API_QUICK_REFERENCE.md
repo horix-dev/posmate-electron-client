@@ -36,11 +36,12 @@
 ### Products
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/products` | ✅ | List all products |
+| GET | `/products` | ✅ | List all products with variants, stocks, and attributes |
 | GET | `/products/{id}` | ✅ | Get single product (includes variants + variant stocks/attributes for variable products) |
 | POST | `/products` | ✅ | Create product (single/batch/variable) |
 | PUT | `/products/{id}` | ✅ | Update product (single/batch only) |
 | DELETE | `/products/{id}` | ✅ | Delete product |
+| GET | `/products/by-barcode/{barcode}` | ✅ | Find product by barcode (searches products, variants, batch numbers) |
 
 ### Product Variants (Attribute-Based)
 | Method | Endpoint | Auth | Description |
@@ -51,8 +52,13 @@
 | PUT | `/variants/{variantId}` | ✅ | Update variant (pricing, SKU, barcode, etc.) |
 | DELETE | `/variants/{variantId}` | ✅ | Delete variant |
 | PUT | `/variants/{variantId}/stock` | ✅ | Update variant stock |
-| POST | `/products/{productId}/variants/find` | ✅ | Find variant by attribute combination |
-| POST | `/products/{productId}/variants/generate` | ✅ | Auto-generate all variants from attributes |
+| PATCH | `/variants/{variantId}/toggle-active` | ✅ | Toggle variant active/inactive status |
+| POST | `/products/{productId}/variants/find` | ✅ | Find variant by attributes |
+| POST | `/products/{productId}/variants/generate` | ✅ | Bulk generate variants |
+| PUT | `/products/{productId}/variants/bulk` | ✅ | Bulk update multiple variants (HTTP 207 partial success) |
+| POST | `/products/{productId}/variants/duplicate` | ✅ | Duplicate/clone a variant with new attributes |
+| GET | `/products/{productId}/variants/stock-summary` | ✅ | Get stock breakdown by warehouse/branch |
+| GET | `/variants/by-barcode/{barcode}` | ✅ | Find variant by barcode |
 
 ### Categories
 | Method | Endpoint | Auth | Description |
@@ -132,8 +138,8 @@
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/purchase` | ✅ | List purchases |
-| POST | `/purchase` | ✅ | Create purchase |
-| PUT | `/purchase/{id}` | ✅ | Update purchase |
+| POST | `/purchase` | ✅ | Create purchase (supports variant_id for variant-specific stock tracking) |
+| PUT | `/purchase/{id}` | ✅ | Update purchase (supports variant_id for variant-specific stock) |
 | DELETE | `/purchase/{id}` | ✅ | Delete purchase |
 
 ### Returns
@@ -157,8 +163,13 @@
 ### Expenses
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/expenses` | ✅ | List expenses |
+| GET | `/expenses` | ✅ | List all expenses with related data |
+| GET | `/expenses/filter` | ✅ | Search/filter expenses by branch & search term |
 | POST | `/expenses` | ✅ | Create expense |
+| GET | `/expenses/{id}` | ✅ | Get single expense details |
+| PUT | `/expenses/{id}` | ✅ | Update expense |
+| DELETE | `/expenses/{id}` | ✅ | Delete expense |
+| POST | `/expenses/delete-all` | ✅ | Delete multiple expenses |
 | GET | `/expense-categories` | ✅ | List categories |
 | POST | `/expense-categories` | ✅ | Create category |
 | PUT | `/expense-categories/{id}` | ✅ | Update category |
@@ -167,8 +178,13 @@
 ### Incomes
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/incomes` | ✅ | List incomes |
+| GET | `/incomes` | ✅ | List all incomes with related data |
+| GET | `/incomes/filter` | ✅ | Search/filter incomes by branch & search term |
 | POST | `/incomes` | ✅ | Create income |
+| GET | `/incomes/{id}` | ✅ | Get single income details |
+| PUT | `/incomes/{id}` | ✅ | Update income |
+| DELETE | `/incomes/{id}` | ✅ | Delete income |
+| POST | `/incomes/delete-all` | ✅ | Delete multiple incomes |
 | GET | `/income-categories` | ✅ | List categories |
 | POST | `/income-categories` | ✅ | Create category |
 | PUT | `/income-categories/{id}` | ✅ | Update category |
@@ -212,6 +228,9 @@
 |--------|----------|------|-------------|
 | GET | `/summary` | ✅ | Get today's summary |
 | GET | `/dashboard` | ✅ | Get dashboard data |
+| GET | `/reports/variants/sales-summary` | ✅ | Variant sales analysis with grouping (by variant/product/day/month) |
+| GET | `/reports/variants/top-selling` | ✅ | Top selling variants by quantity/revenue/profit |
+| GET | `/reports/variants/slow-moving` | ✅ | Slow-moving inventory analysis with stock insights |
 
 ## Users & Staff
 

@@ -21,6 +21,7 @@ import {
   HeldCartsDialog,
   CustomerSelectDialog,
   ShortcutsHelpDialog,
+  VariantSelectionDialog,
 } from './components'
 
 // Hooks
@@ -92,6 +93,8 @@ export function POSPage() {
   const [heldCarts, setHeldCarts] = useState<HeldCart[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [customersLoading, setCustomersLoading] = useState(false)
+  const [variantDialogProduct, setVariantDialogProduct] = useState<Product | null>(null)
+  const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false)
 
   // ----------------------------------------
   // Data Fetching
@@ -168,6 +171,33 @@ export function POSPage() {
       toast.info('Cart cleared')
     }
   }, [cartItems.length, clearCart])
+
+  // ----------------------------------------
+  // Variant Selection
+  // ----------------------------------------
+  const handleOpenVariantSelection = useCallback((product: Product) => {
+    // Check if product has variants (either from API or counted from stocks)
+    const hasVariants =
+      (product.variants && product.variants.length > 0) ||
+      (product.stocks && product.stocks.some((s) => s.variant_id))
+
+    if (!hasVariants) {
+      toast.error('No variants available for this product')
+      return
+    }
+
+    setVariantDialogProduct(product)
+    setIsVariantDialogOpen(true)
+  }, [])
+
+  const handleVariantSelected = useCallback(
+    (product: Product, stock: Stock, variant: ProductVariant) => {
+      handleAddToCart(product, stock, variant)
+      setIsVariantDialogOpen(false)
+      setVariantDialogProduct(null)
+    },
+    [handleAddToCart]
+  )
 
   // ----------------------------------------
   // Hold/Recall Handlers
@@ -531,6 +561,7 @@ export function POSPage() {
           onCategoryChange={handleCategoryChange}
           onSearchChange={handleSearchChange}
           onAddToCart={handleAddToCart}
+          onSelectVariant={handleOpenVariantSelection}
           onViewModeChange={setViewMode}
         />
       </div>
@@ -613,6 +644,19 @@ export function POSPage() {
       />
 
       <ShortcutsHelpDialog open={dialogs.shortcuts} onClose={() => closeDialog('shortcuts')} />
+
+      {variantDialogProduct && (
+        <VariantSelectionDialog
+          open={isVariantDialogOpen}
+          onOpenChange={(open) => {
+            setIsVariantDialogOpen(open)
+            if (!open) setVariantDialogProduct(null)
+          }}
+          product={variantDialogProduct}
+          currencySymbol={currencySymbol}
+          onSelectVariant={handleVariantSelected}
+        />
+      )}
     </div>
   )
 }
