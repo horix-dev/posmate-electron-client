@@ -73,6 +73,72 @@ src/
 
 ## Feature Implementation Log
 
+### December 12, 2025
+
+#### SQLite Schema Enhancement for Variable Products
+
+**Problem**: Variable products were losing their variant data when cached to SQLite for offline use. The SQLite schema only stored basic product fields and didn't handle:
+- `product_type` field (simple/variable/batch)
+- `variants` array with full attribute information
+- Multiple stocks per product (for variants)
+- Variant-level pricing and stock
+
+**Solution**: Implemented proper relational database schema (Option A - Industry Standard):
+
+**New SQLite Tables**:
+```sql
+-- Added to products table
+product_type TEXT DEFAULT 'simple'
+has_variants INTEGER DEFAULT 0
+
+-- New product_variants table
+CREATE TABLE product_variants (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL,
+  sku TEXT NOT NULL,
+  barcode TEXT,
+  price, cost_price, wholesale_price, dealer_price,
+  image TEXT,
+  is_active INTEGER DEFAULT 1,
+  attributes_json TEXT, -- Serialized attribute values
+  FOREIGN KEY (product_id) REFERENCES products(id)
+)
+
+-- New variant_stocks table (replaces single stock columns)
+CREATE TABLE variant_stocks (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL,
+  variant_id INTEGER, -- NULL for simple products
+  batch_no TEXT,
+  stock_quantity REAL,
+  purchase_price, sale_price, wholesale_price, dealer_price,
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id)
+)
+```
+
+**Implementation Details**:
+1. **Schema Migration**: Added column migration to existing databases (ALTER TABLE for backward compatibility)
+2. **Bulk Upsert**: Updated to insert product → variants → stocks in transaction
+3. **Data Loading**: Enhanced `productGetAll()` to join variants and stocks
+4. **Type Updates**: Extended `LocalProduct` interface with `product_type`, `variants`, `stocks` arrays
+
+**Benefits**:
+- ✅ Variable products work completely offline with full variant selection
+- ✅ Proper data normalization (no JSON columns for queryable data)
+- ✅ Variant stock tracking per variant
+- ✅ Supports batch products and future extensions
+- ✅ Maintains backward compatibility with existing simple products
+
+**Files Modified**:
+- `electron/sqlite.service.ts` - Schema migration, new tables, updated insert/select logic
+- `src/pages/pos/hooks/usePOSData.ts` - Preserve full `variants` and `stocks` arrays when caching
+- `.github/copilot-instructions.md` - Clarified backend vs Electron main process distinction
+
+**Note**: Existing cached data will be migrated automatically on next app start. Users may need to go online once to refresh the cache with variant data.
+
+---
+
 ### December 11, 2025
 
 #### API Alignment & New Backend Endpoint Integration
