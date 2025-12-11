@@ -124,8 +124,8 @@ export const offlineSalesService = {
       operation: 'CREATE',
       entity: 'sale',
       entityId: localId,
-      data: batchSyncData,
-      endpoint: '/sync/batch', // Will be processed via batch sync
+      data: saleData,
+      endpoint: '/sales',
       method: 'POST',
       maxAttempts: 5,
       attempts: 0,
