@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TitleBar } from './TitleBar'
 import { OfflineBanner } from '@/components/common/OfflineBanner'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useUIStore } from '@/stores'
 import { cn } from '@/lib/utils'
 
@@ -28,9 +29,11 @@ export function AppShell() {
         <OfflineBanner />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6">
-          <Outlet />
-        </main>
+        <ScrollArea className="flex-1">
+          <main className="p-6">
+            <Outlet />
+          </main>
+        </ScrollArea>
       </div>
     </div>
   )

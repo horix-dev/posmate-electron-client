@@ -305,7 +305,7 @@ function VariantSelectionDialogComponent({
 
   // Get attributes and variants from product
   const attributes = useMemo(() => getProductAttributes(product), [product])
-  const variants = product.variants ?? []
+  const variants = useMemo(() => product.variants ?? [], [product.variants])
 
   // Find matching variant based on selections
   const matchedVariant = useMemo(

@@ -170,7 +170,7 @@ class SQLiteProductRepository implements ProductRepository {
     return getSQLiteAPI().product.bulkUpsert(products)
   }
 
-  async getChangedSince(_timestamp: string): Promise<LocalProduct[]> {
+  async getChangedSince(): Promise<LocalProduct[]> {
     // SQLite doesn't track changes like this by default
     // Return all products for now
     return this.getAll()
