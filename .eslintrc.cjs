@@ -17,19 +17,45 @@ module.exports = {
   },
   overrides: [
     {
-      files: [
-        'electron/**/*.ts',
-        'src/lib/storage/**/*.ts',
-        'src/lib/storage/**/*.tsx',
-        'src/lib/db/services/**/*.ts',
-        'src/api/services/offlineSales.service.ts',
-        'src/api/services/sync.service.ts',
-        'src/hooks/useAppUpdater.ts',
-        'src/components/ui/**/*.tsx',
-      ],
+      files: ['electron/**/*.{ts,tsx}'],
       rules: {
         '@typescript-eslint/no-explicit-any': 'off',
         '@typescript-eslint/no-unused-vars': 'off',
+      },
+    },
+    {
+      files: ['src/lib/storage/**/*.{ts,tsx}'],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-unused-vars': 'off',
+        'react-refresh/only-export-components': 'off',
+      },
+    },
+    {
+      files: ['src/lib/db/services/**/*.ts'],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-unused-vars': 'off',
+      },
+    },
+    {
+      files: [
+        'src/api/services/offlineSales.service.ts',
+        'src/api/services/sync.service.ts',
+      ],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+      },
+    },
+    {
+      files: ['src/hooks/useAppUpdater.ts'],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+      },
+    },
+    {
+      files: ['src/components/ui/**/*.tsx'],
+      rules: {
         'react-refresh/only-export-components': 'off',
       },
     },
