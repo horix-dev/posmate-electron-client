@@ -71,7 +71,7 @@ export const productsService = {
   /**
    * Update existing product
    * - Simple products use multipart/form-data  
-   * - Variable products: update basic info + individual variant updates
+   * - Variable products use JSON body with variants
    */
   update: async (
     id: number,
@@ -79,14 +79,14 @@ export const productsService = {
     isVariable = false
   ): Promise<ApiResponse<Product>> => {
     if (isVariable) {
-      // Variable product: update basic info (without variants) + update variants individually
+      // Variable product: update basic info + update variants individually
       const payload = productData as VariableProductPayload
-      const { variants, ...basicInfo } = payload
+      const { variants } = payload
       
       // 1. Update basic product info
-      const { data } = await api.put<VariableProductResponse>(
+      await api.put<VariableProductResponse>(
         API_ENDPOINTS.PRODUCTS.UPDATE(id),
-        basicInfo,
+        productData,
         {
           headers: { 'Content-Type': 'application/json' },
         }
@@ -99,7 +99,6 @@ export const productsService = {
             // Update existing variant
             await variantsService.update(variant.id, {
               sku: variant.sku,
-              barcode: variant.barcode,
               price: variant.price,
               cost_price: variant.cost_price,
               wholesale_price: variant.wholesale_price,
@@ -109,14 +108,9 @@ export const productsService = {
           } else {
             // Create new variant
             await variantsService.create(id, {
-              attribute_value_ids: variant.attribute_value_ids,
+              attribute_values: variant.attribute_value_ids || [],
               sku: variant.sku,
-              barcode: variant.barcode,
-              initial_stock: variant.initial_stock,
               price: variant.price,
-              cost_price: variant.cost_price,
-              wholesale_price: variant.wholesale_price,
-              dealer_price: variant.dealer_price,
               is_active: variant.is_active === 1,
             })
           }
