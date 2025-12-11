@@ -37,6 +37,24 @@ Before making changes, always read `DEVELOPMENT_LOG.md` in the project root for:
 - Use shadcn/ui components from `src/components/ui/`
 - Follow existing patterns in similar files
 
+## Backend/API Requirements
+
+**Important:** If you identify a solution that requires changes at the backend/API level, **STOP and inform the user instead of attempting to implement a workaround in the frontend**.
+
+This includes:
+- **Data structure issues**: Missing fields, incorrect relationships, or incomplete response data
+- **Industry standard requirements**: Solutions that need to follow REST API best practices, proper HTTP status codes, or data validation
+- **Architectural patterns**: Changes that affect how data flows between frontend and backend
+- **Data integrity**: Issues that require database-level changes or business logic in the backend
+
+In these cases:
+1. **Identify the problem** clearly
+2. **Explain why** a frontend-only solution is inadequate or violates best practices
+3. **Provide the recommended backend changes** with specific implementation details
+4. **Wait for backend completion** before implementing the frontend integration
+
+This ensures proper architecture and avoids technical debt from frontend workarounds.
+
 ## After Making Changes
 
 Update `DEVELOPMENT_LOG.md` with:
