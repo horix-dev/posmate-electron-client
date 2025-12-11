@@ -198,7 +198,7 @@ function ProductFormDialogComponent({
           }
         })
         const duplicates = Array.from(skuCounts.entries())
-          .filter(([_, count]) => count > 1)
+          .filter(([, count]) => count > 1)
           .map(([sku]) => sku)
         
         if (duplicates.length > 0) {

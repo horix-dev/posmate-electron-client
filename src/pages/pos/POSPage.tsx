@@ -361,7 +361,7 @@ export function POSPage() {
       const normalizedBarcode = barcode.toLowerCase()
       
       // First, try to find by product code (simple products)
-      let product = products.find(
+      const product = products.find(
         (p) => p.productCode?.toLowerCase() === normalizedBarcode
       )
 

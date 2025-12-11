@@ -336,27 +336,17 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
 
   // CRUD Operations
   const createProduct = useCallback(async (data: FormData | VariableProductPayload, isVariable = false): Promise<Product> => {
-    try {
-      const result = await productsService.create(data, isVariable)
-      setProducts((prev) => [result.data, ...prev])
-      toast.success('Product created successfully')
-      return result.data
-    } catch (error) {
-      // Re-throw to let the caller handle specific errors
-      throw error
-    }
+    const result = await productsService.create(data, isVariable)
+    setProducts((prev) => [result.data, ...prev])
+    toast.success('Product created successfully')
+    return result.data
   }, [])
 
   const updateProduct = useCallback(async (id: number, data: FormData | VariableProductPayload, isVariable = false): Promise<Product> => {
-    try {
-      const result = await productsService.update(id, data, isVariable)
-      setProducts((prev) => prev.map((p) => (p.id === id ? result.data : p)))
-      toast.success('Product updated successfully')
-      return result.data
-    } catch (error) {
-      // Re-throw to let the caller handle specific errors
-      throw error
-    }
+    const result = await productsService.update(id, data, isVariable)
+    setProducts((prev) => prev.map((p) => (p.id === id ? result.data : p)))
+    toast.success('Product updated successfully')
+    return result.data
   }, [])
 
   const deleteProduct = useCallback(async (id: number): Promise<void> => {
