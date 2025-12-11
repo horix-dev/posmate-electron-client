@@ -344,7 +344,6 @@ export function POSPage() {
       customer,
       vat,
       cartItems,
-      subtotal,
       discountAmount,
       vatAmount,
       totalAmount,

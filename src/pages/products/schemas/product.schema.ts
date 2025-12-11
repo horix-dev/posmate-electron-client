@@ -251,8 +251,7 @@ export interface VariableProductPayload {
  */
 export function formDataToVariableProductPayload(
   data: ProductFormData,
-  variants: VariantInputData[],
-  _imageFile?: File | null
+  variants: VariantInputData[]
 ): VariableProductPayload {
   return {
     productName: data.productName,

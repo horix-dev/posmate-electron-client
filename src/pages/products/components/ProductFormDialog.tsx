@@ -215,8 +215,7 @@ function ProductFormDialogComponent({
         
         if (isVariable) {
           // Variable products: send JSON payload with variants
-          const payload = formDataToVariableProductPayload(data, variants, imageFile)
-          console.log('🚀 Variable product payload:', payload)
+          const payload = formDataToVariableProductPayload(data, variants)
           await onSubmit(payload, isEdit, true)
         } else {
           // Simple products: send FormData

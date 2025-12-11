@@ -156,9 +156,13 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
       if (cachedProducts.length > 0) {
         const convertedProducts: Product[] = cachedProducts.map((p: LocalProduct) => {
           // Get IDs - SQLite returns camelCase, but type uses snake_case
-          const catId = (p as any).categoryId ?? p.category_id
-          const brId = (p as any).brandId ?? p.brand_id
-          const uId = (p as any).unitId ?? p.unit_id
+          const catId = ((p as unknown) as Record<string, unknown>).categoryId ?? p.category_id
+          const brId = ((p as unknown) as Record<string, unknown>).brandId ?? p.brand_id
+          const uId = ((p as unknown) as Record<string, unknown>).unitId ?? p.unit_id
+          
+          const categoryId = typeof catId === 'number' ? catId : undefined
+          const brandId = typeof brId === 'number' ? brId : undefined
+          const unitId = typeof uId === 'number' ? uId : undefined
           
           return {
             ...p,
@@ -167,13 +171,13 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
             stocks_sum_product_stock: p.stock?.productStock ?? 0,
             productStock: p.stock?.productStock ?? 0,
             // Normalize IDs to snake_case for consistency
-            category_id: catId,
-            brand_id: brId,
-            unit_id: uId,
+            category_id: categoryId,
+            brand_id: brandId,
+            unit_id: unitId,
             // Join category and brand objects for display
-            category: catId ? categoryMap.get(catId) : undefined,
-            brand: brId ? brandMap.get(brId) : undefined,
-            unit: uId ? unitMap.get(uId) : undefined,
+            category: categoryId ? categoryMap.get(categoryId) : undefined,
+            brand: brandId ? brandMap.get(brandId) : undefined,
+            unit: unitId ? unitMap.get(unitId) : undefined,
           }
         })
         setProducts(convertedProducts)

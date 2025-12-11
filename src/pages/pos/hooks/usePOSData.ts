@@ -82,7 +82,8 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
       if (cachedProducts.length > 0) {
         const convertedProducts: Product[] = cachedProducts.map((p: LocalProduct) => {
           // Get category ID - SQLite returns camelCase, but type uses snake_case
-          const catId = (p as any).categoryId ?? p.category_id
+          const catId = ((p as unknown) as Record<string, unknown>).categoryId ?? p.category_id
+          const categoryId = typeof catId === 'number' ? catId : undefined
           
           return {
             ...p,
@@ -91,9 +92,9 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
             stocks_sum_product_stock: p.stock?.productStock ?? 0,
             productStock: p.stock?.productStock ?? 0,
             // Normalize ID to snake_case
-            category_id: catId,
+            category_id: categoryId,
             // Join category object for display
-            category: catId ? categoryMap.get(catId) : undefined,
+            category: categoryId ? categoryMap.get(categoryId) : undefined,
           }
         })
         setProducts(convertedProducts)
@@ -233,6 +234,7 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
     }
     
     initialize()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Empty deps - only run on mount
 
   // Filter products based on search and category
