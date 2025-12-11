@@ -73,51 +73,6 @@ export const offlineSalesService = {
     // Save to IndexedDB
     const localId = await saleRepository.createOffline(localSale as any)
 
-    // Format data for backend batch sync
-    // Parse products from JSON string if needed
-    let parsedProducts: Array<{ 
-      stock_id: number
-      quantities: number
-      price: number
-      lossProfit?: number
-      variant_id?: number
-      variant_name?: string
-    }> = []
-    try {
-      if (typeof saleData.products === 'string') {
-        parsedProducts = JSON.parse(saleData.products)
-      }
-    } catch {
-      console.warn('[Offline Sales] Failed to parse products JSON')
-    }
-
-    const batchSyncData = {
-      local_id: localId,
-      offline_invoice_no: offlineInvoiceNo,
-      party_id: saleData.party_id,
-      totalAmount: saleData.totalAmount,
-      paidAmount: saleData.paidAmount,
-      dueAmount: saleData.dueAmount || 0,
-      isPaid: (saleData.dueAmount || 0) === 0,
-      discountAmount: saleData.discountAmount || 0,
-      vat_amount: saleData.vat_amount || 0,
-      payment_type_id: saleData.payment_type_id,
-      saleDate: saleData.saleDate || now,
-      meta: {
-        note: saleData.note,
-        customer_phone: saleData.customer_phone,
-      },
-      products: parsedProducts.map(p => ({
-        stock_id: p.stock_id,
-        quantities: p.quantities,
-        price: p.price,
-        lossProfit: p.lossProfit || 0,
-        // Include variant info if present
-        variant_id: p.variant_id,
-        variant_name: p.variant_name,
-      })),
-    }
-
     // Add to sync queue with idempotency key
     await syncQueueRepository.enqueue({
       idempotencyKey,
