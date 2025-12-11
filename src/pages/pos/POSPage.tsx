@@ -2,18 +2,14 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Keyboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCartStore, getHeldCarts, deleteHeldCart } from '@/stores/cart.store'
 import type { HeldCart } from '@/stores/cart.store'
 import { useBusinessStore } from '@/stores/business.store'
 import { salesService } from '@/api/services/sales.service'
 import { offlineSalesService } from '@/api/services/offlineSales.service'
 import { partiesService } from '@/api/services/parties.service'
+import { productsService } from '@/api/services/products.service'
 import type { Product, Stock, PaymentType, Party as Customer } from '@/types/api.types'
 import type { ProductVariant } from '@/types/variant.types'
 
@@ -100,8 +96,7 @@ export function POSPage() {
   // ----------------------------------------
   // Data Fetching
   // ----------------------------------------
-  const { products, categories, paymentTypes, isLoading, filteredProducts } =
-    usePOSData(filters)
+  const { products, categories, paymentTypes, isLoading, filteredProducts } = usePOSData(filters)
 
   // Fetch invoice number on mount
   useEffect(() => {
@@ -146,9 +141,7 @@ export function POSPage() {
         return
       }
       addItem(product, effectiveStock, 1, variant)
-      const name = variant 
-        ? `${product.productName} (${variant.sku})`
-        : product.productName
+      const name = variant ? `${product.productName} (${variant.sku})` : product.productName
       toast.success(`Added ${name} to cart`)
     },
     [addItem]
@@ -281,13 +274,16 @@ export function POSPage() {
       setIsProcessing(true)
 
       try {
-        // Prepare products array for the API
+        // Prepare products array for the API (includes variant info for variable products)
         const productsForApi = cartItems.map((item) => ({
           stock_id: item.stock.id,
           product_name: item.product.productName,
           quantities: item.quantity,
           price: item.unitPrice,
           lossProfit: 0, // Calculate if needed
+          // Variant information for variable products
+          variant_id: item.variantId ?? undefined,
+          variant_name: item.variantName ?? undefined,
         }))
 
         // Prepare sale data matching CreateSaleRequest
@@ -315,7 +311,7 @@ export function POSPage() {
         } else {
           toast.success('Sale completed successfully!')
         }
-        
+
         clearCart()
         closeDialog('payment')
 
@@ -357,33 +353,59 @@ export function POSPage() {
   // Barcode Scanner
   // ----------------------------------------
   const handleBarcodeScan = useCallback(
-    (barcode: string) => {
+    async (barcode: string) => {
       const normalizedBarcode = barcode.toLowerCase()
-      
-      // First, try to find by product code (simple products)
-      const product = products.find(
-        (p) => p.productCode?.toLowerCase() === normalizedBarcode
-      )
 
-      // If not found, search in variant barcodes
-      if (!product) {
-        for (const p of products) {
-          if (p.product_type === 'variable' && p.variants) {
-            const matchedVariant = p.variants.find(
-              (v) => v.barcode?.toLowerCase() === normalizedBarcode
-            )
-            if (matchedVariant) {
-              // Found variant by barcode - add to cart with variant selected
-              handleAddToCart(p, matchedVariant.stocks?.[0] || null, matchedVariant)
-              return
-            }
+      // First, try to find by product code in local cache (simple products)
+      const product = products.find((p) => p.productCode?.toLowerCase() === normalizedBarcode)
+
+      // If found as simple product, add to cart
+      if (product && product.product_type === 'simple' && product.stocks?.[0]) {
+        handleAddToCart(product, product.stocks[0])
+        return
+      }
+
+      // Search in local variant barcodes (for variable products in cache)
+      for (const p of products) {
+        if (p.product_type === 'variable' && p.variants) {
+          const matchedVariant = p.variants.find(
+            (v) => v.barcode?.toLowerCase() === normalizedBarcode
+          )
+          if (matchedVariant && matchedVariant.stocks?.[0]) {
+            // Found variant by barcode - add to cart with variant selected
+            handleAddToCart(p, matchedVariant.stocks[0], matchedVariant)
+            return
           }
         }
       }
 
-      if (product && product.stocks?.[0]) {
-        handleAddToCart(product, product.stocks[0])
-      } else {
+      // If not found locally, try API barcode lookup (searches products, variants, batches)
+      try {
+        const response = await productsService.getByBarcode(barcode)
+
+        if (response.data) {
+          const { found_in, product: foundProduct, variant, stock } = response.data
+
+          if (found_in === 'variant' && variant && stock) {
+            // Found as variant - add with variant info
+            handleAddToCart(foundProduct, stock, variant)
+            toast.success(`Added variant: ${variant.variant_name || variant.sku}`)
+            return
+          } else if (found_in === 'product' && stock) {
+            // Found as simple product
+            handleAddToCart(foundProduct, stock)
+            return
+          } else if (found_in === 'batch' && stock) {
+            // Found as batch number
+            handleAddToCart(foundProduct, stock)
+            return
+          }
+        }
+
+        // Not found anywhere
+        toast.error(`Product not found: ${barcode}`)
+      } catch {
+        // API failed (likely offline) - show not found for barcodes not in local cache
         toast.error(`Product not found: ${barcode}`)
       }
     },
@@ -475,12 +497,18 @@ export function POSPage() {
       cartItems.map((item) => ({
         productId: item.product.id,
         productName: item.product.productName,
-        productCode: item.product.productCode || `SKU-${item.product.id}`,
-        productImage: item.product.productPicture,
+        // Use variant SKU if available, otherwise product code
+        productCode: item.variant?.sku || item.product.productCode || `SKU-${item.product.id}`,
+        productImage: item.variant?.image || item.product.productPicture,
         quantity: item.quantity,
         salePrice: item.unitPrice,
-        maxStock: item.stock.productStock,
+        // Use variant stock if available
+        maxStock: item.variant?.total_stock ?? item.stock.productStock,
         id: item.id,
+        // Variant information for display
+        variantId: item.variantId ?? null,
+        variantName: item.variantName ?? null,
+        variantSku: item.variant?.sku ?? null,
       })),
     [cartItems]
   )
@@ -508,7 +536,7 @@ export function POSPage() {
       </div>
 
       {/* Cart Sidebar */}
-      <aside className="flex-[3] flex h-full flex-shrink-0 flex-col border-l bg-background p-4">
+      <aside className="flex h-full flex-[3] flex-shrink-0 flex-col border-l bg-background p-4">
         <CartSidebar
           items={adaptedCartItems}
           customer={customer}
@@ -584,10 +612,7 @@ export function POSPage() {
         onSelect={handleSelectCustomer}
       />
 
-      <ShortcutsHelpDialog
-        open={dialogs.shortcuts}
-        onClose={() => closeDialog('shortcuts')}
-      />
+      <ShortcutsHelpDialog open={dialogs.shortcuts} onClose={() => closeDialog('shortcuts')} />
     </div>
   )
 }

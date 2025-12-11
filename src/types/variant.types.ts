@@ -1,6 +1,6 @@
 /**
  * Variant Product System Types
- * 
+ *
  * Based on backend implementation:
  * - Attributes: Define attribute types (Size, Color, Material) per business
  * - AttributeValues: Specific values for each attribute (S, M, L, Red, Blue)
@@ -178,6 +178,7 @@ export interface CreateVariantRequest {
  */
 export interface UpdateVariantRequest {
   sku?: string
+  barcode?: string
   price?: number | null
   cost_price?: number
   dealer_price?: number
@@ -279,6 +280,266 @@ export interface GenerateVariantsResponse {
   message: string
   data: ProductVariant[]
   _server_timestamp?: string
+}
+
+// ============================================
+// Bulk Operations Types
+// ============================================
+
+/**
+ * Bulk update variant request item
+ */
+export interface BulkUpdateVariantItem {
+  id: number
+  sku?: string
+  barcode?: string
+  price?: number | null
+  cost_price?: number
+  dealer_price?: number
+  wholesale_price?: number
+  is_active?: boolean
+}
+
+/**
+ * Bulk update variants request
+ */
+export interface BulkUpdateVariantsRequest {
+  variants: BulkUpdateVariantItem[]
+}
+
+/**
+ * Bulk update result item
+ */
+export interface BulkUpdateResultItem {
+  id: number
+  success: boolean
+  error?: string
+  data?: ProductVariant
+}
+
+/**
+ * Bulk update variants response (HTTP 207 Multi-Status)
+ */
+export interface BulkUpdateVariantsResponse {
+  message: string
+  success_count: number
+  failure_count: number
+  results: BulkUpdateResultItem[]
+}
+
+/**
+ * Duplicate variant request
+ */
+export interface DuplicateVariantRequest {
+  source_variant_id: number
+  attribute_value_ids: number[]
+  sku?: string
+  price_adjustment?: number // Percentage adjustment (+10 = 10% increase)
+  price_adjustment_type?: 'percentage' | 'fixed'
+  copy_stock?: boolean
+}
+
+/**
+ * Duplicate variant response
+ */
+export interface DuplicateVariantResponse {
+  message: string
+  data: ProductVariant
+}
+
+/**
+ * Toggle active response
+ */
+export interface ToggleActiveResponse {
+  message: string
+  data: {
+    id: number
+    is_active: boolean
+  }
+}
+
+// ============================================
+// Stock Summary Types
+// ============================================
+
+/**
+ * Variant stock by location
+ */
+export interface VariantStockLocation {
+  warehouse_id?: number
+  warehouse_name?: string
+  branch_id?: number
+  branch_name?: string
+  quantity: number
+  value: number
+}
+
+/**
+ * Variant stock summary item
+ */
+export interface VariantStockSummaryItem {
+  variant_id: number
+  variant_name: string
+  sku: string
+  total_stock: number
+  total_value: number
+  is_low_stock: boolean
+  locations: VariantStockLocation[]
+}
+
+/**
+ * Stock summary response
+ */
+export interface VariantStockSummaryResponse {
+  message: string
+  data: {
+    product_id: number
+    product_name: string
+    total_variants: number
+    total_stock: number
+    total_value: number
+    low_stock_count: number
+    variants: VariantStockSummaryItem[]
+  }
+}
+
+// ============================================
+// Barcode Lookup Types
+// ============================================
+
+/**
+ * Barcode lookup response - universal barcode search
+ */
+export interface BarcodeLookupResponse {
+  message: string
+  data: {
+    found_in: 'product' | 'variant' | 'batch'
+    product: import('./api.types').Product
+    variant?: ProductVariant
+    stock?: import('./api.types').Stock
+  } | null
+}
+
+/**
+ * Variant by barcode response
+ */
+export interface VariantByBarcodeResponse {
+  message: string
+  data: ProductVariant | null
+}
+
+// ============================================
+// Report Types
+// ============================================
+
+/**
+ * Sales summary filter options
+ */
+export interface VariantSalesSummaryFilter {
+  start_date?: string
+  end_date?: string
+  product_id?: number
+  variant_ids?: number[]
+  group_by?: 'variant' | 'product' | 'day' | 'month'
+  sort_by?: 'quantity' | 'revenue' | 'profit'
+  sort_order?: 'asc' | 'desc'
+}
+
+/**
+ * Variant sales summary item
+ */
+export interface VariantSalesSummaryItem {
+  variant_id?: number
+  variant_name?: string
+  product_id: number
+  product_name: string
+  period?: string // For date grouping
+  quantity_sold: number
+  revenue: number
+  cost: number
+  profit: number
+  profit_margin: number
+}
+
+/**
+ * Variant sales summary response
+ */
+export interface VariantSalesSummaryResponse {
+  message: string
+  data: {
+    summary: VariantSalesSummaryItem[]
+    totals: {
+      quantity_sold: number
+      revenue: number
+      cost: number
+      profit: number
+    }
+  }
+}
+
+/**
+ * Top selling variants filter
+ */
+export interface TopSellingVariantsFilter {
+  start_date?: string
+  end_date?: string
+  limit?: number
+  sort_by?: 'quantity' | 'revenue' | 'profit'
+}
+
+/**
+ * Top selling variant item
+ */
+export interface TopSellingVariantItem {
+  variant_id: number
+  variant_name: string
+  product_id: number
+  product_name: string
+  sku: string
+  quantity_sold: number
+  revenue: number
+  profit: number
+  rank: number
+}
+
+/**
+ * Top selling variants response
+ */
+export interface TopSellingVariantsResponse {
+  message: string
+  data: TopSellingVariantItem[]
+}
+
+/**
+ * Slow moving variants filter
+ */
+export interface SlowMovingVariantsFilter {
+  days_threshold?: number // Default 30
+  min_stock?: number
+  limit?: number
+}
+
+/**
+ * Slow moving variant item
+ */
+export interface SlowMovingVariantItem {
+  variant_id: number
+  variant_name: string
+  product_id: number
+  product_name: string
+  sku: string
+  current_stock: number
+  days_since_last_sale: number | null
+  last_sale_date: string | null
+  stock_value: number
+}
+
+/**
+ * Slow moving variants response
+ */
+export interface SlowMovingVariantsResponse {
+  message: string
+  data: SlowMovingVariantItem[]
 }
 
 // ============================================

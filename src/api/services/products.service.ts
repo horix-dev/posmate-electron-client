@@ -2,6 +2,7 @@ import api, { ApiResponse } from '../axios'
 import { API_ENDPOINTS } from '../endpoints'
 import type { Product, CreateProductRequest } from '@/types/api.types'
 import type { VariableProductPayload } from '@/pages/products/schemas/product.schema'
+import type { BarcodeLookupResponse } from '@/types/variant.types'
 import { variantsService } from './variants.service'
 
 interface ProductsListResponse {
@@ -70,28 +71,28 @@ export const productsService = {
 
   /**
    * Update existing product
-   * - Simple products use multipart/form-data  
+   * - Simple products use multipart/form-data
    * - Variable products use JSON body with variants
    */
   update: async (
     id: number,
-    productData: Partial<CreateProductRequest> | FormData | VariableProductPayload | Record<string, unknown>,
+    productData:
+      | Partial<CreateProductRequest>
+      | FormData
+      | VariableProductPayload
+      | Record<string, unknown>,
     isVariable = false
   ): Promise<ApiResponse<Product>> => {
     if (isVariable) {
       // Variable product: update basic info + update variants individually
       const payload = productData as VariableProductPayload
       const { variants } = payload
-      
+
       // 1. Update basic product info
-      await api.put<VariableProductResponse>(
-        API_ENDPOINTS.PRODUCTS.UPDATE(id),
-        productData,
-        {
-          headers: { 'Content-Type': 'application/json' },
-        }
-      )
-      
+      await api.put<VariableProductResponse>(API_ENDPOINTS.PRODUCTS.UPDATE(id), productData, {
+        headers: { 'Content-Type': 'application/json' },
+      })
+
       // 2. Update variants individually
       if (variants && variants.length > 0) {
         const variantUpdatePromises = variants.map(async (variant) => {
@@ -115,10 +116,10 @@ export const productsService = {
             })
           }
         })
-        
+
         await Promise.all(variantUpdatePromises)
       }
-      
+
       // 3. Fetch updated product with variants
       const updatedProduct = await api.get<ApiResponse<Product>>(API_ENDPOINTS.PRODUCTS.GET(id))
       return updatedProduct.data
@@ -144,6 +145,16 @@ export const productsService = {
    */
   delete: async (id: number): Promise<void> => {
     await api.delete(API_ENDPOINTS.PRODUCTS.DELETE(id))
+  },
+
+  /**
+   * Universal barcode lookup
+   * Searches across products, variants, and batch numbers
+   * Returns the found item with context (product, variant, stock)
+   */
+  getByBarcode: async (barcode: string): Promise<BarcodeLookupResponse> => {
+    const { data } = await api.get<BarcodeLookupResponse>(API_ENDPOINTS.BARCODE.LOOKUP(barcode))
+    return data
   },
 }
 

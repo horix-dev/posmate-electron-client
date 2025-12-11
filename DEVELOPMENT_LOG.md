@@ -73,9 +73,78 @@ src/
 
 ## Feature Implementation Log
 
-### [Current Date - Update with today's date]
+### December 11, 2025
 
-#### Variable Products - Initial Stock Support (Dec 8, 2025)
+#### API Alignment & New Backend Endpoint Integration
+
+**Problem**: Analysis revealed several gaps between frontend implementation and API documentation:
+1. Sale payload was missing `variant_id` and `variant_name` for variable products
+2. Cart display didn't show variant information
+3. New backend endpoints needed frontend integration (bulk operations, barcode lookup, reports)
+
+**Solution**: Comprehensive update to align with API and integrate new endpoints.
+
+**Critical Fixes**:
+1. **Sale Payload** (`POSPage.tsx`): Added `variant_id` and `variant_name` to `productsForApi` array
+2. **Cart Display** (`POSPage.tsx`): Enhanced `adaptedCartItems` to include variant SKU, name, ID, and use variant stock/image when available
+3. **Barcode Scanner** (`POSPage.tsx`): Enhanced to support API barcode lookup for variants not in local cache
+
+**Type Updates**:
+- `UpdateVariantRequest`: Added `barcode?: string` for variant barcode updates
+- `PurchaseProductItem`: Added `variant_id?: number` for variant-level purchases
+- Added new types for bulk operations, stock summary, barcode lookup, and reports
+
+**New API Endpoints** (`endpoints.ts`):
+```typescript
+VARIANTS: {
+  // ...existing endpoints...
+  BULK_UPDATE: (productId) => `/products/${productId}/variants/bulk`,
+  DUPLICATE: (productId) => `/products/${productId}/variants/duplicate`,
+  TOGGLE_ACTIVE: (id) => `/variants/${id}/toggle-active`,
+  BY_BARCODE: (barcode) => `/variants/by-barcode/${barcode}`,
+  STOCK_SUMMARY: (productId) => `/products/${productId}/variants/stock-summary`,
+},
+BARCODE: {
+  LOOKUP: (barcode) => `/products/by-barcode/${barcode}`,
+},
+VARIANT_REPORTS: {
+  SALES_SUMMARY: '/reports/variants/sales-summary',
+  TOP_SELLING: '/reports/variants/top-selling',
+  SLOW_MOVING: '/reports/variants/slow-moving',
+}
+```
+
+**New Service Methods** (`variants.service.ts`):
+- `bulkUpdate()`: Bulk update multiple variants (HTTP 207 support)
+- `duplicate()`: Clone variant with new attributes
+- `toggleActive()`: Quick active status toggle
+- `getStockSummary()`: Stock breakdown by warehouse/branch
+- `getByBarcode()`: Direct variant lookup by barcode
+
+**New Reports Service** (`variantReportsService`):
+- `getSalesSummary()`: Sales by variant with grouping options
+- `getTopSelling()`: Top selling variants by quantity/revenue/profit
+- `getSlowMoving()`: Slow-moving inventory identification
+
+**Products Service Update** (`products.service.ts`):
+- `getByBarcode()`: Universal barcode lookup (products, variants, batches)
+
+**Files Modified**:
+- `src/pages/pos/POSPage.tsx` - Sale payload, cart adapter, barcode scanner
+- `src/types/variant.types.ts` - New types for all operations
+- `src/types/api.types.ts` - `variant_id` in `PurchaseProductItem`
+- `src/api/endpoints.ts` - New endpoint definitions
+- `src/api/services/variants.service.ts` - New methods & reports service
+- `src/api/services/products.service.ts` - Barcode lookup method
+- `src/api/services/index.ts` - Export `variantReportsService`
+
+**Reference**: See `API_ALIGNMENT_ANALYSIS.md` for detailed analysis document.
+
+---
+
+### December 8, 2025
+
+#### Variable Products - Initial Stock Support
 
 **Problem**: Backend now supports `initial_stock` per variant in a single create call; frontend needed to collect and send it.
 
