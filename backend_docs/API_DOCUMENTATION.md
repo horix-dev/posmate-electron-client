@@ -33,11 +33,12 @@
 23. [Warehouses](#23-warehouses)
 24. [Currencies](#24-currencies)
 25. [Invoices](#25-invoices)
-26. [Dashboard & Statistics](#26-dashboard--statistics)
-27. [Users & Staff](#27-users--staff)
-28. [Settings](#28-settings)
-29. [Bulk Upload](#29-bulk-upload)
-30. [Additional Resources](#30-additional-resources)
+26. [Variant Reports & Analytics](#26-variant-reports--analytics)
+27. [Dashboard & Statistics](#27-dashboard--statistics)
+28. [Users & Staff](#28-users--staff)
+29. [Settings](#29-settings)
+30. [Bulk Upload](#30-bulk-upload)
+31. [Additional Resources](#31-additional-resources)
 
 ---
 
@@ -573,9 +574,98 @@ Retrieves all products with stock information.
           "mfg_date": "2024-01-01",
           "expire_date": "2025-12-31"
         }
+      ],
+      "variants": [
+        {
+          "id": 156,
+          "sku": "TSHIRT-S-RED",
+          "barcode": "8901234567001",
+          "price": 599,
+          "cost_price": 300,
+          "is_active": true,
+          "attributeValues": [
+            {
+              "id": 1,
+              "value": "Small",
+              "attribute": {
+                "id": 1,
+                "name": "Size"
+              }
+            },
+            {
+              "id": 4,
+              "value": "Red",
+              "attribute": {
+                "id": 2,
+                "name": "Color"
+              }
+            }
+          ],
+          "stocks": [
+            {
+              "id": 123,
+              "productStock": 45,
+              "productPurchasePrice": 300,
+              "productSalePrice": 599
+            }
+          ]
+        }
       ]
     }
   ]
+}
+```
+
+**Note:** For variable products (`product_type: 'variable'`), the `variants` array contains all attribute-based variants with their attribute combinations and stock information. For single and batch products, the `variants` array will be empty.
+
+---
+
+### 3.1b Get Product by Barcode
+
+Searches and retrieves product/variant/batch by barcode. Universal barcode lookup across all data types.
+
+**Endpoint:** `GET /products/by-barcode/{barcode}`  
+**Auth Required:** Yes
+
+**Response (Product Match):**
+```json
+{
+  "message": "Product found.",
+  "type": "product",
+  "data": {
+    "id": 1,
+    "productName": "Laptop Charger",
+    "product_type": "single",
+    "barcode": "8901234567890",
+    "productPurchasePrice": 500.00,
+    "stocks": []
+  }
+}
+```
+
+**Response (Variant Match):**
+```json
+{
+  "message": "Variant found.",
+  "type": "variant",
+  "data": {
+    "id": 156,
+    "sku": "TSHIRT-S-RED",
+    "barcode": "8901234567001",
+    "price": 599,
+    "product": {
+      "id": 245,
+      "productName": "Premium T-Shirt"
+    }
+  }
+}
+```
+
+**Response (Not Found):**
+```json
+{
+  "message": "No product, variant, or batch found for barcode: 9999999999",
+  "type": "not_found"
 }
 ```
 
@@ -588,15 +678,58 @@ Retrieves a specific product by ID.
 **Endpoint:** `GET /products/{id}`  
 **Auth Required:** Yes
 
-**Response:**
+**Response (variable product example):**
 ```json
 {
   "message": "Data fetched successfully.",
   "data": {
-    "id": 1,
-    "productName": "Product Name",
-    "productCode": "PRD001",
-    "stocks": [ ]
+    "id": 24,
+    "productName": "Premium T-Shirt",
+    "productCode": "TSHIRT-PREM-001",
+    "product_type": "variable",
+    "stocks": [],
+    "variants": [
+      {
+        "id": 156,
+        "sku": "TSHIRT-S-RED",
+        "barcode": "8901234567001",
+        "price": 599,
+        "cost_price": 300,
+        "wholesale_price": 499,
+        "dealer_price": 549,
+        "is_active": true,
+        "stocks": [
+          {
+            "id": 501,
+            "batch_no": "INIT-TSHIRT-S-RED",
+            "productStock": 20,
+            "productPurchasePrice": 300,
+            "productSalePrice": 599,
+            "productWholeSalePrice": 499,
+            "productDealerPrice": 549
+          }
+        ],
+        "attributeValues": [
+          { "id": 1, "attribute_id": 1, "value": "Small" },
+          { "id": 4, "attribute_id": 2, "value": "Red" }
+        ]
+      },
+      {
+        "id": 157,
+        "sku": "TSHIRT-S-BLUE",
+        "barcode": "8901234567002",
+        "price": 599,
+        "cost_price": 300,
+        "wholesale_price": 499,
+        "dealer_price": 549,
+        "is_active": true,
+        "stocks": [],
+        "attributeValues": [
+          { "id": 1, "attribute_id": 1, "value": "Small" },
+          { "id": 5, "attribute_id": 2, "value": "Blue" }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -606,12 +739,24 @@ Retrieves a specific product by ID.
 ### 3.3 Create Product
 
 Creates a new product. Supports three product types:
-- **single**: Simple product with one pricing/stock entry
-- **variant**: Batch product with multiple stock entries (tracked by batch_no)
-- **variable**: Attribute-based variants (e.g., Size: S, M, L; Color: Red, Blue)
 
 **Endpoint:** `POST /products`  
 **Auth Required:** Yes
+
+**Product Type Comparison:**
+
+| `product_type` Value | Common Name | Use Case | Stock Tracking |
+|---------------------|-------------|----------|----------------|
+| **`single`** | Simple Product | Basic product (e.g., Laptop Charger) | Single stock record |
+| **`variant`** | **Batch Product** | Batch/Lot tracking (e.g., Medicines with expiry dates) | Multiple stock records by `batch_no` |
+| **`variable`** | **Variant Product** | Attribute-based variants (e.g., T-Shirt: Size S/M/L × Color Red/Blue) | Stock per attribute combination |
+
+**⚠️ NAMING NOTE:** The system uses `product_type: 'variant'` for **batch products** and `product_type: 'variable'` for **attribute-based variants**. This may seem counterintuitive, but it's the current implementation.
+
+**⚠️ CRITICAL API DIFFERENCES:**
+
+- **Batch products (`product_type: 'variant'`)**: Use **arrays at root level** (`batch_no[]`, `productSalePrice[]`, `productStock[]`)
+- **Variant products (`product_type: 'variable'`)**: Use **`variants` array** with objects containing `attribute_value_ids`, `sku`, pricing
 
 **Response Format:**
 ```json
@@ -666,9 +811,11 @@ curl -X POST http://localhost:8000/api/v1/products \
 
 ---
 
-#### 3.3.2 Create Variant (Batch) Product
+#### 3.3.2 Create Batch Product (`product_type: 'variant'`)
 
-Product with multiple stock entries tracked by batch numbers.
+Product with multiple stock entries tracked by batch numbers. Used for products where you need to track different batches/lots (e.g., medicines with different expiry dates).
+
+**⚠️ Note:** Despite the naming, use `product_type: 'variant'` for batch products (not `'batch'`).
 
 **Request Body (multipart/form-data):**
 ```json
@@ -676,46 +823,56 @@ Product with multiple stock entries tracked by batch numbers.
   "productName": "Medicine Tablets",
   "productCode": "MED-001",
   "category_id": 8,
+  "brand_id": 3,
   "product_type": "variant",
-  "variants": [
-    {
-      "batch_no": "BATCH20240101",
-      "enabled": 1,
-      "cost_price": 50,
-      "price": 100,
-      "dealer_price": 90,
-      "wholesale_price": 85,
-      "profit_percent": 100,
-      "mfg_date": "2024-01-01",
-      "expire_date": "2025-01-01"
-    },
-    {
-      "batch_no": "BATCH20240201",
-      "enabled": 1,
-      "cost_price": 52,
-      "price": 105,
-      "dealer_price": 95,
-      "wholesale_price": 90,
-      "profit_percent": 102,
-      "mfg_date": "2024-02-01",
-      "expire_date": "2025-02-01"
-    }
-  ]
+  "batch_no": ["BATCH20240101", "BATCH20240201"],
+  "productStock": [50, 45],
+  "productPurchasePrice": [50, 52],
+  "productSalePrice": [100, 105],
+  "productDealerPrice": [90, 95],
+  "productWholeSalePrice": [85, 90],
+  "profit_percent": [100, 102],
+  "mfg_date": ["2024-01-01", "2024-02-01"],
+  "expire_date": ["2025-01-01", "2025-02-01"]
 }
 ```
 
-**Note:** Stock for variants is added separately via purchases module.
+**Important Notes:**
+- All batch-related fields must be **arrays** with matching indices
+- Each index represents one batch (e.g., `batch_no[0]` corresponds to `productStock[0]`, `mfg_date[0]`, etc.)
+- Minimum required: `batch_no[]` array
+- Stock is created immediately for each batch
+
+**cURL Example:**
+```bash
+curl -X POST http://localhost:8000/api/v1/products \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "productName=Medicine Tablets" \
+  -F "product_type=variant" \
+  -F "batch_no[]=BATCH20240101" \
+  -F "batch_no[]=BATCH20240201" \
+  -F "productStock[]=50" \
+  -F "productStock[]=45" \
+  -F "productPurchasePrice[]=50" \
+  -F "productPurchasePrice[]=52" \
+  -F "productSalePrice[]=100" \
+  -F "productSalePrice[]=105"
+```
 
 ---
 
-#### 3.3.3 Create Variable Product with Attribute-Based Variants
+#### 3.3.3 Create Variant Product with Attributes (`product_type: 'variable'`)
 
-Product with attribute-based variants. All variants are created in a single API call.
+Product with attribute-based variants (e.g., Size × Color combinations). All variants are created in a single API call.
+
+**⚠️ Note:** Despite the naming, use `product_type: 'variable'` for attribute-based variants (not `'variant'`).
 
 **Requirements:**
 1. Attributes must be created first via `POST /api/v1/attributes`
 2. Attribute values must exist for the attributes
 3. Provide `attribute_value_ids` for each variant
+4. `barcode` is optional; if provided it must be unique per business
+5. Optional `initial_stock` per variant seeds stock during creation; if omitted, add stock later via `POST /api/v1/stock`
 
 **Request Body (JSON):**
 ```json
@@ -729,16 +886,19 @@ Product with attribute-based variants. All variants are created in a single API 
   "variants": [
     {
       "sku": "TSHIRT-S-RED",
+      "barcode": "8901234567001",
       "enabled": 1,
       "cost_price": 300,
       "price": 599,
       "dealer_price": 549,
       "wholesale_price": 499,
+      "initial_stock": 20,
       "is_active": 1,
       "attribute_value_ids": [1, 5]
     },
     {
       "sku": "TSHIRT-S-BLUE",
+      "barcode": "8901234567002",
       "enabled": 1,
       "cost_price": 300,
       "price": 599,
@@ -811,12 +971,15 @@ curl -X POST http://localhost:8000/api/v1/products \
     "variants": [
       {
         "sku": "TSHIRT-S-RED",
+        "barcode": "8901234567001",
         "cost_price": 300,
         "price": 599,
+        "initial_stock": 20,
         "attribute_value_ids": [1, 5]
       },
       {
         "sku": "TSHIRT-M-RED",
+        "barcode": "8901234567003",
         "cost_price": 320,
         "price": 649,
         "attribute_value_ids": [2, 5]
@@ -840,6 +1003,7 @@ curl -X POST http://localhost:8000/api/v1/products \
         "id": 156,
         "product_id": 245,
         "sku": "TSHIRT-S-RED",
+        "barcode": "8901234567001",
         "cost_price": 300.00,
         "price": 599.00,
         "dealer_price": 549.00,
@@ -855,6 +1019,7 @@ curl -X POST http://localhost:8000/api/v1/products \
         "id": 157,
         "product_id": 245,
         "sku": "TSHIRT-S-BLUE",
+        "barcode": "8901234567002",
         "cost_price": 300.00,
         "price": 599.00,
         "dealer_price": 549.00,
@@ -873,12 +1038,12 @@ curl -X POST http://localhost:8000/api/v1/products \
 
 **Stock Management for Variable Products:**
 
-Variable products don't have stock entries created during product creation. Stock is managed through the purchases/inventory module:
+- `POST /products` (variable) supports optional `variants[*].initial_stock` to seed stock.
+- If omitted, use one of:
+  1. `POST /products/{product}/variants` with `initial_stock` to seed stock for that variant, **or**
+  2. `POST /stock` to add stock (preferred for purchases/inventory flows).
 
-1. **Via Web UI:** Navigate to Purchases → Create Purchase Order, select variant, specify quantity
-2. **Via API:** `POST /api/v1/stock` with `variant_id` and quantity
-
-Example stock addition:
+Example stock addition via stock endpoint:
 ```bash
 curl -X POST http://localhost:8000/api/v1/stock \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -895,12 +1060,71 @@ curl -X POST http://localhost:8000/api/v1/stock \
 
 ### 3.4 Update Product
 
-Updates an existing product.
+Updates an existing product. Supports updating single and batch products.
 
 **Endpoint:** `PUT /products/{id}`  
 **Auth Required:** Yes
 
-**Request Body:** Same as Create Product
+---
+
+#### 3.4.1 Update Single Product
+
+**Request Body (multipart/form-data):**
+```json
+{
+  "productName": "Updated Laptop Charger",
+  "productCode": "CHARGER-001-V2",
+  "category_id": 5,
+  "brand_id": 3,
+  "product_type": "single",
+  "productPurchasePrice": 850,
+  "productSalePrice": 1300,
+  "productDealerPrice": 1150,
+  "productWholeSalePrice": 1100,
+  "productStock": 120,
+  "profit_percent": 53,
+  "alert_qty": 15,
+  "productPicture": "<file>"
+}
+```
+
+---
+
+#### 3.4.2 Update Batch Product
+
+**Request Body (multipart/form-data):**
+```json
+{
+  "productName": "Updated Medicine Tablets",
+  "product_type": "variant",
+  "batch_no": ["BATCH20240101", "BATCH20240201", "BATCH20240301"],
+  "productStock": [50, 45, 60],
+  "productPurchasePrice": [50, 52, 54],
+  "productSalePrice": [100, 105, 110],
+  "productDealerPrice": [90, 95, 100],
+  "productWholeSalePrice": [85, 90, 95],
+  "profit_percent": [100, 102, 104],
+  "mfg_date": ["2024-01-01", "2024-02-01", "2024-03-01"],
+  "expire_date": ["2025-01-01", "2025-02-01", "2025-03-01"]
+}
+```
+
+**Note:** Update replaces ALL batch records. Include all batches you want to keep.
+
+---
+
+#### 3.4.3 Update Variant Product (Attribute-Based)
+
+⚠️ **LIMITATION:** Direct update of variable products (`product_type: 'variable'`) with variants is **not currently supported** via the main update endpoint.
+
+**Workaround:** To update attribute-based variants:
+1. Use individual variant endpoints: `PUT /api/v1/product-variants/{variantId}`
+2. Or delete and recreate the product with new variants
+
+**Alternative Endpoint (if available):**
+```
+PUT /api/v1/product-variants/{variantId}
+```
 
 ---
 
@@ -910,6 +1134,449 @@ Deletes a product.
 
 **Endpoint:** `DELETE /products/{id}`  
 **Auth Required:** Yes
+
+---
+
+### 3.6 Product Variants Management
+
+Manage individual variants for products with `product_type: 'variable'`.
+
+---
+
+#### 3.6.1 List Product Variants
+
+Get all variants for a specific product.
+
+**Endpoint:** `GET /products/{productId}/variants`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `active` (optional): Filter by active status (`true`/`false`)
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [
+    {
+      "id": 1,
+      "product_id": 24,
+      "sku": "TSHIRT-S-RED",
+      "barcode": "8901234567001",
+      "price": 599,
+      "cost_price": 300,
+      "wholesale_price": 499,
+      "dealer_price": 549,
+      "is_active": true,
+      "sort_order": 0,
+      "total_stock": 45,
+      "variant_name": "Small / Red",
+      "effective_price": 599,
+      "attributeValues": [
+        {
+          "id": 1,
+          "attribute_id": 1,
+          "value": "Small",
+          "attribute": {
+            "id": 1,
+            "name": "Size"
+          }
+        },
+        {
+          "id": 5,
+          "attribute_id": 2,
+          "value": "Red",
+          "attribute": {
+            "id": 2,
+            "name": "Color"
+          }
+        }
+      ],
+      "stocks": [
+        {
+          "id": 123,
+          "variant_id": 1,
+          "productStock": 45,
+          "warehouse_id": 1
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+#### 3.6.2 Get Single Variant
+
+Get details of a specific variant.
+
+**Endpoint:** `GET /variants/{variantId}`  
+**Auth Required:** Yes
+
+**Response:** Same format as list item above, with additional `product` object.
+
+---
+
+#### 3.6.3 Create New Variant
+
+Add a new variant to an existing variable product.
+
+**Endpoint:** `POST /products/{productId}/variants`  
+**Auth Required:** Yes
+
+**Request Body (JSON):**
+```json
+{
+  "sku": "TSHIRT-XL-RED",
+  "barcode": "8901234567010",
+  "attribute_value_ids": [4, 5],
+  "price": 749,
+  "cost_price": 380,
+  "wholesale_price": 649,
+  "dealer_price": 699,
+  "weight": 0.25,
+  "initial_stock": 30,
+  "is_active": true,
+  "sort_order": 0
+}
+```
+
+**Field Descriptions:**
+- `sku` (required): Unique stock keeping unit
+- `barcode` (optional): Unique barcode
+- `attribute_value_ids` (required): Array of attribute value IDs (e.g., [Size=XL, Color=Red])
+- `price`, `cost_price`, `wholesale_price`, `dealer_price` (optional): Pricing (falls back to parent product prices)
+- `initial_stock` (optional): Initial stock quantity (creates stock record)
+- `is_active` (optional): Enable/disable variant (default: true)
+- `sort_order` (optional): Display order (default: 0)
+
+---
+
+#### 3.6.4 Update Variant
+
+Update an existing variant's details.
+
+**Endpoint:** `PUT /variants/{variantId}`  
+**Auth Required:** Yes
+
+**Request Body (JSON):**
+```json
+{
+  "sku": "TSHIRT-XL-RED-V2",
+  "barcode": "8901234567011",
+  "price": 799,
+  "cost_price": 400,
+  "wholesale_price": 699,
+  "dealer_price": 749,
+  "is_active": true,
+  "sort_order": 1
+}
+```
+
+**Note:** Cannot update `attribute_value_ids`. To change attributes, delete and create a new variant.
+
+---
+
+#### 3.6.5 Delete Variant
+
+Delete a variant from a product.
+
+**Endpoint:** `DELETE /variants/{variantId}`  
+**Auth Required:** Yes
+
+**Validation:**
+- Cannot delete if variant has sale records
+- Cannot delete if variant has stock > 0
+
+**Response:**
+```json
+{
+  "message": "Variant deleted successfully."
+}
+```
+
+---
+
+#### 3.6.6 Update Variant Stock
+
+Update stock quantity for a specific variant.
+
+**Endpoint:** `PUT /variants/{variantId}/stock`  
+**Auth Required:** Yes
+
+**Request Body (JSON):**
+```json
+{
+  "warehouse_id": 1,
+  "quantity": 50,
+  "adjustment_type": "set"
+}
+```
+
+**adjustment_type options:**
+- `set`: Set stock to exact quantity
+- `add`: Add quantity to existing stock
+- `subtract`: Subtract quantity from existing stock
+
+---
+
+#### 3.6.7 Find Variant by Attributes
+
+Find a variant by its attribute combination.
+
+**Endpoint:** `POST /products/{productId}/variants/find`  
+**Auth Required:** Yes
+
+**Request Body (JSON):**
+```json
+{
+  "attribute_value_ids": [1, 5]
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Variant found.",
+  "data": {
+    "id": 1,
+    "sku": "TSHIRT-S-RED",
+    "price": 599,
+    "total_stock": 45
+  }
+}
+```
+
+---
+
+#### 3.6.8 Bulk Update Variants
+
+Updates multiple variants in a single request with partial success handling (HTTP 207 Multi-Status).
+
+**Endpoint:** `PUT /products/{productId}/variants/bulk`  
+**Auth Required:** Yes
+
+**Request Body (JSON):**
+```json
+{
+  "variants": [
+    {
+      "id": 156,
+      "sku": "TSHIRT-S-RED-V2",
+      "price": 599,
+      "cost_price": 300,
+      "is_active": true
+    },
+    {
+      "id": 157,
+      "sku": "TSHIRT-S-BLUE-V2",
+      "price": 649,
+      "cost_price": 320,
+      "is_active": true
+    }
+  ]
+}
+```
+
+**Response (Partial Success - HTTP 207):**
+```json
+{
+  "message": "Bulk update completed with 1 success and 1 failure",
+  "data": {
+    "successful": [
+      {
+        "id": 156,
+        "sku": "TSHIRT-S-RED-V2",
+        "message": "Variant updated successfully"
+      }
+    ],
+    "failed": [
+      {
+        "id": 157,
+        "sku": "TSHIRT-S-BLUE-V2",
+        "errors": {
+          "sku": ["SKU already exists for this business"]
+        }
+      }
+    ]
+  }
+}
+```
+
+---
+
+#### 3.6.9 Duplicate Variant
+
+Creates a copy of an existing variant with new attributes or pricing.
+
+**Endpoint:** `POST /products/{productId}/variants/duplicate`  
+**Auth Required:** Yes
+
+**Request Body (JSON):**
+```json
+{
+  "variant_id": 156,
+  "new_sku": "TSHIRT-M-RED",
+  "new_barcode": "8901234567010",
+  "attribute_value_ids": [2, 4],
+  "price_adjustment": 50,
+  "copy_stock": true
+}
+```
+
+**Field Descriptions:**
+- `variant_id` (required): ID of variant to clone
+- `new_sku` (required): New SKU for cloned variant
+- `new_barcode` (optional): New barcode
+- `attribute_value_ids` (optional): New attribute combination
+- `price_adjustment` (optional): Add/subtract from price (e.g., 50 adds 50 to price)
+- `copy_stock` (optional): Copy stock from source variant (default: false)
+
+**Response:**
+```json
+{
+  "message": "Variant duplicated successfully",
+  "data": {
+    "id": 158,
+    "sku": "TSHIRT-M-RED",
+    "barcode": "8901234567010",
+    "price": 649,
+    "attributeValues": [
+      {"id": 2, "value": "Medium"},
+      {"id": 4, "value": "Red"}
+    ]
+  }
+}
+```
+
+---
+
+#### 3.6.10 Toggle Variant Active Status
+
+Quick toggle for variant active/inactive status with version tracking.
+
+**Endpoint:** `PATCH /variants/{variantId}/toggle-active`  
+**Auth Required:** Yes
+
+**Response:**
+```json
+{
+  "message": "Variant toggled successfully",
+  "data": {
+    "id": 156,
+    "sku": "TSHIRT-S-RED",
+    "is_active": false,
+    "version": 5
+  }
+}
+```
+
+---
+
+#### 3.6.11 Stock Summary by Location
+
+Get stock breakdown by warehouse/branch for a product's variants.
+
+**Endpoint:** `GET /products/{productId}/variants/stock-summary`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `group_by` (optional): `warehouse` (default) or `branch`
+- `low_stock_threshold` (optional): Highlight items below this quantity (default: null)
+
+**Response:**
+```json
+{
+  "message": "Stock summary retrieved",
+  "data": {
+    "product_id": 245,
+    "productName": "Premium T-Shirt",
+    "total_variants": 6,
+    "total_stock_value": 25000.00,
+    "summary_by_warehouse": [
+      {
+        "id": 1,
+        "name": "Main Warehouse",
+        "variants": [
+          {
+            "id": 156,
+            "sku": "TSHIRT-S-RED",
+            "variant_name": "Small, Red",
+            "quantity": 45,
+            "value": 26955.00,
+            "low_stock": false
+          },
+          {
+            "id": 157,
+            "sku": "TSHIRT-S-BLUE",
+            "variant_name": "Small, Blue",
+            "quantity": 3,
+            "value": 1797.00,
+            "low_stock": true
+          }
+        ],
+        "warehouse_total_quantity": 48,
+        "warehouse_total_value": 28752.00
+      }
+    ]
+  }
+}
+```
+
+---
+
+#### 3.6.12 Get Variant by Barcode
+
+Retrieves a specific variant by its barcode.
+
+**Endpoint:** `GET /variants/by-barcode/{barcode}`  
+**Auth Required:** Yes
+
+**Response:**
+```json
+{
+  "message": "Variant found",
+  "data": {
+    "id": 156,
+    "sku": "TSHIRT-S-RED",
+    "barcode": "8901234567001",
+    "price": 599,
+    "cost_price": 300,
+    "variant_name": "Small, Red",
+    "product": {
+      "id": 245,
+      "productName": "Premium T-Shirt"
+    }
+  }
+}
+```
+
+---
+
+#### 3.6.13 Generate Variants (Bulk)
+
+Auto-generate all possible variants from attribute combinations.
+
+**Endpoint:** `POST /products/{productId}/variants/generate`  
+**Auth Required:** Yes
+
+**Request Body (JSON):**
+```json
+{
+  "attributes": {
+    "1": [1, 2, 3],
+    "2": [5, 6]
+  },
+  "default_price": 599,
+  "default_cost_price": 300
+}
+```
+
+**Explanation:**
+- `attributes`: Object where keys are attribute IDs, values are arrays of attribute value IDs
+- Example generates 6 variants: Size (S/M/L) × Color (Red/Blue) = 6 combinations
+- All variants get the default pricing
 
 ---
 
@@ -1340,14 +2007,18 @@ Product variants represent specific combinations of attribute values (e.g., "Lar
 **Request Body:**
 ```json
 {
-  "sku": "string (optional, auto-generated if not provided)",
-  "variant_name": "string (optional, auto-generated from attribute values)",
-  "price": "decimal (required)",
+  "sku": "string (required, unique per business)",
+  "barcode": "string (optional, unique per business)",
+  "price": "decimal (optional)",
   "cost_price": "decimal (optional)",
-  "stock_quantity": "integer (optional, default: 0)",
-  "low_stock_threshold": "integer (optional)",
+  "wholesale_price": "decimal (optional)",
+  "dealer_price": "decimal (optional)",
+  "weight": "decimal (optional)",
+  "image": "string (optional)",
   "is_active": "boolean (optional, default: true)",
-  "attribute_value_ids": [1, 5]
+  "sort_order": "integer (optional)",
+  "attribute_values": [1, 5],
+  "initial_stock": "integer (optional, >= 0)"
 }
 ```
 
@@ -1440,12 +2111,14 @@ Finds a specific variant by its attribute value combination. Used in POS for var
 **Request Body:**
 ```json
 {
-  "sku": "string (optional)",
-  "variant_name": "string (optional)",
+  "sku": "string (optional, unique per business)",
+  "barcode": "string (optional, unique per business)",
   "price": "decimal (optional)",
   "cost_price": "decimal (optional)",
-  "stock_quantity": "integer (optional)",
-  "low_stock_threshold": "integer (optional)",
+  "wholesale_price": "decimal (optional)",
+  "dealer_price": "decimal (optional)",
+  "weight": "decimal (optional)",
+  "image": "string (optional)",
   "is_active": "boolean (optional)",
   "sort_order": "integer (optional)"
 }
@@ -1803,7 +2476,8 @@ Updates an existing sale.
   "products": [
     {
       "product_id": 1,
-      "batch_no": "BATCH001",
+      "variant_id": "integer (optional, for variant-specific stock tracking)",
+      "batch_no": "string (optional, for batch products)",
       "quantities": 50,
       "productPurchasePrice": 100.00,
       "productSalePrice": 150.00,
@@ -2014,8 +2688,9 @@ Updates an existing sale.
 
 **Endpoint:** `GET /expenses`  
 **Auth Required:** Yes
+**Description:** List all expenses with categories, payment types, and branches for the authenticated user's business.
 
-**Response:**
+**Response (Success):**
 ```json
 {
   "message": "Data fetched successfully.",
@@ -2023,37 +2698,181 @@ Updates an existing sale.
     {
       "id": 1,
       "amount": 500.00,
-      "description": "Office supplies",
       "expense_category_id": 1,
       "payment_type_id": 1,
-      "created_at": "2024-01-15",
-      "category": {
-        "id": 1,
-        "categoryName": "Office Expenses"
-      },
-      "payment_type": {
-        "id": 1,
-        "name": "Cash"
-      }
+      "branch_id": 1,
+      "expenseFor": "string",
+      "referenceNo": "REF001",
+      "expenseDate": "2024-12-10",
+      "note": "string",
+      "category": { "id": 1, "categoryName": "Office Expenses" },
+      "payment_type": { "id": 1, "name": "Cash" },
+      "branch": { "id": 1, "name": "Main Branch" }
     }
-  ]
+  ],
+  "expense_categories": [],
+  "payment_types": [],
+  "branches": []
 }
 ```
 
 ---
 
-### 16.2 Create Expense
+### 16.2 Filter Expenses
+
+**Endpoint:** `GET /expenses/filter`  
+**Auth Required:** Yes
+**Description:** Search and filter expenses by branch and/or search term.
+
+**Query Parameters:**
+```json
+{
+  "branch_id": "integer (optional)",
+  "search": "string (optional) - searches amount, expenseFor, paymentType, referenceNo, category name, branch name, payment type name",
+  "per_page": "integer (optional, default: 10)"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Data filtered successfully.",
+  "data": []
+}
+```
+
+---
+
+### 16.3 Create Expense
 
 **Endpoint:** `POST /expenses`  
 **Auth Required:** Yes
+**Description:** Create a new expense record.
 
 **Request Body:**
 ```json
 {
   "amount": "numeric (required)",
-  "expense_category_id": "integer (required, exists)",
-  "payment_type_id": "integer (optional)",
-  "description": "string (optional)"
+  "expense_category_id": "integer (required, exists in expense_categories)",
+  "payment_type_id": "integer (required, exists in payment_types)",
+  "expenseFor": "string (optional)",
+  "referenceNo": "string (optional)",
+  "expenseDate": "string (optional)",
+  "note": "string (optional)"
+}
+```
+
+**Response (Success - 201):**
+```json
+{
+  "message": "Expense saved successfully.",
+  "data": {
+    "id": 1,
+    "amount": 500.00,
+    "expense_category_id": 1,
+    "payment_type_id": 1,
+    "expenseFor": "string",
+    "referenceNo": "REF001",
+    "expenseDate": "2024-12-10",
+    "note": "string",
+    "user_id": 1,
+    "business_id": 1
+  }
+}
+```
+
+---
+
+### 16.4 Get Single Expense
+
+**Endpoint:** `GET /expenses/{id}`  
+**Auth Required:** Yes
+**Description:** Retrieve details of a specific expense.
+
+**Response (Success):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "id": 1,
+    "amount": 500.00,
+    "expense_category_id": 1,
+    "payment_type_id": 1,
+    "branch_id": 1,
+    "expenseFor": "string",
+    "referenceNo": "REF001",
+    "expenseDate": "2024-12-10",
+    "note": "string",
+    "category": { "id": 1, "categoryName": "Office Expenses" },
+    "payment_type": { "id": 1, "name": "Cash" },
+    "branch": { "id": 1, "name": "Main Branch" }
+  }
+}
+```
+
+---
+
+### 16.5 Update Expense
+
+**Endpoint:** `PUT /expenses/{id}`  
+**Auth Required:** Yes
+**Description:** Update an existing expense record.
+
+**Request Body:**
+```json
+{
+  "amount": "numeric (required)",
+  "expense_category_id": "integer (required, exists in expense_categories)",
+  "payment_type_id": "integer (required, exists in payment_types)",
+  "expenseFor": "string (optional)",
+  "referenceNo": "string (optional)",
+  "expenseDate": "string (optional)",
+  "note": "string (optional)"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Expense updated successfully.",
+  "data": {}
+}
+```
+
+---
+
+### 16.6 Delete Expense
+
+**Endpoint:** `DELETE /expenses/{id}`  
+**Auth Required:** Yes
+**Description:** Delete a specific expense record.
+
+**Response (Success):**
+```json
+{
+  "message": "Expense deleted successfully"
+}
+```
+
+---
+
+### 16.7 Delete Multiple Expenses
+
+**Endpoint:** `POST /expenses/delete-all`  
+**Auth Required:** Yes
+**Description:** Delete multiple expense records at once.
+
+**Request Body:**
+```json
+{
+  "ids": "array of integers (required) - array of expense IDs to delete"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Selected items deleted successfully."
 }
 ```
 
@@ -2065,21 +2884,191 @@ Updates an existing sale.
 
 **Endpoint:** `GET /incomes`  
 **Auth Required:** Yes
+**Description:** List all incomes with categories, payment types, and branches for the authenticated user's business.
+
+**Response (Success):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [
+    {
+      "id": 1,
+      "amount": 5000.00,
+      "income_category_id": 1,
+      "payment_type_id": 1,
+      "branch_id": 1,
+      "incomeFor": "string",
+      "referenceNo": "REF001",
+      "incomeDate": "2024-12-10",
+      "note": "string",
+      "category": { "id": 1, "categoryName": "Sales" },
+      "payment_type": { "id": 1, "name": "Cash" },
+      "branch": { "id": 1, "name": "Main Branch" }
+    }
+  ],
+  "income_categories": [],
+  "payment_types": [],
+  "branches": []
+}
+```
 
 ---
 
-### 17.2 Create Income
+### 17.2 Filter Incomes
+
+**Endpoint:** `GET /incomes/filter`  
+**Auth Required:** Yes
+**Description:** Search and filter incomes by branch and/or search term.
+
+**Query Parameters:**
+```json
+{
+  "branch_id": "integer (optional)",
+  "search": "string (optional) - searches amount, incomeFor, paymentType, referenceNo, incomeDate, category name, branch name, payment type name",
+  "per_page": "integer (optional, default: 10)"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Data filtered successfully.",
+  "data": []
+}
+```
+
+---
+
+### 17.3 Create Income
 
 **Endpoint:** `POST /incomes`  
 **Auth Required:** Yes
+**Description:** Create a new income record.
 
 **Request Body:**
 ```json
 {
   "amount": "numeric (required)",
-  "income_category_id": "integer (required, exists)",
-  "payment_type_id": "integer (optional)",
-  "description": "string (optional)"
+  "income_category_id": "integer (required, exists in income_categories)",
+  "payment_type_id": "integer (required, exists in payment_types)",
+  "incomeFor": "string (optional)",
+  "referenceNo": "string (optional)",
+  "incomeDate": "string (optional)",
+  "note": "string (optional)"
+}
+```
+
+**Response (Success - 201):**
+```json
+{
+  "message": "Income saved successfully.",
+  "data": {
+    "id": 1,
+    "amount": 5000.00,
+    "income_category_id": 1,
+    "payment_type_id": 1,
+    "incomeFor": "string",
+    "referenceNo": "REF001",
+    "incomeDate": "2024-12-10",
+    "note": "string",
+    "user_id": 1,
+    "business_id": 1
+  }
+}
+```
+
+---
+
+### 17.4 Get Single Income
+
+**Endpoint:** `GET /incomes/{id}`  
+**Auth Required:** Yes
+**Description:** Retrieve details of a specific income.
+
+**Response (Success):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "id": 1,
+    "amount": 5000.00,
+    "income_category_id": 1,
+    "payment_type_id": 1,
+    "branch_id": 1,
+    "incomeFor": "string",
+    "referenceNo": "REF001",
+    "incomeDate": "2024-12-10",
+    "note": "string",
+    "category": { "id": 1, "categoryName": "Sales" },
+    "payment_type": { "id": 1, "name": "Cash" },
+    "branch": { "id": 1, "name": "Main Branch" }
+  }
+}
+```
+
+---
+
+### 17.5 Update Income
+
+**Endpoint:** `PUT /incomes/{id}`  
+**Auth Required:** Yes
+**Description:** Update an existing income record.
+
+**Request Body:**
+```json
+{
+  "amount": "numeric (required)",
+  "income_category_id": "integer (required, exists in income_categories)",
+  "payment_type_id": "integer (required, exists in payment_types)",
+  "incomeFor": "string (optional)",
+  "referenceNo": "string (optional)",
+  "incomeDate": "string (optional)",
+  "note": "string (optional)"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Income updated successfully.",
+  "data": {}
+}
+```
+
+---
+
+### 17.6 Delete Income
+
+**Endpoint:** `DELETE /incomes/{id}`  
+**Auth Required:** Yes
+**Description:** Delete a specific income record.
+
+**Response (Success):**
+```json
+{
+  "message": "Income deleted successfully"
+}
+```
+
+---
+
+### 17.7 Delete Multiple Incomes
+
+**Endpoint:** `POST /incomes/delete-all`  
+**Auth Required:** Yes
+**Description:** Delete multiple income records at once.
+
+**Request Body:**
+```json
+{
+  "ids": "array of integers (required) - array of income IDs to delete"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Selected Items deleted successfully."
 }
 ```
 
@@ -2995,6 +3984,186 @@ Generates next invoice number.
 | opening_balance | decimal | Opening balance |
 | opening_balance_type | string | `due` or `advance` |
 | image | string | Image path |
+
+---
+
+## 26. Variant Reports & Analytics
+
+Advanced reporting endpoints for variant product analysis and insights.
+
+### 26.1 Variant Sales Summary
+
+Get detailed sales analytics for variants with flexible grouping and filtering options.
+
+**Endpoint:** `GET /reports/variants/sales-summary`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `group_by` (optional): `variant` (default), `product`, `day`, or `month`
+- `sort_by` (optional): `quantity` (default), `revenue`, or `profit`
+- `order` (optional): `desc` (default) or `asc`
+- `start_date` (optional): Filter start date (YYYY-MM-DD)
+- `end_date` (optional): Filter end date (YYYY-MM-DD)
+- `product_id` (optional): Filter by specific product
+
+**Response (Group by Variant):**
+```json
+{
+  "message": "Sales summary retrieved",
+  "data": [
+    {
+      "variant_id": 156,
+      "sku": "TSHIRT-S-RED",
+      "variant_name": "Small, Red",
+      "product_name": "Premium T-Shirt",
+      "quantity_sold": 125,
+      "revenue": 74875.00,
+      "cost": 37500.00,
+      "profit": 37375.00,
+      "profit_margin": 49.88,
+      "transactions": 45
+    },
+    {
+      "variant_id": 157,
+      "sku": "TSHIRT-S-BLUE",
+      "variant_name": "Small, Blue",
+      "product_name": "Premium T-Shirt",
+      "quantity_sold": 98,
+      "revenue": 58702.00,
+      "cost": 29400.00,
+      "profit": 29302.00,
+      "profit_margin": 49.89,
+      "transactions": 36
+    }
+  ]
+}
+```
+
+**Response (Group by Day):**
+```json
+{
+  "message": "Sales summary retrieved",
+  "data": [
+    {
+      "date": "2025-12-10",
+      "quantity_sold": 223,
+      "revenue": 133577.00,
+      "profit": 66702.00,
+      "transactions": 81
+    },
+    {
+      "date": "2025-12-09",
+      "quantity_sold": 189,
+      "revenue": 112914.00,
+      "profit": 56477.00,
+      "transactions": 68
+    }
+  ]
+}
+```
+
+---
+
+### 26.2 Top Selling Variants
+
+Identify best-performing variants by various metrics.
+
+**Endpoint:** `GET /reports/variants/top-selling`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `metric` (optional): `quantity` (default), `revenue`, or `profit`
+- `limit` (optional): Number of top variants to return (default: 10, max: 100)
+- `start_date` (optional): Filter start date (YYYY-MM-DD)
+- `end_date` (optional): Filter end date (YYYY-MM-DD)
+
+**Response:**
+```json
+{
+  "message": "Top selling variants retrieved",
+  "metric": "revenue",
+  "period": "last_30_days",
+  "data": [
+    {
+      "rank": 1,
+      "variant_id": 156,
+      "sku": "TSHIRT-S-RED",
+      "variant_name": "Small, Red",
+      "product_name": "Premium T-Shirt",
+      "quantity_sold": 125,
+      "revenue": 74875.00,
+      "profit": 37375.00,
+      "transactions": 45
+    },
+    {
+      "rank": 2,
+      "variant_id": 159,
+      "sku": "TSHIRT-L-BLUE",
+      "variant_name": "Large, Blue",
+      "product_name": "Premium T-Shirt",
+      "quantity_sold": 112,
+      "revenue": 67688.00,
+      "profit": 33844.00,
+      "transactions": 41
+    }
+  ]
+}
+```
+
+---
+
+### 26.3 Slow Moving Variants
+
+Identify slow-moving inventory for optimization and clearance decisions.
+
+**Endpoint:** `GET /reports/variants/slow-moving`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `days_threshold` (optional): Consider variant slow-moving if no sales in X days (default: 30)
+- `stock_threshold` (optional): Only show variants with stock >= X (default: 0)
+- `limit` (optional): Number of results to return (default: 50, max: 500)
+- `product_id` (optional): Filter by specific product
+- `sort_by` (optional): `stock` (default), `days_without_sale`, or `stock_value`
+
+**Response:**
+```json
+{
+  "message": "Slow moving variants retrieved",
+  "config": {
+    "days_threshold": 30,
+    "stock_threshold": 0
+  },
+  "data": [
+    {
+      "variant_id": 170,
+      "sku": "TSHIRT-XL-GREEN",
+      "variant_name": "Extra Large, Green",
+      "product_name": "Premium T-Shirt",
+      "current_stock": 145,
+      "stock_value": 87255.00,
+      "days_without_sale": 45,
+      "last_sale_date": "2025-10-26",
+      "cost_price": 350,
+      "selling_price": 699,
+      "profit_margin": 49.93
+    },
+    {
+      "variant_id": 171,
+      "sku": "TSHIRT-XXL-RED",
+      "variant_name": "2XL, Red",
+      "product_name": "Premium T-Shirt",
+      "current_stock": 82,
+      "stock_value": 57318.00,
+      "days_without_sale": 38,
+      "last_sale_date": "2025-11-03",
+      "cost_price": 350,
+      "selling_price": 699,
+      "profit_margin": 49.93
+    }
+  ]
+}
+```
 
 ---
 

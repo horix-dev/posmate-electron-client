@@ -457,6 +457,7 @@ export interface CreatePurchaseRequest {
 
 export interface PurchaseProductItem {
   product_id: number
+  variant_id?: number // For variable products - identifies which variant is being purchased
   batch_no?: string
   quantities: number
   productPurchasePrice: number
