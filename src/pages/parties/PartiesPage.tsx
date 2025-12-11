@@ -140,7 +140,7 @@ export function PartiesPage() {
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'customers' | 'suppliers')}>
         <TabsList>
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="suppliers">Suppliers</TabsTrigger>

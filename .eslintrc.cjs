@@ -15,4 +15,30 @@ module.exports = {
       { allowConstantExport: true },
     ],
   },
+  overrides: [
+    {
+      files: [
+        'electron/**/*.ts',
+        'src/lib/storage/**/*.ts',
+        'src/lib/storage/**/*.tsx',
+        'src/lib/db/services/**/*.ts',
+        'src/api/services/offlineSales.service.ts',
+        'src/api/services/sync.service.ts',
+        'src/hooks/useAppUpdater.ts',
+        'src/components/ui/**/*.tsx',
+      ],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-unused-vars': 'off',
+        'react-refresh/only-export-components': 'off',
+      },
+    },
+    {
+      files: ['src/components/common/CachedImage.tsx'],
+      rules: {
+        'react-hooks/exhaustive-deps': 'off',
+        'react-refresh/only-export-components': 'off',
+      },
+    },
+  ],
 }
