@@ -1,0 +1,51 @@
+name: Feature request
+description: Propose or implement a new capability
+title: "[Feature] "
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What and why
+      placeholder: Concise description of the feature and its value
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is in / out of scope
+      placeholder: In-scope and out-of-scope boundaries
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Use Given/When/Then
+      placeholder: |
+        Given ...
+        When ...
+        Then ...
+    validations:
+      required: true
+  - type: textarea
+    id: tech
+    attributes:
+      label: Technical Notes
+      description: Files, APIs, constraints, data model changes
+      placeholder: Key files (paths), services, hooks, Electron vs Laravel changes
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimate (hours)
+      placeholder: e.g., 4
+  - type: textarea
+    id: qa
+    attributes:
+      label: QA Steps
+      description: Manual test cases and edge scenarios
+  - type: textarea
+    id: links
+    attributes:
+      label: Links
+      description: Designs, API docs, related issues/PRs
