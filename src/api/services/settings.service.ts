@@ -51,6 +51,20 @@ export const settingsService = {
   },
 
   // ============================================
+  // Payment Types
+  // ============================================
+
+  /**
+   * Get all payment types
+   */
+  getPaymentTypes: async (): Promise<ApiResponse<{ id: number; name: string }[]>> => {
+    const { data } = await api.get<ApiResponse<{ id: number; name: string }[]>>(
+      API_ENDPOINTS.PAYMENT_TYPES.LIST
+    )
+    return data
+  },
+
+  // ============================================
   // User Management
   // ============================================
 

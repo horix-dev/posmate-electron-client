@@ -155,8 +155,13 @@
 ### Incomes
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/incomes` | ✅ | List incomes |
+| GET | `/incomes` | ✅ | List all incomes with related data |
+| GET | `/incomes/filter` | ✅ | Search/filter incomes by branch & search term |
 | POST | `/incomes` | ✅ | Create income |
+| GET | `/incomes/{id}` | ✅ | Get single income details |
+| PUT | `/incomes/{id}` | ✅ | Update income |
+| DELETE | `/incomes/{id}` | ✅ | Delete income |
+| POST | `/incomes/delete-all` | ✅ | Delete multiple incomes |
 | GET | `/income-categories` | ✅ | List categories |
 | POST | `/income-categories` | ✅ | Create category |
 | PUT | `/income-categories/{id}` | ✅ | Update category |

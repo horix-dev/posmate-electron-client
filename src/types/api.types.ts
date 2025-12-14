@@ -533,12 +533,22 @@ export interface CreateDueCollectionRequest {
 export interface Expense {
   id: number
   amount: number
-  description?: string
+  // Note: Backend uses 'expanseFor' (typo with 'a' instead of 'e')
+  expanseFor?: string
+  expenseFor?: string
+  referenceNo?: string
+  note?: string
+  expenseDate?: string
   expense_category_id: number
   payment_type_id?: number
   created_at: string
   category?: ExpenseCategory
   payment_type?: PaymentType
+  // Legacy/Fallback/SnakeCase support
+  expense_for?: string
+  reference_no?: string
+  expense_date?: string
+  description?: string
 }
 
 export interface ExpenseCategory {
@@ -550,12 +560,20 @@ export interface ExpenseCategory {
 export interface Income {
   id: number
   amount: number
-  description?: string
+  incomeFor?: string
+  referenceNo?: string
+  note?: string
+  incomeDate?: string
   income_category_id: number
   payment_type_id?: number
   created_at: string
   category?: IncomeCategory
   payment_type?: PaymentType
+  // Legacy/Fallback/SnakeCase support
+  income_for?: string
+  reference_no?: string
+  income_date?: string
+  description?: string
 }
 
 export interface IncomeCategory {

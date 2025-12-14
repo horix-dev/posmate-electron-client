@@ -30,13 +30,7 @@ export const expensesService = {
   /**
    * Create a new expense
    */
-  create: async (expense: {
-    amount: number
-    expense_category_id: number
-    payment_type_id?: number
-    description?: string
-    date?: string
-  }): Promise<ApiResponse<Expense>> => {
+  create: async (expense: Partial<Expense>): Promise<ApiResponse<Expense>> => {
     const { data } = await api.post<ApiResponse<Expense>>(API_ENDPOINTS.EXPENSES.CREATE, expense)
     return data
   },
@@ -46,12 +40,7 @@ export const expensesService = {
    */
   update: async (
     id: number,
-    expense: {
-      amount?: number
-      expense_category_id?: number
-      payment_type_id?: number
-      description?: string
-    }
+    expense: Partial<Expense>
   ): Promise<ApiResponse<Expense>> => {
     const { data } = await api.post<ApiResponse<Expense>>(API_ENDPOINTS.EXPENSES.UPDATE(id), {
       ...expense,
@@ -143,13 +132,7 @@ export const incomesService = {
   /**
    * Create a new income
    */
-  create: async (income: {
-    amount: number
-    income_category_id: number
-    payment_type_id?: number
-    description?: string
-    date?: string
-  }): Promise<ApiResponse<Income>> => {
+  create: async (income: Partial<Income>): Promise<ApiResponse<Income>> => {
     const { data } = await api.post<ApiResponse<Income>>(API_ENDPOINTS.INCOMES.CREATE, income)
     return data
   },
@@ -159,12 +142,7 @@ export const incomesService = {
    */
   update: async (
     id: number,
-    income: {
-      amount?: number
-      income_category_id?: number
-      payment_type_id?: number
-      description?: string
-    }
+    income: Partial<Income>
   ): Promise<ApiResponse<Income>> => {
     const { data } = await api.post<ApiResponse<Income>>(API_ENDPOINTS.INCOMES.UPDATE(id), {
       ...income,

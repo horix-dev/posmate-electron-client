@@ -200,18 +200,18 @@ const VariantTable = memo(function VariantTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <div className="max-h-[400px] overflow-auto rounded-md border">
       <Table>
-        <TableHeader>
+        <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
-            <TableHead className="w-[50px]">Active</TableHead>
-            <TableHead className="min-w-[150px]">Variant</TableHead>
-            <TableHead className="min-w-[120px]">SKU</TableHead>
-            <TableHead className="min-w-[100px] text-right">Cost ({currencySymbol})</TableHead>
-            <TableHead className="min-w-[100px] text-right">Price ({currencySymbol})</TableHead>
-            <TableHead className="min-w-[100px] text-right">Dealer ({currencySymbol})</TableHead>
-            <TableHead className="min-w-[100px] text-right">Wholesale ({currencySymbol})</TableHead>
-            <TableHead className="w-[60px]">Actions</TableHead>
+            <TableHead className="w-[50px] bg-background">Active</TableHead>
+            <TableHead className="min-w-[150px] bg-background">Variant</TableHead>
+            <TableHead className="min-w-[120px] bg-background">SKU</TableHead>
+            <TableHead className="min-w-[100px] text-right bg-background">Cost ({currencySymbol})</TableHead>
+            <TableHead className="min-w-[100px] text-right bg-background">Price ({currencySymbol})</TableHead>
+            <TableHead className="min-w-[100px] text-right bg-background">Dealer ({currencySymbol})</TableHead>
+            <TableHead className="min-w-[100px] text-right bg-background">Wholesale ({currencySymbol})</TableHead>
+            <TableHead className="w-[60px] bg-background">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
