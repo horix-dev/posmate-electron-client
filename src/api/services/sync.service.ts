@@ -367,9 +367,10 @@ class SyncApiService {
 
   /**
    * Generate offline invoice number in backend-expected format
+   * Format expected by tests/backend: OFFLINE-<timestamp>
    */
   generateOfflineInvoiceNo(): string {
-    return `OFF-${this.getDeviceId()}-${Date.now()}`
+    return `OFFLINE-${Date.now()}`
   }
 
   /**

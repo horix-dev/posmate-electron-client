@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a problem and define the fix scope
+title: "[Bug] "
+labels: ["type:bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is broken
+      placeholder: Clear description of the issue
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How to reproduce the bug
+      placeholder: Step-by-step actions to see the issue
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      placeholder: What should happen
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      placeholder: What actually happens
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: App version, OS, online/offline, branch
+  - type: textarea
+    id: scope
+    attributes:
+      label: Fix Scope
+      description: In/out of scope for the fix
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Use Given/When/Then
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs & Screenshots
+      description: Paste errors, attach screenshots
+  - type: textarea
+    id: tech
+    attributes:
+      label: Technical Notes
+      description: Files, APIs, constraints
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimate (hours)
