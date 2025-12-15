@@ -1,0 +1,34 @@
+
+> posmate-desktop-client@1.0.0 lint
+> eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0
+
+
+D:\Horix\Horix Pos\posmate-electron-client\src\pages\expenses\ExpensesPage.tsx
+   37:9   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+   45:9   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+   62:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array         react-hooks/exhaustive-deps
+  161:71  error    Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+
+D:\Horix\Horix Pos\posmate-electron-client\src\pages\expenses\components\AddTransactionDialog.tsx
+  101:21  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  105:21  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  121:17  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  123:17  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  125:17  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  134:21  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  136:21  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  179:62  error  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  182:49  error  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+
+D:\Horix\Horix Pos\posmate-electron-client\src\pages\expenses\components\CategoryManagerDialog.tsx
+  74:13  error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free              @typescript-eslint/ban-ts-comment
+  90:8   warning  React Hook useEffect has missing dependencies: 'fetchCategories' and 'form'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\Horix\Horix Pos\posmate-electron-client\src\pages\expenses\utils\normalization.ts
+  20:5  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  22:5  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  24:5  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  34:9  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+✖ 19 problems (17 errors, 2 warnings)
+

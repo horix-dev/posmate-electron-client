@@ -250,52 +250,51 @@ Retrieves OTP/email verification settings.
 **Response:**
 ```json
 {
-  "message": "Data fetched successfully.",
+  "message": "User login successfully!",
   "data": {
-    "otp_status": "on|off",
-    "otp_time": 3
+    "is_setup": true,
+    "token": "1|abc123def456...",
+    "currency": { ... }
   }
 }
+
+# 2. Use token for protected endpoints
+curl -X GET http://localhost/api/v1/products \
+  -H "Authorization: Bearer 1|abc123def456..."
+
+# 3. Refresh token when needed
+curl -X GET http://localhost/api/v1/refresh-token \
+  -H "Authorization: Bearer 1|abc123def456..."
+
+# 4. Sign out
+curl -X GET http://localhost/api/v1/sign-out \
+  -H "Authorization: Bearer 1|abc123def456..."
 ```
 
----
+## Example: Create Sale
 
-### 1.9 Send Password Reset Code
-
-Initiates password reset by sending code to email.
-
-**Endpoint:** `POST /send-reset-code`  
-**Auth Required:** No
-
-**Request Body:**
-```json
-{
-  "email": "string (required, email)"
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Reset code sent to your email"
-}
-```
-
----
-
-### 1.10 Verify Reset Code
-
-Verifies the password reset code.
-
-**Endpoint:** `POST /verify-reset-code`  
-**Auth Required:** No
-
-**Request Body:**
-```json
-{
-  "email": "string (required, email)",
-  "code": "string (required)"
-}
+```bash
+curl -X POST http://localhost/api/v1/sales \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "products": "[
+      {
+        \"stock_id\": 1,
+        \"product_name\": \"Product A\",
+        \"quantities\": 2,
+        \"price\": 750.00,
+        \"lossProfit\": 225.00
+      }
+    ]",
+    "totalAmount": 1500.00,
+    "discountAmount": 0,
+    "paidAmount": 1500.00,
+    "dueAmount": 0,
+    "isPaid": true,
+    "party_id": 1,
+    "payment_type_id": 1
+  }'
 ```
 
 ---
