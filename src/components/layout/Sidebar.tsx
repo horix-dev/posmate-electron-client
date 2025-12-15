@@ -48,7 +48,7 @@ const mainNavItems: NavItem[] = [
 ]
 
 const secondaryNavItems: NavItem[] = [
-  { title: 'Categories', href: '/categories', icon: Tags },
+  { title: 'Product Settings', href: '/product-settings', icon: Tags },
   { title: 'Warehouses', href: '/warehouses', icon: Warehouse },
   { title: 'Reports', href: '/reports', icon: BarChart3 },
   { title: 'Invoices', href: '/invoices', icon: FileText },
