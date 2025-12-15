@@ -98,11 +98,9 @@ export function AddTransactionDialog({
                         settingsService.getPaymentTypes()
                     ])
 
-                    // @ts-ignore
                     const cats = Array.isArray(catsResponse) ? catsResponse : catsResponse.data || []
                     setCategories(cats)
 
-                    // @ts-ignore
                     const payTypes = Array.isArray(payTypesResponse) ? payTypesResponse : payTypesResponse.data || []
                     setPaymentTypes(payTypes)
                 } catch (error) {
@@ -118,11 +116,11 @@ export function AddTransactionDialog({
             if (editData) {
                 // Determine fields based on type
                 // Note: Backend uses 'expanseFor' (typo with 'a' instead of 'e')
-                // @ts-ignore
+                // @ts-expect-error - Handling backend inconsistencies
                 const title = editData.expanseFor || editData.expenseFor || editData.incomeFor || editData.expense_for || editData.income_for || editData.description || ''
-                // @ts-ignore
+                // @ts-expect-error - Handling backend inconsistencies
                 const dateValue = editData.expenseDate || editData.incomeDate || editData.expense_date || editData.income_date || editData.date || editData.created_at || new Date()
-                // @ts-ignore
+                // @ts-expect-error - Handling backend inconsistencies
                 const categoryId = type === 'expense' ? editData.expense_category_id : editData.income_category_id
 
                 form.reset({
@@ -131,9 +129,7 @@ export function AddTransactionDialog({
                     date: format(new Date(dateValue), 'yyyy-MM-dd'),
                     category_id: String(categoryId),
                     payment_type_id: editData.payment_type_id ? String(editData.payment_type_id) : '',
-                    // @ts-ignore
                     reference_no: editData.referenceNo || editData.reference_no || '',
-                    // @ts-ignore
                     note: editData.note || '',
                 })
             } else {
@@ -176,9 +172,11 @@ export function AddTransactionDialog({
                 }
 
             if (editData) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await service.update(editData.id, payload as any)
                 toast.success(`${type === 'expense' ? 'Expense' : 'Income'} updated successfully!`)
             } else {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await service.create(payload as any)
                 toast.success(`${type === 'expense' ? 'Expense' : 'Income'} added successfully!`)
             }

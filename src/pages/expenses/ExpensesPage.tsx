@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Wallet, Plus, Search, Tags } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -29,12 +29,12 @@ export function ExpensesPage() {
   // Edit State
   const [editingItem, setEditingItem] = useState<NormalizedTransaction | null>(null)
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
       if (activeTab === 'expenses') {
         const response = await expensesService.getAll()
-        // @ts-ignore
+        // @ts-expect-error - Response type mismatch from API
         const list = response.data?.data || response.data || []
         const normalized = (Array.isArray(list) ? list : []).map((item: Expense) =>
           normalizeTransaction(item, 'expense')
@@ -42,7 +42,7 @@ export function ExpensesPage() {
         setExpenses(normalized)
       } else {
         const response = await incomesService.getAll()
-        // @ts-ignore
+        // @ts-expect-error - Response type mismatch from API
         const list = response.data?.data || response.data || []
         const normalized = (Array.isArray(list) ? list : []).map((item: Income) =>
           normalizeTransaction(item, 'income')
@@ -55,11 +55,11 @@ export function ExpensesPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [activeTab])
 
   useEffect(() => {
     fetchData()
-  }, [activeTab])
+  }, [fetchData])
 
   // Reset editing item when dialog closes
   useEffect(() => {
@@ -158,7 +158,7 @@ export function ExpensesPage() {
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4 flex-1 flex flex-col">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'expenses' | 'income')} className="space-y-4 flex-1 flex flex-col">
         <div className="flex items-center justify-between gap-4 py-2">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
