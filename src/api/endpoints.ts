@@ -239,5 +239,24 @@ export const API_ENDPOINTS = {
     UPDATE: (id: number) => `/variants/${id}`,
     DELETE: (id: number) => `/variants/${id}`,
     UPDATE_STOCK: (id: number) => `/variants/${id}/stock`,
+    // Bulk operations
+    BULK_UPDATE: (productId: number) => `/products/${productId}/variants/bulk`,
+    // Utility endpoints
+    DUPLICATE: (productId: number) => `/products/${productId}/variants/duplicate`,
+    TOGGLE_ACTIVE: (id: number) => `/variants/${id}/toggle-active`,
+    BY_BARCODE: (barcode: string) => `/variants/by-barcode/${barcode}`,
+    STOCK_SUMMARY: (productId: number) => `/products/${productId}/variants/stock-summary`,
+  },
+
+  // Barcode Lookup (universal)
+  BARCODE: {
+    LOOKUP: (barcode: string) => `/products/by-barcode/${barcode}`,
+  },
+
+  // Variant Reports
+  VARIANT_REPORTS: {
+    SALES_SUMMARY: '/reports/variants/sales-summary',
+    TOP_SELLING: '/reports/variants/top-selling',
+    SLOW_MOVING: '/reports/variants/slow-moving',
   },
 } as const

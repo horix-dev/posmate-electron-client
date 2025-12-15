@@ -127,6 +127,14 @@
   * {
     @apply border-border;
   }
+
+  /* Prevent global scrollbar - let individual components handle their own scrolling */
+  html,
+  body,
+  #root {
+    @apply h-full w-full overflow-hidden;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;

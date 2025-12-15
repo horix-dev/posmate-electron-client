@@ -1,0 +1,32 @@
+name: Epic
+description: Large initiative tracking multiple issues
+title: "[Epic] "
+labels: ["type:epic"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: Outcome and business value
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: In/out of scope
+  - type: textarea
+    id: roadmap
+    attributes:
+      label: Roadmap
+      description: Milestones and phases
+  - type: textarea
+    id: tracking
+    attributes:
+      label: Tracking
+      description: Link child issues using "tracked by" and "relates to"
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks
+      description: Dependencies, blockers

@@ -13,6 +13,11 @@ dist-ssr
 dist-electron
 *.local
 
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+
 # Electron build output
 out/
 release/

@@ -1,6 +1,6 @@
 /**
  * Variant Selection Dialog
- * 
+ *
  * Displays when a variable product is clicked in POS.
  * Allows user to select attribute values (Size, Color, etc.) and shows
  * the matching variant with stock and price information.
@@ -21,7 +21,7 @@ import { Separator } from '@/components/ui/separator'
 import { CachedImage } from '@/components/common/CachedImage'
 import { cn, getImageUrl } from '@/lib/utils'
 import type { Product, Stock } from '@/types/api.types'
-import type { ProductVariant, Attribute } from '@/types/variant.types'
+import type { ProductVariant, Attribute, AttributeValue } from '@/types/variant.types'
 
 // ============================================
 // Types
@@ -77,7 +77,7 @@ const ButtonAttributeSelector = memo(function ButtonAttributeSelector({
               size="sm"
               className={cn(
                 'min-w-[48px]',
-                !isAvailable && 'opacity-50 cursor-not-allowed line-through'
+                !isAvailable && 'cursor-not-allowed line-through opacity-50'
               )}
               disabled={!isAvailable}
               onClick={() => onSelect(value.id)}
@@ -121,7 +121,7 @@ const ColorAttributeSelector = memo(function ColorAttributeSelector({
                 isSelected
                   ? 'border-primary ring-2 ring-primary ring-offset-2'
                   : 'border-muted hover:border-muted-foreground',
-                !isAvailable && 'opacity-50 cursor-not-allowed'
+                !isAvailable && 'cursor-not-allowed opacity-50'
               )}
               style={{ backgroundColor: colorCode }}
               disabled={!isAvailable}
@@ -138,9 +138,7 @@ const ColorAttributeSelector = memo(function ColorAttributeSelector({
                   )}
                 />
               )}
-              {!isAvailable && (
-                <X className="absolute inset-0 m-auto h-6 w-6 text-red-500" />
-              )}
+              {!isAvailable && <X className="absolute inset-0 m-auto h-6 w-6 text-red-500" />}
             </button>
           )
         })}
@@ -178,11 +176,7 @@ const SelectAttributeSelector = memo(function SelectAttributeSelector({
         {values.map((value) => {
           const isAvailable = availableValueIds.has(value.id)
           return (
-            <option
-              key={value.id}
-              value={value.id}
-              disabled={!isAvailable}
-            >
+            <option key={value.id} value={value.id} disabled={!isAvailable}>
               {value.value} {!isAvailable && '(Out of stock)'}
             </option>
           )
@@ -195,6 +189,14 @@ const SelectAttributeSelector = memo(function SelectAttributeSelector({
 // ============================================
 // Helper Functions
 // ============================================
+
+/**
+ * Calculate total stock for a variant from its stocks array
+ */
+function getVariantStock(variant: ProductVariant): number {
+  if (!variant.stocks || variant.stocks.length === 0) return 0
+  return variant.stocks.reduce((sum, stock) => sum + (stock.productStock ?? 0), 0)
+}
 
 /**
  * Check if a color is light (for text contrast)
@@ -210,13 +212,59 @@ function isLightColor(hexColor: string): boolean {
 
 /**
  * Get attributes from product
+ * Falls back to extracting from variants if product.attributes is missing
  */
 function getProductAttributes(product: Product): Attribute[] {
-  if (!product.attributes) return []
-  return product.attributes
-    .filter((pa) => pa.is_variation && pa.attribute)
-    .map((pa) => pa.attribute!)
-    .sort((a, b) => a.sort_order - b.sort_order)
+  // First try: use product.attributes if available
+  if (product.attributes && product.attributes.length > 0) {
+    return product.attributes
+      .filter((pa) => pa.is_variation && pa.attribute)
+      .map((pa) => pa.attribute!)
+      .sort((a, b) => a.sort_order - b.sort_order)
+  }
+
+  // Fallback: extract unique attributes from variants and populate their values
+  if (!product.variants || product.variants.length === 0) return []
+
+  const attributeMap = new Map<number, Attribute>()
+  const attributeValuesMap = new Map<number, Set<AttributeValue>>()
+
+  for (const variant of product.variants) {
+    if (!variant.attribute_values) continue
+
+    for (const attrValue of variant.attribute_values) {
+      if (!attrValue.attribute) continue
+
+      const attrId = attrValue.attribute.id
+
+      // Add attribute if not exists
+      if (!attributeMap.has(attrId)) {
+        attributeMap.set(attrId, {
+          ...attrValue.attribute,
+          values: [], // Will populate below
+        })
+        attributeValuesMap.set(attrId, new Set())
+      }
+
+      // Collect attribute values (using Set to avoid duplicates)
+      const valuesSet = attributeValuesMap.get(attrId)!
+      const existingValue = Array.from(valuesSet).find((v) => v.id === attrValue.id)
+      if (!existingValue) {
+        valuesSet.add(attrValue)
+      }
+    }
+  }
+
+  // Populate values array for each attribute
+  const attributes = Array.from(attributeMap.values())
+  attributes.forEach((attr) => {
+    const valuesSet = attributeValuesMap.get(attr.id)
+    if (valuesSet) {
+      attr.values = Array.from(valuesSet).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    }
+  })
+
+  return attributes.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
 }
 
 /**
@@ -237,21 +285,18 @@ function getAvailableValueIds(
 
   for (const variant of variants) {
     if (!variant.is_active) continue
-    if ((variant.total_stock ?? 0) <= 0) continue
+    const variantStock = getVariantStock(variant)
+    if (variantStock <= 0) continue
 
     // Check if variant matches all other selected attributes
     const matchesOthers = otherSelectedEntries.every(([attrId, valId]) => {
-      const variantValue = variant.attribute_values?.find(
-        (av) => av.attribute_id === attrId
-      )
+      const variantValue = variant.attribute_values?.find((av) => av.attribute_id === attrId)
       return variantValue?.id === valId
     })
 
     if (matchesOthers) {
       // Find the value for this attribute in this variant
-      const valueForAttr = variant.attribute_values?.find(
-        (av) => av.attribute_id === attributeId
-      )
+      const valueForAttr = variant.attribute_values?.find((av) => av.attribute_id === attributeId)
       if (valueForAttr) {
         available.add(valueForAttr.id)
       }
@@ -273,9 +318,7 @@ function findMatchingVariant(
   for (const variant of variants) {
     if (!variant.is_active) continue
 
-    const variantValueIds = new Set(
-      variant.attribute_values?.map((av) => av.id) ?? []
-    )
+    const variantValueIds = new Set(variant.attribute_values?.map((av) => av.id) ?? [])
 
     // Check if all selected values match this variant
     const allMatch = [...selectedValueIds].every((id) => variantValueIds.has(id))
@@ -305,7 +348,7 @@ function VariantSelectionDialogComponent({
 
   // Get attributes and variants from product
   const attributes = useMemo(() => getProductAttributes(product), [product])
-  const variants = product.variants ?? []
+  const variants = useMemo(() => product.variants ?? [], [product.variants])
 
   // Find matching variant based on selections
   const matchedVariant = useMemo(
@@ -314,8 +357,8 @@ function VariantSelectionDialogComponent({
   )
 
   // Check if all attributes are selected
-  const allAttributesSelected = attributes.length > 0 && 
-    attributes.every((attr) => selectedValues[attr.id] !== undefined)
+  const allAttributesSelected =
+    attributes.length > 0 && attributes.every((attr) => selectedValues[attr.id] !== undefined)
 
   // Reset selections when dialog opens with new product
   useEffect(() => {
@@ -346,14 +389,39 @@ function VariantSelectionDialogComponent({
   }, [matchedVariant, product, onSelectVariant, onOpenChange])
 
   // Get variant info for display
-  const variantStock = matchedVariant?.total_stock ?? 0
-  const variantPrice = matchedVariant?.effective_price ?? matchedVariant?.price ?? 
-    product.stocks?.[0]?.productSalePrice ?? 0
+  const variantStock = matchedVariant ? getVariantStock(matchedVariant) : 0
+  const variantPrice =
+    matchedVariant?.effective_price ??
+    matchedVariant?.price ??
+    product.stocks?.[0]?.productSalePrice ??
+    0
   const isOutOfStock = variantStock <= 0
   const isLowStock = variantStock > 0 && variantStock <= (product.alert_qty ?? 5)
 
   // Get image (variant image or product image)
   const imageUrl = getImageUrl(matchedVariant?.image ?? product.productPicture)
+
+  // Show error state if no variants or attributes available
+  if (variants.length === 0) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="pr-8">{product.productName}</DialogTitle>
+          </DialogHeader>
+          <div className="py-8 text-center">
+            <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-yellow-500" />
+            <p className="text-muted-foreground">No variants available for this product.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -384,18 +452,14 @@ function VariantSelectionDialogComponent({
           <div className="space-y-4">
             {attributes.map((attribute) => {
               // Get available values considering other selections
-              const availableValueIds = getAvailableValueIds(
-                attribute.id,
-                variants,
-                selectedValues
-              )
+              const availableValueIds = getAvailableValueIds(attribute.id, variants, selectedValues)
 
               const SelectorComponent =
                 attribute.type === 'color'
                   ? ColorAttributeSelector
                   : attribute.type === 'select'
-                  ? SelectAttributeSelector
-                  : ButtonAttributeSelector
+                    ? SelectAttributeSelector
+                    : ButtonAttributeSelector
 
               return (
                 <SelectorComponent
@@ -413,15 +477,16 @@ function VariantSelectionDialogComponent({
           {matchedVariant && (
             <>
               <Separator />
-              <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
+              <div className="space-y-2 rounded-lg border bg-muted/50 p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">SKU</span>
-                  <span className="text-sm font-mono">{matchedVariant.sku}</span>
+                  <span className="font-mono text-sm">{matchedVariant.sku}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Price</span>
                   <span className="text-lg font-bold text-primary">
-                    {currencySymbol}{variantPrice.toLocaleString()}
+                    {currencySymbol}
+                    {variantPrice.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -434,9 +499,7 @@ function VariantSelectionDialogComponent({
                         Low
                       </Badge>
                     )}
-                    {isOutOfStock && (
-                      <Badge variant="destructive">Out of Stock</Badge>
-                    )}
+                    {isOutOfStock && <Badge variant="destructive">Out of Stock</Badge>}
                   </div>
                 </div>
               </div>
@@ -455,10 +518,7 @@ function VariantSelectionDialogComponent({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={handleAddToCart}
-            disabled={!matchedVariant || isOutOfStock}
-          >
+          <Button onClick={handleAddToCart} disabled={!matchedVariant || isOutOfStock}>
             {`Add to Cart - ${currencySymbol}${variantPrice.toLocaleString()}`}
           </Button>
         </DialogFooter>

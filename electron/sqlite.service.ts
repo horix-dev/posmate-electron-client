@@ -18,6 +18,8 @@ export interface LocalProduct {
   id?: number
   productName: string
   productCode?: string
+  product_type?: string
+  has_variants?: boolean
   categoryId?: number
   brandId?: number
   unitId?: number
@@ -35,6 +37,8 @@ export interface LocalProduct {
     productSalePrice?: number
     productWholeSalePrice?: number
   }
+  variants?: any[]
+  stocks?: any[]
   lastSyncedAt?: string
 }
 
@@ -164,6 +168,8 @@ export class SQLiteService {
         id INTEGER PRIMARY KEY,
         product_name TEXT NOT NULL,
         product_code TEXT,
+        product_type TEXT DEFAULT 'simple',
+        has_variants INTEGER DEFAULT 0,
         category_id INTEGER,
         brand_id INTEGER,
         unit_id INTEGER,
@@ -178,6 +184,47 @@ export class SQLiteService {
         last_synced_at TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
+      );
+
+      -- Product variants table
+      CREATE TABLE IF NOT EXISTS product_variants (
+        id INTEGER PRIMARY KEY,
+        product_id INTEGER NOT NULL,
+        sku TEXT NOT NULL,
+        barcode TEXT,
+        price REAL,
+        cost_price REAL,
+        wholesale_price REAL,
+        dealer_price REAL,
+        image TEXT,
+        is_active INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0,
+        attributes_json TEXT,
+        last_synced_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+      );
+
+      -- Variant stocks table (handles all stock types including variants)
+      CREATE TABLE IF NOT EXISTS variant_stocks (
+        id INTEGER PRIMARY KEY,
+        product_id INTEGER NOT NULL,
+        variant_id INTEGER,
+        batch_no TEXT,
+        stock_quantity REAL DEFAULT 0,
+        purchase_price REAL DEFAULT 0,
+        sale_price REAL DEFAULT 0,
+        wholesale_price REAL DEFAULT 0,
+        dealer_price REAL DEFAULT 0,
+        profit_percent REAL DEFAULT 0,
+        mfg_date TEXT,
+        expire_date TEXT,
+        last_synced_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+        FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE
       );
 
       -- Categories table
@@ -290,6 +337,12 @@ export class SQLiteService {
       CREATE INDEX IF NOT EXISTS idx_products_code ON products(product_code);
       CREATE INDEX IF NOT EXISTS idx_products_name ON products(product_name);
       CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+      CREATE INDEX IF NOT EXISTS idx_products_type ON products(product_type);
+      CREATE INDEX IF NOT EXISTS idx_variants_product ON product_variants(product_id);
+      CREATE INDEX IF NOT EXISTS idx_variants_sku ON product_variants(sku);
+      CREATE INDEX IF NOT EXISTS idx_variants_barcode ON product_variants(barcode);
+      CREATE INDEX IF NOT EXISTS idx_variant_stocks_product ON variant_stocks(product_id);
+      CREATE INDEX IF NOT EXISTS idx_variant_stocks_variant ON variant_stocks(variant_id);
       CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(sale_date);
       CREATE INDEX IF NOT EXISTS idx_sales_synced ON sales(is_synced);
       CREATE INDEX IF NOT EXISTS idx_sales_offline ON sales(is_offline);
@@ -297,6 +350,32 @@ export class SQLiteService {
       CREATE INDEX IF NOT EXISTS idx_parties_phone ON parties(phone);
       CREATE INDEX IF NOT EXISTS idx_parties_type ON parties(type);
     `)
+    
+    // Run migration to add new columns to existing products table (if they don't exist)
+    this.runColumnMigrations()
+  }
+
+  private runColumnMigrations() {
+    if (!this.db) return
+
+    try {
+      // Check if product_type column exists, if not add it
+      const tableInfo = this.db.prepare("PRAGMA table_info(products)").all() as any[]
+      const hasProductType = tableInfo.some(col => col.name === 'product_type')
+      const hasHasVariants = tableInfo.some(col => col.name === 'has_variants')
+
+      if (!hasProductType) {
+        this.db.exec("ALTER TABLE products ADD COLUMN product_type TEXT DEFAULT 'simple'")
+        console.log('[SQLite] Added product_type column to products table')
+      }
+
+      if (!hasHasVariants) {
+        this.db.exec("ALTER TABLE products ADD COLUMN has_variants INTEGER DEFAULT 0")
+        console.log('[SQLite] Added has_variants column to products table')
+      }
+    } catch (error) {
+      console.warn('[SQLite] Column migration warning:', error)
+    }
   }
 
   close() {
@@ -318,7 +397,19 @@ export class SQLiteService {
   productGetAll(): LocalProduct[] {
     if (!this.db) throw new Error('Database not initialized')
     const rows = this.db.prepare('SELECT * FROM products').all() as any[]
-    return rows.map(r => this.mapProduct(r))
+    return rows.map(r => {
+      const product = this.mapProduct(r)
+      
+      // Load variants if product is variable
+      if (r.product_type === 'variable' && r.has_variants) {
+        product.variants = this.getVariantsByProductId(r.id)
+      }
+      
+      // Load all stocks (includes variant stocks)
+      product.stocks = this.getStocksByProductId(r.id)
+      
+      return product
+    })
   }
 
   productCreate(product: Omit<LocalProduct, 'id'>): number {
@@ -418,14 +509,16 @@ export class SQLiteService {
   productBulkUpsert(products: LocalProduct[]): void {
     if (!this.db) throw new Error('Database not initialized')
     
-    const upsert = this.db.prepare(`
-      INSERT INTO products (id, product_name, product_code, category_id, brand_id, unit_id,
+    const upsertProduct = this.db.prepare(`
+      INSERT INTO products (id, product_name, product_code, product_type, has_variants, category_id, brand_id, unit_id,
         purchase_price, sale_price, wholesale_price, product_picture, description,
         stock_id, stock_quantity, stock_alert, last_synced_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         product_name = excluded.product_name,
         product_code = excluded.product_code,
+        product_type = excluded.product_type,
+        has_variants = excluded.has_variants,
         category_id = excluded.category_id,
         brand_id = excluded.brand_id,
         unit_id = excluded.unit_id,
@@ -440,17 +533,58 @@ export class SQLiteService {
         updated_at = datetime('now')
     `)
 
+    const upsertVariant = this.db.prepare(`
+      INSERT INTO product_variants (id, product_id, sku, barcode, price, cost_price, wholesale_price, dealer_price,
+        image, is_active, sort_order, attributes_json, last_synced_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        sku = excluded.sku,
+        barcode = excluded.barcode,
+        price = excluded.price,
+        cost_price = excluded.cost_price,
+        wholesale_price = excluded.wholesale_price,
+        dealer_price = excluded.dealer_price,
+        image = excluded.image,
+        is_active = excluded.is_active,
+        sort_order = excluded.sort_order,
+        attributes_json = excluded.attributes_json,
+        last_synced_at = excluded.last_synced_at,
+        updated_at = datetime('now')
+    `)
+
+    const upsertStock = this.db.prepare(`
+      INSERT INTO variant_stocks (id, product_id, variant_id, batch_no, stock_quantity, purchase_price, sale_price,
+        wholesale_price, dealer_price, profit_percent, mfg_date, expire_date, last_synced_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        stock_quantity = excluded.stock_quantity,
+        purchase_price = excluded.purchase_price,
+        sale_price = excluded.sale_price,
+        wholesale_price = excluded.wholesale_price,
+        dealer_price = excluded.dealer_price,
+        profit_percent = excluded.profit_percent,
+        mfg_date = excluded.mfg_date,
+        expire_date = excluded.expire_date,
+        last_synced_at = excluded.last_synced_at,
+        updated_at = datetime('now')
+    `)
+
     const insertMany = this.db.transaction((products: LocalProduct[]) => {
       for (const p of products) {
         // Get prices from stock object (where API stores them) or fallback to top-level
         const purchasePrice = p.stock?.productPurchasePrice ?? p.purchasePrice ?? 0
         const salePrice = p.stock?.productSalePrice ?? p.salePrice ?? 0
         const wholesalePrice = p.stock?.productWholeSalePrice ?? p.wholesalePrice ?? 0
+        const productType = (p as any).product_type || 'simple'
+        const hasVariants = (p as any).has_variants || Boolean((p as any).variants && (p as any).variants.length > 0)
         
-        upsert.run(
+        // Insert/update product
+        upsertProduct.run(
           p.id,
           p.productName,
           p.productCode,
+          productType,
+          hasVariants ? 1 : 0,
           p.categoryId ?? (p as any).category_id,
           p.brandId ?? (p as any).brand_id,
           p.unitId ?? (p as any).unit_id,
@@ -464,6 +598,46 @@ export class SQLiteService {
           p.stock?.stockAlert ?? (p as any).alert_qty ?? 10,
           p.lastSyncedAt || new Date().toISOString()
         )
+
+        // Insert/update variants if this is a variable product
+        const variants = (p as any).variants || []
+        for (const variant of variants) {
+          upsertVariant.run(
+            variant.id,
+            p.id,
+            variant.sku,
+            variant.barcode,
+            variant.price,
+            variant.cost_price,
+            variant.wholesale_price,
+            variant.dealer_price,
+            variant.image,
+            variant.is_active ? 1 : 0,
+            variant.sort_order || 0,
+            JSON.stringify(variant.attribute_values || variant.attributeValues || []),
+            p.lastSyncedAt || new Date().toISOString()
+          )
+        }
+
+        // Insert/update stocks (handles both simple and variant stocks)
+        const stocks = (p as any).stocks || []
+        for (const stock of stocks) {
+          upsertStock.run(
+            stock.id,
+            p.id,
+            stock.variant_id || null,
+            stock.batch_no || null,
+            stock.productStock || 0,
+            stock.productPurchasePrice || 0,
+            stock.productSalePrice || 0,
+            stock.productWholeSalePrice || 0,
+            stock.productDealerPrice || 0,
+            stock.profit_percent || 0,
+            stock.mfg_date || null,
+            stock.expire_date || null,
+            p.lastSyncedAt || new Date().toISOString()
+          )
+        }
       }
     })
 
@@ -475,6 +649,8 @@ export class SQLiteService {
       id: row.id,
       productName: row.product_name,
       productCode: row.product_code,
+      product_type: row.product_type || 'simple',
+      has_variants: Boolean(row.has_variants),
       categoryId: row.category_id,
       brandId: row.brand_id,
       unitId: row.unit_id,
@@ -494,8 +670,69 @@ export class SQLiteService {
         productSalePrice: row.sale_price,
         productWholeSalePrice: row.wholesale_price,
       },
+      // Arrays will be populated by caller if needed
+      variants: [],
+      stocks: [],
       lastSyncedAt: row.last_synced_at,
     }
+  }
+
+  private getVariantsByProductId(productId: number): any[] {
+    if (!this.db) return []
+    const rows = this.db.prepare('SELECT * FROM product_variants WHERE product_id = ? AND is_active = 1').all(productId) as any[]
+    return rows.map(row => ({
+      id: row.id,
+      product_id: row.product_id,
+      sku: row.sku,
+      barcode: row.barcode,
+      price: row.price,
+      cost_price: row.cost_price,
+      wholesale_price: row.wholesale_price,
+      dealer_price: row.dealer_price,
+      image: row.image,
+      is_active: Boolean(row.is_active),
+      sort_order: row.sort_order,
+      attribute_values: row.attributes_json ? JSON.parse(row.attributes_json) : [],
+      stocks: this.getStocksByVariantId(row.id),
+    }))
+  }
+
+  private getStocksByProductId(productId: number): any[] {
+    if (!this.db) return []
+    const rows = this.db.prepare('SELECT * FROM variant_stocks WHERE product_id = ?').all(productId) as any[]
+    return rows.map(row => ({
+      id: row.id,
+      product_id: row.product_id,
+      variant_id: row.variant_id,
+      batch_no: row.batch_no,
+      productStock: row.stock_quantity,
+      productPurchasePrice: row.purchase_price,
+      productSalePrice: row.sale_price,
+      productWholeSalePrice: row.wholesale_price,
+      productDealerPrice: row.dealer_price,
+      profit_percent: row.profit_percent,
+      mfg_date: row.mfg_date,
+      expire_date: row.expire_date,
+    }))
+  }
+
+  private getStocksByVariantId(variantId: number): any[] {
+    if (!this.db) return []
+    const rows = this.db.prepare('SELECT * FROM variant_stocks WHERE variant_id = ?').all(variantId) as any[]
+    return rows.map(row => ({
+      id: row.id,
+      product_id: row.product_id,
+      variant_id: row.variant_id,
+      batch_no: row.batch_no,
+      productStock: row.stock_quantity,
+      productPurchasePrice: row.purchase_price,
+      productSalePrice: row.sale_price,
+      productWholeSalePrice: row.wholesale_price,
+      productDealerPrice: row.dealer_price,
+      profit_percent: row.profit_percent,
+      mfg_date: row.mfg_date,
+      expire_date: row.expire_date,
+    }))
   }
 
   // ========== Categories ==========

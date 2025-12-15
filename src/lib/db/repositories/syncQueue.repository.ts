@@ -33,7 +33,7 @@ export class SyncQueueRepository extends BaseRepository<
    * Get pending items (ordered by creation time)
    */
   async getPending(limit?: number): Promise<SyncQueueItem[]> {
-    let query = this.table.where('status').equals('pending').sortBy('createdAt')
+    const query = this.table.where('status').equals('pending').sortBy('createdAt')
     
     if (limit) {
       return (await query).slice(0, limit)
