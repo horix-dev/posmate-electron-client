@@ -987,19 +987,20 @@ curl -X POST http://localhost:8000/api/v1/products \
   }'
 ```
 
-**Response:**
+**Response (Variable Product):**
 ```json
 {
   "success": true,
   "message": "Product created successfully",
   "data": {
     "id": 245,
-    "productName": "Premium T-Shirt",
+    "productName": "T-Shirt",
     "product_type": "variable",
     "business_id": 1,
     "variants": [
       {
         "id": 156,
+        "product_id": 245,
         "sku": "TSHIRT-S-RED",
         "barcode": "8901234567001",
         "cost_price": 300.00,
@@ -1008,14 +1009,14 @@ curl -X POST http://localhost:8000/api/v1/products \
         "wholesale_price": 499.00,
         "is_active": 1,
         "variant_name": "Small, Red",
-        "price": 599,
         "attributeValues": [
           {"id": 1, "attribute_id": 1, "value": "Small"},
-          {"id": 4, "attribute_id": 2, "value": "Red"}
+          {"id": 5, "attribute_id": 2, "value": "Red"}
         ]
       },
       {
         "id": 157,
+        "product_id": 245,
         "sku": "TSHIRT-S-BLUE",
         "barcode": "8901234567002",
         "cost_price": 300.00,
@@ -1024,10 +1025,9 @@ curl -X POST http://localhost:8000/api/v1/products \
         "wholesale_price": 499.00,
         "is_active": 1,
         "variant_name": "Small, Blue",
-        "price": 599,
         "attributeValues": [
           {"id": 1, "attribute_id": 1, "value": "Small"},
-          {"id": 5, "attribute_id": 2, "value": "Blue"}
+          {"id": 6, "attribute_id": 2, "value": "Blue"}
         ]
       }
     ]
@@ -1035,7 +1035,7 @@ curl -X POST http://localhost:8000/api/v1/products \
 }
 ```
 
-#### Step 3: Add Stock to Variants
+**Stock Management for Variable Products:**
 
 - `POST /products` (variable) supports optional `variants[*].initial_stock` to seed stock.
 - If omitted, use one of:
@@ -1049,10 +1049,9 @@ curl -X POST http://localhost:8000/api/v1/stock \
   -H "Content-Type: application/json" \
   -d '{
     "variant_id": 156,
-    "quantity": 100,
+    "quantity": 50,
     "cost_price": 300,
-    "warehouse_id": 1,
-    "reference": "PO-001"
+    "warehouse_id": 1
   }'
 ```
 

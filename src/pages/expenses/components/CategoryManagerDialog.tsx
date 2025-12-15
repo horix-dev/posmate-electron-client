@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -67,11 +67,10 @@ export function CategoryManagerDialog({
         },
     })
 
-    const fetchCategories = async () => {
+    const fetchCategories = useCallback(async () => {
         setIsLoading(true)
         try {
             const response = await service.getCategories()
-            // @ts-ignore - API response type mismatch handling if needed
             setCategories(Array.isArray(response) ? response : response.data || [])
         } catch (error) {
             toast.error('Failed to load categories')
@@ -79,7 +78,7 @@ export function CategoryManagerDialog({
         } finally {
             setIsLoading(false)
         }
-    }
+    }, [service])
 
     useEffect(() => {
         if (open) {
@@ -87,7 +86,7 @@ export function CategoryManagerDialog({
             form.reset()
             setEditingId(null)
         }
-    }, [open, type])
+    }, [open, fetchCategories, form])
 
     const onSubmit = async (values: CategoryFormValues) => {
         setIsSubmitting(true)
