@@ -63,18 +63,26 @@
 ### Categories
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/categories` | ✅ | List categories |
+| GET | `/categories` | ✅ | List all categories with pagination |
+| GET | `/categories/filter` | ✅ | Search/filter categories by name |
 | POST | `/categories` | ✅ | Create category |
+| GET | `/categories/{id}` | ✅ | Get single category |
 | PUT | `/categories/{id}` | ✅ | Update category |
 | DELETE | `/categories/{id}` | ✅ | Delete category |
+| PATCH | `/categories/{id}/status` | ✅ | Update category status |
+| POST | `/categories/delete-all` | ✅ | Delete multiple categories |
 
 ### Brands
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/brands` | ✅ | List brands |
+| GET | `/brands` | ✅ | List all brands with pagination |
+| GET | `/brands/filter` | ✅ | Search/filter brands by name & description |
 | POST | `/brands` | ✅ | Create brand |
+| GET | `/brands/{id}` | ✅ | Get single brand |
 | PUT | `/brands/{id}` | ✅ | Update brand |
 | DELETE | `/brands/{id}` | ✅ | Delete brand |
+| PATCH | `/brands/{id}/status` | ✅ | Update brand status |
+| POST | `/brands/delete-all` | ✅ | Delete multiple brands |
 
 ### Units
 | Method | Endpoint | Auth | Description |
@@ -87,10 +95,14 @@
 ### Product Models
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/product-models` | ✅ | List models |
+| GET | `/product-models` | ✅ | List all models with pagination |
+| GET | `/product-models/filter` | ✅ | Search/filter models by name |
 | POST | `/product-models` | ✅ | Create model |
+| GET | `/product-models/{id}` | ✅ | Get single model |
 | PUT | `/product-models/{id}` | ✅ | Update model |
 | DELETE | `/product-models/{id}` | ✅ | Delete model |
+| PATCH | `/product-models/{id}/status` | ✅ | Update model status |
+| POST | `/product-models/delete-all` | ✅ | Delete multiple models |
 
 ### Attributes (Variable Products)
 | Method | Endpoint | Auth | Description |

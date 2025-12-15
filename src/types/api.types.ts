@@ -224,6 +224,8 @@ export interface Category {
   variationSize?: number
   variationType?: number
   variationWeight?: number
+  icon?: string
+  status?: number
 }
 
 export interface CreateCategoryRequest {
@@ -233,6 +235,7 @@ export interface CreateCategoryRequest {
   variationSize?: boolean
   variationType?: boolean
   variationWeight?: boolean
+  icon?: File
 }
 
 // ============================================
@@ -242,10 +245,15 @@ export interface CreateCategoryRequest {
 export interface Brand {
   id: number
   brandName: string
+  description?: string
+  icon?: string
+  status?: number
 }
 
 export interface CreateBrandRequest {
   brandName: string
+  description?: string
+  icon?: File
 }
 
 // ============================================
@@ -268,10 +276,12 @@ export interface CreateUnitRequest {
 export interface ProductModel {
   id: number
   name: string
+  status?: number
 }
 
 export interface CreateProductModelRequest {
   name: string
+  status?: boolean
 }
 
 // ============================================

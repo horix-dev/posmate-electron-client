@@ -153,13 +153,22 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
           vatsService.getAll({ status: 'active' }),
         ])
 
-        setProducts(productsRes.data)
-        setCategories(categoriesRes.data)
+        // Normalize products data
+        const productsData = productsRes.data // @ts-expect-error - Handling disparate response structures
+        const productsArray = Array.isArray(productsData) ? productsData : (productsData?.data && Array.isArray(productsData.data) ? productsData.data : (Array.isArray(productsData) ? productsData : []))
+
+        // Normalize categories data
+        const categoriesData = categoriesRes.data // @ts-expect-error - Handling disparate response structures
+        const categoriesArray = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data && Array.isArray(categoriesData.data) ? categoriesData.data : (Array.isArray(categoriesData) ? categoriesData : []))
+
+        setProducts(productsArray)
+        setCategories(categoriesArray)
         setPaymentTypes(paymentTypesRes.data)
         setVats(vatsRes.data)
 
         // Cache products to SQLite/IndexedDB for offline use
-        const localProducts: LocalProduct[] = productsRes.data.map((product) => {
+        // @ts-expect-error - Handling disparate response structures
+        const localProducts: LocalProduct[] = productsArray.map((product) => {
           const stock: Stock = product.stocks?.[0] || {
             id: product.id,
             product_id: product.id,
@@ -180,7 +189,8 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
         await storage.products.bulkUpsert(localProducts)
 
         // Cache categories to SQLite/IndexedDB for offline use
-        const localCategories: LocalCategory[] = categoriesRes.data.map((cat) => ({
+        // @ts-expect-error - Handling disparate response structures
+        const localCategories: LocalCategory[] = categoriesArray.map((cat) => ({
           ...cat,
           lastSyncedAt: new Date().toISOString(),
         }))

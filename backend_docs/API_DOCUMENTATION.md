@@ -1585,59 +1585,179 @@ Auto-generate all possible variants from attribute combinations.
 
 **Endpoint:** `GET /categories`  
 **Auth Required:** Yes
+**Description:** List all categories with pagination.
 
 **Response:**
 ```json
 {
   "message": "Data fetched successfully.",
-  "data": [
-    {
-      "id": 1,
-      "categoryName": "Electronics",
-      "variationCapacity": 0,
-      "variationColor": 1,
-      "variationSize": 1,
-      "variationType": 0,
-      "variationWeight": 0
-    }
-  ]
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 1,
+        "categoryName": "Electronics",
+        "variationCapacity": 0,
+        "variationColor": 1,
+        "variationSize": 1,
+        "variationType": 0,
+        "variationWeight": 0,
+        "icon": "categories/icon.jpg",
+        "status": 1
+      }
+    ],
+    "per_page": 20,
+    "total": 50
+  }
 }
 ```
 
 ---
 
-### 4.2 Create Category
+### 4.2 Filter Categories
+
+**Endpoint:** `GET /categories/filter`  
+**Auth Required:** Yes
+**Description:** Search and filter categories.
+
+**Query Parameters:**
+```json
+{
+  "search": "string (optional) - searches categoryName",
+  "per_page": "integer (optional, default: 10)"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Data filtered successfully.",
+  "data": []
+}
+```
+
+---
+
+### 4.3 Create Category
 
 **Endpoint:** `POST /categories`  
 **Auth Required:** Yes
+**Description:** Create a new category.
 
 **Request Body:**
 ```json
 {
   "categoryName": "string (required, unique per business)",
   "variationCapacity": "boolean (optional, 'true'/'false')",
-  "variationColor": "boolean (optional)",
-  "variationSize": "boolean (optional)",
-  "variationType": "boolean (optional)",
-  "variationWeight": "boolean (optional)"
+  "variationColor": "boolean (optional, 'true'/'false')",
+  "variationSize": "boolean (optional, 'true'/'false')",
+  "variationType": "boolean (optional, 'true'/'false')",
+  "variationWeight": "boolean (optional, 'true'/'false')",
+  "icon": "file (optional, image: jpg,png,jpeg,gif)"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Category created successfully",
+  "data": {}
 }
 ```
 
 ---
 
-### 4.3 Update Category
+### 4.4 Get Single Category
 
-**Endpoint:** `PUT /categories/{id}`  
+**Endpoint:** `GET /categories/{id}`  
 **Auth Required:** Yes
+**Description:** Retrieve details of a specific category.
 
-**Request Body:** Same as Create Category
+**Response (Success):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {}
+}
+```
 
 ---
 
-### 4.4 Delete Category
+### 4.5 Update Category
+
+**Endpoint:** `PUT /categories/{id}`  
+**Auth Required:** Yes
+**Description:** Update an existing category.
+
+**Request Body:** Same as Create Category
+
+**Response (Success):**
+```json
+{
+  "message": "Category updated successfully",
+  "data": {}
+}
+```
+
+---
+
+### 4.6 Delete Category
 
 **Endpoint:** `DELETE /categories/{id}`  
 **Auth Required:** Yes
+**Description:** Delete a specific category.
+
+**Response (Success):**
+```json
+{
+  "message": "Category deleted successfully"
+}
+```
+
+---
+
+### 4.7 Update Category Status
+
+**Endpoint:** `PATCH /categories/{id}/status`  
+**Auth Required:** Yes
+**Description:** Update category status.
+
+**Request Body:**
+```json
+{
+  "status": "boolean (required, true/false)"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Status updated successfully",
+  "data": {}
+}
+```
+
+---
+
+### 4.8 Delete Multiple Categories
+
+**Endpoint:** `POST /categories/delete-all`  
+**Auth Required:** Yes
+**Description:** Delete multiple categories at once.
+
+**Request Body:**
+```json
+{
+  "ids": "array of integers (required) - array of category IDs to delete"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Selected categories deleted successfully"
+}
+```
 
 ---
 
@@ -1647,47 +1767,171 @@ Auto-generate all possible variants from attribute combinations.
 
 **Endpoint:** `GET /brands`  
 **Auth Required:** Yes
+**Description:** List all brands with pagination.
 
 **Response:**
 ```json
 {
   "message": "Data fetched successfully.",
-  "data": [
-    {
-      "id": 1,
-      "brandName": "Apple"
-    }
-  ]
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 1,
+        "brandName": "Apple",
+        "description": "Technology company",
+        "icon": "brands/icon.jpg",
+        "status": 1
+      }
+    ],
+    "per_page": 20,
+    "total": 30
+  }
 }
 ```
 
 ---
 
-### 5.2 Create Brand
+### 5.2 Filter Brands
+
+**Endpoint:** `GET /brands/filter`  
+**Auth Required:** Yes
+**Description:** Search and filter brands.
+
+**Query Parameters:**
+```json
+{
+  "search": "string (optional) - searches brandName and description",
+  "per_page": "integer (optional, default: 10)"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Data filtered successfully.",
+  "data": []
+}
+```
+
+---
+
+### 5.3 Create Brand
 
 **Endpoint:** `POST /brands`  
 **Auth Required:** Yes
+**Description:** Create a new brand.
 
 **Request Body:**
 ```json
 {
-  "brandName": "string (required, unique per business)"
+  "brandName": "string (required, unique per business, max:255)",
+  "description": "string (optional)",
+  "icon": "file (optional, image: jpeg,png,jpg,gif,svg)"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Brand created successfully",
+  "data": {}
 }
 ```
 
 ---
 
-### 5.3 Update Brand
+### 5.4 Get Single Brand
 
-**Endpoint:** `PUT /brands/{id}`  
+**Endpoint:** `GET /brands/{id}`  
 **Auth Required:** Yes
+**Description:** Retrieve details of a specific brand.
+
+**Response (Success):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {}
+}
+```
 
 ---
 
-### 5.4 Delete Brand
+### 5.5 Update Brand
+
+**Endpoint:** `PUT /brands/{id}`  
+**Auth Required:** Yes
+**Description:** Update an existing brand.
+
+**Request Body:** Same as Create Brand
+
+**Response (Success):**
+```json
+{
+  "message": "Brand updated successfully",
+  "data": {}
+}
+```
+
+---
+
+### 5.6 Delete Brand
 
 **Endpoint:** `DELETE /brands/{id}`  
 **Auth Required:** Yes
+**Description:** Delete a specific brand.
+
+**Response (Success):**
+```json
+{
+  "message": "Brand deleted successfully"
+}
+```
+
+---
+
+### 5.7 Update Brand Status
+
+**Endpoint:** `PATCH /brands/{id}/status`  
+**Auth Required:** Yes
+**Description:** Update brand status.
+
+**Request Body:**
+```json
+{
+  "status": "boolean (required, true/false)"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Status updated successfully",
+  "data": {}
+}
+```
+
+---
+
+### 5.8 Delete Multiple Brands
+
+**Endpoint:** `POST /brands/delete-all`  
+**Auth Required:** Yes
+**Description:** Delete multiple brands at once.
+
+**Request Body:**
+```json
+{
+  "ids": "array of integers (required) - array of brand IDs to delete"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Selected brands deleted successfully"
+}
+```
 
 ---
 
@@ -1747,34 +1991,174 @@ Auto-generate all possible variants from attribute combinations.
 
 **Endpoint:** `GET /product-models`  
 **Auth Required:** Yes
+**Description:** List all product models with pagination.
 
----
-
-### 7.2 Create Model
-
-**Endpoint:** `POST /product-models`  
-**Auth Required:** Yes
-
-**Request Body:**
+**Response:**
 ```json
 {
-  "name": "string (required, unique per business)"
+  "message": "Data fetched successfully.",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 1,
+        "name": "iPhone 14",
+        "status": 1
+      }
+    ],
+    "per_page": 10,
+    "total": 25
+  }
 }
 ```
 
 ---
 
-### 7.3 Update Model
+### 7.2 Filter Product Models
 
-**Endpoint:** `PUT /product-models/{id}`  
+**Endpoint:** `GET /product-models/filter`  
 **Auth Required:** Yes
+**Description:** Search and filter product models.
+
+**Query Parameters:**
+```json
+{
+  "search": "string (optional) - searches name",
+  "per_page": "integer (optional, default: 10)"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Data filtered successfully.",
+  "data": []
+}
+```
 
 ---
 
-### 7.4 Delete Model
+### 7.3 Create Model
+
+**Endpoint:** `POST /product-models`  
+**Auth Required:** Yes
+**Description:** Create a new product model.
+
+**Request Body:**
+```json
+{
+  "name": "string (required, unique per business, max:255)",
+  "status": "boolean (optional, default: 1)"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Model saved successfully",
+  "data": {}
+}
+```
+
+---
+
+### 7.4 Get Single Model
+
+**Endpoint:** `GET /product-models/{id}`  
+**Auth Required:** Yes
+**Description:** Retrieve details of a specific product model.
+
+**Response (Success):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {}
+}
+```
+
+---
+
+### 7.5 Update Model
+
+**Endpoint:** `PUT /product-models/{id}`  
+**Auth Required:** Yes
+**Description:** Update an existing product model.
+
+**Request Body:**
+```json
+{
+  "name": "string (required, unique per business, max:255)",
+  "status": "boolean (optional)"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Model updated successfully",
+  "data": {}
+}
+```
+
+---
+
+### 7.6 Delete Model
 
 **Endpoint:** `DELETE /product-models/{id}`  
 **Auth Required:** Yes
+**Description:** Delete a specific product model.
+
+**Response (Success):**
+```json
+{
+  "message": "Model deleted successfully"
+}
+```
+
+---
+
+### 7.7 Update Model Status
+
+**Endpoint:** `PATCH /product-models/{id}/status`  
+**Auth Required:** Yes
+**Description:** Update product model status.
+
+**Request Body:**
+```json
+{
+  "status": "boolean (required, true/false)"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Status updated successfully",
+  "data": {}
+}
+```
+
+---
+
+### 7.8 Delete Multiple Models
+
+**Endpoint:** `POST /product-models/delete-all`  
+**Auth Required:** Yes
+**Description:** Delete multiple product models at once.
+
+**Request Body:**
+```json
+{
+  "ids": "array of integers (required) - array of model IDs to delete"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Selected models deleted successfully"
+}
+```
 
 ---
 
