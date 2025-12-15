@@ -42,7 +42,7 @@ function PageLoader() {
 
 // Router configuration
 // Use HashRouter for Electron (file:// protocol), BrowserRouter for web
-const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined
+const isElectron = typeof window !== 'undefined' && ((window as unknown) as Record<string, unknown>).electronAPI !== undefined
 const routerCreator = isElectron ? createHashRouter : createBrowserRouter
 
 const router = routerCreator([

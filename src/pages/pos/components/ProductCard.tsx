@@ -27,16 +27,29 @@ export interface ProductCardProps {
 // ============================================
 
 function getStockInfo(product: Product) {
-  const isVariable = product.product_type === 'variable' && product.has_variants
+  const isVariable = product.product_type === 'variable'
 
   // For variable products, calculate total stock from all variants
   let totalStock = 0
   if (isVariable && product.variants?.length) {
-    totalStock = product.variants_total_stock ?? 
-      product.variants.reduce((sum, v) => sum + (v.total_stock ?? 0), 0)
+    // Calculate from variant stocks
+    totalStock = product.variants.reduce((sum, variant) => {
+      // Sum up stock from variant's stocks array
+      const variantStock =
+        variant.stocks?.reduce((s, stock) => s + (stock.productStock ?? 0), 0) ?? 0
+      return sum + variantStock
+    }, 0)
+
+    // Fallback to variants_total_stock if available
+    if (totalStock === 0 && product.variants_total_stock) {
+      totalStock = product.variants_total_stock
+    }
   } else {
-    totalStock = product.stocks_sum_product_stock ?? product.productStock ?? 
-      product.stocks?.[0]?.productStock ?? 0
+    totalStock =
+      product.stocks_sum_product_stock ??
+      product.productStock ??
+      product.stocks?.[0]?.productStock ??
+      0
   }
 
   const stock = product.stocks?.[0]
@@ -60,15 +73,23 @@ function getStockInfo(product: Product) {
     }
   }
 
-  return { 
-    stock, 
-    totalStock, 
-    salePrice: priceDisplay, 
-    isLowStock, 
-    isOutOfStock, 
+  return {
+    stock,
+    totalStock,
+    salePrice: priceDisplay,
+    isLowStock,
+    isOutOfStock,
     isVariable,
     hasPriceRange,
-    variantCount: product.variants?.filter((v) => v.is_active).length ?? 0
+    variantCount:
+      product.variants?.filter((v) => v.is_active).length ??
+      (product.stocks
+        ? new Set(
+            product.stocks
+              .filter((s) => s.variant_id !== null && s.variant_id !== undefined)
+              .map((s) => s.variant_id)
+          ).size
+        : 0),
   }
 }
 
@@ -82,15 +103,15 @@ function ProductCardComponent({
   onAddToCart,
   onSelectVariant,
 }: ProductCardProps) {
-  const { 
-    stock, 
-    totalStock, 
-    salePrice, 
-    isLowStock, 
-    isOutOfStock, 
+  const {
+    stock,
+    totalStock,
+    salePrice,
+    isLowStock,
+    isOutOfStock,
     isVariable,
     hasPriceRange,
-    variantCount
+    variantCount,
   } = getStockInfo(product)
   const imageUrl = getImageUrl(product.productPicture)
 
@@ -98,9 +119,12 @@ function ProductCardComponent({
     if (isOutOfStock) return
 
     // For variable products, open variant selection dialog
-    if (isVariable && onSelectVariant) {
-      onSelectVariant(product)
-      return
+    if (isVariable) {
+      if (onSelectVariant) {
+        onSelectVariant(product)
+        return
+      }
+      // If no selector provided, fall back to default stock
     }
 
     // For simple products, add directly to cart
@@ -113,14 +137,15 @@ function ProductCardComponent({
     <Card
       className={cn(
         'group relative cursor-pointer transition-all hover:shadow-md',
-        isOutOfStock && 'opacity-50 cursor-not-allowed'
+        isOutOfStock && 'cursor-not-allowed opacity-50'
       )}
       onClick={handleClick}
       role="button"
       tabIndex={isOutOfStock ? -1 : 0}
-      aria-label={isVariable 
-        ? `Select options for ${product.productName}` 
-        : `Add ${product.productName} to cart`
+      aria-label={
+        isVariable
+          ? `Select options for ${product.productName}`
+          : `Add ${product.productName} to cart`
       }
       aria-disabled={isOutOfStock}
       onKeyDown={(e) => {
@@ -184,9 +209,15 @@ function ProductCardComponent({
             <Button
               size="icon"
               className="absolute bottom-1 right-1 h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
-              aria-label={isVariable 
-                ? `Select options for ${product.productName}` 
-                : `Quick add ${product.productName}`
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                handleClick()
+              }}
+              aria-label={
+                isVariable
+                  ? `Select options for ${product.productName}`
+                  : `Quick add ${product.productName}`
               }
             >
               {isVariable ? (
@@ -200,9 +231,7 @@ function ProductCardComponent({
 
         {/* Product Info */}
         <div className="space-y-1">
-          <h3 className="line-clamp-2 text-sm font-medium leading-tight">
-            {product.productName}
-          </h3>
+          <h3 className="line-clamp-2 text-sm font-medium leading-tight">{product.productName}</h3>
           <p className="text-xs text-muted-foreground">
             {product.productCode || `SKU-${product.id}`}
           </p>
@@ -212,9 +241,7 @@ function ProductCardComponent({
               {currencySymbol}
               {salePrice.toLocaleString()}
             </span>
-            <span className="text-xs text-muted-foreground">
-              Stock: {totalStock}
-            </span>
+            <span className="text-xs text-muted-foreground">Stock: {totalStock}</span>
           </div>
         </div>
       </CardContent>

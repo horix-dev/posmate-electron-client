@@ -61,8 +61,6 @@ export interface VariantManagerProps {
   attributesLoading: boolean
   variants: VariantInputData[]
   onVariantsChange: (variants: VariantInputData[]) => void
-  defaultCostPrice?: number
-  defaultSalePrice?: number
   currencySymbol?: string
 }
 
@@ -189,6 +187,27 @@ const VariantTable = memo(function VariantTable({
     return map
   }, [attributes])
 
+  // Check for duplicate SKUs
+  const duplicateSkus = useMemo(() => {
+    const skuCounts = new Map<string, number[]>()
+    variants.forEach((variant, index) => {
+      const sku = variant.sku?.trim().toUpperCase()
+      if (sku) {
+        const indices = skuCounts.get(sku) || []
+        indices.push(index)
+        skuCounts.set(sku, indices)
+      }
+    })
+    // Return Set of indices that have duplicate SKUs
+    const duplicates = new Set<number>()
+    skuCounts.forEach((indices) => {
+      if (indices.length > 1) {
+        indices.forEach((idx) => duplicates.add(idx))
+      }
+    })
+    return duplicates
+  }, [variants])
+
   if (variants.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
@@ -207,6 +226,8 @@ const VariantTable = memo(function VariantTable({
             <TableHead className="w-[50px] bg-background">Active</TableHead>
             <TableHead className="min-w-[150px] bg-background">Variant</TableHead>
             <TableHead className="min-w-[120px] bg-background">SKU</TableHead>
+            <TableHead className="min-w-[120px] bg-background">Barcode</TableHead>
+            <TableHead className="min-w-[110px] text-right bg-background">Initial Stock</TableHead>
             <TableHead className="min-w-[100px] text-right bg-background">Cost ({currencySymbol})</TableHead>
             <TableHead className="min-w-[100px] text-right bg-background">Price ({currencySymbol})</TableHead>
             <TableHead className="min-w-[100px] text-right bg-background">Dealer ({currencySymbol})</TableHead>
@@ -242,11 +263,47 @@ const VariantTable = memo(function VariantTable({
                 </div>
               </TableCell>
               <TableCell>
+                <div className="space-y-1">
+                  <Input
+                    value={variant.sku || ''}
+                    onChange={(e) => onUpdateVariant(index, { sku: e.target.value })}
+                    placeholder="Auto-generated"
+                    className={cn(
+                      "h-8 font-mono text-sm",
+                      duplicateSkus.has(index) && "border-destructive focus-visible:ring-destructive"
+                    )}
+                  />
+                  {duplicateSkus.has(index) && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Duplicate SKU
+                    </p>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell>
                 <Input
-                  value={variant.sku || ''}
-                  onChange={(e) => onUpdateVariant(index, { sku: e.target.value })}
-                  placeholder="Auto-generated"
+                  value={variant.barcode || ''}
+                  onChange={(e) => onUpdateVariant(index, { barcode: e.target.value })}
+                  placeholder="Scannable barcode"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }
+                  }}
                   className="h-8 font-mono text-sm"
+                />
+              </TableCell>
+              <TableCell>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={variant.initial_stock ?? ''}
+                  onChange={(e) => onUpdateVariant(index, { initial_stock: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                  placeholder="0"
+                  className="h-8 text-right text-sm"
                 />
               </TableCell>
               <TableCell>
@@ -344,13 +401,13 @@ function VariantManagerComponent({
   attributesLoading,
   variants,
   onVariantsChange,
-  defaultCostPrice,
-  defaultSalePrice,
   currencySymbol = '$',
 }: VariantManagerProps) {
   const [selectedValues, setSelectedValues] = useState<Map<number, Set<number>>>(new Map())
   const [loadedProductId, setLoadedProductId] = useState<number | null>(null)
   const initialLoadDone = useRef(false)
+  const [bulkCostPrice, setBulkCostPrice] = useState<string>('')
+  const [bulkSalePrice, setBulkSalePrice] = useState<string>('')
 
   const valueMap = useMemo(() => {
     const map = new Map<number, AttributeValue>()
@@ -446,8 +503,8 @@ function VariantManagerComponent({
       .map((combo) => ({
         sku: generateSku(productCode, combo, valueMap),
         enabled: 1 as const,
-        cost_price: defaultCostPrice || undefined,
-        price: defaultSalePrice || undefined,
+        cost_price: undefined,
+        price: undefined,
         dealer_price: undefined,
         wholesale_price: undefined,
         is_active: 1 as const,
@@ -459,7 +516,7 @@ function VariantManagerComponent({
     }
     onVariantsChange([...variants, ...newVariants])
     toast.success(`+"Generated "+newVariants.length+" new variant"+(newVariants.length !== 1 ? 's' : '')+`)
-  }, [selectedValues, variants, product?.productCode, defaultCostPrice, defaultSalePrice, valueMap, onVariantsChange])
+  }, [selectedValues, variants, product?.productCode, valueMap, onVariantsChange])
 
   const handleUpdateVariant = useCallback((index: number, updates: Partial<VariantInputData>) => {
     const newVariants = [...variants]
@@ -473,17 +530,21 @@ function VariantManagerComponent({
   }, [variants, onVariantsChange])
 
   const handleApplyDefaultPrices = useCallback(() => {
-    if (!defaultCostPrice && !defaultSalePrice) {
-      toast.error('No default prices set')
+    if (!bulkCostPrice && !bulkSalePrice) {
+      toast.error('Enter cost or price to apply')
       return
     }
+
+    const parsedCost = bulkCostPrice ? parseFloat(bulkCostPrice) : undefined
+    const parsedPrice = bulkSalePrice ? parseFloat(bulkSalePrice) : undefined
+
     onVariantsChange(variants.map((v) => ({
       ...v,
-      cost_price: defaultCostPrice || v.cost_price,
-      price: defaultSalePrice || v.price,
+      cost_price: parsedCost !== undefined ? parsedCost : v.cost_price,
+      price: parsedPrice !== undefined ? parsedPrice : v.price,
     })))
-    toast.success('Default prices applied to all variants')
-  }, [variants, defaultCostPrice, defaultSalePrice, onVariantsChange])
+    toast.success('Applied to all variants')
+  }, [variants, bulkCostPrice, bulkSalePrice, onVariantsChange])
 
   const handleClearAllVariants = useCallback(() => {
     if (variants.length === 0) return
@@ -544,12 +605,32 @@ function VariantManagerComponent({
             'Select attribute values to generate variants'
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {variants.length > 0 && (
-            <Button type="button" variant="outline" size="sm" onClick={handleApplyDefaultPrices}>
-              <DollarSign className="mr-1 h-4 w-4" />
-              Apply Default Prices
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Cost for all"
+                value={bulkCostPrice}
+                onChange={(e) => setBulkCostPrice(e.target.value)}
+                className="h-9 w-32"
+              />
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Price for all"
+                value={bulkSalePrice}
+                onChange={(e) => setBulkSalePrice(e.target.value)}
+                className="h-9 w-32"
+              />
+              <Button type="button" variant="outline" size="sm" onClick={handleApplyDefaultPrices}>
+                <DollarSign className="mr-1 h-4 w-4" />
+                Apply to all
+              </Button>
+            </div>
           )}
           <Button type="button" onClick={handleGenerateVariants} disabled={expectedVariantCount === 0}>
             {variants.length > 0 ? <Plus className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}

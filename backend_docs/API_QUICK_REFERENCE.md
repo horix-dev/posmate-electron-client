@@ -36,11 +36,29 @@
 ### Products
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/products` | ✅ | List all products |
-| GET | `/products/{id}` | ✅ | Get single product |
-| POST | `/products` | ✅ | Create product |
-| PUT | `/products/{id}` | ✅ | Update product |
+| GET | `/products` | ✅ | List all products with variants, stocks, and attributes |
+| GET | `/products/{id}` | ✅ | Get single product (includes variants + variant stocks/attributes for variable products) |
+| POST | `/products` | ✅ | Create product (single/batch/variable) |
+| PUT | `/products/{id}` | ✅ | Update product (single/batch only) |
 | DELETE | `/products/{id}` | ✅ | Delete product |
+| GET | `/products/by-barcode/{barcode}` | ✅ | Find product by barcode (searches products, variants, batch numbers) |
+
+### Product Variants (Attribute-Based)
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/products/{productId}/variants` | ✅ | List variants for a product |
+| GET | `/variants/{variantId}` | ✅ | Get single variant details |
+| POST | `/products/{productId}/variants` | ✅ | Create new variant |
+| PUT | `/variants/{variantId}` | ✅ | Update variant (pricing, SKU, barcode, etc.) |
+| DELETE | `/variants/{variantId}` | ✅ | Delete variant |
+| PUT | `/variants/{variantId}/stock` | ✅ | Update variant stock |
+| PATCH | `/variants/{variantId}/toggle-active` | ✅ | Toggle variant active/inactive status |
+| POST | `/products/{productId}/variants/find` | ✅ | Find variant by attributes |
+| POST | `/products/{productId}/variants/generate` | ✅ | Bulk generate variants |
+| PUT | `/products/{productId}/variants/bulk` | ✅ | Bulk update multiple variants (HTTP 207 partial success) |
+| POST | `/products/{productId}/variants/duplicate` | ✅ | Duplicate/clone a variant with new attributes |
+| GET | `/products/{productId}/variants/stock-summary` | ✅ | Get stock breakdown by warehouse/branch |
+| GET | `/variants/by-barcode/{barcode}` | ✅ | Find variant by barcode |
 
 ### Categories
 | Method | Endpoint | Auth | Description |
@@ -120,8 +138,8 @@
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/purchase` | ✅ | List purchases |
-| POST | `/purchase` | ✅ | Create purchase |
-| PUT | `/purchase/{id}` | ✅ | Update purchase |
+| POST | `/purchase` | ✅ | Create purchase (supports variant_id for variant-specific stock tracking) |
+| PUT | `/purchase/{id}` | ✅ | Update purchase (supports variant_id for variant-specific stock) |
 | DELETE | `/purchase/{id}` | ✅ | Delete purchase |
 
 ### Returns
@@ -145,8 +163,13 @@
 ### Expenses
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/expenses` | ✅ | List expenses |
+| GET | `/expenses` | ✅ | List all expenses with related data |
+| GET | `/expenses/filter` | ✅ | Search/filter expenses by branch & search term |
 | POST | `/expenses` | ✅ | Create expense |
+| GET | `/expenses/{id}` | ✅ | Get single expense details |
+| PUT | `/expenses/{id}` | ✅ | Update expense |
+| DELETE | `/expenses/{id}` | ✅ | Delete expense |
+| POST | `/expenses/delete-all` | ✅ | Delete multiple expenses |
 | GET | `/expense-categories` | ✅ | List categories |
 | POST | `/expense-categories` | ✅ | Create category |
 | PUT | `/expense-categories/{id}` | ✅ | Update category |
@@ -205,6 +228,9 @@
 |--------|----------|------|-------------|
 | GET | `/summary` | ✅ | Get today's summary |
 | GET | `/dashboard` | ✅ | Get dashboard data |
+| GET | `/reports/variants/sales-summary` | ✅ | Variant sales analysis with grouping (by variant/product/day/month) |
+| GET | `/reports/variants/top-selling` | ✅ | Top selling variants by quantity/revenue/profit |
+| GET | `/reports/variants/slow-moving` | ✅ | Slow-moving inventory analysis with stock insights |
 
 ## Users & Staff
 
@@ -358,6 +384,8 @@ curl -X POST http://localhost:8000/api/v1/attributes \
 
 #### Step 2: Create Variable Product with Variants (Single Call)
 
+*Note:* `barcode` is optional but must be unique per business when provided.
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/products \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -372,14 +400,17 @@ curl -X POST http://localhost:8000/api/v1/products \
     "variants": [
       {
         "sku": "TSHIRT-S-RED",
+        "barcode": "8901234567001",
         "cost_price": 300,
         "price": 599,
         "dealer_price": 549,
         "wholesale_price": 499,
+        "initial_stock": 20,
         "attribute_value_ids": [1, 4]
       },
       {
         "sku": "TSHIRT-S-BLUE",
+        "barcode": "8901234567002",
         "cost_price": 300,
         "price": 599,
         "dealer_price": 549,
@@ -388,6 +419,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-M-RED",
+        "barcode": "8901234567003",
         "cost_price": 320,
         "price": 649,
         "dealer_price": 599,
@@ -396,6 +428,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-M-BLUE",
+        "barcode": "8901234567004",
         "cost_price": 320,
         "price": 649,
         "dealer_price": 599,
@@ -404,6 +437,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-L-RED",
+        "barcode": "8901234567005",
         "cost_price": 350,
         "price": 699,
         "dealer_price": 649,
@@ -412,6 +446,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-L-BLUE",
+        "barcode": "8901234567006",
         "cost_price": 350,
         "price": 699,
         "dealer_price": 649,
@@ -436,6 +471,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       {
         "id": 156,
         "sku": "TSHIRT-S-RED",
+        "barcode": "8901234567001",
         "variant_name": "Small, Red",
         "price": 599,
         "attributeValues": [
@@ -446,6 +482,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       {
         "id": 157,
         "sku": "TSHIRT-S-BLUE",
+        "barcode": "8901234567002",
         "variant_name": "Small, Blue",
         "price": 599,
         "attributeValues": [

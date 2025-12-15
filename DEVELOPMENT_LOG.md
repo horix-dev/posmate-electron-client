@@ -73,7 +73,156 @@ src/
 
 ## Feature Implementation Log
 
-### [Current Date - Update with today's date]
+### December 12, 2025
+
+#### SQLite Schema Enhancement for Variable Products
+
+**Problem**: Variable products were losing their variant data when cached to SQLite for offline use. The SQLite schema only stored basic product fields and didn't handle:
+- `product_type` field (simple/variable/batch)
+- `variants` array with full attribute information
+- Multiple stocks per product (for variants)
+- Variant-level pricing and stock
+
+**Solution**: Implemented proper relational database schema (Option A - Industry Standard):
+
+**New SQLite Tables**:
+```sql
+-- Added to products table
+product_type TEXT DEFAULT 'simple'
+has_variants INTEGER DEFAULT 0
+
+-- New product_variants table
+CREATE TABLE product_variants (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL,
+  sku TEXT NOT NULL,
+  barcode TEXT,
+  price, cost_price, wholesale_price, dealer_price,
+  image TEXT,
+  is_active INTEGER DEFAULT 1,
+  attributes_json TEXT, -- Serialized attribute values
+  FOREIGN KEY (product_id) REFERENCES products(id)
+)
+
+-- New variant_stocks table (replaces single stock columns)
+CREATE TABLE variant_stocks (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL,
+  variant_id INTEGER, -- NULL for simple products
+  batch_no TEXT,
+  stock_quantity REAL,
+  purchase_price, sale_price, wholesale_price, dealer_price,
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id)
+)
+```
+
+**Implementation Details**:
+1. **Schema Migration**: Added column migration to existing databases (ALTER TABLE for backward compatibility)
+2. **Bulk Upsert**: Updated to insert product → variants → stocks in transaction
+3. **Data Loading**: Enhanced `productGetAll()` to join variants and stocks
+4. **Type Updates**: Extended `LocalProduct` interface with `product_type`, `variants`, `stocks` arrays
+
+**Benefits**:
+- ✅ Variable products work completely offline with full variant selection
+- ✅ Proper data normalization (no JSON columns for queryable data)
+- ✅ Variant stock tracking per variant
+- ✅ Supports batch products and future extensions
+- ✅ Maintains backward compatibility with existing simple products
+
+**Files Modified**:
+- `electron/sqlite.service.ts` - Schema migration, new tables, updated insert/select logic
+- `src/pages/pos/hooks/usePOSData.ts` - Preserve full `variants` and `stocks` arrays when caching
+- `.github/copilot-instructions.md` - Clarified backend vs Electron main process distinction
+
+**Note**: Existing cached data will be migrated automatically on next app start. Users may need to go online once to refresh the cache with variant data.
+
+---
+
+### December 11, 2025
+
+#### API Alignment & New Backend Endpoint Integration
+
+**Problem**: Analysis revealed several gaps between frontend implementation and API documentation:
+1. Sale payload was missing `variant_id` and `variant_name` for variable products
+2. Cart display didn't show variant information
+3. New backend endpoints needed frontend integration (bulk operations, barcode lookup, reports)
+
+**Solution**: Comprehensive update to align with API and integrate new endpoints.
+
+**Critical Fixes**:
+1. **Sale Payload** (`POSPage.tsx`): Added `variant_id` and `variant_name` to `productsForApi` array
+2. **Cart Display** (`POSPage.tsx`): Enhanced `adaptedCartItems` to include variant SKU, name, ID, and use variant stock/image when available
+3. **Barcode Scanner** (`POSPage.tsx`): Enhanced to support API barcode lookup for variants not in local cache
+
+**Type Updates**:
+- `UpdateVariantRequest`: Added `barcode?: string` for variant barcode updates
+- `PurchaseProductItem`: Added `variant_id?: number` for variant-level purchases
+- Added new types for bulk operations, stock summary, barcode lookup, and reports
+
+**New API Endpoints** (`endpoints.ts`):
+```typescript
+VARIANTS: {
+  // ...existing endpoints...
+  BULK_UPDATE: (productId) => `/products/${productId}/variants/bulk`,
+  DUPLICATE: (productId) => `/products/${productId}/variants/duplicate`,
+  TOGGLE_ACTIVE: (id) => `/variants/${id}/toggle-active`,
+  BY_BARCODE: (barcode) => `/variants/by-barcode/${barcode}`,
+  STOCK_SUMMARY: (productId) => `/products/${productId}/variants/stock-summary`,
+},
+BARCODE: {
+  LOOKUP: (barcode) => `/products/by-barcode/${barcode}`,
+},
+VARIANT_REPORTS: {
+  SALES_SUMMARY: '/reports/variants/sales-summary',
+  TOP_SELLING: '/reports/variants/top-selling',
+  SLOW_MOVING: '/reports/variants/slow-moving',
+}
+```
+
+**New Service Methods** (`variants.service.ts`):
+- `bulkUpdate()`: Bulk update multiple variants (HTTP 207 support)
+- `duplicate()`: Clone variant with new attributes
+- `toggleActive()`: Quick active status toggle
+- `getStockSummary()`: Stock breakdown by warehouse/branch
+- `getByBarcode()`: Direct variant lookup by barcode
+
+**New Reports Service** (`variantReportsService`):
+- `getSalesSummary()`: Sales by variant with grouping options
+- `getTopSelling()`: Top selling variants by quantity/revenue/profit
+- `getSlowMoving()`: Slow-moving inventory identification
+
+**Products Service Update** (`products.service.ts`):
+- `getByBarcode()`: Universal barcode lookup (products, variants, batches)
+
+**Files Modified**:
+- `src/pages/pos/POSPage.tsx` - Sale payload, cart adapter, barcode scanner
+- `src/types/variant.types.ts` - New types for all operations
+- `src/types/api.types.ts` - `variant_id` in `PurchaseProductItem`
+- `src/api/endpoints.ts` - New endpoint definitions
+- `src/api/services/variants.service.ts` - New methods & reports service
+- `src/api/services/products.service.ts` - Barcode lookup method
+- `src/api/services/index.ts` - Export `variantReportsService`
+
+**Reference**: See `API_ALIGNMENT_ANALYSIS.md` for detailed analysis document.
+
+---
+
+### December 8, 2025
+
+#### Variable Products - Initial Stock Support
+
+**Problem**: Backend now supports `initial_stock` per variant in a single create call; frontend needed to collect and send it.
+
+**Solution**:
+1. Added `initial_stock` to variant schema and payload for create/update
+2. Added Initial Stock column to Variant Manager table (per-variant input)
+3. Type updates so ProductVariant and form mapping accept `initial_stock`
+
+**Files Modified**:
+- `src/pages/products/schemas/product.schema.ts` – schema + form mapping includes `initial_stock`
+- `src/pages/products/components/VariantManager.tsx` – UI column for initial stock
+- `src/types/variant.types.ts` – allow `initial_stock` on ProductVariant
 
 #### Variable Products - Single API Request Implementation (Complete)
 

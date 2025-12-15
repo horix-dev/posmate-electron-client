@@ -1,4 +1,8 @@
 import { useEffect } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+// Create a single QueryClient for the app
+const queryClient = new QueryClient()
 import { Toaster } from '@/components/ui/sonner'
 import { AppRouter } from '@/routes'
 import { useAuthStore, useUIStore } from '@/stores'
@@ -71,11 +75,13 @@ function App() {
   }, [theme])
 
   return (
-    <div className="h-screen w-screen overflow-hidden">
-      <AppRouter />
-      <Toaster position="top-right" richColors closeButton />
-      <UpdateNotification />
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <div className="h-screen w-screen overflow-hidden">
+        <AppRouter />
+        <Toaster position="top-right" richColors closeButton />
+        <UpdateNotification />
+      </div>
+    </QueryClientProvider>
   )
 }
 
