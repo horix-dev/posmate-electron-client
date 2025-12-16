@@ -80,7 +80,7 @@ export function ProductSettingsPage() {
                 </div>
 
                 <div className="flex-1 overflow-auto">
-                    <TabsContent value="categories" className="space-y-4 mt-0">
+                    <TabsContent value="categories" className="space-y-4 mt-6">
                         <CategoriesTable
                             searchQuery={searchQuery}
                             refreshTrigger={refreshTrigger}
@@ -91,7 +91,7 @@ export function ProductSettingsPage() {
                         />
                     </TabsContent>
 
-                    <TabsContent value="brands" className="space-y-4 mt-0">
+                    <TabsContent value="brands" className="space-y-4 mt-6">
                         <BrandsTable
                             searchQuery={searchQuery}
                             refreshTrigger={refreshTrigger}
@@ -102,7 +102,7 @@ export function ProductSettingsPage() {
                         />
                     </TabsContent>
 
-                    <TabsContent value="model" className="space-y-4 mt-0">
+                    <TabsContent value="model" className="space-y-4 mt-6">
                         <ModelsTable
                             searchQuery={searchQuery}
                             refreshTrigger={refreshTrigger}

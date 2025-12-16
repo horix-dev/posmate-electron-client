@@ -73,6 +73,52 @@ src/
 
 ## Feature Implementation Log
 
+### December 16, 2025
+
+#### Fixed Pagination Not Updating in Categories, Models, and Brands Tables
+
+**Problem**: When selecting to show 10 records from 19 total records, pagination was not working correctly:
+- It showed "Showing 1 to 10 of 10 entries" instead of "Showing 1 to 10 of 19 entries"
+- No next page button appeared
+- The API was being called with correct pagination parameters, but response metadata was not being extracted
+
+**Root Cause**: The API response structure has pagination metadata nested inside the `data` field, not at the top level:
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "current_page": 1,
+    "data": [...],      // <- actual items array
+    "per_page": 20,
+    "total": 50,
+    "last_page": 3
+  }
+}
+```
+
+The code was looking for `total` and `last_page` at the top level of the response, causing pagination data to not be found.
+
+**Solution**: Updated response parsing in all three tables to properly extract pagination metadata from the nested structure:
+
+**Files Modified**:
+- `src/pages/product-settings/components/categories/CategoriesTable.tsx`
+- `src/pages/product-settings/components/models/ModelsTable.tsx`
+- `src/pages/product-settings/components/brands/BrandsTable.tsx`
+
+**Key Changes**:
+1. Removed client-side pagination slicing logic (was overriding server-side pagination)
+2. Fixed response data extraction to handle nested structure: `r.data.data` for items array, `r.data.total` for pagination metadata
+3. Fallback logic for different API response structures
+4. Proper calculation of `lastPage` from response metadata
+
+**Result**: 
+- ✅ Pagination now correctly shows total record count from API
+- ✅ Next/Previous page buttons appear and work correctly
+- ✅ Changing records per page (10, 25, 50, 100) properly refetches with new pagination
+- ✅ Page navigation correctly reflects available pages
+
+---
+
 ### December 15, 2025
 
 #### POS Page Pagination Fix (Complete)

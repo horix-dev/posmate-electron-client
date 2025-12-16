@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import {
     Form,
     FormControl,
@@ -75,7 +75,17 @@ export function ModelDialog({
         setIsSubmitting(true)
         try {
             if (editData) {
-                await modelsService.update(editData.id, values)
+                // Update model without status
+                const payload = {
+                    ...values,
+                }
+                delete (payload as Partial<ModelFormValues>).status
+                await modelsService.update(editData.id, payload)
+                
+                // Update status separately if it changed
+                if (editData.status !== (values.status ? 1 : 0)) {
+                    await modelsService.updateStatus(editData.id, values.status)
+                }
                 toast.success('Model updated successfully')
             } else {
                 await modelsService.create(values)
@@ -117,21 +127,19 @@ export function ModelDialog({
                             control={form.control}
                             name="status"
                             render={({ field }) => (
-                                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                    <div className="space-y-0.5">
+                                        <FormLabel className="text-base">Active Status</FormLabel>
+                                        <FormDescription>
+                                            Enable or disable this model.
+                                        </FormDescription>
+                                    </div>
                                     <FormControl>
-                                        <Checkbox
+                                        <Switch
                                             checked={field.value}
                                             onCheckedChange={field.onChange}
                                         />
                                     </FormControl>
-                                    <div className="space-y-1 leading-none">
-                                        <FormLabel>
-                                            Active
-                                        </FormLabel>
-                                        <FormDescription>
-                                            This model will be available for selection.
-                                        </FormDescription>
-                                    </div>
                                 </FormItem>
                             )}
                         />

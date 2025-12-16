@@ -1587,6 +1587,14 @@ Auto-generate all possible variants from attribute combinations.
 **Auth Required:** Yes
 **Description:** List all categories with pagination.
 
+**Query Parameters:**
+```json
+{
+  "per_page": "integer (optional, default: 20, max: 200)",
+  "page": "integer (optional, default: 1)"
+}
+```
+
 **Response:**
 ```json
 {
@@ -1768,6 +1776,14 @@ Auto-generate all possible variants from attribute combinations.
 **Endpoint:** `GET /brands`  
 **Auth Required:** Yes
 **Description:** List all brands with pagination.
+
+**Query Parameters:**
+```json
+{
+  "per_page": "integer (optional, default: 20, max: 200)",
+  "page": "integer (optional, default: 1)"
+}
+```
 
 **Response:**
 ```json
@@ -1992,6 +2008,14 @@ Auto-generate all possible variants from attribute combinations.
 **Endpoint:** `GET /product-models`  
 **Auth Required:** Yes
 **Description:** List all product models with pagination.
+
+**Query Parameters:**
+```json
+{
+  "per_page": "integer (optional, default: 10, max: 200)",
+  "page": "integer (optional, default: 1)"
+}
+```
 
 **Response:**
 ```json

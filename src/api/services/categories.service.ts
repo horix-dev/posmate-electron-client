@@ -14,8 +14,8 @@ export const categoriesService = {
     /**
      * Filter categories
      */
-    filter: async (params: { search?: string; per_page?: number }): Promise<ApiResponse<Category[]>> => {
-        const { data } = await api.get<ApiResponse<Category[]>>(`${API_ENDPOINTS.CATEGORIES.LIST}/filter`, { params })
+    filter: async (params: { search?: string; page?: number; per_page?: number }): Promise<PaginatedApiResponse<Category[]>> => {
+        const { data } = await api.get<PaginatedApiResponse<Category[]>>(`${API_ENDPOINTS.CATEGORIES.LIST}/filter`, { params })
         return data
     },
 

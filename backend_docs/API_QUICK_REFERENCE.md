@@ -72,6 +72,8 @@
 | PATCH | `/categories/{id}/status` | ✅ | Update category status |
 | POST | `/categories/delete-all` | ✅ | Delete multiple categories |
 
+Note: List and filter endpoints accept `per_page` and `page`.
+
 ### Brands
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
@@ -83,6 +85,8 @@
 | DELETE | `/brands/{id}` | ✅ | Delete brand |
 | PATCH | `/brands/{id}/status` | ✅ | Update brand status |
 | POST | `/brands/delete-all` | ✅ | Delete multiple brands |
+
+Note: List and filter endpoints accept `per_page` and `page`.
 
 ### Units
 | Method | Endpoint | Auth | Description |
@@ -103,6 +107,8 @@
 | DELETE | `/product-models/{id}` | ✅ | Delete model |
 | PATCH | `/product-models/{id}/status` | ✅ | Update model status |
 | POST | `/product-models/delete-all` | ✅ | Delete multiple models |
+
+Note: List and filter endpoints accept `per_page` and `page`.
 
 ### Attributes (Variable Products)
 | Method | Endpoint | Auth | Description |

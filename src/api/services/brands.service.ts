@@ -14,8 +14,8 @@ export const brandsService = {
     /**
      * Filter brands
      */
-    filter: async (params: { search?: string; per_page?: number }): Promise<ApiResponse<Brand[]>> => {
-        const { data } = await api.get<ApiResponse<Brand[]>>(`${API_ENDPOINTS.BRANDS.LIST}/filter`, { params })
+    filter: async (params: { search?: string; page?: number; per_page?: number }): Promise<PaginatedApiResponse<Brand[]>> => {
+        const { data } = await api.get<PaginatedApiResponse<Brand[]>>(`${API_ENDPOINTS.BRANDS.LIST}/filter`, { params })
         return data
     },
 

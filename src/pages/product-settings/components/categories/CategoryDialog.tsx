@@ -81,7 +81,15 @@ export function CategoryDialog({
             }
 
             if (editData) {
-                await categoriesService.update(editData.id, payload)
+                // Update category without status
+                const updatePayload = { ...payload }
+                delete (updatePayload as Partial<CategoryFormValues>).status
+                await categoriesService.update(editData.id, updatePayload)
+                
+                // Update status separately if it changed
+                if (editData.status !== (values.status ? 1 : 0)) {
+                    await categoriesService.updateStatus(editData.id, values.status)
+                }
                 toast.success('Category updated successfully')
             } else {
                 await categoriesService.create(payload)

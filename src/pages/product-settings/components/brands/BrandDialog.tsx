@@ -65,11 +65,13 @@ export function BrandDialog({
                 form.reset({
                     brandName: editData.brandName,
                     description: editData.description || '',
+                    status: editData.status === 1,
                 })
             } else {
                 form.reset({
                     brandName: '',
                     description: '',
+                    status: true,
                 })
             }
         }
@@ -84,7 +86,15 @@ export function BrandDialog({
             }
 
             if (editData) {
-                await brandsService.update(editData.id, payload)
+                // Update brand without status
+                const updatePayload = { ...payload }
+                delete (updatePayload as Partial<BrandFormValues>).status
+                await brandsService.update(editData.id, updatePayload)
+                
+                // Update status separately if it changed
+                if (editData.status !== (values.status ? 1 : 0)) {
+                    await brandsService.updateStatus(editData.id, values.status)
+                }
                 toast.success('Brand updated successfully')
             } else {
                 await brandsService.create(payload)

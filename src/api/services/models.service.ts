@@ -14,8 +14,8 @@ export const modelsService = {
     /**
      * Filter models
      */
-    filter: async (params: { search?: string; per_page?: number }): Promise<ApiResponse<ProductModel[]>> => {
-        const { data } = await api.get<ApiResponse<ProductModel[]>>(`${API_ENDPOINTS.PRODUCT_MODELS.LIST}/filter`, { params })
+    filter: async (params: { search?: string; page?: number; per_page?: number }): Promise<PaginatedApiResponse<ProductModel[]>> => {
+        const { data } = await api.get<PaginatedApiResponse<ProductModel[]>>(`${API_ENDPOINTS.PRODUCT_MODELS.LIST}/filter`, { params })
         return data
     },
 
