@@ -61,27 +61,36 @@ export function ModelsTable({ searchQuery, refreshTrigger, onEdit }: ModelsTable
                 result = await modelsService.getAll({ page: currentPage, per_page: perPage })
             }
 
-            // Handle pagination structure
-            // API returns: { message, data: { current_page, data: [...], per_page, total, last_page } }
-            let items: ProductModel[] = []
-            let responseTotal = 0
-            let responseLastPage = 0
-            const r = result as any
-
-            // Extract items and pagination from the response
-            if (r?.data) {
-                // Check if data contains pagination metadata (nested structure)
-                if (r.data?.data && Array.isArray(r.data.data)) {
-                    items = r.data.data
-                    responseTotal = r.data.total ? Number(r.data.total) : 0
-                    responseLastPage = r.data.last_page ? Number(r.data.last_page) : Math.ceil(responseTotal / perPage)
-                } else if (Array.isArray(r.data)) {
-                    // Flat array structure
-                    items = r.data
-                    responseTotal = r.total ? Number(r.total) : items.length
-                    responseLastPage = r.last_page ? Number(r.last_page) : Math.ceil(responseTotal / perPage)
+            // Normalize possible response shapes safely (no any)
+            const normalizePaginated = <T,>(resp: unknown, pageSize: number) => {
+                if (!resp || typeof resp !== 'object') {
+                    return { items: [] as T[], total: 0, lastPage: 1 }
                 }
+                if ('data' in (resp as Record<string, unknown>)) {
+                    const outer = resp as { data: unknown } & { total?: unknown; last_page?: unknown }
+                    const d = outer.data
+                    if (d && typeof d === 'object' && 'data' in (d as Record<string, unknown>)) {
+                        const inner = d as { data: unknown; total?: unknown; last_page?: unknown }
+                        const items = Array.isArray(inner.data) ? (inner.data as T[]) : []
+                        const totalVal = inner.total
+                        const lastVal = inner.last_page
+                        const total = typeof totalVal === 'number' ? totalVal : Number(totalVal) || items.length
+                        const lastPage = typeof lastVal === 'number' ? lastVal : Number(lastVal) || Math.ceil(total / pageSize)
+                        return { items, total, lastPage }
+                    }
+                    if (Array.isArray(d)) {
+                        const items = d as T[]
+                        const totalVal = (outer as { total?: unknown }).total
+                        const lastVal = (outer as { last_page?: unknown }).last_page
+                        const total = typeof totalVal === 'number' ? totalVal : Number(totalVal) || items.length
+                        const lastPage = typeof lastVal === 'number' ? lastVal : Number(lastVal) || Math.ceil(total / pageSize)
+                        return { items, total, lastPage }
+                    }
+                }
+                return { items: [] as T[], total: 0, lastPage: 1 }
             }
+
+            const { items, total: responseTotal, lastPage: responseLastPage } = normalizePaginated<ProductModel>(result, perPage)
 
             setData(items)
 

@@ -52,17 +52,38 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
       let responseTotal = 0
       let responseLastPage = 1
 
-      if (result && result.data) {
-        if (Array.isArray((result as any).data?.data)) {
-          items = (result as any).data.data
-          responseTotal = (result as any).data.total ? Number((result as any).data.total) : items.length
-          responseLastPage = (result as any).data.last_page ? Number((result as any).data.last_page) : Math.ceil(responseTotal / perPage)
-        } else if (Array.isArray(result.data)) {
-          items = result.data
-          responseTotal = (result as any).total ? Number((result as any).total) : items.length
-          responseLastPage = (result as any).last_page ? Number((result as any).last_page) : Math.ceil(responseTotal / perPage)
+      const normalizePaginated = <T,>(resp: unknown, pageSize: number) => {
+        if (!resp || typeof resp !== 'object') {
+          return { items: [] as T[], total: 0, lastPage: 1 }
         }
+        if ('data' in (resp as Record<string, unknown>)) {
+          const outer = resp as { data: unknown } & { total?: unknown; last_page?: unknown }
+          const d = outer.data
+          if (d && typeof d === 'object' && 'data' in (d as Record<string, unknown>)) {
+            const inner = d as { data: unknown; total?: unknown; last_page?: unknown }
+            const items = Array.isArray(inner.data) ? (inner.data as T[]) : []
+            const totalVal = inner.total
+            const lastVal = inner.last_page
+            const total = typeof totalVal === 'number' ? totalVal : Number(totalVal) || items.length
+            const lastPage = typeof lastVal === 'number' ? lastVal : Number(lastVal) || Math.ceil(total / pageSize)
+            return { items, total, lastPage }
+          }
+          if (Array.isArray(d)) {
+            const items = d as T[]
+            const totalVal = (outer as { total?: unknown }).total
+            const lastVal = (outer as { last_page?: unknown }).last_page
+            const total = typeof totalVal === 'number' ? totalVal : Number(totalVal) || items.length
+            const lastPage = typeof lastVal === 'number' ? lastVal : Number(lastVal) || Math.ceil(total / pageSize)
+            return { items, total, lastPage }
+          }
+        }
+        return { items: [] as T[], total: 0, lastPage: 1 }
       }
+
+      const normalized = normalizePaginated<Unit>(result, perPage)
+      items = normalized.items
+      responseTotal = normalized.total
+      responseLastPage = normalized.lastPage
 
       setData(items)
 

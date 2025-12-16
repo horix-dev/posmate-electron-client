@@ -12,7 +12,7 @@ import { ModelsTable } from './components/models/ModelsTable'
 import { ModelDialog } from './components/models/ModelDialog'
 import { UnitsTable } from './components/units/UnitsTable'
 import { UnitDialog } from './components/units/UnitDialog'
-import type { Category, Brand, ProductModel } from '@/types/api.types'
+import type { Category, Brand, ProductModel, Unit } from '@/types/api.types'
 
 export function ProductSettingsPage() {
     const [activeTab, setActiveTab] = useState('categories')
@@ -29,7 +29,7 @@ export function ProductSettingsPage() {
     const [isModelOpen, setIsModelOpen] = useState(false)
     const [editingModel, setEditingModel] = useState<ProductModel | null>(null)
     const [isUnitOpen, setIsUnitOpen] = useState(false)
-    const [editingUnit, setEditingUnit] = useState<any | null>(null)
+    const [editingUnit, setEditingUnit] = useState<Unit | null>(null)
 
     const handleAdd = () => {
         if (activeTab === 'categories') {
