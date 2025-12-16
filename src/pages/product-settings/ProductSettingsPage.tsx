@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Search, Ruler, LayoutGrid, Layers, Printer, Upload } from 'lucide-react'
+import { Plus, Search, LayoutGrid, Layers, Printer, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +10,8 @@ import { BrandsTable } from './components/brands/BrandsTable'
 import { BrandDialog } from './components/brands/BrandDialog'
 import { ModelsTable } from './components/models/ModelsTable'
 import { ModelDialog } from './components/models/ModelDialog'
+import { UnitsTable } from './components/units/UnitsTable'
+import { UnitDialog } from './components/units/UnitDialog'
 import type { Category, Brand, ProductModel } from '@/types/api.types'
 
 export function ProductSettingsPage() {
@@ -26,6 +28,8 @@ export function ProductSettingsPage() {
 
     const [isModelOpen, setIsModelOpen] = useState(false)
     const [editingModel, setEditingModel] = useState<ProductModel | null>(null)
+    const [isUnitOpen, setIsUnitOpen] = useState(false)
+    const [editingUnit, setEditingUnit] = useState<any | null>(null)
 
     const handleAdd = () => {
         if (activeTab === 'categories') {
@@ -37,6 +41,9 @@ export function ProductSettingsPage() {
         } else if (activeTab === 'model') {
             setEditingModel(null)
             setIsModelOpen(true)
+        } else if (activeTab === 'units') {
+            setEditingUnit(null)
+            setIsUnitOpen(true)
         }
         // Add other cases as implemented
     }
@@ -113,20 +120,27 @@ export function ProductSettingsPage() {
                         />
                     </TabsContent>
 
+                    {/* Unit dialog */}
+                    <UnitDialog
+                        open={isUnitOpen}
+                        onOpenChange={(open) => {
+                            setIsUnitOpen(open)
+                            if (!open) setEditingUnit(null)
+                        }}
+                        editData={editingUnit}
+                        onSuccess={refresh}
+                    />
+
                     {/* Placeholders for other tabs */}
-                    <TabsContent value="units" className="space-y-4 mt-0">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Units</CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                                <div className="text-center">
-                                    <Ruler className="mx-auto mb-4 h-12 w-12" />
-                                    <p className="text-lg font-medium">Units</p>
-                                    <p className="text-sm">Units will be displayed here</p>
-                                </div>
-                            </CardContent>
-                        </Card>
+                    <TabsContent value="units" className="space-y-4 mt-6">
+                        <UnitsTable
+                            searchQuery={searchQuery}
+                            refreshTrigger={refreshTrigger}
+                            onEdit={(unit) => {
+                                setEditingUnit(unit)
+                                setIsUnitOpen(true)
+                            }}
+                        />
                     </TabsContent>
 
                     <TabsContent value="attributes" className="space-y-4 mt-0">

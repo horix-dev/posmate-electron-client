@@ -91,10 +91,15 @@ Note: List and filter endpoints accept `per_page` and `page`.
 ### Units
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/units` | ✅ | List units |
+| GET | `/units` | ✅ | List units (pagination) |
+| GET | `/units/filter` | ✅ | Search/filter units by name |
 | POST | `/units` | ✅ | Create unit |
 | PUT | `/units/{id}` | ✅ | Update unit |
 | DELETE | `/units/{id}` | ✅ | Delete unit |
+| PATCH | `/units/{id}/status` | ✅ | Update unit status |
+| POST | `/units/delete-all` | ✅ | Delete multiple units |
+
+Note: List and filter endpoints accept `per_page` and `page`.
 
 ### Product Models
 | Method | Endpoint | Auth | Description |

@@ -263,10 +263,12 @@ export interface CreateBrandRequest {
 export interface Unit {
   id: number
   unitName: string
+  status?: number
 }
 
 export interface CreateUnitRequest {
   unitName: string
+  status?: boolean
 }
 
 // ============================================
