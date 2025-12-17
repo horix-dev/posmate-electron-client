@@ -63,7 +63,8 @@
 ### Categories
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/categories` | ✅ | List all categories with pagination |
+| GET | `/categories` | ✅ | List all categories (non-paginated) |
+| GET | `/categories/paginated` | ✅ | List categories with pagination |
 | GET | `/categories/filter` | ✅ | Search/filter categories by name |
 | POST | `/categories` | ✅ | Create category |
 | GET | `/categories/{id}` | ✅ | Get single category |
@@ -72,7 +73,7 @@
 | PATCH | `/categories/{id}/status` | ✅ | Update category status |
 | POST | `/categories/delete-all` | ✅ | Delete multiple categories |
 
-Note: List and filter endpoints accept `per_page` and `page`.
+Note: Paginated and filter endpoints accept `per_page` and `page`.
 
 ### Brands
 | Method | Endpoint | Auth | Description |
@@ -235,6 +236,7 @@ Note: List and filter endpoints accept `per_page` and `page`.
 
 ## Inventory
 
+### Stocks & Warehouses
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | POST | `/stocks` | ✅ | Add stock |
@@ -244,6 +246,34 @@ Note: List and filter endpoints accept `per_page` and `page`.
 | POST | `/warehouses` | ✅ | Create warehouse |
 | PUT | `/warehouses/{id}` | ✅ | Update warehouse |
 | DELETE | `/warehouses/{id}` | ✅ | Delete warehouse |
+
+### Racks
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/racks` | ✅ | List racks (pagination) |
+| GET | `/racks/filter` | ✅ | Search/filter racks by name |
+| POST | `/racks` | ✅ | Create rack |
+| GET | `/racks/{id}` | ✅ | Get single rack |
+| PUT | `/racks/{id}` | ✅ | Update rack |
+| DELETE | `/racks/{id}` | ✅ | Delete rack |
+| PATCH | `/racks/{id}/status` | ✅ | Update rack status |
+| POST | `/racks/delete-all` | ✅ | Delete multiple racks |
+
+Note: List and filter endpoints accept `per_page` and `page`.
+
+### Shelves
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/shelves` | ✅ | List shelves (pagination) |
+| GET | `/shelves/filter` | ✅ | Search/filter shelves by name |
+| POST | `/shelves` | ✅ | Create shelf |
+| GET | `/shelves/{id}` | ✅ | Get single shelf |
+| PUT | `/shelves/{id}` | ✅ | Update shelf |
+| DELETE | `/shelves/{id}` | ✅ | Delete shelf |
+| PATCH | `/shelves/{id}/status` | ✅ | Update shelf status |
+| POST | `/shelves/delete-all` | ✅ | Delete multiple shelves |
+
+Note: List and filter endpoints accept `per_page` and `page`.
 
 ## Reports & Analytics
 
