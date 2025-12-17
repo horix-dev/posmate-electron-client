@@ -287,6 +287,33 @@ export interface CreateProductModelRequest {
 }
 
 // ============================================
+// Rack & Shelf Types
+// ============================================
+
+export interface Rack {
+  id: number
+  name: string
+  status?: number
+}
+
+export interface CreateRackRequest {
+  name: string
+  status?: boolean
+  shelf_id?: number[]
+}
+
+export interface Shelf {
+  id: number
+  name: string
+  status?: number
+}
+
+export interface CreateShelfRequest {
+  name: string
+  status?: boolean
+}
+
+// ============================================
 // Party Types
 // ============================================
 

@@ -73,6 +73,31 @@ src/
 
 ## Feature Implementation Log
 
+### December 17, 2025
+
+#### Product Settings: Racks & Shelves Integration (UI)
+
+**Problem**: The Product Settings page showed placeholder cards for Racks and Shelves tabs, and the add action did not open dialogs for these resources.
+
+**Solution**: Integrated fully functional Racks and Shelves management into the page:
+
+**Files Modified**:
+- `src/pages/product-settings/ProductSettingsPage.tsx`
+
+**Key Changes**:
+1. Imported and wired `RacksTable`, `ShelvesTable`, `RackDialog`, and `ShelfDialog` components.
+2. Added dialog state: `isRackOpen`, `editingRack`, `isShelfOpen`, `editingShelf`.
+3. Updated `handleAdd()` to support `racks` and `shelfs` tabs, opening the corresponding dialogs.
+4. Replaced placeholder cards with the real tables; hooked up `onEdit` to open dialogs with selected rows.
+5. De-duplicated `UnitDialog` rendering and positioned all dialogs consistently at the bottom.
+6. Corrected tab label to display “Shelves” (tab value remains `shelfs` for compatibility).
+
+**Result**:
+- ✅ Racks and Shelves now have full list/edit/create flows with dialogs
+- ✅ Search, pagination, status toggle, and bulk delete are accessible via their tables
+- ✅ Add button opens the correct dialog based on the active tab
+
+
 ### December 16, 2025
 
 #### Fixed Pagination Not Updating in Categories, Models, and Brands Tables
