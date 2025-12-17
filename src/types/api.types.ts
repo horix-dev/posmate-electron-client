@@ -226,6 +226,8 @@ export interface Category {
   variationWeight?: number
   icon?: string
   status?: number
+  parentId?: number
+  version?: number
 }
 
 export interface CreateCategoryRequest {

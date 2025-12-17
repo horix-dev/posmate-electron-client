@@ -100,24 +100,40 @@ const CategoryCombobox = memo(function CategoryCombobox({
                 />
                 All Categories
               </CommandItem>
-              {categories.map((category) => (
-                <CommandItem
-                  key={category.id}
-                  value={category.categoryName}
-                  onSelect={() => {
-                    onCategoryChange(category.id)
-                    setOpen(false)
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      'mr-2 h-4 w-4',
-                      selectedCategoryId === category.id ? 'opacity-100' : 'opacity-0'
-                    )}
-                  />
-                  {category.categoryName}
-                </CommandItem>
-              ))}
+              {categories.map((category) => {
+                // Check if there are duplicate category names
+                const duplicateCount = categories.filter(
+                  (c) => c.categoryName === category.categoryName
+                ).length
+                const displayName =
+                  duplicateCount > 1
+                    ? `${category.categoryName} (ID: ${category.id})`
+                    : category.categoryName
+
+                return (
+                  <CommandItem
+                    key={category.id}
+                    value={`category-${category.id}`}
+                    keywords={[category.categoryName]}
+                    onSelect={() => {
+                      console.log('[CategoryCombobox] Selected category:', {
+                        id: category.id,
+                        name: category.categoryName,
+                      })
+                      onCategoryChange(category.id)
+                      setOpen(false)
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        'mr-2 h-4 w-4',
+                        selectedCategoryId === category.id ? 'opacity-100' : 'opacity-0'
+                      )}
+                    />
+                    {displayName}
+                  </CommandItem>
+                )
+              })}
             </CommandGroup>
           </CommandList>
         </Command>

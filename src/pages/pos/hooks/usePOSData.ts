@@ -148,47 +148,61 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
       try {
         const [productsRes, categoriesRes, paymentTypesRes, vatsRes] = await Promise.all([
           productsService.getAll(),
-          categoriesService.getAll(),
+          categoriesService.getList({ limit: 1000, status: true }), // ✅ Use getList for flat array
           paymentTypesService.getAll(),
           vatsService.getAll({ status: 'active' }),
         ])
 
+        console.log(
+          '[POS Data] Loaded categories:',
+          categoriesRes.data.map((c) => ({ id: c.id, name: c.categoryName }))
+        )
+        console.log('[POS Data] Product category IDs:', [
+          ...new Set(productsRes.data.map((p) => p.category_id)),
+        ])
+
         setProducts(productsRes.data)
-        setCategories(categoriesRes.data)
+        setCategories(categoriesRes.data) // ✅ Now flat array, not paginated
         setPaymentTypes(paymentTypesRes.data)
         setVats(vatsRes.data)
 
-        // Cache products to SQLite/IndexedDB for offline use
-        const localProducts: LocalProduct[] = productsRes.data.map((product) => {
-          const stock: Stock = product.stocks?.[0] || {
-            id: product.id,
-            product_id: product.id,
-            productStock: product.stocks_sum_product_stock ?? product.productStock ?? 0,
-            productPurchasePrice: 0,
-            productSalePrice: 0,
-          }
-          return {
-            ...product,
-            stock, // Fallback stock for simple products
-            // Preserve full stocks array (includes variant info for variable products)
-            stocks: product.stocks || [stock],
-            // Preserve variants array for variable products
-            variants: product.variants || [],
+        // Cache to storage (non-blocking - don't fail if caching fails)
+        try {
+          // Cache products to SQLite/IndexedDB for offline use
+          const localProducts: LocalProduct[] = productsRes.data.map((product: Product) => {
+            const stock: Stock = product.stocks?.[0] || {
+              id: product.id,
+              product_id: product.id,
+              productStock: product.stocks_sum_product_stock ?? product.productStock ?? 0,
+              productPurchasePrice: 0,
+              productSalePrice: 0,
+            }
+            return {
+              ...product,
+              stock, // Fallback stock for simple products
+              // Preserve full stocks array (includes variant info for variable products)
+              stocks: product.stocks || [stock],
+              // Preserve variants array for variable products
+              variants: product.variants || [],
+              lastSyncedAt: new Date().toISOString(),
+            }
+          })
+          await storage.products.bulkUpsert(localProducts)
+
+          // Cache categories to SQLite/IndexedDB for offline use
+          const localCategories: LocalCategory[] = categoriesRes.data.map((cat: Category) => ({
+            ...cat,
             lastSyncedAt: new Date().toISOString(),
-          }
-        })
-        await storage.products.bulkUpsert(localProducts)
+          }))
+          await storage.categories.bulkUpsert(localCategories)
 
-        // Cache categories to SQLite/IndexedDB for offline use
-        const localCategories: LocalCategory[] = categoriesRes.data.map((cat) => ({
-          ...cat,
-          lastSyncedAt: new Date().toISOString(),
-        }))
-        await storage.categories.bulkUpsert(localCategories)
-
-        // Cache payment types and VATs to localStorage (with TTL)
-        setCache(CacheKeys.POS_PAYMENT_TYPES, paymentTypesRes.data)
-        setCache(CacheKeys.POS_VATS, vatsRes.data)
+          // Cache payment types and VATs to localStorage (with TTL)
+          setCache(CacheKeys.POS_PAYMENT_TYPES, paymentTypesRes.data)
+          setCache(CacheKeys.POS_VATS, vatsRes.data)
+        } catch (cacheError) {
+          console.warn('[usePOSData] Failed to cache data, but continuing:', cacheError)
+          // Don't throw - caching is optional, we already have the data in state
+        }
       } catch (err) {
         console.warn('[usePOSData] API fetch failed, trying cached data:', err)
 
@@ -249,7 +263,16 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
 
   // Filter products based on search and category
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
+    console.log('[POS Filter] Total products:', products.length)
+    console.log(
+      '[POS Filter] Active filter - categoryId:',
+      filters.categoryId,
+      'search:',
+      filters.search
+    )
+
+    let debugLogged = false
+    const filtered = products.filter((product) => {
       // Only show products with stock
       const hasStock =
         (product.stocks_sum_product_stock ?? product.productStock ?? 0) > 0 ||
@@ -267,11 +290,31 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
 
       // Category filter
       if (filters.categoryId) {
+        // Debug: log first product's category_id type and value
+        if (!debugLogged) {
+          console.log(
+            '[POS Filter] Sample product category_id:',
+            product.category_id,
+            'type:',
+            typeof product.category_id
+          )
+          console.log(
+            '[POS Filter] Filter categoryId:',
+            filters.categoryId,
+            'type:',
+            typeof filters.categoryId
+          )
+          debugLogged = true
+        }
+
         if (product.category_id !== filters.categoryId) return false
       }
 
       return true
     })
+
+    console.log('[POS Filter] Filtered products count:', filtered.length)
+    return filtered
   }, [products, filters])
 
   return {

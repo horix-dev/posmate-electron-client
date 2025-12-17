@@ -22,10 +22,23 @@ interface VariableProductResponse {
 
 export const productsService = {
   /**
-   * Get all products with stock info
+   * Get products list (for POS, dropdowns)
+   * Returns flat array with optional limit
+   * Use ?limit=1000 to get all products without pagination
+   */
+  getList: async (params?: { limit?: number; status?: boolean }): Promise<ProductsListResponse> => {
+    const { data } = await api.get<ProductsListResponse>(API_ENDPOINTS.PRODUCTS.LIST, { params })
+    return data
+  },
+
+  /**
+   * Get all products with stock info (legacy - use getList instead)
+   * @deprecated Use getList({ limit: 1000 }) instead
    */
   getAll: async (): Promise<ProductsListResponse> => {
-    const { data } = await api.get<ProductsListResponse>(API_ENDPOINTS.PRODUCTS.LIST)
+    const { data } = await api.get<ProductsListResponse>(API_ENDPOINTS.PRODUCTS.LIST, {
+      params: { limit: 1000 },
+    })
     return data
   },
 
