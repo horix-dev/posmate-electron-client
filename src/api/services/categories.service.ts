@@ -2,6 +2,11 @@ import api, { ApiResponse, PaginatedApiResponse } from '../axios'
 import { API_ENDPOINTS } from '../endpoints'
 import type { Category, CreateCategoryRequest } from '@/types/api.types'
 
+export interface CategoriesPaginatedParams {
+  page?: number
+  per_page?: number
+}
+
 export const categoriesService = {
     /**
      * Get all categories with pagination
@@ -14,7 +19,7 @@ export const categoriesService = {
     /**
      * Filter categories
      */
-    filter: async (params: { search?: string; page?: number; per_page?: number }): Promise<PaginatedApiResponse<Category[]>> => {
+    filter: async (params: { search?: string; page?: number; per_page?: number } = {}): Promise<PaginatedApiResponse<Category[]>> => {
         const { data } = await api.get<PaginatedApiResponse<Category[]>>(`${API_ENDPOINTS.CATEGORIES.LIST}/filter`, { params })
         return data
     },
@@ -71,6 +76,11 @@ export const categoriesService = {
      */
     deleteMultiple: async (ids: number[]): Promise<ApiResponse<null>> => {
         const { data } = await api.post<ApiResponse<null>>(`${API_ENDPOINTS.CATEGORIES.LIST}/delete-all`, { ids })
+        return data
+    },
+
+    getPaginated: async (params: CategoriesPaginatedParams = {}): Promise<PaginatedApiResponse<Category[]>> => {
+        const { data } = await api.get<PaginatedApiResponse<Category[]>>('/categories/paginated', { params })
         return data
     },
 }

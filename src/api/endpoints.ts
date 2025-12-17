@@ -59,6 +59,22 @@ export const API_ENDPOINTS = {
     DELETE: (id: number) => `/units/${id}`,
   },
 
+  // Racks
+  RACKS: {
+    LIST: '/racks',
+    CREATE: '/racks',
+    UPDATE: (id: number) => `/racks/${id}`,
+    DELETE: (id: number) => `/racks/${id}`,
+  },
+
+  // Shelves
+  SHELVES: {
+    LIST: '/shelves',
+    CREATE: '/shelves',
+    UPDATE: (id: number) => `/shelves/${id}`,
+    DELETE: (id: number) => `/shelves/${id}`,
+  },
+
   // Product Models
   PRODUCT_MODELS: {
     LIST: '/product-models',

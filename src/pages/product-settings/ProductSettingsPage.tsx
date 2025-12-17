@@ -12,7 +12,11 @@ import { ModelsTable } from './components/models/ModelsTable'
 import { ModelDialog } from './components/models/ModelDialog'
 import { UnitsTable } from './components/units/UnitsTable'
 import { UnitDialog } from './components/units/UnitDialog'
-import type { Category, Brand, ProductModel, Unit } from '@/types/api.types'
+import { RacksTable } from './components/racks/RacksTable'
+import { ShelvesTable } from './components/shelves/ShelvesTable'
+import { RackDialog } from './components/racks/RackDialog'
+import { ShelfDialog } from './components/shelves/ShelfDialog'
+import type { Category, Brand, ProductModel, Unit, Rack, Shelf } from '@/types/api.types'
 
 export function ProductSettingsPage() {
     const [activeTab, setActiveTab] = useState('categories')
@@ -30,6 +34,10 @@ export function ProductSettingsPage() {
     const [editingModel, setEditingModel] = useState<ProductModel | null>(null)
     const [isUnitOpen, setIsUnitOpen] = useState(false)
     const [editingUnit, setEditingUnit] = useState<Unit | null>(null)
+    const [isRackOpen, setIsRackOpen] = useState(false)
+    const [editingRack, setEditingRack] = useState<Rack | null>(null)
+    const [isShelfOpen, setIsShelfOpen] = useState(false)
+    const [editingShelf, setEditingShelf] = useState<Shelf | null>(null)
 
     const handleAdd = () => {
         if (activeTab === 'categories') {
@@ -44,6 +52,12 @@ export function ProductSettingsPage() {
         } else if (activeTab === 'units') {
             setEditingUnit(null)
             setIsUnitOpen(true)
+        } else if (activeTab === 'racks') {
+            setEditingRack(null)
+            setIsRackOpen(true)
+        } else if (activeTab === 'shelfs') {
+            setEditingShelf(null)
+            setIsShelfOpen(true)
         }
         // Add other cases as implemented
     }
@@ -71,7 +85,7 @@ export function ProductSettingsPage() {
                     <TabsTrigger value="units">Units</TabsTrigger>
                     <TabsTrigger value="attributes">Attributes</TabsTrigger>
                     <TabsTrigger value="racks">Racks</TabsTrigger>
-                    <TabsTrigger value="shelfs">Shelfs</TabsTrigger>
+                    <TabsTrigger value="shelfs">Shelves</TabsTrigger>
                     <TabsTrigger value="print-labels">Print Labels</TabsTrigger>
                     <TabsTrigger value="bulk-upload">Bulk Upload</TabsTrigger>
                 </ScrollableTabsList>
@@ -120,18 +134,7 @@ export function ProductSettingsPage() {
                         />
                     </TabsContent>
 
-                    {/* Unit dialog */}
-                    <UnitDialog
-                        open={isUnitOpen}
-                        onOpenChange={(open) => {
-                            setIsUnitOpen(open)
-                            if (!open) setEditingUnit(null)
-                        }}
-                        editData={editingUnit}
-                        onSuccess={refresh}
-                    />
-
-                    {/* Placeholders for other tabs */}
+                    {/* Units */}
                     <TabsContent value="units" className="space-y-4 mt-6">
                         <UnitsTable
                             searchQuery={searchQuery}
@@ -158,34 +161,28 @@ export function ProductSettingsPage() {
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="racks" className="space-y-4 mt-0">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Racks</CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                                <div className="text-center">
-                                    <Layers className="mx-auto mb-4 h-12 w-12" />
-                                    <p className="text-lg font-medium">Racks</p>
-                                    <p className="text-sm">Racks will be displayed here</p>
-                                </div>
-                            </CardContent>
-                        </Card>
+                    {/* Racks */}
+                    <TabsContent value="racks" className="space-y-4 mt-6">
+                        <RacksTable
+                            searchQuery={searchQuery}
+                            refreshTrigger={refreshTrigger}
+                            onEdit={(rack) => {
+                                setEditingRack(rack)
+                                setIsRackOpen(true)
+                            }}
+                        />
                     </TabsContent>
 
-                    <TabsContent value="shelfs" className="space-y-4 mt-0">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Shelfs</CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                                <div className="text-center">
-                                    <Layers className="mx-auto mb-4 h-12 w-12" />
-                                    <p className="text-lg font-medium">Shelfs</p>
-                                    <p className="text-sm">Shelfs will be displayed here</p>
-                                </div>
-                            </CardContent>
-                        </Card>
+                    {/* Shelves */}
+                    <TabsContent value="shelfs" className="space-y-4 mt-6">
+                        <ShelvesTable
+                            searchQuery={searchQuery}
+                            refreshTrigger={refreshTrigger}
+                            onEdit={(shelf) => {
+                                setEditingShelf(shelf)
+                                setIsShelfOpen(true)
+                            }}
+                        />
                     </TabsContent>
 
                     <TabsContent value="print-labels" className="space-y-4 mt-0">
@@ -238,6 +235,36 @@ export function ProductSettingsPage() {
                 open={isModelOpen}
                 onOpenChange={setIsModelOpen}
                 editData={editingModel}
+                onSuccess={refresh}
+            />
+
+            <UnitDialog
+                open={isUnitOpen}
+                onOpenChange={(open) => {
+                    setIsUnitOpen(open)
+                    if (!open) setEditingUnit(null)
+                }}
+                editData={editingUnit}
+                onSuccess={refresh}
+            />
+
+            <RackDialog
+                open={isRackOpen}
+                onOpenChange={(open) => {
+                    setIsRackOpen(open)
+                    if (!open) setEditingRack(null)
+                }}
+                editData={editingRack}
+                onSuccess={refresh}
+            />
+
+            <ShelfDialog
+                open={isShelfOpen}
+                onOpenChange={(open) => {
+                    setIsShelfOpen(open)
+                    if (!open) setEditingShelf(null)
+                }}
+                editData={editingShelf}
                 onSuccess={refresh}
             />
         </div>
