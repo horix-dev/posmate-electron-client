@@ -1,12 +1,6 @@
 import api, { ApiResponse } from '../axios'
 import { API_ENDPOINTS } from '../endpoints'
 import type {
-  Category,
-  CreateCategoryRequest,
-  Brand,
-  CreateBrandRequest,
-  Unit,
-  CreateUnitRequest,
   ProductModel,
   CreateProductModelRequest,
   Vat,
@@ -19,85 +13,22 @@ import type {
 // Categories
 // ============================================
 
-export const categoriesService = {
-  getAll: async (): Promise<ApiResponse<Category[]>> => {
-    const { data } = await api.get<ApiResponse<Category[]>>(API_ENDPOINTS.CATEGORIES.LIST)
-    return data
-  },
-
-  create: async (categoryData: CreateCategoryRequest): Promise<ApiResponse<Category>> => {
-    const { data } = await api.post<ApiResponse<Category>>(
-      API_ENDPOINTS.CATEGORIES.CREATE,
-      categoryData
-    )
-    return data
-  },
-
-  update: async (
-    id: number,
-    categoryData: Partial<CreateCategoryRequest>
-  ): Promise<ApiResponse<Category>> => {
-    const { data } = await api.put<ApiResponse<Category>>(
-      API_ENDPOINTS.CATEGORIES.UPDATE(id),
-      categoryData
-    )
-    return data
-  },
-
-  delete: async (id: number): Promise<void> => {
-    await api.delete(API_ENDPOINTS.CATEGORIES.DELETE(id))
-  },
-}
+// Re-export the full categoriesService with pagination support
+export { categoriesService } from './categories.service'
 
 // ============================================
 // Brands
 // ============================================
 
-export const brandsService = {
-  getAll: async (): Promise<ApiResponse<Brand[]>> => {
-    const { data } = await api.get<ApiResponse<Brand[]>>(API_ENDPOINTS.BRANDS.LIST)
-    return data
-  },
-
-  create: async (brandData: CreateBrandRequest): Promise<ApiResponse<Brand>> => {
-    const { data } = await api.post<ApiResponse<Brand>>(API_ENDPOINTS.BRANDS.CREATE, brandData)
-    return data
-  },
-
-  update: async (id: number, brandData: Partial<CreateBrandRequest>): Promise<ApiResponse<Brand>> => {
-    const { data } = await api.put<ApiResponse<Brand>>(API_ENDPOINTS.BRANDS.UPDATE(id), brandData)
-    return data
-  },
-
-  delete: async (id: number): Promise<void> => {
-    await api.delete(API_ENDPOINTS.BRANDS.DELETE(id))
-  },
-}
+// Re-export the full brandsService with pagination support
+export { brandsService } from './brands.service'
 
 // ============================================
 // Units
 // ============================================
 
-export const unitsService = {
-  getAll: async (): Promise<ApiResponse<Unit[]>> => {
-    const { data } = await api.get<ApiResponse<Unit[]>>(API_ENDPOINTS.UNITS.LIST)
-    return data
-  },
-
-  create: async (unitData: CreateUnitRequest): Promise<ApiResponse<Unit>> => {
-    const { data } = await api.post<ApiResponse<Unit>>(API_ENDPOINTS.UNITS.CREATE, unitData)
-    return data
-  },
-
-  update: async (id: number, unitData: Partial<CreateUnitRequest>): Promise<ApiResponse<Unit>> => {
-    const { data } = await api.put<ApiResponse<Unit>>(API_ENDPOINTS.UNITS.UPDATE(id), unitData)
-    return data
-  },
-
-  delete: async (id: number): Promise<void> => {
-    await api.delete(API_ENDPOINTS.UNITS.DELETE(id))
-  },
-}
+// Re-export the full unitsService with pagination support
+export { unitsService } from './units.service'
 
 // ============================================
 // Product Models
@@ -138,9 +69,10 @@ export const productModelsService = {
 // ============================================
 
 export const vatsService = {
-  getAll: async (params?: { type?: 'single' | 'group'; status?: 'active' | 'inactive' }): Promise<
-    ApiResponse<Vat[]>
-  > => {
+  getAll: async (params?: {
+    type?: 'single' | 'group'
+    status?: 'active' | 'inactive'
+  }): Promise<ApiResponse<Vat[]>> => {
     const { data } = await api.get<ApiResponse<Vat[]>>(API_ENDPOINTS.VATS.LIST, { params })
     return data
   },

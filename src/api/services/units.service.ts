@@ -3,13 +3,40 @@ import { API_ENDPOINTS } from '../endpoints'
 import type { Unit, CreateUnitRequest } from '@/types/api.types'
 
 export const unitsService = {
-  getAll: async (params?: { page?: number; per_page?: number }): Promise<PaginatedApiResponse<Unit[]>> => {
-    const { data } = await api.get<PaginatedApiResponse<Unit[]>>(API_ENDPOINTS.UNITS.LIST, { params })
+  /**
+   * Get units list (for dropdowns, filters)
+   * Returns flat array with optional limit
+   * @param params - Optional limit and status filter
+   */
+  getList: async (params?: { limit?: number; status?: boolean }): Promise<ApiResponse<Unit[]>> => {
+    const { data } = await api.get<ApiResponse<Unit[]>>(API_ENDPOINTS.UNITS.LIST, { params })
     return data
   },
 
-  filter: async (params: { search?: string; page?: number; per_page?: number }): Promise<PaginatedApiResponse<Unit[]>> => {
-    const { data } = await api.get<PaginatedApiResponse<Unit[]>>(`${API_ENDPOINTS.UNITS.LIST}/filter`, { params })
+  /**
+   * Get paginated units (for management tables)
+   * Returns paginated response with metadata
+   * @param params - Page number and items per page
+   */
+  getAll: async (params?: {
+    page?: number
+    per_page?: number
+  }): Promise<PaginatedApiResponse<Unit[]>> => {
+    const { data } = await api.get<PaginatedApiResponse<Unit[]>>(API_ENDPOINTS.UNITS.LIST, {
+      params,
+    })
+    return data
+  },
+
+  filter: async (params: {
+    search?: string
+    page?: number
+    per_page?: number
+  }): Promise<PaginatedApiResponse<Unit[]>> => {
+    const { data } = await api.get<PaginatedApiResponse<Unit[]>>(
+      `${API_ENDPOINTS.UNITS.LIST}/filter`,
+      { params }
+    )
     return data
   },
 
@@ -35,13 +62,18 @@ export const unitsService = {
 
   // Use dedicated status endpoint per updated docs
   updateStatus: async (id: number, status: boolean): Promise<ApiResponse<Unit>> => {
-    const { data } = await api.patch<ApiResponse<Unit>>(`${API_ENDPOINTS.UNITS.UPDATE(id)}/status`, { status })
+    const { data } = await api.patch<ApiResponse<Unit>>(
+      `${API_ENDPOINTS.UNITS.UPDATE(id)}/status`,
+      { status }
+    )
     return data
   },
 
   // Bulk delete endpoint per updated docs
   deleteMultiple: async (ids: number[]): Promise<ApiResponse<null>> => {
-    const { data } = await api.post<ApiResponse<null>>(`${API_ENDPOINTS.UNITS.LIST}/delete-all`, { ids })
+    const { data } = await api.post<ApiResponse<null>>(`${API_ENDPOINTS.UNITS.LIST}/delete-all`, {
+      ids,
+    })
     return data
   },
 }

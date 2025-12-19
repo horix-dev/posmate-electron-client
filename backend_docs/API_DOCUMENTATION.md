@@ -1583,11 +1583,23 @@ Auto-generate all possible variants from attribute combinations.
 
 ## 4. Categories
 
-### 4.1 List Categories (All)
+The Categories API supports **flexible pagination** via query parameters, allowing different pagination modes for different use cases (POS dropdowns, management tables, offline sync).
+
+### 4.1 List Categories (Flexible Pagination)
 
 **Endpoint:** `GET /categories`  
 **Auth Required:** Yes
-**Description:** Retrieve all categories without pagination (default endpoint).
+**Description:** Retrieve categories with flexible pagination modes based on query parameters.
+
+#### Pagination Modes
+
+**Mode 1: Default (No Parameters)**
+Returns all categories as flat array with safety limit of 1000.
+
+**Request:**
+```bash
+GET /categories
+```
 
 **Response:**
 ```json
@@ -1597,38 +1609,59 @@ Auto-generate all possible variants from attribute combinations.
     {
       "id": 1,
       "categoryName": "Electronics",
+      "icon": "categories/icon.jpg",
+      "status": 1,
       "variationCapacity": 0,
       "variationColor": 1,
       "variationSize": 1,
       "variationType": 0,
       "variationWeight": 0,
-      "icon": "categories/icon.jpg",
-      "status": 1
-    },
-    {
-      "id": 2,
-      "categoryName": "Clothing",
-      "status": 1
+      "version": 1,
+      "updated_at": "2025-12-18T10:00:00.000000Z",
+      "created_at": "2025-12-18T10:00:00.000000Z",
+      "deleted_at": null,
+      "business_id": 1
     }
-  ]
+  ],
+  "_server_timestamp": "2025-12-18T10:00:00+00:00"
 }
 ```
 
 ---
 
-### 4.2 List Categories (Paginated)
+**Mode 2: Limit (For POS Dropdowns)**
+Returns first N items as flat array.
 
-**Endpoint:** `GET /categories/paginated`  
-**Auth Required:** Yes
-**Description:** List all categories with pagination.
+**Request:**
+```bash
+GET /categories?limit=100
+```
 
 **Query Parameters:**
+- `limit` (integer, max: 1000): Number of items to return
+
+**Response:**
 ```json
 {
-  "per_page": "integer (optional, default: 20, max: 200)",
-  "page": "integer (optional, default: 1)"
+  "message": "Data fetched successfully.",
+  "data": [ /* max 100 items */ ],
+  "_server_timestamp": "2025-12-18T10:00:00+00:00"
 }
 ```
+
+---
+
+**Mode 3: Offset Pagination (For Management Tables)**
+Returns paginated object with metadata.
+
+**Request:**
+```bash
+GET /categories?page=1&per_page=10
+```
+
+**Query Parameters:**
+- `page` (integer, default: 1): Page number
+- `per_page` (integer, default: 10, max: 100): Items per page
 
 **Response:**
 ```json
@@ -1640,44 +1673,110 @@ Auto-generate all possible variants from attribute combinations.
       {
         "id": 1,
         "categoryName": "Electronics",
-        "variationCapacity": 0,
-        "variationColor": 1,
-        "variationSize": 1,
-        "variationType": 0,
-        "variationWeight": 0,
         "icon": "categories/icon.jpg",
         "status": 1
       }
     ],
-    "per_page": 20,
+    "first_page_url": "http://localhost:8700/api/v1/categories?page=1",
+    "from": 1,
+    "last_page": 5,
+    "last_page_url": "http://localhost:8700/api/v1/categories?page=5",
+    "next_page_url": "http://localhost:8700/api/v1/categories?page=2",
+    "path": "http://localhost:8700/api/v1/categories",
+    "per_page": 10,
+    "prev_page_url": null,
+    "to": 10,
     "total": 50
-  }
+  },
+  "_server_timestamp": "2025-12-18T10:00:00+00:00"
 }
 ```
 
 ---
 
-### 4.3 Filter Categories
+**Mode 4: Cursor Pagination (For Offline Sync)**
+Returns flat array with cursor metadata for efficient batch processing.
 
-**Endpoint:** `GET /categories/filter`  
-**Auth Required:** Yes
-**Description:** Search and filter categories.
+**Request:**
+```bash
+GET /categories?cursor=0&per_page=100
+```
 
 **Query Parameters:**
-```json
-{
-  "search": "string (optional) - searches categoryName",
-  "per_page": "integer (optional, default: 10)"
-}
-```
+- `cursor` (integer, default: 0): Last ID from previous batch (use 0 for first batch)
+- `per_page` (integer, default: 100, max: 1000): Items per batch
 
 **Response:**
 ```json
 {
-  "message": "Data filtered successfully.",
-  "data": []
+  "message": "Data fetched successfully.",
+  "data": [
+    {
+      "id": 1,
+      "categoryName": "Electronics",
+      "status": 1
+    }
+  ],
+  "pagination": {
+    "next_cursor": 100,
+    "has_more": true,
+    "count": 100,
+    "per_page": 100
+  },
+  "_server_timestamp": "2025-12-18T10:00:00+00:00"
 }
 ```
+
+**Cursor Pagination Flow:**
+1. Start with `cursor=0`
+2. Use `next_cursor` from response for next batch
+3. Continue until `has_more` is `false`
+4. No duplicate IDs between batches (guaranteed by ID ordering)
+
+---
+
+#### Filters (All Modes)
+
+All pagination modes support the following filters:
+
+**Query Parameters:**
+- `status` (boolean, optional): Filter by status (1=active, 0=inactive)
+- `search` (string, optional): Search by category name (case-insensitive, partial match)
+
+**Examples:**
+```bash
+# Active categories only with limit
+GET /categories?status=1&limit=50
+
+# Search with pagination
+GET /categories?search=elec&page=1&per_page=10
+
+# Search with cursor pagination
+GET /categories?search=food&cursor=0&per_page=100
+
+# Inactive categories
+GET /categories?status=0&limit=100
+```
+
+---
+
+### 4.2 List Categories (Legacy - Paginated)
+
+**Endpoint:** `GET /categories/paginated`  
+**Auth Required:** Yes
+**Description:** Legacy endpoint. Use `GET /categories?page=1&per_page=10` instead.
+
+**⚠️ Deprecated:** This endpoint is maintained for backward compatibility. New integrations should use the main `/categories` endpoint with query parameters.
+
+---
+
+### 4.3 Filter Categories (Legacy)
+
+**Endpoint:** `GET /categories/filter`  
+**Auth Required:** Yes
+**Description:** Legacy search endpoint. Use `GET /categories?search=term` instead.
+
+**⚠️ Deprecated:** This endpoint is maintained for backward compatibility. New integrations should use the main `/categories` endpoint with `search` parameter.
 
 ---
 
@@ -1806,18 +1905,69 @@ Auto-generate all possible variants from attribute combinations.
 
 ## 5. Brands
 
-### 5.1 List Brands
+**Base Endpoint:** `GET /brands`  
+**Auth Required:** Yes  
+**Description:** Flexible pagination with multiple modes
 
-**Endpoint:** `GET /brands`  
-**Auth Required:** Yes
-**Description:** List all brands with pagination.
+### Pagination Modes
 
-**Query Parameters:**
+The `/brands` endpoint supports 4 pagination modes via query parameters:
+
+#### Mode 1: Default (No Parameters)
+Returns all brands with safety limit of 1000.
+
+**Request:**
+```bash
+GET /brands
+```
+
+**Response:**
 ```json
 {
-  "per_page": "integer (optional, default: 20, max: 200)",
-  "page": "integer (optional, default: 1)"
+  "message": "Data fetched successfully.",
+  "data": [
+    {
+      "id": 1,
+      "brandName": "Apple",
+      "status": 1,
+      "version": 1,
+      "created_at": "2025-12-17T10:00:00+00:00",
+      "updated_at": "2025-12-17T10:00:00+00:00",
+      "deleted_at": null,
+      "business_id": 1
+    }
+  ],
+  "_server_timestamp": "2025-12-17T10:00:00+00:00"
 }
+```
+
+---
+
+#### Mode 2: Limit (For Dropdowns)
+Returns first N brands as flat array (max: 1000).
+
+**Request:**
+```bash
+GET /brands?limit=100
+```
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [ /* array of brands */ ],
+  "_server_timestamp": "2025-12-17T10:00:00+00:00"
+}
+```
+
+---
+
+#### Mode 3: Offset Pagination (For Management Tables)
+Returns paginated data with metadata (max: 100 per page).
+
+**Request:**
+```bash
+GET /brands?page=1&per_page=10
 ```
 
 **Response:**
@@ -1826,48 +1976,81 @@ Auto-generate all possible variants from attribute combinations.
   "message": "Data fetched successfully.",
   "data": {
     "current_page": 1,
-    "data": [
-      {
-        "id": 1,
-        "brandName": "Apple",
-        "description": "Technology company",
-        "icon": "brands/icon.jpg",
-        "status": 1
-      }
-    ],
-    "per_page": 20,
-    "total": 30
-  }
+    "data": [ /* array of brands */ ],
+    "first_page_url": "http://localhost/api/v1/brands?page=1",
+    "from": 1,
+    "last_page": 5,
+    "last_page_url": "http://localhost/api/v1/brands?page=5",
+    "next_page_url": "http://localhost/api/v1/brands?page=2",
+    "path": "http://localhost/api/v1/brands",
+    "per_page": 10,
+    "prev_page_url": null,
+    "to": 10,
+    "total": 50
+  },
+  "_server_timestamp": "2025-12-17T10:00:00+00:00"
 }
 ```
 
 ---
 
-### 5.2 Filter Brands
+#### Mode 4: Cursor Pagination (For Offline Sync)
+Returns brands with cursor for efficient sequential fetching (max: 1000 per batch).
 
-**Endpoint:** `GET /brands/filter`  
-**Auth Required:** Yes
-**Description:** Search and filter brands.
-
-**Query Parameters:**
-```json
-{
-  "search": "string (optional) - searches brandName and description",
-  "per_page": "integer (optional, default: 10)"
-}
+**Request:**
+```bash
+GET /brands?cursor=0&per_page=100
 ```
 
 **Response:**
 ```json
 {
-  "message": "Data filtered successfully.",
-  "data": []
+  "message": "Data fetched successfully.",
+  "data": [ /* array of brands */ ],
+  "pagination": {
+    "next_cursor": 100,
+    "has_more": true,
+    "count": 100,
+    "per_page": 100
+  },
+  "_server_timestamp": "2025-12-17T10:00:00+00:00"
 }
+```
+
+**Cursor Pagination Flow:**
+1. Start: `GET /brands?cursor=0&per_page=100`
+2. Next: `GET /brands?cursor=100&per_page=100` (use `next_cursor` from previous response)
+3. Continue until `has_more` is `false`
+
+---
+
+### Filters
+
+All pagination modes support these filters:
+
+**Query Parameters:**
+- `status`: `1` (active) or `0` (inactive) - also accepts `true`/`false`
+- `search`: Text search in `brandName`
+
+**Examples:**
+```bash
+GET /brands?status=1&limit=50
+GET /brands?search=apple&page=1&per_page=10
+GET /brands?status=true&cursor=0&per_page=100
 ```
 
 ---
 
-### 5.3 Create Brand
+### 5.1 Legacy Endpoints (Deprecated)
+
+⚠️ **These endpoints are deprecated. Use query parameters instead.**
+
+**Old:** `GET /brands/filter?search=apple`  
+**New:** `GET /brands?search=apple&limit=100`
+
+---
+
+### 5.2 Create Brand
 
 **Endpoint:** `POST /brands`  
 **Auth Required:** Yes
@@ -1878,7 +2061,7 @@ Auto-generate all possible variants from attribute combinations.
 {
   "brandName": "string (required, unique per business, max:255)",
   "description": "string (optional)",
-  "icon": "file (optional, image: jpeg,png,jpg,gif,svg)"
+  "icon": "file (optional, image: jpeg,png,jpg,gif,svg, max:2048KB)"
 }
 ```
 
@@ -1886,13 +2069,22 @@ Auto-generate all possible variants from attribute combinations.
 ```json
 {
   "message": "Brand created successfully",
-  "data": {}
+  "data": {
+    "id": 1,
+    "brandName": "Apple",
+    "status": 1,
+    "version": 1,
+    "created_at": "2025-12-17T10:00:00+00:00",
+    "updated_at": "2025-12-17T10:00:00+00:00",
+    "deleted_at": null,
+    "business_id": 1
+  }
 }
 ```
 
 ---
 
-### 5.4 Get Single Brand
+### 5.3 Get Single Brand
 
 **Endpoint:** `GET /brands/{id}`  
 **Auth Required:** Yes
@@ -1902,13 +2094,22 @@ Auto-generate all possible variants from attribute combinations.
 ```json
 {
   "message": "Data fetched successfully.",
-  "data": {}
+  "data": {
+    "id": 1,
+    "brandName": "Apple",
+    "status": 1,
+    "version": 1,
+    "created_at": "2025-12-17T10:00:00+00:00",
+    "updated_at": "2025-12-17T10:00:00+00:00",
+    "deleted_at": null,
+    "business_id": 1
+  }
 }
 ```
 
 ---
 
-### 5.5 Update Brand
+### 5.4 Update Brand
 
 **Endpoint:** `PUT /brands/{id}`  
 **Auth Required:** Yes
@@ -1920,13 +2121,22 @@ Auto-generate all possible variants from attribute combinations.
 ```json
 {
   "message": "Brand updated successfully",
-  "data": {}
+  "data": {
+    "id": 1,
+    "brandName": "Apple Inc.",
+    "status": 1,
+    "version": 2,
+    "created_at": "2025-12-17T10:00:00+00:00",
+    "updated_at": "2025-12-17T11:00:00+00:00",
+    "deleted_at": null,
+    "business_id": 1
+  }
 }
 ```
 
 ---
 
-### 5.6 Delete Brand
+### 5.5 Delete Brand
 
 **Endpoint:** `DELETE /brands/{id}`  
 **Auth Required:** Yes
@@ -1941,7 +2151,7 @@ Auto-generate all possible variants from attribute combinations.
 
 ---
 
-### 5.7 Update Brand Status
+### 5.6 Update Brand Status
 
 **Endpoint:** `PATCH /brands/{id}/status`  
 **Auth Required:** Yes
@@ -1950,7 +2160,7 @@ Auto-generate all possible variants from attribute combinations.
 **Request Body:**
 ```json
 {
-  "status": "boolean (required, true/false)"
+  "status": "boolean (required, true/false or 1/0)"
 }
 ```
 
@@ -1958,13 +2168,22 @@ Auto-generate all possible variants from attribute combinations.
 ```json
 {
   "message": "Status updated successfully",
-  "data": {}
+  "data": {
+    "id": 1,
+    "brandName": "Apple",
+    "status": 0,
+    "version": 1,
+    "created_at": "2025-12-17T10:00:00+00:00",
+    "updated_at": "2025-12-17T11:00:00+00:00",
+    "deleted_at": null,
+    "business_id": 1
+  }
 }
 ```
 
 ---
 
-### 5.8 Delete Multiple Brands
+### 5.7 Delete Multiple Brands
 
 **Endpoint:** `POST /brands/delete-all`  
 **Auth Required:** Yes
@@ -1973,14 +2192,15 @@ Auto-generate all possible variants from attribute combinations.
 **Request Body:**
 ```json
 {
-  "ids": "array of integers (required) - array of brand IDs to delete"
+  "ids": [1, 2, 3]
 }
 ```
 
 **Response (Success):**
 ```json
 {
-  "message": "Selected brands deleted successfully"
+  "message": "Selected brands deleted successfully",
+  "deleted_count": 3
 }
 ```
 
@@ -1988,18 +2208,20 @@ Auto-generate all possible variants from attribute combinations.
 
 ## 6. Units
 
-### 6.1 List Units
+**Base Endpoint:** `GET /units`  
+**Auth Required:** Yes  
+**Description:** Flexible pagination with multiple modes
 
-**Endpoint:** `GET /units`  
-**Auth Required:** Yes
-**Description:** List all units with pagination.
+### Pagination Modes
 
-**Query Parameters:**
-```json
-{
-  "per_page": "integer (optional, default: 20, max: 200)",
-  "page": "integer (optional, default: 1)"
-}
+The `/units` endpoint supports 4 pagination modes via query parameters:
+
+#### Mode 1: Default (No Parameters)
+Returns all units with safety limit of 1000.
+
+**Request:**
+```bash
+GET /units
 ```
 
 **Response:**
@@ -2010,11 +2232,124 @@ Auto-generate all possible variants from attribute combinations.
     {
       "id": 1,
       "unitName": "Piece",
-      "status": true
+      "status": 1,
+      "version": 1,
+      "created_at": "2025-12-17T10:00:00+00:00",
+      "updated_at": "2025-12-17T10:00:00+00:00",
+      "deleted_at": null,
+      "business_id": 1
     }
-  ]
+  ],
+  "_server_timestamp": "2025-12-17T10:00:00+00:00"
 }
 ```
+
+---
+
+#### Mode 2: Limit (For Dropdowns)
+Returns first N units as flat array (max: 1000).
+
+**Request:**
+```bash
+GET /units?limit=100
+```
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [ /* array of units */ ],
+  "_server_timestamp": "2025-12-17T10:00:00+00:00"
+}
+```
+
+---
+
+#### Mode 3: Offset Pagination (For Management Tables)
+Returns paginated data with metadata (max: 100 per page).
+
+**Request:**
+```bash
+GET /units?page=1&per_page=10
+```
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "current_page": 1,
+    "data": [ /* array of units */ ],
+    "first_page_url": "http://localhost/api/v1/units?page=1",
+    "from": 1,
+    "last_page": 5,
+    "last_page_url": "http://localhost/api/v1/units?page=5",
+    "next_page_url": "http://localhost/api/v1/units?page=2",
+    "path": "http://localhost/api/v1/units",
+    "per_page": 10,
+    "prev_page_url": null,
+    "to": 10,
+    "total": 50
+  },
+  "_server_timestamp": "2025-12-17T10:00:00+00:00"
+}
+```
+
+---
+
+#### Mode 4: Cursor Pagination (For Offline Sync)
+Returns units with cursor for efficient sequential fetching (max: 1000 per batch).
+
+**Request:**
+```bash
+GET /units?cursor=0&per_page=100
+```
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [ /* array of units */ ],
+  "pagination": {
+    "next_cursor": 100,
+    "has_more": true,
+    "count": 100,
+    "per_page": 100
+  },
+  "_server_timestamp": "2025-12-17T10:00:00+00:00"
+}
+```
+
+**Cursor Pagination Flow:**
+1. Start: `GET /units?cursor=0&per_page=100`
+2. Next: `GET /units?cursor=100&per_page=100` (use `next_cursor` from previous response)
+3. Continue until `has_more` is `false`
+
+---
+
+### Filters
+
+All pagination modes support these filters:
+
+**Query Parameters:**
+- `status`: `1` (active) or `0` (inactive) - also accepts `true`/`false`
+- `search`: Text search in `unitName`
+
+**Examples:**
+```bash
+GET /units?status=1&limit=50
+GET /units?search=kg&page=1&per_page=10
+GET /units?status=true&cursor=0&per_page=100
+```
+
+---
+
+### 6.1 Legacy Endpoints (Deprecated)
+
+⚠️ **These endpoints are deprecated. Use query parameters instead.**
+
+**Old:** `GET /units/filter?search=kg`  
+**New:** `GET /units?search=kg&limit=100`
 
 ---
 
@@ -2022,67 +2357,109 @@ Auto-generate all possible variants from attribute combinations.
 
 **Endpoint:** `POST /units`  
 **Auth Required:** Yes
+**Description:** Create a new unit.
 
 **Request Body:**
 ```json
 {
-  "unitName": "string (required, unique per business)"
-}
-```
-
----
-
-### 6.3 Update Unit
-
-**Endpoint:** `PUT /units/{id}`  
-**Auth Required:** Yes
-
----
-
-### 6.4 Delete Unit
-
-### 6.5 Filter Units
-
-**Endpoint:** `GET /units/filter`  
-**Auth Required:** Yes
-**Description:** Search and filter units by name with pagination.
-
-**Query Parameters:**
-```json
-{
-  "search": "string (optional) - searches unitName",
-  "per_page": "integer (optional, default: 10, max: 200)",
-  "page": "integer (optional, default: 1)"
+  "unitName": "string (required, unique per business, max:255)",
+  "status": "boolean (optional, default: 1)"
 }
 ```
 
 **Response (Success):**
 ```json
 {
-  "message": "Data filtered successfully.",
+  "message": "Data saved successfully.",
   "data": {
-    "current_page": 1,
-    "data": [
-      {
-        "id": 1,
-        "unitName": "Piece",
-        "status": true
-      }
-    ],
-    "per_page": 10,
-    "total": 0
+    "id": 1,
+    "unitName": "Kilogram",
+    "status": 1,
+    "version": 1,
+    "created_at": "2025-12-17T10:00:00+00:00",
+    "updated_at": "2025-12-17T10:00:00+00:00",
+    "deleted_at": null,
+    "business_id": 1
   }
 }
 ```
 
 ---
 
-**Endpoint:** `DELETE /units/{id}`  
+### 6.3 Get Single Unit
+
+**Endpoint:** `GET /units/{id}`  
 **Auth Required:** Yes
+**Description:** Retrieve details of a specific unit.
+
+**Response (Success):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "id": 1,
+    "unitName": "Kilogram",
+    "status": 1,
+    "version": 1,
+    "created_at": "2025-12-17T10:00:00+00:00",
+    "updated_at": "2025-12-17T10:00:00+00:00",
+    "deleted_at": null,
+    "business_id": 1
+  }
+}
+```
 
 ---
 
-### 6.5 Update Unit Status
+### 6.4 Update Unit
+
+**Endpoint:** `PUT /units/{id}`  
+**Auth Required:** Yes
+**Description:** Update an existing unit.
+
+**Request Body:**
+```json
+{
+  "unitName": "string (required, unique per business, max:255)",
+  "status": "boolean (optional)"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "message": "Data saved successfully.",
+  "data": {
+    "id": 1,
+    "unitName": "Kg",
+    "status": 1,
+    "version": 2,
+    "created_at": "2025-12-17T10:00:00+00:00",
+    "updated_at": "2025-12-17T11:00:00+00:00",
+    "deleted_at": null,
+    "business_id": 1
+  }
+}
+```
+
+---
+
+### 6.5 Delete Unit
+
+**Endpoint:** `DELETE /units/{id}`  
+**Auth Required:** Yes
+**Description:** Delete a specific unit.
+
+**Response (Success):**
+```json
+{
+  "message": "Data deleted successfully."
+}
+```
+
+---
+
+### 6.6 Update Unit Status
 
 **Endpoint:** `PATCH /units/{id}/status`  
 **Auth Required:** Yes  
@@ -2091,7 +2468,7 @@ Auto-generate all possible variants from attribute combinations.
 **Request Body:**
 ```json
 {
-  "status": "boolean (required)"
+  "status": "boolean (required, true/false or 1/0)"
 }
 ```
 
@@ -2102,14 +2479,19 @@ Auto-generate all possible variants from attribute combinations.
   "data": {
     "id": 1,
     "unitName": "Piece",
-    "status": true
+    "status": 0,
+    "version": 1,
+    "created_at": "2025-12-17T10:00:00+00:00",
+    "updated_at": "2025-12-17T11:00:00+00:00",
+    "deleted_at": null,
+    "business_id": 1
   }
 }
 ```
 
 ---
 
-### 6.6 Delete Multiple Units
+### 6.7 Delete Multiple Units
 
 **Endpoint:** `POST /units/delete-all`  
 **Auth Required:** Yes  
@@ -2125,7 +2507,8 @@ Auto-generate all possible variants from attribute combinations.
 **Response (Success):**
 ```json
 {
-  "message": "Selected units deleted successfully"
+  "message": "Selected units deleted successfully",
+  "deleted_count": 3
 }
 ```
 

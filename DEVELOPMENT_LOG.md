@@ -14,6 +14,39 @@
 
 ---
 
+## Latest Updates
+
+### December 18, 2025 - Categories API Pagination Implementation
+
+**Problem**: Backend introduced pagination to Categories API, breaking POS screen
+- Frontend expected flat array: `response.data → Category[]`
+- Backend changed to: `response.data.data → Category[]` (nested pagination)
+- Error: `categories.find is not a function`
+
+**Solution**: Implemented flexible query parameter-based pagination (industry standard)
+- ✅ **Limit Mode** (`?limit=100`): Flat array for POS dropdowns
+- ✅ **Offset Pagination** (`?page=1&per_page=10`): Paginated object for management tables
+- ✅ **Cursor Pagination** (`?cursor=123&per_page=100`): Efficient batching for offline sync
+- ✅ **Offline Support**: Client-side pagination fallback from SQLite/IndexedDB cache
+
+**Files Modified**:
+- `src/api/services/categories.service.ts` - Added `getList()`, `getPaginated()`, `getCursor()` methods
+- `src/api/services/inventory.service.ts` - Re-export new categoriesService
+- `src/pages/pos/hooks/usePOSData.ts` - Changed from `getAll()` to `getList({ limit: 1000, status: true })`
+- `backend_docs/PAGINATION_IMPLEMENTATION_GUIDE.md` - Created comprehensive guide for Laravel developer
+
+**Benefits**:
+- ✅ Fixes `categories.find is not a function` error
+- ✅ POS screen works with flat array response
+- ✅ Prevents memory issues with large datasets (pagination in sync)
+- ✅ Follows industry standards (Stripe, GitHub, Shopify pattern)
+- ✅ Maintains offline support for all modes
+- ✅ Backward compatible with existing code
+
+**Next Steps**: Apply same pattern to Products, Brands, Units, Parties APIs
+
+---
+
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)

@@ -231,9 +231,20 @@ export class SQLiteService {
       CREATE TABLE IF NOT EXISTS categories (
         id INTEGER PRIMARY KEY,
         category_name TEXT NOT NULL,
+        icon TEXT,
+        status INTEGER DEFAULT 1,
         parent_id INTEGER,
+        variation_capacity INTEGER DEFAULT 0,
+        variation_color INTEGER DEFAULT 0,
+        variation_size INTEGER DEFAULT 0,
+        variation_type INTEGER DEFAULT 0,
+        variation_weight INTEGER DEFAULT 0,
+        version INTEGER DEFAULT 1,
+        business_id INTEGER,
         last_synced_at TEXT,
-        created_at TEXT DEFAULT (datetime('now'))
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT,
+        deleted_at TEXT
       );
 
       -- Parties (customers/suppliers) table
@@ -359,10 +370,10 @@ export class SQLiteService {
     if (!this.db) return
 
     try {
-      // Check if product_type column exists, if not add it
-      const tableInfo = this.db.prepare("PRAGMA table_info(products)").all() as any[]
-      const hasProductType = tableInfo.some(col => col.name === 'product_type')
-      const hasHasVariants = tableInfo.some(col => col.name === 'has_variants')
+      // ========== Products Table Migrations ==========
+      const productsInfo = this.db.prepare("PRAGMA table_info(products)").all() as any[]
+      const hasProductType = productsInfo.some(col => col.name === 'product_type')
+      const hasHasVariants = productsInfo.some(col => col.name === 'has_variants')
 
       if (!hasProductType) {
         this.db.exec("ALTER TABLE products ADD COLUMN product_type TEXT DEFAULT 'simple'")
@@ -372,6 +383,31 @@ export class SQLiteService {
       if (!hasHasVariants) {
         this.db.exec("ALTER TABLE products ADD COLUMN has_variants INTEGER DEFAULT 0")
         console.log('[SQLite] Added has_variants column to products table')
+      }
+
+      // ========== Categories Table Migrations ==========
+      const categoriesInfo = this.db.prepare("PRAGMA table_info(categories)").all() as any[]
+      const categoriesColumns = categoriesInfo.map(col => col.name)
+
+      const categoriesToAdd = [
+        { name: 'icon', type: 'TEXT', default: 'NULL' },
+        { name: 'status', type: 'INTEGER', default: '1' },
+        { name: 'variation_capacity', type: 'INTEGER', default: '0' },
+        { name: 'variation_color', type: 'INTEGER', default: '0' },
+        { name: 'variation_size', type: 'INTEGER', default: '0' },
+        { name: 'variation_type', type: 'INTEGER', default: '0' },
+        { name: 'variation_weight', type: 'INTEGER', default: '0' },
+        { name: 'version', type: 'INTEGER', default: '1' },
+        { name: 'business_id', type: 'INTEGER', default: 'NULL' },
+        { name: 'updated_at', type: 'TEXT', default: 'NULL' },
+        { name: 'deleted_at', type: 'TEXT', default: 'NULL' }
+      ]
+
+      for (const col of categoriesToAdd) {
+        if (!categoriesColumns.includes(col.name)) {
+          this.db.exec(`ALTER TABLE categories ADD COLUMN ${col.name} ${col.type} DEFAULT ${col.default}`)
+          console.log(`[SQLite] Added ${col.name} column to categories table`)
+        }
       }
     } catch (error) {
       console.warn('[SQLite] Column migration warning:', error)
@@ -806,17 +842,63 @@ export class SQLiteService {
     if (!this.db) throw new Error('Database not initialized')
     
     const upsert = this.db.prepare(`
-      INSERT INTO categories (id, category_name, parent_id, last_synced_at)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO categories (
+        id, category_name, icon, status, parent_id,
+        variation_capacity, variation_color, variation_size, variation_type, variation_weight,
+        version, business_id, last_synced_at, created_at, updated_at, deleted_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         category_name = excluded.category_name,
+        icon = excluded.icon,
+        status = excluded.status,
         parent_id = excluded.parent_id,
-        last_synced_at = excluded.last_synced_at
+        variation_capacity = excluded.variation_capacity,
+        variation_color = excluded.variation_color,
+        variation_size = excluded.variation_size,
+        variation_type = excluded.variation_type,
+        variation_weight = excluded.variation_weight,
+        version = excluded.version,
+        business_id = excluded.business_id,
+        last_synced_at = excluded.last_synced_at,
+        updated_at = excluded.updated_at,
+        deleted_at = excluded.deleted_at
     `)
+
+    // Helper to convert values to SQLite-compatible types
+    const toSQLiteValue = (val: any, defaultVal: any = null) => {
+      if (val === undefined || val === null) return defaultVal
+      if (typeof val === 'boolean') return val ? 1 : 0
+      return val
+    }
 
     const insertMany = this.db.transaction((categories: LocalCategory[]) => {
       for (const c of categories) {
-        upsert.run(c.id, c.categoryName, c.parentId, c.lastSyncedAt || new Date().toISOString())
+        const cat = c as any
+        try {
+          upsert.run(
+            c.id,
+            c.categoryName,
+            toSQLiteValue(cat.icon, null),
+            toSQLiteValue(cat.status, 1),
+            toSQLiteValue(c.parentId, null),
+            toSQLiteValue(cat.variationCapacity, 0),
+            toSQLiteValue(cat.variationColor, 0),
+            toSQLiteValue(cat.variationSize, 0),
+            toSQLiteValue(cat.variationType, 0),
+            toSQLiteValue(cat.variationWeight, 0),
+            toSQLiteValue(cat.version, 1),
+            toSQLiteValue(cat.business_id, null),
+            c.lastSyncedAt || new Date().toISOString(),
+            toSQLiteValue(cat.created_at, new Date().toISOString()),
+            toSQLiteValue(cat.updated_at, null),
+            toSQLiteValue(cat.deleted_at, null)
+          )
+        } catch (error) {
+          console.error('[SQLite] Error inserting category:', c.id, c.categoryName, error)
+          console.error('[SQLite] Category data:', JSON.stringify(c, null, 2))
+          throw error
+        }
       }
     })
 
@@ -827,9 +909,21 @@ export class SQLiteService {
     return {
       id: row.id,
       categoryName: row.category_name,
+      icon: row.icon || null,
+      status: row.status ?? 1,
       parentId: row.parent_id,
+      variationCapacity: row.variation_capacity ?? 0,
+      variationColor: row.variation_color ?? 0,
+      variationSize: row.variation_size ?? 0,
+      variationType: row.variation_type ?? 0,
+      variationWeight: row.variation_weight ?? 0,
+      version: row.version ?? 1,
+      business_id: row.business_id,
       lastSyncedAt: row.last_synced_at,
-    }
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      deleted_at: row.deleted_at,
+    } as LocalCategory
   }
 
   // ========== Parties ==========
