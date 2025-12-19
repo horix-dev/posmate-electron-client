@@ -4933,7 +4933,303 @@ Generates next invoice number.
 
 ---
 
-## 26. Variant Reports & Analytics
+## 26. Print Labels (Barcode Generator)
+
+### 26.1 Get Barcode Settings
+
+**Endpoint:** `GET /barcodes/settings`  
+**Auth Required:** Yes
+**Description:** Retrieve available barcode types, paper formats, and font size options.
+
+**Response:**
+```json
+{
+  "message": "Settings fetched successfully",
+  "data": {
+    "barcode_types": [
+      {"value": "C128", "label": "Code 128"},
+      {"value": "C39", "label": "Code 39"},
+      {"value": "EAN13", "label": "EAN 13"},
+      {"value": "EAN8", "label": "EAN 8"},
+      {"value": "UPCA", "label": "UPC-A"}
+    ],
+    "paper_settings": [
+      {
+        "value": "1",
+        "label": "Roll Label: 38mm x 25mm, Gap: 3.1mm",
+        "name": "label-38mm-25mm",
+        "dimensions": "1.5\" x 1\"",
+        "css": "assets/css/label-38mm-25mm.css",
+        "label_width_mm": 38.0,
+        "label_height_mm": 25.0,
+        "gap_mm": 3.1,
+        "margin_top_mm": 2.0,
+        "margin_left_mm": 2.0,
+        "columns": 1,
+        "rows": null
+      },
+      {
+        "value": "2",
+        "label": "Roll Label: 50mm x 25mm, Gap: 3.1mm",
+        "name": "label-50mm-25mm",
+        "dimensions": "2\" x 1\"",
+        "css": "assets/css/label-50mm-25mm.css",
+        "label_width_mm": 50.0,
+        "label_height_mm": 25.0,
+        "gap_mm": 3.1,
+        "margin_top_mm": 2.0,
+        "margin_left_mm": 2.0,
+        "columns": 1,
+        "rows": null
+      },
+      {
+        "value": "3",
+        "label": "Sheet Label: A4 (28 labels per sheet)",
+        "name": "label-a4",
+        "dimensions": "8.27\" x 11.69\"",
+        "css": "assets/css/label-a4.css",
+        "page_width_mm": 210.0,
+        "page_height_mm": 297.0,
+        "label_width_mm": 50.8,
+        "label_height_mm": 31.75,
+        "columns": 4,
+        "rows": 7,
+        "gap_horizontal_mm": 2.5,
+        "gap_vertical_mm": 2.5,
+        "margin_top_mm": 12.7,
+        "margin_left_mm": 4.2
+      }
+    ],
+    "font_sizes": [8, 9, 10, ..., 32],
+    "vat_options": [
+      {"value": "exclusive", "label": "Exclusive"},
+      {"value": "inclusive", "label": "Inclusive"}
+    ]
+  }
+}
+```
+
+---
+
+### 26.2 Get All Products
+
+**Endpoint:** `GET /barcodes/products`  
+**Auth Required:** Yes
+**Description:** Get all products with pagination for barcode generation. Returns clean, optimized product data with pricing information.
+
+**Query Parameters:**
+```json
+{
+  "page": "integer (optional, default: 1)",
+  "per_page": "integer (optional, default: 20, max: 200)"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Products fetched successfully",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 1,
+        "productName": "Product A",
+        "productCode": "PROD001",
+        "productPicture": "path/to/image.jpg",
+        "product_type": "simple",
+        "unit": {
+          "id": 1,
+          "unitName": "pieces"
+        },
+        "category": {
+          "id": 1,
+          "categoryName": "Electronics"
+        },
+        "brand": {
+          "id": 1,
+          "brandName": "Brand Name"
+        },
+        "productSalePrice": 100.00,
+        "productDealerPrice": 90.00,
+        "productWholeSalePrice": 85.00,
+        "productStock": 50
+      }
+    ],
+    "per_page": 20,
+    "total": 150,
+    "last_page": 8
+  }
+}
+```
+
+---
+
+### 26.3 Search Products
+
+**Endpoint:** `GET /barcodes/search-products`  
+**Auth Required:** Yes
+**Description:** Search products for barcode generation by name or code. Returns all matching results without pagination.
+
+**Query Parameters:**
+```json
+{
+  "search": "string (optional) - searches productName and productCode"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Products fetched successfully",
+  "data": [
+    {
+      "id": 1,
+      "productName": "Product A",
+      "productCode": "PROD001",
+      "productPicture": "path/to/image.jpg",
+      "product_type": "simple",
+      "unit": {
+        "id": 1,
+        "unitName": "pieces"
+      },
+      "category": {
+        "id": 1,
+        "categoryName": "Electronics"
+      },
+      "brand": {
+        "id": 1,
+        "brandName": "Brand Name"
+      },
+      "productSalePrice": 100.00,
+      "productDealerPrice": 90.00,
+      "productWholeSalePrice": 85.00,
+      "productStock": 50
+    }
+  ]
+}
+```
+
+---
+
+### 26.4 Get Product Details
+
+**Endpoint:** `GET /barcodes/product-details/{productId}`  
+**Auth Required:** Yes
+**Description:** Get product stock levels, batch numbers, and warehouse details.
+
+**Response:**
+```json
+{
+  "message": "Product details fetched",
+  "data": {
+    "product": {
+      "id": 1,
+      "productName": "Product A",
+      "productCode": "PROD001",
+      "price": 100.00,
+      "dealer_price": 90.00,
+      "category": "Electronics",
+      "product_type": "simple"
+    },
+    "stocks": [
+      {
+        "id": 1,
+        "product_id": 1,
+        "batch_no": "BATCH001",
+        "batch_id": 1,
+        "warehouse": {"id": 1, "name": "Main Warehouse"},
+        "available_quantity": 50,
+        "cost_price": 80.00
+      }
+    ],
+    "total_available": 50
+  }
+}
+```
+
+---
+
+### 26.5 Preview Barcodes
+
+**Endpoint:** `POST /barcodes/preview`  
+**Auth Required:** Yes
+**Description:** Generate barcode preview with all configuration options applied.
+
+**Request Body:**
+```json
+{
+  "items": [
+    {
+      "product_id": 1,
+      "quantity": 5,
+      "batch_id": null,
+      "packing_date": "2025-12-17"
+    }
+  ],
+  "barcode_type": "C128",
+  "barcode_setting": "3",
+  "show_business_name": true,
+  "business_name": "My Store",
+  "business_name_size": 15,
+  "show_product_name": true,
+  "product_name_size": 15,
+  "show_product_price": true,
+  "product_price_size": 14,
+  "show_product_code": true,
+  "product_code_size": 14,
+  "show_pack_date": true,
+  "pack_date_size": 12,
+  "vat_type": "inclusive"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Barcodes generated successfully",
+  "data": {
+    "barcodes": [
+      {
+        "id": "unique_id_123",
+        "product_id": 1,
+        "product_name": "Product A",
+        "product_code": "PROD001",
+        "product_price": 100.00,
+        "display_price": 100.00,
+        "batch_id": null,
+        "business_name": "My Store",
+        "packing_date": "2025-12-17",
+        "barcode_svg": "<svg>...</svg>",
+        "show_business_name": true,
+        "show_product_name": true,
+        "show_product_price": true,
+        "show_product_code": true,
+        "show_pack_date": true
+      }
+    ],
+    "total_count": 5,
+    "barcode_type": "C128",
+    "paper_setting": 3
+  }
+}
+```
+
+---
+
+### 26.6 Generate Barcodes for Print
+
+**Endpoint:** `POST /barcodes/generate`  
+**Auth Required:** Yes
+**Description:** Generate final barcode data ready for printing.
+
+**Request Body:** Same as Preview endpoint
+
+**Response:** Same as Preview endpoint
+
+---
+
+## 27. Variant Reports & Analytics
 
 Advanced reporting endpoints for variant product analysis and insights.
 

@@ -73,7 +73,61 @@ src/
 
 ## Feature Implementation Log
 
-### December 17, 2025
+### December 17, 2025 (Evening)
+
+#### Print Labels / Barcode Generator - Full Implementation
+
+**Problem**: Product Settings "Print Labels" tab was a placeholder.
+
+**Solution**: Implemented comprehensive barcode generator following FRONTEND_BARCODE_PROMPTS specs:
+
+**Files Created**:
+- `src/api/services/barcodes.service.ts` - Barcode API integration
+- `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx` - Main page
+- `src/pages/product-settings/components/print-labels/ProductSearch.tsx` - Product search with debounce
+- `src/pages/product-settings/components/print-labels/SelectedProductsTable.tsx` - Selected products list
+- `src/pages/product-settings/components/print-labels/LabelConfiguration.tsx` - Label settings (toggles, font sizes)
+- `src/pages/product-settings/components/print-labels/BarcodeSettings.tsx` - Barcode type & paper format
+- `src/pages/product-settings/components/print-labels/BarcodePreview.tsx` - Live barcode preview
+- `src/components/ui/slider.tsx` - Range slider component (native HTML)
+- `src/components/ui/radio-group.tsx` - Radio button group (custom implementation)
+
+**Files Modified**:
+- `src/pages/product-settings/ProductSettingsPage.tsx` - Wired PrintLabelsPage into print-labels tab
+
+**Features**:
+✅ Section 1: Product search with autocomplete + selected products table
+✅ Section 2: Label configuration (toggles for business name, product name, price, code, packing date + font size sliders)
+✅ Section 3: Barcode settings (type dropdown + paper format radio buttons)
+✅ Section 4: Live barcode preview with paper layout simulation
+✅ Section 5: Preview, Generate & Print, Clear Selection buttons
+✅ Full API integration with barcode endpoints
+✅ Loading states and error handling
+
+**Result**:
+- ✅ Print Labels tab now fully functional with all 5 required sections
+- ✅ Follows Product Settings styling (Cards, buttons, spacing)
+- ✅ Responsive layout with proper form controls
+- ✅ Real-time preview updates when settings change
+
+---
+
+#### Print Labels: Dropdown Product Selection
+
+**Problem**: UX change requested to remove inline search and use a dropdown to select products for label printing.
+
+**Solution**: Replaced `ProductSearch` with a shadcn `Select`-based dropdown that lists the first 50 products via `barcodesService.searchProducts`. On selection, the app fetches full details with `getProductDetails` and adds the item to the selection. Added a refresh action to reload the list.
+
+**Files Modified**:
+- `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx` — Added dropdown product selector, removed `ProductSearch` usage, wired selection to `getProductDetails`, and kept the rest of the flow unchanged.
+- `src/pages/product-settings/components/print-labels/LabelConfiguration.tsx` — Removed unused `businessName` and `onBusinessNameChange` props to satisfy strict TypeScript rules.
+
+**Notes**:
+- Maintains existing API integration and preview/print flows.
+- Uses shadcn/ui `Select` for consistency with the design system.
+- No backend changes required.
+
+---
 
 #### Product Settings: Racks & Shelves Integration (UI)
 

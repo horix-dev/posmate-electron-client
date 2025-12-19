@@ -275,6 +275,21 @@ Note: List and filter endpoints accept `per_page` and `page`.
 
 Note: List and filter endpoints accept `per_page` and `page`.
 
+## Print Labels (Barcode Generator)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/barcodes/settings` | ✅ | Get barcode types and paper settings |
+| GET | `/barcodes/products` | ✅ | Get all products with pagination |
+| GET | `/barcodes/search-products` | ✅ | Search products by name/code |
+| GET | `/barcodes/product-details/{id}` | ✅ | Get product stock and batch details |
+| POST | `/barcodes/preview` | ✅ | Generate barcode preview with config |
+| POST | `/barcodes/generate` | ✅ | Generate final barcodes for print |
+
+Notes: 
+- `/barcodes/products` accepts `page` and `per_page` parameters (default: 20, max: 200) - Returns paginated list
+- `/barcodes/search-products` accepts `search` parameter - Returns all matching results as array (no pagination)
+
 ## Reports & Analytics
 
 | Method | Endpoint | Auth | Description |

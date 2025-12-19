@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Search, LayoutGrid, Layers, Printer, Upload } from 'lucide-react'
+import { Plus, Search, LayoutGrid } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +16,7 @@ import { RacksTable } from './components/racks/RacksTable'
 import { ShelvesTable } from './components/shelves/ShelvesTable'
 import { RackDialog } from './components/racks/RackDialog'
 import { ShelfDialog } from './components/shelves/ShelfDialog'
+import { PrintLabelsPage } from './components/print-labels/PrintLabelsPage'
 import type { Category, Brand, ProductModel, Unit, Rack, Shelf } from '@/types/api.types'
 
 export function ProductSettingsPage() {
@@ -71,10 +72,12 @@ export function ProductSettingsPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Product Settings</h1>
                     <p className="text-muted-foreground">Manage categories, brands, models and attributes</p>
                 </div>
-                <Button onClick={handleAdd}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add New {activeTab === 'model' ? 'Model' : activeTab.slice(0, -1).charAt(0).toUpperCase() + activeTab.slice(0, -1).slice(1)}
-                </Button>
+                {activeTab !== 'print-labels' && (
+                    <Button onClick={handleAdd}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add New {activeTab === 'model' ? 'Model' : activeTab.slice(0, -1).charAt(0).toUpperCase() + activeTab.slice(0, -1).slice(1)}
+                    </Button>
+                )}
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 flex-1 flex flex-col">
@@ -87,18 +90,19 @@ export function ProductSettingsPage() {
                     <TabsTrigger value="racks">Racks</TabsTrigger>
                     <TabsTrigger value="shelfs">Shelves</TabsTrigger>
                     <TabsTrigger value="print-labels">Print Labels</TabsTrigger>
-                    <TabsTrigger value="bulk-upload">Bulk Upload</TabsTrigger>
                 </ScrollableTabsList>
 
-                <div className="relative max-w-md">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        placeholder={`Search ${activeTab}...`}
-                        className="pl-10"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
+                {activeTab !== 'print-labels' && (
+                    <div className="relative max-w-md">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder={`Search ${activeTab}...`}
+                            className="pl-10"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                )}
 
                 <div className="flex-1 overflow-auto">
                     <TabsContent value="categories" className="space-y-4 mt-6">
@@ -185,34 +189,8 @@ export function ProductSettingsPage() {
                         />
                     </TabsContent>
 
-                    <TabsContent value="print-labels" className="space-y-4 mt-0">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Print Labels</CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                                <div className="text-center">
-                                    <Printer className="mx-auto mb-4 h-12 w-12" />
-                                    <p className="text-lg font-medium">Print Labels</p>
-                                    <p className="text-sm">Label printing configuration will be displayed here</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    <TabsContent value="bulk-upload" className="space-y-4 mt-0">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Bulk Upload</CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                                <div className="text-center">
-                                    <Upload className="mx-auto mb-4 h-12 w-12" />
-                                    <p className="text-lg font-medium">Bulk Upload</p>
-                                    <p className="text-sm">Bulk upload tools will be displayed here</p>
-                                </div>
-                            </CardContent>
-                        </Card>
+                    <TabsContent value="print-labels" className="space-y-4 mt-6">
+                        <PrintLabelsPage />
                     </TabsContent>
                 </div>
             </Tabs>
