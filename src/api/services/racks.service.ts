@@ -33,8 +33,14 @@ export const racksService = {
     return data
   },
 
-  updateStatus: async (id: number, status: boolean): Promise<ApiResponse<Rack>> => {
-    const { data } = await api.patch<ApiResponse<Rack>>(`${API_ENDPOINTS.RACKS.UPDATE(id)}/status`, { status })
+  /**
+   * Update rack status
+   * Use the main update endpoint; API lacks a dedicated /status path.
+   */
+  updateStatus: async (id: number, status: boolean, name: string): Promise<ApiResponse<Rack>> => {
+    // Backend requires name; include it with status toggle
+    const payload = { name, status: status ? 1 : 0 }
+    const { data } = await api.patch<ApiResponse<Rack>>(API_ENDPOINTS.RACKS.UPDATE(id), payload)
     return data
   },
 

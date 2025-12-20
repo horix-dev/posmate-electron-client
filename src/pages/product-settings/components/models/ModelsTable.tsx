@@ -156,7 +156,7 @@ export function ModelsTable({ searchQuery, refreshTrigger, onEdit }: ModelsTable
             // Optimistic update
             setData(prev => prev.map(item => item.id === model.id ? { ...item, status: newStatus ? 1 : 0 } : item))
 
-            await modelsService.updateStatus(model.id, newStatus)
+            await modelsService.updateStatus(model.id, newStatus, model.name)
             toast.success('Status updated')
         } catch (error) {
             toast.error('Failed to update status')

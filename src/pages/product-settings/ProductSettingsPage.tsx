@@ -33,10 +33,13 @@ export function ProductSettingsPage() {
 
   const [isModelOpen, setIsModelOpen] = useState(false)
   const [editingModel, setEditingModel] = useState<ProductModel | null>(null)
+
   const [isUnitOpen, setIsUnitOpen] = useState(false)
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null)
+
   const [isRackOpen, setIsRackOpen] = useState(false)
   const [editingRack, setEditingRack] = useState<Rack | null>(null)
+
   const [isShelfOpen, setIsShelfOpen] = useState(false)
   const [editingShelf, setEditingShelf] = useState<Shelf | null>(null)
 
@@ -60,7 +63,6 @@ export function ProductSettingsPage() {
       setEditingShelf(null)
       setIsShelfOpen(true)
     }
-    // Add other cases as implemented
   }
 
   const refresh = () => setRefreshTrigger((prev) => prev + 1)
@@ -72,38 +74,40 @@ export function ProductSettingsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Product Settings</h1>
           <p className="text-muted-foreground">Manage categories, brands, models and attributes</p>
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add New{' '}
-          {activeTab === 'model'
-            ? 'Model'
-            : activeTab.slice(0, -1).charAt(0).toUpperCase() + activeTab.slice(0, -1).slice(1)}
-        </Button>
+        {activeTab !== 'print-labels' && (
+          <Button onClick={handleAdd}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add New{' '}
+            {activeTab === 'model'
+              ? 'Model'
+              : activeTab.slice(0, -1).charAt(0).toUpperCase() + activeTab.slice(0, -1).slice(1)}
+          </Button>
+        )}
       </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 flex-1 flex flex-col">
-                <ScrollableTabsList>
-                    <TabsTrigger value="categories">Categories</TabsTrigger>
-                    <TabsTrigger value="brands">Brands</TabsTrigger>
-                    <TabsTrigger value="model">Models</TabsTrigger>
-                    <TabsTrigger value="units">Units</TabsTrigger>
-                    <TabsTrigger value="attributes">Attributes</TabsTrigger>
-                    <TabsTrigger value="racks">Racks</TabsTrigger>
-                    <TabsTrigger value="shelfs">Shelves</TabsTrigger>
-                    <TabsTrigger value="print-labels">Print Labels</TabsTrigger>
-                </ScrollableTabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 flex-1 flex flex-col">
+        <ScrollableTabsList>
+          <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="brands">Brands</TabsTrigger>
+          <TabsTrigger value="model">Models</TabsTrigger>
+          <TabsTrigger value="units">Units</TabsTrigger>
+          <TabsTrigger value="attributes">Attributes</TabsTrigger>
+          <TabsTrigger value="racks">Racks</TabsTrigger>
+          <TabsTrigger value="shelfs">Shelves</TabsTrigger>
+          <TabsTrigger value="print-labels">Print Labels</TabsTrigger>
+        </ScrollableTabsList>
 
-                {activeTab !== 'print-labels' && (
-                    <div className="relative max-w-md">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder={`Search ${activeTab}...`}
-                            className="pl-10"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                )}
+        {activeTab !== 'print-labels' && (
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={`Search ${activeTab}...`}
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto">
           <TabsContent value="categories" className="mt-6 space-y-4">
@@ -139,7 +143,6 @@ export function ProductSettingsPage() {
             />
           </TabsContent>
 
-          {/* Units */}
           <TabsContent value="units" className="mt-6 space-y-4">
             <UnitsTable
               searchQuery={searchQuery}
@@ -166,7 +169,6 @@ export function ProductSettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* Racks */}
           <TabsContent value="racks" className="mt-6 space-y-4">
             <RacksTable
               searchQuery={searchQuery}
@@ -178,7 +180,6 @@ export function ProductSettingsPage() {
             />
           </TabsContent>
 
-          {/* Shelves */}
           <TabsContent value="shelfs" className="mt-6 space-y-4">
             <ShelvesTable
               searchQuery={searchQuery}
@@ -190,24 +191,8 @@ export function ProductSettingsPage() {
             />
           </TabsContent>
 
-                    <TabsContent value="print-labels" className="space-y-4 mt-6">
-                        <PrintLabelsPage />
-                    </TabsContent>
-                </div>
-            </Tabs>
-          <TabsContent value="print-labels" className="mt-0 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Print Labels</CardTitle>
-              </CardHeader>
-              <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <Printer className="mx-auto mb-4 h-12 w-12" />
-                  <p className="text-lg font-medium">Print Labels</p>
-                  <p className="text-sm">Label printing configuration will be displayed here</p>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="print-labels" className="space-y-4 mt-6">
+            <PrintLabelsPage />
           </TabsContent>
 
           <TabsContent value="bulk-upload" className="mt-0 space-y-4">

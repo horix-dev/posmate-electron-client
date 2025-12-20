@@ -82,9 +82,9 @@ export function ModelDialog({
                 delete (payload as Partial<ModelFormValues>).status
                 await modelsService.update(editData.id, payload)
                 
-                // Update status separately if it changed
+                // Update status separately if it changed (backend requires name in payload)
                 if (editData.status !== (values.status ? 1 : 0)) {
-                    await modelsService.updateStatus(editData.id, values.status)
+                    await modelsService.updateStatus(editData.id, values.status, values.name)
                 }
                 toast.success('Model updated successfully')
             } else {

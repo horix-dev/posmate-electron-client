@@ -61,10 +61,15 @@ function createWindow() {
 
   // Open external links in browser
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http')) {
+    if (url.startsWith('https:') || url.startsWith('http:')) {
+      // Check if it's external (not our dev server or localhost)
+      // For simplicity, let's assume all http/https are external for now unless it's a specific window we want
+      // But standard window.open('', ...) uses 'about:blank' which doesn't start with http
       shell.openExternal(url)
+      return { action: 'deny' }
     }
-    return { action: 'deny' }
+    // Allow other windows (like about:blank for printing)
+    return { action: 'allow' }
   })
 
   // Test active push message to Renderer-process.
@@ -76,11 +81,11 @@ function createWindow() {
     win.loadURL(VITE_DEV_SERVER_URL)
     // Open DevTools in development
     win.webContents.openDevTools()
-    
+
     // Handle load failure in development (e.g., simulated offline)
     win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
       console.warn(`[Electron] Failed to load: ${errorCode} - ${errorDescription}`)
-      
+
       // Show offline fallback page
       const offlineHtml = `
         <!DOCTYPE html>
@@ -272,7 +277,7 @@ app.whenReady().then(() => {
   if (!result.success) {
     console.error('[Main] Failed to initialize SQLite:', result.error)
   }
-  
+
   createWindow()
 
   // Initialize auto-updater (only in production)
@@ -288,7 +293,7 @@ app.on('before-quit', () => {
   if (updater) {
     updater.cleanup()
   }
-  
+
   sqliteService.close()
 })
 

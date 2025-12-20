@@ -106,7 +106,7 @@ export function RacksTable({ searchQuery, refreshTrigger, onEdit }: RacksTablePr
     try {
       const newStatus = (rack.status ?? 1) === 1 ? false : true
       setData(prev => prev.map(r => r.id === rack.id ? { ...r, status: newStatus ? 1 : 0 } : r))
-      await racksService.updateStatus(rack.id, newStatus)
+      await racksService.updateStatus(rack.id, newStatus, rack.name)
       toast.success('Status updated')
     } catch {
       toast.error('Failed to update status')
@@ -255,5 +255,3 @@ export function RacksTable({ searchQuery, refreshTrigger, onEdit }: RacksTablePr
     </div>
   )
 }
-
-export default RacksTable

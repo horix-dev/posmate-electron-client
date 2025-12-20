@@ -17,6 +17,7 @@ import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { getImageUrl } from '@/lib/utils'
+import { CachedImage } from '@/components/common/CachedImage'
 import {
     Select,
     SelectContent,
@@ -264,15 +265,21 @@ export function BrandsTable({ searchQuery, refreshTrigger, onEdit }: BrandsTable
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-2">
                                             {brand.icon ? (
-                                                <img
+                                                <CachedImage
                                                     src={getImageUrl(brand.icon) || undefined}
-                                                    alt=""
+                                                    alt={brand.brandName}
                                                     className="h-8 w-8 rounded object-cover"
-                                                    onError={(e) => {
-                                                        (e.target as HTMLImageElement).style.display = 'none'
-                                                    }}
+                                                    fallback={
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
+                                                            {brand.brandName?.charAt(0)?.toUpperCase()}
+                                                        </div>
+                                                    }
                                                 />
-                                            ) : null}
+                                            ) : (
+                                                <div className="flex h-8 w-8 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
+                                                    {brand.brandName?.charAt(0)?.toUpperCase()}
+                                                </div>
+                                            )}
                                             {brand.brandName}
                                         </div>
                                     </TableCell>

@@ -316,11 +316,15 @@ export function CategoriesTable({ searchQuery, refreshTrigger, onEdit }: Categor
                           className="h-8 w-8 rounded object-cover"
                           fallback={
                             <div className="flex h-8 w-8 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
-                              {category.categoryName.charAt(0).toUpperCase()}
+                              {category.categoryName?.charAt(0)?.toUpperCase()}
                             </div>
                           }
                         />
-                      ) : null}
+                      ) : (
+                        <div className="flex h-8 w-8 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
+                          {category.categoryName?.charAt(0)?.toUpperCase()}
+                        </div>
+                      )}
                       {category.categoryName}
                     </div>
                   </TableCell>

@@ -76,7 +76,9 @@ export function RackDialog({ open, onOpenChange, editData, onSuccess }: RackDial
     try {
       if (editData) {
         await racksService.update(editData.id, { name: values.name, shelf_id: values.shelf_ids })
-        if ((editData.status ?? 1) !== (values.status ? 1 : 0)) await racksService.updateStatus(editData.id, values.status)
+        if ((editData.status ?? 1) !== (values.status ? 1 : 0)) {
+          await racksService.updateStatus(editData.id, values.status, values.name)
+        }
         toast.success('Rack updated successfully')
       } else {
         await racksService.create({ name: values.name, status: values.status, shelf_id: values.shelf_ids })

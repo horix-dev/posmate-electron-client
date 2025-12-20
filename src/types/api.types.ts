@@ -713,3 +713,30 @@ export interface ProductSettingsModules {
   show_expire_date: string
   show_mfg_date: string
 }
+
+// ============================================
+// Print Labels Types
+// ============================================
+
+export interface PrintLabel {
+  id: number
+  name: string
+  description?: string
+  barcode_type: string
+  label_format: string
+  template_data?: Record<string, any>
+  status?: number
+  created_at?: string
+  updated_at?: string
+  business_id?: number
+}
+
+export interface CreatePrintLabelRequest {
+  name: string
+  description?: string
+  barcode_type: string
+  label_format: string
+  template_data?: Record<string, any>
+  status?: boolean
+}
+

@@ -53,9 +53,12 @@ export const modelsService = {
 
     /**
      * Update model status
+     * Backend does not expose a dedicated /status endpoint; reuse the update route.
      */
-    updateStatus: async (id: number, status: boolean): Promise<ApiResponse<ProductModel>> => {
-        const { data } = await api.patch<ApiResponse<ProductModel>>(`${API_ENDPOINTS.PRODUCT_MODELS.UPDATE(id)}/status`, { status })
+    updateStatus: async (id: number, status: boolean, name: string): Promise<ApiResponse<ProductModel>> => {
+        // Backend requires name field; send current name with status toggle
+        const payload = { name, status: status ? 1 : 0 }
+        const { data } = await api.patch<ApiResponse<ProductModel>>(API_ENDPOINTS.PRODUCT_MODELS.UPDATE(id), payload)
         return data
     },
 
