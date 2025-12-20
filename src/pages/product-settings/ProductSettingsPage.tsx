@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Search, LayoutGrid, Printer, Upload } from 'lucide-react'
+import { Plus, Search, LayoutGrid } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -81,29 +81,33 @@ export function ProductSettingsPage() {
         </Button>
       </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 flex-1 flex flex-col">
-                <ScrollableTabsList>
-                    <TabsTrigger value="categories">Categories</TabsTrigger>
-                    <TabsTrigger value="brands">Brands</TabsTrigger>
-                    <TabsTrigger value="model">Models</TabsTrigger>
-                    <TabsTrigger value="units">Units</TabsTrigger>
-                    <TabsTrigger value="attributes">Attributes</TabsTrigger>
-                    <TabsTrigger value="racks">Racks</TabsTrigger>
-                    <TabsTrigger value="shelfs">Shelves</TabsTrigger>
-                    <TabsTrigger value="print-labels">Print Labels</TabsTrigger>
-                </ScrollableTabsList>
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="flex flex-1 flex-col space-y-4"
+      >
+        <ScrollableTabsList>
+          <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="brands">Brands</TabsTrigger>
+          <TabsTrigger value="model">Models</TabsTrigger>
+          <TabsTrigger value="units">Units</TabsTrigger>
+          <TabsTrigger value="attributes">Attributes</TabsTrigger>
+          <TabsTrigger value="racks">Racks</TabsTrigger>
+          <TabsTrigger value="shelfs">Shelves</TabsTrigger>
+          <TabsTrigger value="print-labels">Print Labels</TabsTrigger>
+        </ScrollableTabsList>
 
-                {activeTab !== 'print-labels' && (
-                    <div className="relative max-w-md">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder={`Search ${activeTab}...`}
-                            className="pl-10"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                )}
+        {activeTab !== 'print-labels' && (
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={`Search ${activeTab}...`}
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto">
           <TabsContent value="categories" className="mt-6 space-y-4">
@@ -190,39 +194,8 @@ export function ProductSettingsPage() {
             />
           </TabsContent>
 
-                    <TabsContent value="print-labels" className="space-y-4 mt-6">
-                        <PrintLabelsPage />
-                    </TabsContent>
-                </div>
-            </Tabs>
-          <TabsContent value="print-labels" className="mt-0 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Print Labels</CardTitle>
-              </CardHeader>
-              <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <Printer className="mx-auto mb-4 h-12 w-12" />
-                  <p className="text-lg font-medium">Print Labels</p>
-                  <p className="text-sm">Label printing configuration will be displayed here</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="bulk-upload" className="mt-0 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Bulk Upload</CardTitle>
-              </CardHeader>
-              <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <Upload className="mx-auto mb-4 h-12 w-12" />
-                  <p className="text-lg font-medium">Bulk Upload</p>
-                  <p className="text-sm">Bulk upload tools will be displayed here</p>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="print-labels" className="mt-6 space-y-4">
+            <PrintLabelsPage />
           </TabsContent>
         </div>
       </Tabs>
