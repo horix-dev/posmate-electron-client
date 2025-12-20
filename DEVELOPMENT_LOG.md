@@ -1,3 +1,27 @@
+## 2025-12-20 — Print Labels Preview Alignment
+
+- Problem: `BarcodePreview` used `BarcodeItem` from barcodes service and injected raw SVG via `dangerouslySetInnerHTML`; needed alignment with Print Labels API (`LabelPayload`) and proper PNG/SVG rendering.
+- Solution: Switched preview component to consume `LabelPayload` from `print-labels.service` and render barcode image using `<img src>` with base64 PNG or inline SVG data URL. Guarded price rendering for numeric values.
+- Files Modified: [src/pages/product-settings/components/print-labels/BarcodePreview.tsx](src/pages/product-settings/components/print-labels/BarcodePreview.tsx)
+
+## 2025-12-20 — Print Labels Settings + Generate Wiring
+
+- Problem: Settings were sourced from legacy `barcodesService` and preview/generate types mismatched new API.
+- Solution: Refactored `PrintLabelsPage` to load config from `printLabelsService.getConfig()` (mapping arrays to `{value,label}`), and use `printLabelsService.generate()` for both preview and print flows with aligned arrays (`stock_ids`, `qty`, `preview_date`) and toggles/sizes. Preview now consumes `LabelPayload[]`.
+- Files Modified: [src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx](src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx)
+- Docs Updated: [backend_docs/API_QUICK_REFERENCE.md](backend_docs/API_QUICK_REFERENCE.md) with latest endpoints and payloads.
+
+## 2025-12-20 — Printer Settings & Barcode Types Docs Sync
+
+- Problem: Quick reference missing detailed barcode types table and printer settings mapping.
+- Solution: Added comprehensive reference tables to both docs:
+  - Barcode types: C39E+, C93, S25, S25+, I25, I25+, C128 (default), C128A, C128B, C128C, EAN2, EAN5, EAN8, EAN13
+  - Label formats: 2x1 (50mm×25mm), 1.5x1 (38mm×25mm), 2x1.25 (sheet 28/page)
+  - Printer settings: 1=Roll 1.5"×1", 2=Roll 2"×1", 3=Sheet 28/page
+  - Frontend mapping: Config returns `printer_settings` array (1/2/3); UI dropdown maps to Printer 1/2/3 labels
+- Files Modified: [backend_docs/API_QUICK_REFERENCE.md](backend_docs/API_QUICK_REFERENCE.md) with tables, workflow example, and parameter docs
+- Services Updated: [src/api/services/print-labels.service.ts](src/api/services/print-labels.service.ts) extends `getConfig()` return type to include `printer_settings: number[]`
+
 # Horix POS Pro - Development Log
 
 > This document tracks development progress, architectural decisions, and implementation details for future reference.
@@ -11,6 +35,58 @@
 **Backend**: Laravel API (external)  
 **Offline Storage**: SQLite (better-sqlite3) in Electron, IndexedDB fallback in browser  
 **State Management**: Zustand  
+
+---
+
+## Latest Updates
+
+### December 20, 2025 - Category & Brand Icon Fallbacks
+
+**Problem**: API sometimes returns no `icon` for categories/brands, resulting in empty placeholders in tables.
+
+**Solution**: Implemented first-letter avatar fallback when `icon` is missing or image fails to load.
+
+**Files Modified**:
+- `src/pages/product-settings/components/categories/CategoriesTable.tsx` – Always renders an icon area; uses the category name's first letter when `icon` is missing; keeps `CachedImage` with letter fallback on load error.
+- `src/pages/product-settings/components/brands/BrandsTable.tsx` – Switched to `CachedImage`; renders brand name's first letter when `icon` is missing; letter fallback on load error.
+
+**Benefits**:
+- ✅ Consistent visual identity even without API-provided icons
+- ✅ No broken image placeholders; graceful degradation
+- ✅ Minimal changes aligned with existing component patterns
+
+**Next Steps**: Extend the same fallback to other entities that support icons (e.g., products, units) for consistency.
+
+<!-- Entry removed: Icon fallbacks for models, racks, shelves were reverted per request. -->
+
+### December 18, 2025 - Categories API Pagination Implementation
+
+**Problem**: Backend introduced pagination to Categories API, breaking POS screen
+- Frontend expected flat array: `response.data → Category[]`
+- Backend changed to: `response.data.data → Category[]` (nested pagination)
+- Error: `categories.find is not a function`
+
+**Solution**: Implemented flexible query parameter-based pagination (industry standard)
+- ✅ **Limit Mode** (`?limit=100`): Flat array for POS dropdowns
+- ✅ **Offset Pagination** (`?page=1&per_page=10`): Paginated object for management tables
+- ✅ **Cursor Pagination** (`?cursor=123&per_page=100`): Efficient batching for offline sync
+- ✅ **Offline Support**: Client-side pagination fallback from SQLite/IndexedDB cache
+
+**Files Modified**:
+- `src/api/services/categories.service.ts` - Added `getList()`, `getPaginated()`, `getCursor()` methods
+- `src/api/services/inventory.service.ts` - Re-export new categoriesService
+- `src/pages/pos/hooks/usePOSData.ts` - Changed from `getAll()` to `getList({ limit: 1000, status: true })`
+- `backend_docs/PAGINATION_IMPLEMENTATION_GUIDE.md` - Created comprehensive guide for Laravel developer
+
+**Benefits**:
+- ✅ Fixes `categories.find is not a function` error
+- ✅ POS screen works with flat array response
+- ✅ Prevents memory issues with large datasets (pagination in sync)
+- ✅ Follows industry standards (Stripe, GitHub, Shopify pattern)
+- ✅ Maintains offline support for all modes
+- ✅ Backward compatible with existing code
+
+**Next Steps**: Apply same pattern to Products, Brands, Units, Parties APIs
 
 ---
 
@@ -72,6 +148,144 @@ src/
 ---
 
 ## Feature Implementation Log
+
+### December 17, 2025 (Evening)
+
+#### Print Labels / Barcode Generator - Full Implementation
+
+**Problem**: Product Settings "Print Labels" tab was a placeholder.
+
+**Solution**: Implemented comprehensive barcode generator following FRONTEND_BARCODE_PROMPTS specs:
+
+**Files Created**:
+- `src/api/services/barcodes.service.ts` - Barcode API integration
+- `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx` - Main page
+- `src/pages/product-settings/components/print-labels/ProductSearch.tsx` - Product search with debounce
+- `src/pages/product-settings/components/print-labels/SelectedProductsTable.tsx` - Selected products list
+- `src/pages/product-settings/components/print-labels/LabelConfiguration.tsx` - Label settings (toggles, font sizes)
+- `src/pages/product-settings/components/print-labels/BarcodeSettings.tsx` - Barcode type & paper format
+- `src/pages/product-settings/components/print-labels/BarcodePreview.tsx` - Live barcode preview
+- `src/components/ui/slider.tsx` - Range slider component (native HTML)
+- `src/components/ui/radio-group.tsx` - Radio button group (custom implementation)
+
+**Files Modified**:
+- `src/pages/product-settings/ProductSettingsPage.tsx` - Wired PrintLabelsPage into print-labels tab
+
+**Features**:
+✅ Section 1: Product search with autocomplete + selected products table
+✅ Section 2: Label configuration (toggles for business name, product name, price, code, packing date + font size sliders)
+✅ Section 3: Barcode settings (type dropdown + paper format radio buttons)
+✅ Section 4: Live barcode preview with paper layout simulation
+✅ Section 5: Preview, Generate & Print, Clear Selection buttons
+✅ Full API integration with barcode endpoints
+✅ Loading states and error handling
+
+**Result**:
+- ✅ Print Labels tab now fully functional with all 5 required sections
+- ✅ Follows Product Settings styling (Cards, buttons, spacing)
+- ✅ Responsive layout with proper form controls
+- ✅ Real-time preview updates when settings change
+
+---
+
+#### Print Labels: Dropdown Product Selection
+
+**Problem**: UX change requested to remove inline search and use a dropdown to select products for label printing.
+
+**Solution**: Replaced `ProductSearch` with a shadcn `Select`-based dropdown that lists the first 50 products via `barcodesService.searchProducts`. On selection, the app fetches full details with `getProductDetails` and adds the item to the selection. Added a refresh action to reload the list.
+
+**Files Modified**:
+- `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx` — Added dropdown product selector, removed `ProductSearch` usage, wired selection to `getProductDetails`, and kept the rest of the flow unchanged.
+- `src/pages/product-settings/components/print-labels/LabelConfiguration.tsx` — Removed unused `businessName` and `onBusinessNameChange` props to satisfy strict TypeScript rules.
+
+**Notes**:
+- Maintains existing API integration and preview/print flows.
+- Uses shadcn/ui `Select` for consistency with the design system.
+- No backend changes required.
+
+---
+
+#### Product Settings: Racks & Shelves Integration (UI)
+
+**Problem**: The Product Settings page showed placeholder cards for Racks and Shelves tabs, and the add action did not open dialogs for these resources.
+
+**Solution**: Integrated fully functional Racks and Shelves management into the page:
+
+**Files Modified**:
+- `src/pages/product-settings/ProductSettingsPage.tsx`
+
+**Key Changes**:
+1. Imported and wired `RacksTable`, `ShelvesTable`, `RackDialog`, and `ShelfDialog` components.
+2. Added dialog state: `isRackOpen`, `editingRack`, `isShelfOpen`, `editingShelf`.
+3. Updated `handleAdd()` to support `racks` and `shelfs` tabs, opening the corresponding dialogs.
+4. Replaced placeholder cards with the real tables; hooked up `onEdit` to open dialogs with selected rows.
+5. De-duplicated `UnitDialog` rendering and positioned all dialogs consistently at the bottom.
+6. Corrected tab label to display “Shelves” (tab value remains `shelfs` for compatibility).
+
+**Result**:
+- ✅ Racks and Shelves now have full list/edit/create flows with dialogs
+- ✅ Search, pagination, status toggle, and bulk delete are accessible via their tables
+- ✅ Add button opens the correct dialog based on the active tab
+
+
+### December 16, 2025
+
+#### Fixed Pagination Not Updating in Categories, Models, and Brands Tables
+
+**Problem**: When selecting to show 10 records from 19 total records, pagination was not working correctly:
+- It showed "Showing 1 to 10 of 10 entries" instead of "Showing 1 to 10 of 19 entries"
+- No next page button appeared
+- The API was being called with correct pagination parameters, but response metadata was not being extracted
+
+**Root Cause**: The API response structure has pagination metadata nested inside the `data` field, not at the top level:
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "current_page": 1,
+    "data": [...],      // <- actual items array
+    "per_page": 20,
+    "total": 50,
+    "last_page": 3
+  }
+}
+```
+
+The code was looking for `total` and `last_page` at the top level of the response, causing pagination data to not be found.
+
+**Solution**: Updated response parsing in all three tables to properly extract pagination metadata from the nested structure:
+
+**Files Modified**:
+- `src/pages/product-settings/components/categories/CategoriesTable.tsx`
+- `src/pages/product-settings/components/models/ModelsTable.tsx`
+- `src/pages/product-settings/components/brands/BrandsTable.tsx`
+
+**Key Changes**:
+1. Removed client-side pagination slicing logic (was overriding server-side pagination)
+2. Fixed response data extraction to handle nested structure: `r.data.data` for items array, `r.data.total` for pagination metadata
+3. Fallback logic for different API response structures
+4. Proper calculation of `lastPage` from response metadata
+
+**Result**: 
+- ✅ Pagination now correctly shows total record count from API
+- ✅ Next/Previous page buttons appear and work correctly
+- ✅ Changing records per page (10, 25, 50, 100) properly refetches with new pagination
+- ✅ Page navigation correctly reflects available pages
+
+---
+
+### December 15, 2025
+
+#### POS Page Pagination Fix (Complete)
+
+**Problem**: The POS page crashed with `TypeError: categories.find is not a function`.
+**Cause**: The `categoriesService.getAll()` and `productsService.getAll()` methods were updated to return paginated responses (objects containing `data` arrays), but `usePOSData` hook still expected direct arrays.
+**Solution**: Updated `usePOSData` to normalize the response data, handling both direct arrays and nested paginated structures (`response.data.data`).
+
+**Files Modified**:
+- `src/pages/pos/hooks/usePOSData.ts`
+
+---
 
 ### December 12, 2025
 

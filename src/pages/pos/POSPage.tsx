@@ -500,6 +500,7 @@ export function POSPage() {
   }, [])
 
   const handleCategoryChange = useCallback((categoryId: number | null) => {
+    console.log('[POS] Category changed to:', categoryId)
     setFilters((prev) => ({ ...prev, categoryId }))
   }, [])
 

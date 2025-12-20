@@ -59,6 +59,22 @@ export const API_ENDPOINTS = {
     DELETE: (id: number) => `/units/${id}`,
   },
 
+  // Racks
+  RACKS: {
+    LIST: '/racks',
+    CREATE: '/racks',
+    UPDATE: (id: number) => `/racks/${id}`,
+    DELETE: (id: number) => `/racks/${id}`,
+  },
+
+  // Shelves
+  SHELVES: {
+    LIST: '/shelves',
+    CREATE: '/shelves',
+    UPDATE: (id: number) => `/shelves/${id}`,
+    DELETE: (id: number) => `/shelves/${id}`,
+  },
+
   // Product Models
   PRODUCT_MODELS: {
     LIST: '/product-models',
@@ -160,6 +176,20 @@ export const API_ENDPOINTS = {
     CREATE: '/payment-types',
     UPDATE: (id: number) => `/payment-types/${id}`,
     DELETE: (id: number) => `/payment-types/${id}`,
+  },
+
+  // Print Labels
+  PRINT_LABELS: {
+    LIST: '/print-labels',
+    GET: (id: number) => `/print-labels/${id}`,
+    CREATE: '/print-labels',
+    UPDATE: (id: number) => `/print-labels/${id}`,
+    DELETE: (id: number) => `/print-labels/${id}`,
+    TOGGLE_STATUS: (id: number) => `/print-labels/${id}/status`,
+    BULK_DELETE: '/print-labels/delete-all',
+    CONFIG: '/print-labels/config',
+    PRODUCTS: '/print-labels/products',
+    GENERATE: '/print-labels/generate',
   },
 
   // Stocks

@@ -55,7 +55,11 @@ interface UseProductsReturn {
   // Actions
   refetch: () => Promise<void>
   createProduct: (data: FormData | VariableProductPayload, isVariable?: boolean) => Promise<Product>
-  updateProduct: (id: number, data: FormData | VariableProductPayload, isVariable?: boolean) => Promise<Product>
+  updateProduct: (
+    id: number,
+    data: FormData | VariableProductPayload,
+    isVariable?: boolean
+  ) => Promise<Product>
   deleteProduct: (id: number) => Promise<void>
 
   // Local state updates (optimistic)
@@ -141,29 +145,29 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
 
       // Load brands/units from localStorage cache (with TTL validation)
       const cachedBrands = getCache<Brand[]>(CacheKeys.PRODUCTS_BRANDS)
-      if (cachedBrands) setBrands(cachedBrands)
+      if (cachedBrands && Array.isArray(cachedBrands)) setBrands(cachedBrands)
 
       const cachedUnits = getCache<Unit[]>(CacheKeys.PRODUCTS_UNITS)
-      if (cachedUnits) setUnits(cachedUnits)
+      if (cachedUnits && Array.isArray(cachedUnits)) setUnits(cachedUnits)
 
       // Create lookup maps for joining
-      const categoryMap = new Map(cachedCategories.map(c => [c.id, c]))
-      const brandMap = cachedBrands ? new Map(cachedBrands.map(b => [b.id, b])) : new Map()
-      const unitMap = cachedUnits ? new Map(cachedUnits.map(u => [u.id, u])) : new Map()
+      const categoryMap = new Map(cachedCategories.map((c) => [c.id, c]))
+      const brandMap = cachedBrands ? new Map(cachedBrands.map((b) => [b.id, b])) : new Map()
+      const unitMap = cachedUnits ? new Map(cachedUnits.map((u) => [u.id, u])) : new Map()
 
       // Load products from storage
       const cachedProducts = await storage.products.getAll()
       if (cachedProducts.length > 0) {
         const convertedProducts: Product[] = cachedProducts.map((p: LocalProduct) => {
           // Get IDs - SQLite returns camelCase, but type uses snake_case
-          const catId = ((p as unknown) as Record<string, unknown>).categoryId ?? p.category_id
-          const brId = ((p as unknown) as Record<string, unknown>).brandId ?? p.brand_id
-          const uId = ((p as unknown) as Record<string, unknown>).unitId ?? p.unit_id
-          
+          const catId = (p as unknown as Record<string, unknown>).categoryId ?? p.category_id
+          const brId = (p as unknown as Record<string, unknown>).brandId ?? p.brand_id
+          const uId = (p as unknown as Record<string, unknown>).unitId ?? p.unit_id
+
           const categoryId = typeof catId === 'number' ? catId : undefined
           const brandId = typeof brId === 'number' ? brId : undefined
           const unitId = typeof uId === 'number' ? uId : undefined
-          
+
           return {
             ...p,
             stocks: p.stock ? [p.stock] : [],
@@ -181,7 +185,7 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
           }
         })
         setProducts(convertedProducts)
-        
+
         // Calculate stock value
         const value = convertedProducts.reduce((sum, p) => {
           const stock = p.stocks_sum_product_stock ?? p.productStock ?? 0
@@ -219,9 +223,9 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
     try {
       const [productsRes, categoriesRes, brandsRes, unitsRes] = await Promise.all([
         productsService.getAll(),
-        categoriesService.getAll(),
-        brandsService.getAll(),
-        unitsService.getAll(),
+        categoriesService.getList({ limit: 1000, status: true }),
+        brandsService.getList({ limit: 1000, status: true }),
+        unitsService.getList({ limit: 1000, status: true }),
       ])
 
       setProducts(productsRes.data)
@@ -231,7 +235,7 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
       setUnits(unitsRes.data)
 
       // Cache products to local storage for offline use
-      const localProducts: LocalProduct[] = productsRes.data.map((product) => {
+      const localProducts: LocalProduct[] = productsRes.data.map((product: Product) => {
         const stock: Stock = product.stocks?.[0] || {
           id: product.id,
           product_id: product.id,
@@ -248,7 +252,7 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
       await storage.products.bulkUpsert(localProducts)
 
       // Cache categories to local storage for offline use
-      const localCategories: LocalCategory[] = categoriesRes.data.map((cat) => ({
+      const localCategories: LocalCategory[] = categoriesRes.data.map((cat: Category) => ({
         ...cat,
         lastSyncedAt: new Date().toISOString(),
       }))
@@ -259,10 +263,10 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
       setCache(CacheKeys.PRODUCTS_UNITS, unitsRes.data)
     } catch (err) {
       console.warn('[useProducts] API fetch failed, trying cached data:', err)
-      
+
       // Try to load from cache on network error
       const hasCached = await loadCachedData()
-      
+
       if (hasCached) {
         toast.warning('Network error. Using cached data.')
       } else {
@@ -335,19 +339,29 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
   }, [products])
 
   // CRUD Operations
-  const createProduct = useCallback(async (data: FormData | VariableProductPayload, isVariable = false): Promise<Product> => {
-    const result = await productsService.create(data, isVariable)
-    setProducts((prev) => [result.data, ...prev])
-    toast.success('Product created successfully')
-    return result.data
-  }, [])
+  const createProduct = useCallback(
+    async (data: FormData | VariableProductPayload, isVariable = false): Promise<Product> => {
+      const result = await productsService.create(data, isVariable)
+      setProducts((prev) => [result.data, ...prev])
+      toast.success('Product created successfully')
+      return result.data
+    },
+    []
+  )
 
-  const updateProduct = useCallback(async (id: number, data: FormData | VariableProductPayload, isVariable = false): Promise<Product> => {
-    const result = await productsService.update(id, data, isVariable)
-    setProducts((prev) => prev.map((p) => (p.id === id ? result.data : p)))
-    toast.success('Product updated successfully')
-    return result.data
-  }, [])
+  const updateProduct = useCallback(
+    async (
+      id: number,
+      data: FormData | VariableProductPayload,
+      isVariable = false
+    ): Promise<Product> => {
+      const result = await productsService.update(id, data, isVariable)
+      setProducts((prev) => prev.map((p) => (p.id === id ? result.data : p)))
+      toast.success('Product updated successfully')
+      return result.data
+    },
+    []
+  )
 
   const deleteProduct = useCallback(async (id: number): Promise<void> => {
     await productsService.delete(id)

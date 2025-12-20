@@ -224,6 +224,10 @@ export interface Category {
   variationSize?: number
   variationType?: number
   variationWeight?: number
+  icon?: string
+  status?: number
+  parentId?: number
+  version?: number
 }
 
 export interface CreateCategoryRequest {
@@ -233,6 +237,7 @@ export interface CreateCategoryRequest {
   variationSize?: boolean
   variationType?: boolean
   variationWeight?: boolean
+  icon?: File
 }
 
 // ============================================
@@ -242,10 +247,15 @@ export interface CreateCategoryRequest {
 export interface Brand {
   id: number
   brandName: string
+  description?: string
+  icon?: string
+  status?: number
 }
 
 export interface CreateBrandRequest {
   brandName: string
+  description?: string
+  icon?: File
 }
 
 // ============================================
@@ -255,10 +265,12 @@ export interface CreateBrandRequest {
 export interface Unit {
   id: number
   unitName: string
+  status?: number
 }
 
 export interface CreateUnitRequest {
   unitName: string
+  status?: boolean
 }
 
 // ============================================
@@ -268,10 +280,39 @@ export interface CreateUnitRequest {
 export interface ProductModel {
   id: number
   name: string
+  status?: number
 }
 
 export interface CreateProductModelRequest {
   name: string
+  status?: boolean
+}
+
+// ============================================
+// Rack & Shelf Types
+// ============================================
+
+export interface Rack {
+  id: number
+  name: string
+  status?: number
+}
+
+export interface CreateRackRequest {
+  name: string
+  status?: boolean
+  shelf_id?: number[]
+}
+
+export interface Shelf {
+  id: number
+  name: string
+  status?: number
+}
+
+export interface CreateShelfRequest {
+  name: string
+  status?: boolean
 }
 
 // ============================================
@@ -671,4 +712,30 @@ export interface ProductSettingsModules {
   show_batch_no: string
   show_expire_date: string
   show_mfg_date: string
+}
+
+// ============================================
+// Print Labels Types
+// ============================================
+
+export interface PrintLabel {
+  id: number
+  name: string
+  description?: string
+  barcode_type: string
+  label_format: string
+  template_data?: Record<string, unknown>
+  status?: number
+  created_at?: string
+  updated_at?: string
+  business_id?: number
+}
+
+export interface CreatePrintLabelRequest {
+  name: string
+  description?: string
+  barcode_type: string
+  label_format: string
+  template_data?: Record<string, unknown>
+  status?: boolean
 }

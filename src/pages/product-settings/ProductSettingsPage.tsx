@@ -1,188 +1,266 @@
-import { Tags, Plus, Search, Box, Ruler, LayoutGrid, Layers, Printer, Upload, Package } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Search, LayoutGrid } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { CategoriesTable } from './components/categories/CategoriesTable'
+import { CategoryDialog } from './components/categories/CategoryDialog'
+import { BrandsTable } from './components/brands/BrandsTable'
+import { BrandDialog } from './components/brands/BrandDialog'
+import { ModelsTable } from './components/models/ModelsTable'
+import { ModelDialog } from './components/models/ModelDialog'
+import { UnitsTable } from './components/units/UnitsTable'
+import { UnitDialog } from './components/units/UnitDialog'
+import { RacksTable } from './components/racks/RacksTable'
+import { ShelvesTable } from './components/shelves/ShelvesTable'
+import { RackDialog } from './components/racks/RackDialog'
+import { ShelfDialog } from './components/shelves/ShelfDialog'
+import { PrintLabelsPage } from './components/print-labels/PrintLabelsPage'
+import type { Category, Brand, ProductModel, Unit, Rack, Shelf } from '@/types/api.types'
 
 export function ProductSettingsPage() {
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Product Settings</h1>
-                    <p className="text-muted-foreground">Manage categories, attributes, and inventory settings</p>
-                </div>
-                <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add New
-                </Button>
-            </div>
+  const [activeTab, setActiveTab] = useState('categories')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
-            <Tabs defaultValue="categories" className="space-y-4">
-                <ScrollableTabsList>
-                    <TabsTrigger value="categories">Categories</TabsTrigger>
-                    <TabsTrigger value="brands">Brands</TabsTrigger>
-                    <TabsTrigger value="model">Model</TabsTrigger>
-                    <TabsTrigger value="units">Units</TabsTrigger>
-                    <TabsTrigger value="attributes">Attributes</TabsTrigger>
-                    <TabsTrigger value="racks">Racks</TabsTrigger>
-                    <TabsTrigger value="shelfs">Shelfs</TabsTrigger>
-                    <TabsTrigger value="print-labels">Print Labels</TabsTrigger>
-                    <TabsTrigger value="bulk-upload">Bulk Upload</TabsTrigger>
-                </ScrollableTabsList>
+  // Dialog States
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
 
-                <TabsContent value="categories" className="space-y-4">
-                    <div className="relative max-w-md">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input placeholder="Search categories..." className="pl-10" />
-                    </div>
+  const [isBrandOpen, setIsBrandOpen] = useState(false)
+  const [editingBrand, setEditingBrand] = useState<Brand | null>(null)
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Product Categories</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                            <div className="text-center">
-                                <Tags className="mx-auto mb-4 h-12 w-12" />
-                                <p className="text-lg font-medium">Categories Table</p>
-                                <p className="text-sm">Categories will be displayed here</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+  const [isModelOpen, setIsModelOpen] = useState(false)
+  const [editingModel, setEditingModel] = useState<ProductModel | null>(null)
 
-                <TabsContent value="brands" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Brands</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                            <div className="text-center">
-                                <Package className="mx-auto mb-4 h-12 w-12" />
-                                <p className="text-lg font-medium">Brands</p>
-                                <p className="text-sm">Brands will be displayed here</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+  const [isUnitOpen, setIsUnitOpen] = useState(false)
+  const [editingUnit, setEditingUnit] = useState<Unit | null>(null)
 
-                <TabsContent value="model" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Models</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                            <div className="text-center">
-                                <Box className="mx-auto mb-4 h-12 w-12" />
-                                <p className="text-lg font-medium">Models</p>
-                                <p className="text-sm">Models will be displayed here</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+  const [isRackOpen, setIsRackOpen] = useState(false)
+  const [editingRack, setEditingRack] = useState<Rack | null>(null)
 
-                <TabsContent value="units" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Units</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                            <div className="text-center">
-                                <Ruler className="mx-auto mb-4 h-12 w-12" />
-                                <p className="text-lg font-medium">Units</p>
-                                <p className="text-sm">Units will be displayed here</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+  const [isShelfOpen, setIsShelfOpen] = useState(false)
+  const [editingShelf, setEditingShelf] = useState<Shelf | null>(null)
 
-                <TabsContent value="attributes" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Attributes</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                            <div className="text-center">
-                                <LayoutGrid className="mx-auto mb-4 h-12 w-12" />
-                                <p className="text-lg font-medium">Attributes</p>
-                                <p className="text-sm">Attributes will be displayed here</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+  const handleAdd = () => {
+    if (activeTab === 'categories') {
+      setEditingCategory(null)
+      setIsCategoryOpen(true)
+    } else if (activeTab === 'brands') {
+      setEditingBrand(null)
+      setIsBrandOpen(true)
+    } else if (activeTab === 'model') {
+      setEditingModel(null)
+      setIsModelOpen(true)
+    } else if (activeTab === 'units') {
+      setEditingUnit(null)
+      setIsUnitOpen(true)
+    } else if (activeTab === 'racks') {
+      setEditingRack(null)
+      setIsRackOpen(true)
+    } else if (activeTab === 'shelfs') {
+      setEditingShelf(null)
+      setIsShelfOpen(true)
+    }
+  }
 
-                <TabsContent value="racks" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Racks</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                            <div className="text-center">
-                                <Layers className="mx-auto mb-4 h-12 w-12" />
-                                <p className="text-lg font-medium">Racks</p>
-                                <p className="text-sm">Racks will be displayed here</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+  const refresh = () => setRefreshTrigger((prev) => prev + 1)
 
-                <TabsContent value="shelfs" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Shelfs</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                            <div className="text-center">
-                                <Layers className="mx-auto mb-4 h-12 w-12" />
-                                <p className="text-lg font-medium">Shelfs</p>
-                                <p className="text-sm">Shelfs will be displayed here</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="print-labels" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Print Labels</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                            <div className="text-center">
-                                <Printer className="mx-auto mb-4 h-12 w-12" />
-                                <p className="text-lg font-medium">Print Labels</p>
-                                <p className="text-sm">Label printing configuration will be displayed here</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="bulk-upload" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Bulk Upload</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                            <div className="text-center">
-                                <Upload className="mx-auto mb-4 h-12 w-12" />
-                                <p className="text-lg font-medium">Bulk Upload</p>
-                                <p className="text-sm">Bulk upload tools will be displayed here</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+  return (
+    <div className="flex h-full flex-col space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Product Settings</h1>
+          <p className="text-muted-foreground">Manage categories, brands, models and attributes</p>
         </div>
-    )
+        {activeTab !== 'print-labels' && (
+          <Button onClick={handleAdd}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add New{' '}
+            {activeTab === 'model'
+              ? 'Model'
+              : activeTab.slice(0, -1).charAt(0).toUpperCase() + activeTab.slice(0, -1).slice(1)}
+          </Button>
+        )}
+      </div>
+
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="flex flex-1 flex-col space-y-4"
+      >
+        <ScrollableTabsList>
+          <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="brands">Brands</TabsTrigger>
+          <TabsTrigger value="model">Models</TabsTrigger>
+          <TabsTrigger value="units">Units</TabsTrigger>
+          <TabsTrigger value="attributes">Attributes</TabsTrigger>
+          <TabsTrigger value="racks">Racks</TabsTrigger>
+          <TabsTrigger value="shelfs">Shelves</TabsTrigger>
+          <TabsTrigger value="print-labels">Print Labels</TabsTrigger>
+        </ScrollableTabsList>
+
+        {activeTab !== 'print-labels' && (
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={`Search ${activeTab}...`}
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        )}
+
+        <div className="flex-1 overflow-auto">
+          <TabsContent value="categories" className="mt-6 space-y-4">
+            <CategoriesTable
+              searchQuery={searchQuery}
+              refreshTrigger={refreshTrigger}
+              onEdit={(category) => {
+                setEditingCategory(category)
+                setIsCategoryOpen(true)
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="brands" className="mt-6 space-y-4">
+            <BrandsTable
+              searchQuery={searchQuery}
+              refreshTrigger={refreshTrigger}
+              onEdit={(brand) => {
+                setEditingBrand(brand)
+                setIsBrandOpen(true)
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="model" className="mt-6 space-y-4">
+            <ModelsTable
+              searchQuery={searchQuery}
+              refreshTrigger={refreshTrigger}
+              onEdit={(model) => {
+                setEditingModel(model)
+                setIsModelOpen(true)
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="units" className="mt-6 space-y-4">
+            <UnitsTable
+              searchQuery={searchQuery}
+              refreshTrigger={refreshTrigger}
+              onEdit={(unit) => {
+                setEditingUnit(unit)
+                setIsUnitOpen(true)
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="attributes" className="mt-0 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Attributes</CardTitle>
+              </CardHeader>
+              <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <LayoutGrid className="mx-auto mb-4 h-12 w-12" />
+                  <p className="text-lg font-medium">Attributes</p>
+                  <p className="text-sm">Attributes will be displayed here</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="racks" className="mt-6 space-y-4">
+            <RacksTable
+              searchQuery={searchQuery}
+              refreshTrigger={refreshTrigger}
+              onEdit={(rack) => {
+                setEditingRack(rack)
+                setIsRackOpen(true)
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="shelfs" className="mt-6 space-y-4">
+            <ShelvesTable
+              searchQuery={searchQuery}
+              refreshTrigger={refreshTrigger}
+              onEdit={(shelf) => {
+                setEditingShelf(shelf)
+                setIsShelfOpen(true)
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="print-labels" className="mt-6 space-y-4">
+            <PrintLabelsPage />
+          </TabsContent>
+        </div>
+      </Tabs>
+
+      <CategoryDialog
+        open={isCategoryOpen}
+        onOpenChange={setIsCategoryOpen}
+        editData={editingCategory}
+        onSuccess={refresh}
+      />
+
+      <BrandDialog
+        open={isBrandOpen}
+        onOpenChange={setIsBrandOpen}
+        editData={editingBrand}
+        onSuccess={refresh}
+      />
+
+      <ModelDialog
+        open={isModelOpen}
+        onOpenChange={setIsModelOpen}
+        editData={editingModel}
+        onSuccess={refresh}
+      />
+
+      <UnitDialog
+        open={isUnitOpen}
+        onOpenChange={(open) => {
+          setIsUnitOpen(open)
+          if (!open) setEditingUnit(null)
+        }}
+        editData={editingUnit}
+        onSuccess={refresh}
+      />
+
+      <RackDialog
+        open={isRackOpen}
+        onOpenChange={(open) => {
+          setIsRackOpen(open)
+          if (!open) setEditingRack(null)
+        }}
+        editData={editingRack}
+        onSuccess={refresh}
+      />
+
+      <ShelfDialog
+        open={isShelfOpen}
+        onOpenChange={(open) => {
+          setIsShelfOpen(open)
+          if (!open) setEditingShelf(null)
+        }}
+        editData={editingShelf}
+        onSuccess={refresh}
+      />
+    </div>
+  )
 }
 
 function ScrollableTabsList({ children }: { children: React.ReactNode }) {
-    return (
-        <div className="w-full overflow-x-auto pb-2">
-            <TabsList className="inline-flex w-max min-w-full justify-start">
-                {children}
-            </TabsList>
-        </div>
-    )
+  return (
+    <div className="w-full overflow-x-auto pb-2">
+      <TabsList className="inline-flex w-max justify-start">{children}</TabsList>
+    </div>
+  )
 }
 
 export default ProductSettingsPage
