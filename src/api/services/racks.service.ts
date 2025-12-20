@@ -3,13 +3,25 @@ import { API_ENDPOINTS } from '../endpoints'
 import type { Rack, CreateRackRequest } from '@/types/api.types'
 
 export const racksService = {
-  getAll: async (params?: { page?: number; per_page?: number }): Promise<PaginatedApiResponse<Rack[]>> => {
-    const { data } = await api.get<PaginatedApiResponse<Rack[]>>(API_ENDPOINTS.RACKS.LIST, { params })
+  getAll: async (params?: {
+    page?: number
+    per_page?: number
+  }): Promise<PaginatedApiResponse<Rack[]>> => {
+    const { data } = await api.get<PaginatedApiResponse<Rack[]>>(API_ENDPOINTS.RACKS.LIST, {
+      params,
+    })
     return data
   },
 
-  filter: async (params: { search?: string; page?: number; per_page?: number }): Promise<PaginatedApiResponse<Rack[]>> => {
-    const { data } = await api.get<PaginatedApiResponse<Rack[]>>(`${API_ENDPOINTS.RACKS.LIST}/filter`, { params })
+  filter: async (params: {
+    search?: string
+    page?: number
+    per_page?: number
+  }): Promise<PaginatedApiResponse<Rack[]>> => {
+    const { data } = await api.get<PaginatedApiResponse<Rack[]>>(
+      `${API_ENDPOINTS.RACKS.LIST}/filter`,
+      { params }
+    )
     return data
   },
 
@@ -33,13 +45,21 @@ export const racksService = {
     return data
   },
 
-  updateStatus: async (id: number, status: boolean): Promise<ApiResponse<Rack>> => {
-    const { data } = await api.patch<ApiResponse<Rack>>(`${API_ENDPOINTS.RACKS.UPDATE(id)}/status`, { status })
+  /**
+   * Update rack status
+   * Use the main update endpoint; API lacks a dedicated /status path.
+   */
+  updateStatus: async (id: number, status: boolean, name: string): Promise<ApiResponse<Rack>> => {
+    // Backend requires name; include it with status toggle
+    const payload = { name, status: status ? 1 : 0 }
+    const { data } = await api.patch<ApiResponse<Rack>>(API_ENDPOINTS.RACKS.UPDATE(id), payload)
     return data
   },
 
   deleteMultiple: async (ids: number[]): Promise<ApiResponse<null>> => {
-    const { data } = await api.post<ApiResponse<null>>(`${API_ENDPOINTS.RACKS.LIST}/delete-all`, { ids })
+    const { data } = await api.post<ApiResponse<null>>(`${API_ENDPOINTS.RACKS.LIST}/delete-all`, {
+      ids,
+    })
     return data
   },
 }

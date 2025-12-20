@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Loader2, Trash2, Search } from 'lucide-react'
 import { toast } from 'sonner'
+import bwipjs from 'bwip-js'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -11,8 +12,9 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import { barcodesService, type BarcodeSettings, type BarcodeBatchItem, type BarcodePreviewConfig, type BarcodeItem } from '@/api/services/barcodes.service'
-import { productsService } from '@/api/services/products.service' // <-- add
+import { type BarcodeBatchItem } from '@/api/services/barcodes.service'
+import { type LabelPayload } from '@/api/services/print-labels.service'
+import { productsService } from '@/api/services/products.service'
 
 import { LabelConfiguration } from './LabelConfiguration'
 import { SelectedProductsTable } from './SelectedProductsTable'
@@ -36,7 +38,12 @@ interface SelectedProduct extends BarcodeBatchItem {
 }
 
 export function PrintLabelsPage() {
-  const [settings, setSettings] = useState<BarcodeSettings | null>(null)
+  type BarcodeTypeOpt = { value: string; label: string }
+  type PaperSettingOpt = { value: string; label: string; name: string; dimensions?: string }
+  const [settings, setSettings] = useState<{
+    barcode_types: BarcodeTypeOpt[]
+    paper_settings: PaperSettingOpt[]
+  } | null>(null)
   const [loadingSettings, setLoadingSettings] = useState(true)
 
   // Selected products
@@ -51,20 +58,19 @@ export function PrintLabelsPage() {
 
   // Label configuration
   const [showBusinessName, setShowBusinessName] = useState(true)
-  const [businessName] = useState('')
-  const [businessNameSize, setBusinessNameSize] = useState(15)
+  const [businessNameSize, setBusinessNameSize] = useState(7)
 
   const [showProductName, setShowProductName] = useState(true)
-  const [productNameSize, setProductNameSize] = useState(15)
+  const [productNameSize, setProductNameSize] = useState(7)
 
   const [showProductPrice, setShowProductPrice] = useState(true)
-  const [productPriceSize, setProductPriceSize] = useState(14)
+  const [productPriceSize, setProductPriceSize] = useState(7)
 
   const [showProductCode, setShowProductCode] = useState(true)
-  const [productCodeSize, setProductCodeSize] = useState(14)
+  const [productCodeSize, setProductCodeSize] = useState(7)
 
   const [showPackDate, setShowPackDate] = useState(true)
-  const [packDateSize, setPackDateSize] = useState(12)
+  const [packDateSize, setPackDateSize] = useState(7)
 
   // Barcode settings
   const [barcodeType, setBarcodeType] = useState('')
@@ -72,43 +78,101 @@ export function PrintLabelsPage() {
   const [vatType, setVatType] = useState<'inclusive' | 'exclusive'>('inclusive')
 
   // Preview
-  const [previewBarcodes, setPreviewBarcodes] = useState<BarcodeItem[]>([])
+  const [previewBarcodes, setPreviewBarcodes] = useState<LabelPayload[]>([])
   const [showPreview, setShowPreview] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
 
-  // Load settings on mount
+  // Default settings
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const resp = await barcodesService.getSettings()
-        setSettings(resp.data)
-        if (resp.data.barcode_types?.length > 0) setBarcodeType(resp.data.barcode_types[0].value)
-        if (resp.data.paper_settings?.length > 0) setBarcodeSetting(String(resp.data.paper_settings[0].value))
-      } catch (err) {
-        toast.error('Failed to load barcode settings')
-        console.error('Settings error:', err)
-      } finally {
-        setLoadingSettings(false)
-      }
-    }
-    fetchSettings()
+    const defaultBarcodeTypes = [
+      { value: 'code128', label: 'Code 128' },
+      { value: 'code39', label: 'Code 39' },
+      { value: 'ean13', label: 'EAN-13' },
+      { value: 'ean8', label: 'EAN-8' },
+      { value: 'upca', label: 'UPC-A' },
+      { value: 'upce', label: 'UPC-E' },
+      { value: 'itf14', label: 'ITF-14' },
+      { value: 'interleaved2of5', label: 'Interleaved 2 of 5' },
+      { value: 'codabar', label: 'Codabar' },
+      { value: 'code93', label: 'Code 93' },
+      { value: 'qrcode', label: 'QR Code' },
+      { value: 'datamatrix', label: 'Data Matrix' },
+      { value: 'pdf417', label: 'PDF417' },
+      { value: 'azteccode', label: 'Aztec Code' },
+    ]
+    const defaultPaperSettings = [
+      {
+        value: '2',
+        label: 'Labels Roll-Label Size 2"x1", 50mmx25mm, Gap:3.1mm',
+        name: 'Labels Roll-Label Size 2"x1", 50mmx25mm, Gap:3.1mm',
+      },
+      {
+        value: '1',
+        label: 'Labels Roll-Label Size 1.5"x1", 38mmx25mm, Gap:3.1mm',
+        name: 'Labels Roll-Label Size 1.5"x1", 38mmx25mm, Gap:3.1mm',
+      },
+      {
+        value: '3',
+        label: '28 Labels Per Sheet, Sheet Size: 8.27" X 11.69", Label size: 2" X 1.25"',
+        name: '28 Labels Per Sheet, Sheet Size: 8.27" X 11.69", Label size: 2" X 1.25"',
+      },
+    ]
+    const cfg = { barcode_types: defaultBarcodeTypes, paper_settings: defaultPaperSettings }
+    setSettings(cfg)
+    setBarcodeType('code128')
+    setBarcodeSetting('2')
+    setLoadingSettings(false)
   }, [])
 
   // Helper to normalize product list response
-  const normalizeItems = (products: any[]): ProductOption[] => {
-    return products.map((p) => {
-      // Try to get price from root or first stock
-      const salePrice = p.productSalePrice ?? p.price ?? (p.stocks?.[0]?.productSalePrice) ?? null
-      const dealerPrice = p.productDealerPrice ?? p.dealer_price ?? (p.stocks?.[0]?.productDealerPrice) ?? null
-      const stock = p.productStock ?? p.stocks_sum_product_stock ?? p.stock ?? (p.stocks?.[0]?.productStock) ?? 0
+  const normalizeItems = (products: unknown[]): ProductOption[] => {
+    return products.map((p: unknown) => {
+      const product = p as Record<string, unknown>
+      // Extract sale price: try root level, then stocks array
+      let salePrice: number | undefined =
+        ((product.productSalePrice ?? product.price) as number | undefined) ?? undefined
+      if (
+        !salePrice &&
+        product.stocks &&
+        Array.isArray(product.stocks) &&
+        product.stocks.length > 0
+      ) {
+        const stock0 = product.stocks[0] as Record<string, unknown>
+        salePrice = ((stock0.productSalePrice ?? stock0.price) as number | undefined) ?? undefined
+      }
+
+      // Extract dealer price: try root level, then stocks array
+      let dealerPrice: number | undefined =
+        ((product.productDealerPrice ?? product.dealer_price) as number | undefined) ?? undefined
+      if (
+        !dealerPrice &&
+        product.stocks &&
+        Array.isArray(product.stocks) &&
+        product.stocks.length > 0
+      ) {
+        const stock0 = product.stocks[0] as Record<string, unknown>
+        dealerPrice =
+          ((stock0.productDealerPrice ?? stock0.dealer_price) as number | undefined) ?? undefined
+      }
+
+      // Extract stock: try multiple fields
+      let stock: number | undefined =
+        ((product.productStock ?? product.stocks_sum_product_stock) as number | undefined) ??
+        undefined
+      if (!stock && product.stocks && Array.isArray(product.stocks) && product.stocks.length > 0) {
+        stock = product.stocks.reduce((sum: number, s: unknown) => {
+          const stockItem = s as Record<string, unknown>
+          return sum + ((stockItem.productStock as number) ?? 0)
+        }, 0)
+      }
 
       return {
-        id: Number(p.id),
-        productName: String(p.productName ?? p.name ?? ''),
-        productCode: String(p.productCode ?? p.code ?? ''),
-        productSalePrice: salePrice,
-        productDealerPrice: dealerPrice,
-        productStock: stock,
+        id: Number(product.id),
+        productName: String(product.productName ?? product.name ?? ''),
+        productCode: String(product.productCode ?? product.code ?? ''),
+        productSalePrice: salePrice ? Number(salePrice) : 0,
+        productDealerPrice: dealerPrice ? Number(dealerPrice) : 0,
+        productStock: stock ? Number(stock) : 0,
       }
     })
   }
@@ -134,36 +198,39 @@ export function PrintLabelsPage() {
   }, [])
 
   // Add product callback
-  const handleAddProduct = useCallback((product: SelectedProduct) => {
-    const exists = selectedProducts.some(p => p.product_id === product.product_id)
-    if (!exists) {
-      setSelectedProducts(prev => [...prev, product])
-      toast.success(`${product.product_name} added`)
-    } else {
-      toast.error('Product already selected')
-    }
-  }, [selectedProducts])
+  const handleAddProduct = useCallback(
+    (product: SelectedProduct) => {
+      const exists = selectedProducts.some((p) => p.product_id === product.product_id)
+      if (!exists) {
+        setSelectedProducts((prev) => [...prev, product])
+        toast.success(`${product.product_name} added`)
+      } else {
+        toast.error('Product already selected')
+      }
+    },
+    [selectedProducts]
+  )
 
   // Remove product
   const handleRemoveProduct = (productId: number) => {
-    setSelectedProducts(prev => prev.filter(p => p.product_id !== productId))
+    setSelectedProducts((prev) => prev.filter((p) => p.product_id !== productId))
   }
 
   // Update product quantity
   const handleUpdateQuantity = (productId: number, quantity: number) => {
-    setSelectedProducts(prev =>
-      prev.map(p => (p.product_id === productId ? { ...p, quantity } : p))
+    setSelectedProducts((prev) =>
+      prev.map((p) => (p.product_id === productId ? { ...p, quantity } : p))
     )
   }
 
   // Update product packing date
   const handleUpdatePackingDate = (productId: number, date: string | null) => {
-    setSelectedProducts(prev =>
-      prev.map(p => (p.product_id === productId ? { ...p, packing_date: date } : p))
+    setSelectedProducts((prev) =>
+      prev.map((p) => (p.product_id === productId ? { ...p, packing_date: date } : p))
     )
   }
 
-  // Generate preview
+  // Generate preview (client-side, no API call)
   const handlePreview = async () => {
     if (selectedProducts.length === 0) {
       toast.error('Please select at least one product')
@@ -172,33 +239,45 @@ export function PrintLabelsPage() {
 
     setPreviewLoading(true)
     try {
-      const config: BarcodePreviewConfig = {
-        items: selectedProducts.map(p => ({
-          product_id: p.product_id,
-          quantity: p.quantity,
-          batch_id: p.batch_id || null,
-          packing_date: p.packing_date || null,
-        })),
-        barcode_type: barcodeType,
-        barcode_setting: barcodeSetting,
-        show_business_name: showBusinessName,
-        business_name: businessName,
-        business_name_size: businessNameSize,
-        show_product_name: showProductName,
-        product_name_size: productNameSize,
-        show_product_price: showProductPrice,
-        product_price_size: productPriceSize,
-        show_product_code: showProductCode,
-        product_code_size: productCodeSize,
-        show_pack_date: showPackDate,
-        pack_date_size: packDateSize,
-        vat_type: vatType,
+      // Generate barcodes client-side
+      const barcodes: LabelPayload[] = []
+
+      for (const product of selectedProducts) {
+        const qty = Number(product.quantity || 1)
+
+        // Duplicate labels based on quantity
+        for (let i = 0; i < qty; i++) {
+          // Generate placeholder barcode SVG (simple code128-like representation)
+          const barcodeValue = String(product.batch_id ?? product.product_id)
+          const barcodeSvg = generateBarcodeSVG(barcodeValue, barcodeType)
+
+          const label: LabelPayload = {
+            barcode_svg: barcodeSvg,
+            packing_date: product.packing_date || null,
+            product_name: product.product_name,
+            business_name: 'Horix', // Default business name
+            product_code: product.product_code,
+            product_price: product.unit_price || 0,
+            product_stock: product.stock || 0,
+            show_product_name: showProductName,
+            product_name_size: productNameSize,
+            show_business_name: showBusinessName,
+            business_name_size: businessNameSize,
+            show_product_price: showProductPrice,
+            product_price_size: productPriceSize,
+            show_product_code: showProductCode,
+            product_code_size: productCodeSize,
+            show_pack_date: showPackDate,
+            pack_date_size: packDateSize,
+          }
+
+          barcodes.push(label)
+        }
       }
 
-      const resp = await barcodesService.generatePreview(config)
-      setPreviewBarcodes(resp.data)
+      setPreviewBarcodes(barcodes)
       setShowPreview(true)
-      toast.success('Preview generated')
+      toast.success(`Preview generated: ${barcodes.length} labels`)
     } catch (err) {
       toast.error('Failed to generate preview')
       console.error('Preview error:', err)
@@ -207,7 +286,205 @@ export function PrintLabelsPage() {
     }
   }
 
-  // Generate and print
+  // Generate barcode SVG
+  function generateBarcodeSVG(value: string, type: string): string {
+    try {
+      const bcid = type || 'code128'
+
+      const svg = (bwipjs as unknown as { toSVG: (opts: Record<string, unknown>) => string }).toSVG(
+        {
+          bcid,
+          text: value,
+          scale: 3,
+          height: 10,
+          includetext: false,
+          textxalign: 'center',
+          backgroundcolor: 'ffffff',
+        }
+      )
+
+      return svg
+    } catch (err) {
+      console.warn('Barcode generation failed, using fallback:', err)
+      return generateFallbackBarcode(value)
+    }
+  }
+
+  function generateFallbackBarcode(value: string): string {
+    // Basic rectangle fallback
+    const barcodeWidth = 100
+    const barcodeHeight = 50
+    return `<svg width="${barcodeWidth}" height="${barcodeHeight}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="${barcodeWidth}" height="${barcodeHeight}" fill="white"/>
+      <rect x="10" y="5" width="80" height="40" fill="#ccc"/>
+      <text x="50" y="30" font-family="Arial" font-size="10" text-anchor="middle" fill="black">${value}</text>
+    </svg>`
+  }
+
+  // Generate print HTML with only barcodes
+  const generatePrintHTML = (): string => {
+    const barcodes: LabelPayload[] = []
+
+    for (const product of selectedProducts) {
+      const qty = Number(product.quantity || 1)
+
+      for (let i = 0; i < qty; i++) {
+        const barcodeValue = String(product.batch_id ?? product.product_id)
+        const barcodeSvg = generateBarcodeSVG(barcodeValue, barcodeType)
+
+        const label: LabelPayload = {
+          barcode_svg: barcodeSvg,
+          packing_date: product.packing_date || null,
+          product_name: product.product_name,
+          business_name: 'Horix',
+          product_code: product.product_code,
+          product_price: product.unit_price || 0,
+          product_stock: product.stock || 0,
+          show_product_name: showProductName,
+          product_name_size: productNameSize,
+          show_business_name: showBusinessName,
+          business_name_size: businessNameSize,
+          show_product_price: showProductPrice,
+          product_price_size: productPriceSize,
+          show_product_code: showProductCode,
+          product_code_size: productCodeSize,
+          show_pack_date: showPackDate,
+          pack_date_size: packDateSize,
+        }
+        barcodes.push(label)
+      }
+    }
+
+    const paperSettings: Record<string, { width: string; height: string; cols: number }> = {
+      '1': { width: '38mm', height: '25mm', cols: 4 },
+      '2': { width: '50mm', height: '25mm', cols: 3 },
+      '3': { width: '50.8mm', height: '31.75mm', cols: 4 },
+    }
+    const dims = paperSettings[barcodeSetting] || paperSettings['1']
+
+    const convertPtToPixels = (pt: number): number => (pt * 96) / 72
+
+    const labelHTML = barcodes
+      .map((barcode) => {
+        const svgSrc = barcode.barcode_svg.startsWith('<svg')
+          ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(barcode.barcode_svg)))}`
+          : `data:image/png;base64,${barcode.barcode_svg}`
+        return `
+      <div class="label" style="width: ${dims.width}; height: ${dims.height};">
+        ${barcode.show_business_name && barcode.business_name ? `<div class="business-name" style="font-size: ${convertPtToPixels(barcode.business_name_size)}px;">${barcode.business_name}</div>` : ''}
+        ${barcode.show_product_name && barcode.product_name ? `<div class="product-name" style="font-size: ${convertPtToPixels(barcode.product_name_size)}px;">${barcode.product_name}</div>` : ''}
+        ${barcode.show_product_price && typeof barcode.product_price === 'number' ? `<div class="price" style="font-size: ${convertPtToPixels(barcode.product_price_size)}px;">Price: $${barcode.product_price.toFixed(2)}</div>` : ''}
+        <div class="barcode"><img src="${svgSrc}" alt="barcode"/></div>
+        ${barcode.show_product_code && barcode.product_code ? `<div class="product-code" style="font-size: ${convertPtToPixels(barcode.product_code_size)}px;">${barcode.product_code}</div>` : ''}
+        ${barcode.show_pack_date && barcode.packing_date ? `<div class="pack-date" style="font-size: ${convertPtToPixels(barcode.pack_date_size)}px;">${barcode.packing_date}</div>` : ''}
+      </div>
+    `
+      })
+      .join('')
+
+    const isSheet = barcodeSetting === '3'
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8"/>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+          <title>Print Labels</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: Arial, sans-serif; 
+              padding: 0; 
+              margin: 0; 
+              background-color: white;
+            }
+            
+            /* Page Setup */
+            @page {
+              ${isSheet ? 'size: A4; margin: 0.25in;' : `size: ${dims.width} ${dims.height}; margin: 0;`}
+            }
+
+            .container { 
+              width: 100%;
+              ${
+                isSheet
+                  ? `display: grid; grid-template-columns: repeat(${dims.cols}, 1fr); gap: 0.125in;`
+                  : 'display: block;'
+              }
+            }
+            
+            .label { 
+              width: ${dims.width}; 
+              height: ${dims.height}; 
+              border: 1px dotted #ccc; 
+              display: flex; 
+              flex-direction: column; 
+              justify-content: center; 
+              align-items: center; 
+              padding: 2px; 
+              text-align: center; 
+              overflow: hidden; 
+              background: white;
+              position: relative;
+              /* Force page break for rolls */
+              ${!isSheet ? 'page-break-after: always; break-after: page;' : ''}
+              margin-bottom: ${!isSheet ? '0' : '0.125in'};
+            }
+            
+            /* Hide border for print */
+            @media print {
+              body { margin: 0; padding: 0; }
+              .label { border: none; }
+              /* Prevent extra page at end */
+              .label:last-child { 
+                page-break-after: auto; 
+                break-after: auto; 
+                margin-bottom: 0;
+              }
+              .container {
+                /* Ensure grid works on print */
+                 ${isSheet ? `display: grid; grid-template-columns: repeat(${dims.cols}, 1fr); gap: 0.125in;` : ''}
+              }
+            }
+
+            /* Content Styles */
+            .business-name { font-weight: bold; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+            .product-name { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+            .price { font-weight: bold; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+            
+            .barcode { 
+              flex: 1; 
+              width: 100%; 
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              min-height: 0; 
+              margin: 2px 0; 
+            }
+            .barcode img { 
+              max-height: 100%; 
+              max-width: 100%; 
+              object-fit: contain; 
+            }
+            
+            .product-code { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+            .pack-date { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #666; font-size: 8px !important; }
+          </style>
+        </head>
+        <body>
+          <div class="container">${labelHTML}</div>
+          <script>
+            window.addEventListener('load', function() {
+              setTimeout(function() { window.print(); }, 500);
+            });
+          </script>
+        </body>
+      </html>
+    `
+  }
+
+  // Generate and print (client-side, opens new window)
   const handleGenerateAndPrint = async () => {
     if (selectedProducts.length === 0) {
       toast.error('Please select at least one product')
@@ -216,34 +493,27 @@ export function PrintLabelsPage() {
 
     setPreviewLoading(true)
     try {
-      const config: BarcodePreviewConfig = {
-        items: selectedProducts.map(p => ({
-          product_id: p.product_id,
-          quantity: p.quantity,
-          batch_id: p.batch_id || null,
-          packing_date: p.packing_date || null,
-        })),
-        barcode_type: barcodeType,
-        barcode_setting: barcodeSetting,
-        show_business_name: showBusinessName,
-        business_name: businessName,
-        business_name_size: businessNameSize,
-        show_product_name: showProductName,
-        product_name_size: productNameSize,
-        show_product_price: showProductPrice,
-        product_price_size: productPriceSize,
-        show_product_code: showProductCode,
-        product_code_size: productCodeSize,
-        show_pack_date: showPackDate,
-        pack_date_size: packDateSize,
-        vat_type: vatType,
-      }
+      const printHTML = generatePrintHTML()
+      const printWindow = window.open('', '_blank', 'width=800,height=600')
 
-      await barcodesService.generate(config)
-      toast.success('Barcodes generated. Opening print dialog...')
-      window.print()
+      if (printWindow) {
+        printWindow.document.write(printHTML)
+        printWindow.document.close()
+
+        // Wait for images to load before printing
+        printWindow.onload = () => {
+          // We can print automatically or let the user see the preview first
+          setTimeout(() => {
+            printWindow.print()
+          }, 500)
+        }
+
+        toast.success('Print window opened')
+      } else {
+        toast.error('Failed to open print window')
+      }
     } catch (err) {
-      toast.error('Failed to generate barcodes')
+      toast.error('Failed to generate labels')
       console.error('Generate error:', err)
     } finally {
       setPreviewLoading(false)
@@ -259,7 +529,7 @@ export function PrintLabelsPage() {
 
   if (loadingSettings) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex h-96 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
@@ -274,21 +544,22 @@ export function PrintLabelsPage() {
         </div>
       </div>
 
-      <Card className="border-none shadow-none bg-transparent">
-        <CardContent className="p-0 space-y-8">
+      <Card className="border-none bg-transparent shadow-none">
+        <CardContent className="space-y-8 p-0">
           {/* Section 1: Product Selection */}
-          <div className="bg-background rounded-lg border p-6 space-y-6">
+          <div className="space-y-6 rounded-lg border bg-background p-6">
             <div className="space-y-1">
               <h3 className="text-sm font-medium text-muted-foreground">Select Product</h3>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] items-center">
+              <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-[1fr_auto]">
                 <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" role="combobox" className="w-full justify-between">
-                      <span className="flex items-center gap-2 text-left truncate">
+                      <span className="flex items-center gap-2 truncate text-left">
                         <Search className="h-4 w-4 text-muted-foreground" />
                         <span className="truncate">
                           {selectedProductId
-                            ? productOptions.find((p) => String(p.id) === selectedProductId)?.productName
+                            ? productOptions.find((p) => String(p.id) === selectedProductId)
+                                ?.productName
                             : productOptionsLoading
                               ? 'Loading products...'
                               : 'Search or choose a product'}
@@ -298,7 +569,7 @@ export function PrintLabelsPage() {
                   </PopoverTrigger>
                   <PopoverContent className="w-[min(480px,90vw)] p-0" align="start">
                     <Command shouldFilter={false}>
-                      <div className="flex items-center px-3 pt-3 pb-2 gap-2">
+                      <div className="flex items-center gap-2 px-3 pb-2 pt-3">
                         <Search className="h-4 w-4 text-muted-foreground" />
                         <CommandInput
                           placeholder="Search products by name or code..."
@@ -341,13 +612,55 @@ export function PrintLabelsPage() {
                                           setProductPopoverOpen(false)
                                           try {
                                             const detailResp = await productsService.getById(p.id)
-                                            const d = (detailResp && (detailResp as any).data) ?? {}
+                                            const d = ((detailResp &&
+                                              (detailResp as unknown as Record<string, unknown>)
+                                                .data) ??
+                                              {}) as Record<string, unknown>
+
+                                            // Extract stock properly from nested structure
+                                            let stock: number | undefined =
+                                              ((d.productStock ??
+                                                d.stocks_sum_product_stock ??
+                                                d.stock) as number | undefined) ?? undefined
+                                            if (
+                                              !stock &&
+                                              d.stocks &&
+                                              Array.isArray(d.stocks) &&
+                                              d.stocks.length > 0
+                                            ) {
+                                              stock = d.stocks.reduce(
+                                                (sum: number, s: unknown) =>
+                                                  sum +
+                                                  (((s as Record<string, unknown>)
+                                                    .productStock as number) ?? 0),
+                                                0
+                                              )
+                                            }
+
+                                            // Extract sale price: try root level, then stocks array
+                                            let salePrice: number | undefined =
+                                              ((d.productSalePrice ?? d.price) as
+                                                | number
+                                                | undefined) ?? undefined
+                                            if (
+                                              !salePrice &&
+                                              d.stocks &&
+                                              Array.isArray(d.stocks) &&
+                                              d.stocks.length > 0
+                                            ) {
+                                              const stock0 = d.stocks[0] as Record<string, unknown>
+                                              salePrice =
+                                                ((stock0.productSalePrice ?? stock0.price) as
+                                                  | number
+                                                  | undefined) ?? undefined
+                                            }
+
                                             handleAddProduct({
                                               product_id: p.id,
                                               product_name: String(d.productName ?? d.name ?? ''),
                                               product_code: String(d.productCode ?? d.code ?? ''),
-                                              unit_price: d.productSalePrice ?? d.price ?? d.dealer_price ?? undefined,
-                                              stock: d.productStock ?? d.stocks_sum_product_stock ?? d.stock ?? 0,
+                                              unit_price: salePrice ? Number(salePrice) : 0,
+                                              stock: stock ? Number(stock) : 0,
                                               quantity: 1,
                                               batch_id: null,
                                               packing_date: null,
@@ -360,9 +673,9 @@ export function PrintLabelsPage() {
                                           }
                                         }}
                                       >
-                                        <div className="flex flex-col text-left w-full">
+                                        <div className="flex w-full flex-col text-left">
                                           <span className="font-medium">{p.productName}</span>
-                                          <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
+                                          <div className="mt-0.5 flex justify-between text-xs text-muted-foreground">
                                             <span>Code: {p.productCode}</span>
                                             <span>Price: {displayPrice ?? '-'}</span>
                                             <span>Stock: {p.productStock ?? 0}</span>
@@ -379,10 +692,10 @@ export function PrintLabelsPage() {
                                     p.productCode.toLowerCase().includes(q)
                                   )
                                 }).length === 0 && (
-                                    <div className="py-6 text-center text-sm text-muted-foreground">
-                                      No matching products found.
-                                    </div>
-                                  )}
+                                  <div className="py-6 text-center text-sm text-muted-foreground">
+                                    No matching products found.
+                                  </div>
+                                )}
                               </CommandGroup>
                             )}
                           </>
@@ -410,7 +723,10 @@ export function PrintLabelsPage() {
                   }}
                 >
                   {productOptionsLoading ? (
-                    <span className="inline-flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading</span>
+                    <span className="inline-flex items-center">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading
+                    </span>
                   ) : (
                     'Refresh'
                   )}
@@ -429,7 +745,7 @@ export function PrintLabelsPage() {
           </div>
 
           {/* Section 2: Label Configuration & Settings */}
-          <div className="bg-background rounded-lg border p-6">
+          <div className="rounded-lg border bg-background p-6">
             <LabelConfiguration
               showBusinessName={showBusinessName}
               onShowBusinessNameChange={setShowBusinessName}
@@ -465,12 +781,9 @@ export function PrintLabelsPage() {
               <Button
                 onClick={handlePreview}
                 disabled={
-                  previewLoading ||
-                  selectedProducts.length === 0 ||
-                  !barcodeType ||
-                  !barcodeSetting
+                  previewLoading || selectedProducts.length === 0 || !barcodeType || !barcodeSetting
                 }
-                className="bg-blue-800 hover:bg-blue-900 text-white min-w-[200px] h-10 text-base"
+                className="h-10 min-w-[200px] bg-blue-800 text-base text-white hover:bg-blue-900"
               >
                 {previewLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Preview
@@ -480,11 +793,13 @@ export function PrintLabelsPage() {
 
           {/* Section 3: Preview Section */}
           {showPreview && (
-            <div className="bg-background rounded-lg border p-6 animate-in fade-in-50 duration-500">
-              <div className="flex items-center justify-between mb-6">
+            <div className="rounded-lg border bg-background p-6 duration-500 animate-in fade-in-50">
+              <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold">Barcode Preview</h3>
-                  <p className="text-sm text-muted-foreground">Review {previewBarcodes.length} barcodes before printing</p>
+                  <p className="text-sm text-muted-foreground">
+                    Review {previewBarcodes.length} barcodes before printing
+                  </p>
                 </div>
                 <div className="flex gap-2">
                   <Button

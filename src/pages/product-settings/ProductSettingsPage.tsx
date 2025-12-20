@@ -33,10 +33,13 @@ export function ProductSettingsPage() {
 
   const [isModelOpen, setIsModelOpen] = useState(false)
   const [editingModel, setEditingModel] = useState<ProductModel | null>(null)
+
   const [isUnitOpen, setIsUnitOpen] = useState(false)
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null)
+
   const [isRackOpen, setIsRackOpen] = useState(false)
   const [editingRack, setEditingRack] = useState<Rack | null>(null)
+
   const [isShelfOpen, setIsShelfOpen] = useState(false)
   const [editingShelf, setEditingShelf] = useState<Shelf | null>(null)
 
@@ -60,7 +63,6 @@ export function ProductSettingsPage() {
       setEditingShelf(null)
       setIsShelfOpen(true)
     }
-    // Add other cases as implemented
   }
 
   const refresh = () => setRefreshTrigger((prev) => prev + 1)
@@ -72,13 +74,15 @@ export function ProductSettingsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Product Settings</h1>
           <p className="text-muted-foreground">Manage categories, brands, models and attributes</p>
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add New{' '}
-          {activeTab === 'model'
-            ? 'Model'
-            : activeTab.slice(0, -1).charAt(0).toUpperCase() + activeTab.slice(0, -1).slice(1)}
-        </Button>
+        {activeTab !== 'print-labels' && (
+          <Button onClick={handleAdd}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add New{' '}
+            {activeTab === 'model'
+              ? 'Model'
+              : activeTab.slice(0, -1).charAt(0).toUpperCase() + activeTab.slice(0, -1).slice(1)}
+          </Button>
+        )}
       </div>
 
       <Tabs
@@ -143,7 +147,6 @@ export function ProductSettingsPage() {
             />
           </TabsContent>
 
-          {/* Units */}
           <TabsContent value="units" className="mt-6 space-y-4">
             <UnitsTable
               searchQuery={searchQuery}
@@ -170,7 +173,6 @@ export function ProductSettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* Racks */}
           <TabsContent value="racks" className="mt-6 space-y-4">
             <RacksTable
               searchQuery={searchQuery}
@@ -182,7 +184,6 @@ export function ProductSettingsPage() {
             />
           </TabsContent>
 
-          {/* Shelves */}
           <TabsContent value="shelfs" className="mt-6 space-y-4">
             <ShelvesTable
               searchQuery={searchQuery}

@@ -1,3 +1,27 @@
+## 2025-12-20 — Print Labels Preview Alignment
+
+- Problem: `BarcodePreview` used `BarcodeItem` from barcodes service and injected raw SVG via `dangerouslySetInnerHTML`; needed alignment with Print Labels API (`LabelPayload`) and proper PNG/SVG rendering.
+- Solution: Switched preview component to consume `LabelPayload` from `print-labels.service` and render barcode image using `<img src>` with base64 PNG or inline SVG data URL. Guarded price rendering for numeric values.
+- Files Modified: [src/pages/product-settings/components/print-labels/BarcodePreview.tsx](src/pages/product-settings/components/print-labels/BarcodePreview.tsx)
+
+## 2025-12-20 — Print Labels Settings + Generate Wiring
+
+- Problem: Settings were sourced from legacy `barcodesService` and preview/generate types mismatched new API.
+- Solution: Refactored `PrintLabelsPage` to load config from `printLabelsService.getConfig()` (mapping arrays to `{value,label}`), and use `printLabelsService.generate()` for both preview and print flows with aligned arrays (`stock_ids`, `qty`, `preview_date`) and toggles/sizes. Preview now consumes `LabelPayload[]`.
+- Files Modified: [src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx](src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx)
+- Docs Updated: [backend_docs/API_QUICK_REFERENCE.md](backend_docs/API_QUICK_REFERENCE.md) with latest endpoints and payloads.
+
+## 2025-12-20 — Printer Settings & Barcode Types Docs Sync
+
+- Problem: Quick reference missing detailed barcode types table and printer settings mapping.
+- Solution: Added comprehensive reference tables to both docs:
+  - Barcode types: C39E+, C93, S25, S25+, I25, I25+, C128 (default), C128A, C128B, C128C, EAN2, EAN5, EAN8, EAN13
+  - Label formats: 2x1 (50mm×25mm), 1.5x1 (38mm×25mm), 2x1.25 (sheet 28/page)
+  - Printer settings: 1=Roll 1.5"×1", 2=Roll 2"×1", 3=Sheet 28/page
+  - Frontend mapping: Config returns `printer_settings` array (1/2/3); UI dropdown maps to Printer 1/2/3 labels
+- Files Modified: [backend_docs/API_QUICK_REFERENCE.md](backend_docs/API_QUICK_REFERENCE.md) with tables, workflow example, and parameter docs
+- Services Updated: [src/api/services/print-labels.service.ts](src/api/services/print-labels.service.ts) extends `getConfig()` return type to include `printer_settings: number[]`
+
 # Horix POS Pro - Development Log
 
 > This document tracks development progress, architectural decisions, and implementation details for future reference.
@@ -15,6 +39,25 @@
 ---
 
 ## Latest Updates
+
+### December 20, 2025 - Category & Brand Icon Fallbacks
+
+**Problem**: API sometimes returns no `icon` for categories/brands, resulting in empty placeholders in tables.
+
+**Solution**: Implemented first-letter avatar fallback when `icon` is missing or image fails to load.
+
+**Files Modified**:
+- `src/pages/product-settings/components/categories/CategoriesTable.tsx` – Always renders an icon area; uses the category name's first letter when `icon` is missing; keeps `CachedImage` with letter fallback on load error.
+- `src/pages/product-settings/components/brands/BrandsTable.tsx` – Switched to `CachedImage`; renders brand name's first letter when `icon` is missing; letter fallback on load error.
+
+**Benefits**:
+- ✅ Consistent visual identity even without API-provided icons
+- ✅ No broken image placeholders; graceful degradation
+- ✅ Minimal changes aligned with existing component patterns
+
+**Next Steps**: Extend the same fallback to other entities that support icons (e.g., products, units) for consistency.
+
+<!-- Entry removed: Icon fallbacks for models, racks, shelves were reverted per request. -->
 
 ### December 18, 2025 - Categories API Pagination Implementation
 

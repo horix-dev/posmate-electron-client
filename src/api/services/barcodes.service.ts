@@ -96,40 +96,74 @@ export interface BarcodeItem {
 
 export const barcodesService = {
   getSettings: async (): Promise<ApiResponse<BarcodeSettings>> => {
-    const { data } = await api.get<ApiResponse<BarcodeSettings>>('/barcodes/settings')
-    return data
+    // Default barcode settings - can be enhanced with API endpoint if needed
+    const defaultSettings: BarcodeSettings = {
+      barcode_types: [
+        { value: 'code128', label: 'Code 128' },
+        { value: 'code39', label: 'Code 39' },
+        { value: 'ean13', label: 'EAN-13' },
+        { value: 'ean8', label: 'EAN-8' },
+        { value: 'upca', label: 'UPC-A' },
+        { value: 'upce', label: 'UPC-E' },
+      ],
+      paper_settings: [
+        { value: '4x6', label: '4x6 (Shipping)', name: '4x6', dimensions: '4" x 6"' },
+        { value: '3x5', label: '3x5 (Product)', name: '3x5', dimensions: '3" x 5"' },
+        { value: '2x4', label: '2x4 (Compact)', name: '2x4', dimensions: '2" x 4"' },
+        { value: '1x2', label: '1x2 (Small)', name: '1x2', dimensions: '1" x 2"' },
+      ],
+      font_sizes: [10, 12, 14, 15, 16, 18, 20, 24],
+      vat_options: [
+        { value: 'inclusive', label: 'VAT Inclusive' },
+        { value: 'exclusive', label: 'VAT Exclusive' },
+      ],
+    }
+    return { message: 'Settings loaded', data: defaultSettings }
   },
 
   /**
    * Search products by name or code (non-paginated, returns all matches)
    */
-  searchProducts: async (params: { search?: string } = {}): Promise<ApiResponse<SearchProductResult[]>> => {
-    const { data } = await api.get<ApiResponse<SearchProductResult[]>>('/barcodes/search-products', { params })
+  searchProducts: async (
+    params: { search?: string } = {}
+  ): Promise<ApiResponse<SearchProductResult[]>> => {
+    const { data } = await api.get<ApiResponse<SearchProductResult[]>>(
+      '/barcodes/search-products',
+      { params }
+    )
     return data
   },
 
   /**
    * Get all products with pagination
    */
-  getProducts: async (params: { page?: number; per_page?: number } = {}): Promise<ApiResponse<{
-    current_page: number
-    data: SearchProductResult[]
-    per_page: number
-    total: number
-    last_page: number
-  }>> => {
-    const { data } = await api.get<ApiResponse<{
+  getProducts: async (
+    params: { page?: number; per_page?: number } = {}
+  ): Promise<
+    ApiResponse<{
       current_page: number
       data: SearchProductResult[]
       per_page: number
       total: number
       last_page: number
-    }>>('/barcodes/products', { params })
+    }>
+  > => {
+    const { data } = await api.get<
+      ApiResponse<{
+        current_page: number
+        data: SearchProductResult[]
+        per_page: number
+        total: number
+        last_page: number
+      }>
+    >('/barcodes/products', { params })
     return data
   },
 
   getProductDetails: async (productId: number): Promise<ApiResponse<ProductBarcodeDetail>> => {
-    const { data } = await api.get<ApiResponse<ProductBarcodeDetail>>(`/barcodes/product-details/${productId}`)
+    const { data } = await api.get<ApiResponse<ProductBarcodeDetail>>(
+      `/barcodes/product-details/${productId}`
+    )
     return data
   },
 

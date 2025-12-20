@@ -178,6 +178,20 @@ export const API_ENDPOINTS = {
     DELETE: (id: number) => `/payment-types/${id}`,
   },
 
+  // Print Labels
+  PRINT_LABELS: {
+    LIST: '/print-labels',
+    GET: (id: number) => `/print-labels/${id}`,
+    CREATE: '/print-labels',
+    UPDATE: (id: number) => `/print-labels/${id}`,
+    DELETE: (id: number) => `/print-labels/${id}`,
+    TOGGLE_STATUS: (id: number) => `/print-labels/${id}/status`,
+    BULK_DELETE: '/print-labels/delete-all',
+    CONFIG: '/print-labels/config',
+    PRODUCTS: '/print-labels/products',
+    GENERATE: '/print-labels/generate',
+  },
+
   // Stocks
   STOCKS: {
     ADD: '/stocks',

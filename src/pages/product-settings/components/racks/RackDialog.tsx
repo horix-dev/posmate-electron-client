@@ -8,11 +8,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from '@/components/ui/form'
 import { racksService } from '@/api/services/racks.service'
 import { shelvesService } from '@/api/services/shelves.service'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { Rack, Shelf } from '@/types/api.types'
 
@@ -44,7 +59,8 @@ export function RackDialog({ open, onOpenChange, editData, onSuccess }: RackDial
 
   useEffect(() => {
     if (open) {
-      if (editData) form.reset({ name: editData.name, status: (editData.status ?? 1) === 1, shelf_ids: [] })
+      if (editData)
+        form.reset({ name: editData.name, status: (editData.status ?? 1) === 1, shelf_ids: [] })
       else form.reset({ name: '', status: true, shelf_ids: [] })
 
       // Load shelves list
@@ -52,12 +68,12 @@ export function RackDialog({ open, onOpenChange, editData, onSuccess }: RackDial
         setShelvesLoading(true)
         try {
           const resp = await shelvesService.getAll({ page: 1, per_page: 1000 })
-          const payload: any = resp as any
+          const payload: Record<string, unknown> = resp as unknown as Record<string, unknown>
           const list: Shelf[] = Array.isArray(payload?.data)
-            ? payload.data
-            : Array.isArray(payload?.data?.data)
-            ? payload.data.data
-            : []
+            ? (payload.data as Shelf[])
+            : Array.isArray((payload?.data as Record<string, unknown>)?.data)
+              ? ((payload.data as Record<string, unknown>).data as Shelf[])
+              : []
           setShelves(Array.isArray(list) ? list : [])
         } catch (e) {
           setShelves([])
@@ -76,10 +92,16 @@ export function RackDialog({ open, onOpenChange, editData, onSuccess }: RackDial
     try {
       if (editData) {
         await racksService.update(editData.id, { name: values.name, shelf_id: values.shelf_ids })
-        if ((editData.status ?? 1) !== (values.status ? 1 : 0)) await racksService.updateStatus(editData.id, values.status)
+        if ((editData.status ?? 1) !== (values.status ? 1 : 0)) {
+          await racksService.updateStatus(editData.id, values.status, values.name)
+        }
         toast.success('Rack updated successfully')
       } else {
-        await racksService.create({ name: values.name, status: values.status, shelf_id: values.shelf_ids })
+        await racksService.create({
+          name: values.name,
+          status: values.status,
+          shelf_id: values.shelf_ids,
+        })
         toast.success('Rack created successfully')
       }
       onSuccess()
@@ -125,8 +147,17 @@ export function RackDialog({ open, onOpenChange, editData, onSuccess }: RackDial
                     <FormControl>
                       <Popover open={shelvesOpen} onOpenChange={setShelvesOpen}>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" role="combobox" aria-expanded={shelvesOpen} className="w-full justify-between">
-                            {selectedCount > 0 ? `${selectedCount} selected` : shelvesLoading ? 'Loading shelves...' : 'Select shelves'}
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={shelvesOpen}
+                            className="w-full justify-between"
+                          >
+                            {selectedCount > 0
+                              ? `${selectedCount} selected`
+                              : shelvesLoading
+                                ? 'Loading shelves...'
+                                : 'Select shelves'}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
@@ -143,7 +174,9 @@ export function RackDialog({ open, onOpenChange, editData, onSuccess }: RackDial
                                       key={s.id}
                                       value={s.name}
                                       onSelect={() => {
-                                        const current: number[] = Array.isArray(field.value) ? field.value.slice() : []
+                                        const current: number[] = Array.isArray(field.value)
+                                          ? field.value.slice()
+                                          : []
                                         const idx = current.indexOf(s.id)
                                         if (idx > -1) current.splice(idx, 1)
                                         else current.push(s.id)

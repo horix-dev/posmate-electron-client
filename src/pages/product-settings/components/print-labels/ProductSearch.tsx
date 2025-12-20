@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react'
 import { ChevronsUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Command, CommandEmpty, CommandGroup, CommandItem, CommandInput, CommandList } from '@/components/ui/command'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandInput,
+  CommandList,
+} from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { barcodesService, type SearchProductResult } from '@/api/services/barcodes.service'
 
@@ -38,11 +45,11 @@ export function ProductSearch({ onProductSelect }: ProductSearchProps) {
       try {
         const resp = await barcodesService.searchProducts({ search: search.trim() })
         console.log('Search response:', resp)
-        
+
         // API returns { message, data: [...] } where data is direct array
         const items = Array.isArray(resp.data) ? resp.data : []
         console.log('Products found:', items.length)
-        
+
         setProducts(items)
       } catch (err) {
         console.error('Search error:', err)
@@ -59,14 +66,17 @@ export function ProductSearch({ onProductSelect }: ProductSearchProps) {
     try {
       // Fetch full product details including stock
       const detailResp = await barcodesService.getProductDetails(product.id)
-      const detail = (detailResp as any)?.data || {}
+      const detail = ((detailResp as unknown as Record<string, unknown>)?.data || {}) as Record<
+        string,
+        unknown
+      >
 
       const selectedProduct: SelectedProduct = {
         product_id: product.id,
         product_name: product.productName,
         product_code: product.productCode,
         unit_price: product.productSalePrice ?? product.productDealerPrice ?? 0,
-        stock: detail.total_available ?? product.productStock ?? 0,
+        stock: Number(detail.total_available ?? product.productStock ?? 0),
         quantity: 1,
         batch_id: null,
         packing_date: null,
@@ -83,19 +93,15 @@ export function ProductSearch({ onProductSelect }: ProductSearchProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          className="w-full justify-between"
-        >
+        <Button variant="outline" role="combobox" className="w-full justify-between">
           {search || 'Search or choose a product'}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
         <Command>
-          <CommandInput 
-            placeholder="Search product name or code..." 
+          <CommandInput
+            placeholder="Search product name or code..."
             value={search}
             onValueChange={setSearch}
           />
@@ -126,9 +132,7 @@ export function ProductSearch({ onProductSelect }: ProductSearchProps) {
                         <div className="font-medium">
                           ₹{product.productSalePrice ?? product.productDealerPrice ?? 0}
                         </div>
-                        <div className="text-muted-foreground">
-                          Stock: {product.productStock}
-                        </div>
+                        <div className="text-muted-foreground">Stock: {product.productStock}</div>
                       </div>
                     </div>
                   </CommandItem>
