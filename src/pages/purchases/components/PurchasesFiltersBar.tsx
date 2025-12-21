@@ -1,8 +1,8 @@
 import { memo, useEffect, useState } from 'react'
 import { Search, X, CalendarIcon } from 'lucide-react'
 import { format } from 'date-fns'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -15,34 +15,42 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils'
 import { partiesService } from '@/api/services'
 import type { Party } from '@/types/api.types'
-import type { SalesFilters } from '../hooks'
+import type { PurchasesFilters } from '../hooks'
 
-export interface SalesFiltersBarProps {
-  filters: SalesFilters
-  onFiltersChange: (filters: SalesFilters) => void
+// ============================================
+// Types
+// ============================================
+
+export interface PurchasesFiltersBarProps {
+  filters: PurchasesFilters
+  onFiltersChange: (filters: PurchasesFilters) => void
 }
 
-export const SalesFiltersBar = memo(function SalesFiltersBar({
+// ============================================
+// Component
+// ============================================
+
+export const PurchasesFiltersBar = memo(function PurchasesFiltersBar({
   filters,
   onFiltersChange,
-}: SalesFiltersBarProps) {
-  const [customers, setCustomers] = useState<Party[]>([])
-  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false)
+}: PurchasesFiltersBarProps) {
+  const [suppliers, setSuppliers] = useState<Party[]>([])
+  const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false)
 
-  // Fetch customers for dropdown
+  // Fetch suppliers for dropdown
   useEffect(() => {
-    const fetchCustomers = async () => {
-      setIsLoadingCustomers(true)
+    const fetchSuppliers = async () => {
+      setIsLoadingSuppliers(true)
       try {
-        const data = await partiesService.getCustomers()
-        setCustomers(data)
+        const data = await partiesService.getSuppliers()
+        setSuppliers(data)
       } catch (error) {
-        console.error('Failed to fetch customers:', error)
+        console.error('Failed to fetch suppliers:', error)
       } finally {
-        setIsLoadingCustomers(false)
+        setIsLoadingSuppliers(false)
       }
     }
-    fetchCustomers()
+    fetchSuppliers()
   }, [])
 
   // Check if any filters are active
@@ -50,9 +58,8 @@ export const SalesFiltersBar = memo(function SalesFiltersBar({
     filters.search ||
     filters.dateFrom ||
     filters.dateTo ||
-    filters.customerId ||
-    filters.paymentStatus !== 'all' ||
-    filters.syncStatus !== 'all'
+    filters.supplierId ||
+    filters.paymentStatus !== 'all'
 
   // Clear all filters
   const handleClearFilters = () => {
@@ -60,14 +67,13 @@ export const SalesFiltersBar = memo(function SalesFiltersBar({
       search: '',
       dateFrom: '',
       dateTo: '',
-      customerId: '',
+      supplierId: '',
       paymentStatus: 'all',
-      syncStatus: 'all',
     })
   }
 
   // Update individual filter
-  const updateFilter = <K extends keyof SalesFilters>(key: K, value: SalesFilters[K]) => {
+  const updateFilter = <K extends keyof PurchasesFilters>(key: K, value: PurchasesFilters[K]) => {
     onFiltersChange({ ...filters, [key]: value })
   }
 
@@ -77,7 +83,7 @@ export const SalesFiltersBar = memo(function SalesFiltersBar({
       <div className="relative min-w-[200px] max-w-md flex-1">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search by invoice or customer..."
+          placeholder="Search by invoice number..."
           value={filters.search}
           onChange={(e) => updateFilter('search', e.target.value)}
           className="pl-10"
@@ -136,24 +142,24 @@ export const SalesFiltersBar = memo(function SalesFiltersBar({
         </PopoverContent>
       </Popover>
 
-      {/* Customer */}
+      {/* Supplier */}
       <Select
-        value={filters.customerId || 'all'}
-        onValueChange={(value) => updateFilter('customerId', value === 'all' ? '' : value)}
+        value={filters.supplierId || 'all'}
+        onValueChange={(value) => updateFilter('supplierId', value === 'all' ? '' : value)}
       >
         <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="All Customers" />
+          <SelectValue placeholder="All Suppliers" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Customers</SelectItem>
-          {isLoadingCustomers ? (
+          <SelectItem value="all">All Suppliers</SelectItem>
+          {isLoadingSuppliers ? (
             <SelectItem value="_loading" disabled>
               Loading...
             </SelectItem>
           ) : (
-            customers.map((customer) => (
-              <SelectItem key={customer.id} value={String(customer.id)}>
-                {customer.name}
+            suppliers.map((supplier) => (
+              <SelectItem key={supplier.id} value={String(supplier.id)}>
+                {supplier.name}
               </SelectItem>
             ))
           )}
@@ -164,7 +170,7 @@ export const SalesFiltersBar = memo(function SalesFiltersBar({
       <Select
         value={filters.paymentStatus}
         onValueChange={(value) =>
-          updateFilter('paymentStatus', value as SalesFilters['paymentStatus'])
+          updateFilter('paymentStatus', value as PurchasesFilters['paymentStatus'])
         }
       >
         <SelectTrigger className="w-[140px]">
@@ -175,21 +181,6 @@ export const SalesFiltersBar = memo(function SalesFiltersBar({
           <SelectItem value="paid">Paid</SelectItem>
           <SelectItem value="partial">Partial</SelectItem>
           <SelectItem value="unpaid">Unpaid</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {/* Sync Status */}
-      <Select
-        value={filters.syncStatus}
-        onValueChange={(value) => updateFilter('syncStatus', value as SalesFilters['syncStatus'])}
-      >
-        <SelectTrigger className="w-[130px]">
-          <SelectValue placeholder="Sync Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Sync</SelectItem>
-          <SelectItem value="synced">Synced</SelectItem>
-          <SelectItem value="pending">Pending</SelectItem>
         </SelectContent>
       </Select>
 
@@ -204,4 +195,4 @@ export const SalesFiltersBar = memo(function SalesFiltersBar({
   )
 })
 
-export default SalesFiltersBar
+export default PurchasesFiltersBar

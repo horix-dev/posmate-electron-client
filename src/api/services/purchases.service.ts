@@ -4,10 +4,28 @@ import type { Purchase, CreatePurchaseRequest, PurchaseReturn } from '@/types/ap
 
 export const purchasesService = {
   /**
-   * Get all purchases with optional filters
+   * Get all purchases with optional filters and pagination
    */
   getAll: async (params?: {
     page?: number
+    per_page?: number
+    search?: string
+    start_date?: string
+    end_date?: string
+    party_id?: number
+  }): Promise<PaginatedApiResponse<Purchase[]>> => {
+    const { data } = await api.get<PaginatedApiResponse<Purchase[]>>(API_ENDPOINTS.PURCHASES.LIST, {
+      params,
+    })
+    return data
+  },
+
+  /**
+   * Filter purchases (alias for getAll with search)
+   */
+  filter: async (params: {
+    page?: number
+    per_page?: number
     search?: string
     start_date?: string
     end_date?: string
@@ -31,10 +49,7 @@ export const purchasesService = {
    * Create a new purchase
    */
   create: async (purchase: CreatePurchaseRequest): Promise<ApiResponse<Purchase>> => {
-    const { data } = await api.post<ApiResponse<Purchase>>(
-      API_ENDPOINTS.PURCHASES.CREATE,
-      purchase
-    )
+    const { data } = await api.post<ApiResponse<Purchase>>(API_ENDPOINTS.PURCHASES.CREATE, purchase)
     return data
   },
 

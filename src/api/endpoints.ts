@@ -103,11 +103,11 @@ export const API_ENDPOINTS = {
 
   // Purchases
   PURCHASES: {
-    LIST: '/purchases',
-    GET: (id: number) => `/purchases/${id}`,
-    CREATE: '/purchases',
-    UPDATE: (id: number) => `/purchases/${id}`,
-    DELETE: (id: number) => `/purchases/${id}`,
+    LIST: '/purchase',
+    GET: (id: number) => `/purchase/${id}`,
+    CREATE: '/purchase',
+    UPDATE: (id: number) => `/purchase/${id}`,
+    DELETE: (id: number) => `/purchase/${id}`,
   },
 
   // Sale Returns
