@@ -1,7 +1,8 @@
-import { Search, X, Calendar } from 'lucide-react'
+import { memo, useEffect, useState } from 'react'
+import { Search, X, CalendarIcon } from 'lucide-react'
+import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -9,12 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import { Badge } from '@/components/ui/badge'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
+import { partiesService } from '@/api/services'
+import type { Party } from '@/types/api.types'
 import type { SalesFilters } from '../hooks'
 
 export interface SalesFiltersBarProps {
@@ -22,18 +22,42 @@ export interface SalesFiltersBarProps {
   onFiltersChange: (filters: SalesFilters) => void
 }
 
-export function SalesFiltersBar({ filters, onFiltersChange }: SalesFiltersBarProps) {
-  const activeFiltersCount = [
-    filters.dateFrom,
-    filters.dateTo,
-    filters.customerId,
-    filters.paymentStatus !== 'all' ? filters.paymentStatus : '',
-    filters.syncStatus !== 'all' ? filters.syncStatus : '',
-  ].filter(Boolean).length
+export const SalesFiltersBar = memo(function SalesFiltersBar({
+  filters,
+  onFiltersChange,
+}: SalesFiltersBarProps) {
+  const [customers, setCustomers] = useState<Party[]>([])
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false)
 
+  // Fetch customers for dropdown
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      setIsLoadingCustomers(true)
+      try {
+        const data = await partiesService.getCustomers()
+        setCustomers(data)
+      } catch (error) {
+        console.error('Failed to fetch customers:', error)
+      } finally {
+        setIsLoadingCustomers(false)
+      }
+    }
+    fetchCustomers()
+  }, [])
+
+  // Check if any filters are active
+  const hasActiveFilters =
+    filters.search ||
+    filters.dateFrom ||
+    filters.dateTo ||
+    filters.customerId ||
+    filters.paymentStatus !== 'all' ||
+    filters.syncStatus !== 'all'
+
+  // Clear all filters
   const handleClearFilters = () => {
     onFiltersChange({
-      search: filters.search, // Keep search
+      search: '',
       dateFrom: '',
       dateTo: '',
       customerId: '',
@@ -42,128 +66,142 @@ export function SalesFiltersBar({ filters, onFiltersChange }: SalesFiltersBarPro
     })
   }
 
+  // Update individual filter
+  const updateFilter = <K extends keyof SalesFilters>(key: K, value: SalesFilters[K]) => {
+    onFiltersChange({ ...filters, [key]: value })
+  }
+
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-wrap items-center gap-4">
       {/* Search */}
-      <div className="relative flex-1 max-w-md">
+      <div className="relative min-w-[200px] max-w-md flex-1">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search by invoice or customer..."
           value={filters.search}
-          onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
-          className="pl-10 pr-10"
+          onChange={(e) => updateFilter('search', e.target.value)}
+          className="pl-10"
         />
-        {filters.search && (
-          <button
-            onClick={() => onFiltersChange({ ...filters, search: '' })}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+      </div>
+
+      {/* Date From */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              'w-[140px] justify-start text-left font-normal',
+              !filters.dateFrom && 'text-muted-foreground'
+            )}
           >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
-      {/* Filter Controls */}
-      <div className="flex items-center gap-2">
-        {/* Date Range */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Calendar className="mr-2 h-4 w-4" />
-              Date Range
-              {(filters.dateFrom || filters.dateTo) && (
-                <Badge variant="secondary" className="ml-2">
-                  Active
-                </Badge>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80" align="end">
-            <div className="grid gap-4">
-              <div className="space-y-2">
-                <h4 className="font-medium leading-none">Date Range</h4>
-                <p className="text-sm text-muted-foreground">
-                  Filter sales by date range
-                </p>
-              </div>
-              <div className="grid gap-2">
-                <div className="grid grid-cols-3 items-center gap-4">
-                  <Label htmlFor="dateFrom">From</Label>
-                  <Input
-                    id="dateFrom"
-                    type="date"
-                    value={filters.dateFrom}
-                    onChange={(e) => onFiltersChange({ ...filters, dateFrom: e.target.value })}
-                    className="col-span-2"
-                  />
-                </div>
-                <div className="grid grid-cols-3 items-center gap-4">
-                  <Label htmlFor="dateTo">To</Label>
-                  <Input
-                    id="dateTo"
-                    type="date"
-                    value={filters.dateTo}
-                    onChange={(e) => onFiltersChange({ ...filters, dateTo: e.target.value })}
-                    className="col-span-2"
-                  />
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onFiltersChange({ ...filters, dateFrom: '', dateTo: '' })}
-              >
-                Clear dates
-              </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        {/* Payment Status */}
-        <Select
-          value={filters.paymentStatus}
-          onValueChange={(value) =>
-            onFiltersChange({ ...filters, paymentStatus: value as SalesFilters['paymentStatus'] })
-          }
-        >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Payment" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Payments</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="partial">Partial</SelectItem>
-            <SelectItem value="unpaid">Unpaid</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Sync Status */}
-        <Select
-          value={filters.syncStatus}
-          onValueChange={(value) =>
-            onFiltersChange({ ...filters, syncStatus: value as SalesFilters['syncStatus'] })
-          }
-        >
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Sync" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="synced">Synced</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Clear Filters */}
-        {activeFiltersCount > 0 && (
-          <Button variant="ghost" size="sm" onClick={handleClearFilters}>
-            <X className="mr-1 h-4 w-4" />
-            Clear ({activeFiltersCount})
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {filters.dateFrom ? format(new Date(filters.dateFrom), 'MMM d, yyyy') : 'From'}
           </Button>
-        )}
-      </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={filters.dateFrom ? new Date(filters.dateFrom) : undefined}
+            onSelect={(date: Date | undefined) =>
+              updateFilter('dateFrom', date ? format(date, 'yyyy-MM-dd') : '')
+            }
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
+
+      {/* Date To */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              'w-[140px] justify-start text-left font-normal',
+              !filters.dateTo && 'text-muted-foreground'
+            )}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {filters.dateTo ? format(new Date(filters.dateTo), 'MMM d, yyyy') : 'To'}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={filters.dateTo ? new Date(filters.dateTo) : undefined}
+            onSelect={(date: Date | undefined) =>
+              updateFilter('dateTo', date ? format(date, 'yyyy-MM-dd') : '')
+            }
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
+
+      {/* Customer */}
+      <Select
+        value={filters.customerId || 'all'}
+        onValueChange={(value) => updateFilter('customerId', value === 'all' ? '' : value)}
+      >
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="All Customers" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Customers</SelectItem>
+          {isLoadingCustomers ? (
+            <SelectItem value="_loading" disabled>
+              Loading...
+            </SelectItem>
+          ) : (
+            customers.map((customer) => (
+              <SelectItem key={customer.id} value={String(customer.id)}>
+                {customer.name}
+              </SelectItem>
+            ))
+          )}
+        </SelectContent>
+      </Select>
+
+      {/* Payment Status */}
+      <Select
+        value={filters.paymentStatus}
+        onValueChange={(value) =>
+          updateFilter('paymentStatus', value as SalesFilters['paymentStatus'])
+        }
+      >
+        <SelectTrigger className="w-[140px]">
+          <SelectValue placeholder="All Status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Status</SelectItem>
+          <SelectItem value="paid">Paid</SelectItem>
+          <SelectItem value="partial">Partial</SelectItem>
+          <SelectItem value="unpaid">Unpaid</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Sync Status */}
+      <Select
+        value={filters.syncStatus}
+        onValueChange={(value) => updateFilter('syncStatus', value as SalesFilters['syncStatus'])}
+      >
+        <SelectTrigger className="w-[130px]">
+          <SelectValue placeholder="Sync Status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Sync</SelectItem>
+          <SelectItem value="synced">Synced</SelectItem>
+          <SelectItem value="pending">Pending</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Clear Filters */}
+      {hasActiveFilters && (
+        <Button variant="ghost" size="sm" onClick={handleClearFilters}>
+          <X className="mr-2 h-4 w-4" />
+          Clear
+        </Button>
+      )}
     </div>
   )
-}
+})
 
 export default SalesFiltersBar

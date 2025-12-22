@@ -59,6 +59,22 @@ export const API_ENDPOINTS = {
     DELETE: (id: number) => `/units/${id}`,
   },
 
+  // Racks
+  RACKS: {
+    LIST: '/racks',
+    CREATE: '/racks',
+    UPDATE: (id: number) => `/racks/${id}`,
+    DELETE: (id: number) => `/racks/${id}`,
+  },
+
+  // Shelves
+  SHELVES: {
+    LIST: '/shelves',
+    CREATE: '/shelves',
+    UPDATE: (id: number) => `/shelves/${id}`,
+    DELETE: (id: number) => `/shelves/${id}`,
+  },
+
   // Product Models
   PRODUCT_MODELS: {
     LIST: '/product-models',
@@ -87,11 +103,11 @@ export const API_ENDPOINTS = {
 
   // Purchases
   PURCHASES: {
-    LIST: '/purchases',
-    GET: (id: number) => `/purchases/${id}`,
-    CREATE: '/purchases',
-    UPDATE: (id: number) => `/purchases/${id}`,
-    DELETE: (id: number) => `/purchases/${id}`,
+    LIST: '/purchase',
+    GET: (id: number) => `/purchase/${id}`,
+    CREATE: '/purchase',
+    UPDATE: (id: number) => `/purchase/${id}`,
+    DELETE: (id: number) => `/purchase/${id}`,
   },
 
   // Sale Returns
@@ -160,6 +176,20 @@ export const API_ENDPOINTS = {
     CREATE: '/payment-types',
     UPDATE: (id: number) => `/payment-types/${id}`,
     DELETE: (id: number) => `/payment-types/${id}`,
+  },
+
+  // Print Labels
+  PRINT_LABELS: {
+    LIST: '/print-labels',
+    GET: (id: number) => `/print-labels/${id}`,
+    CREATE: '/print-labels',
+    UPDATE: (id: number) => `/print-labels/${id}`,
+    DELETE: (id: number) => `/print-labels/${id}`,
+    TOGGLE_STATUS: (id: number) => `/print-labels/${id}/status`,
+    BULK_DELETE: '/print-labels/delete-all',
+    CONFIG: '/print-labels/config',
+    PRODUCTS: '/print-labels/products',
+    GENERATE: '/print-labels/generate',
   },
 
   // Stocks
@@ -239,5 +269,24 @@ export const API_ENDPOINTS = {
     UPDATE: (id: number) => `/variants/${id}`,
     DELETE: (id: number) => `/variants/${id}`,
     UPDATE_STOCK: (id: number) => `/variants/${id}/stock`,
+    // Bulk operations
+    BULK_UPDATE: (productId: number) => `/products/${productId}/variants/bulk`,
+    // Utility endpoints
+    DUPLICATE: (productId: number) => `/products/${productId}/variants/duplicate`,
+    TOGGLE_ACTIVE: (id: number) => `/variants/${id}/toggle-active`,
+    BY_BARCODE: (barcode: string) => `/variants/by-barcode/${barcode}`,
+    STOCK_SUMMARY: (productId: number) => `/products/${productId}/variants/stock-summary`,
+  },
+
+  // Barcode Lookup (universal)
+  BARCODE: {
+    LOOKUP: (barcode: string) => `/products/by-barcode/${barcode}`,
+  },
+
+  // Variant Reports
+  VARIANT_REPORTS: {
+    SALES_SUMMARY: '/reports/variants/sales-summary',
+    TOP_SELLING: '/reports/variants/top-selling',
+    SLOW_MOVING: '/reports/variants/slow-moving',
   },
 } as const

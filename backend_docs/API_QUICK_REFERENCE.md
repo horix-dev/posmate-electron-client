@@ -36,43 +36,95 @@
 ### Products
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/products` | ✅ | List all products |
-| GET | `/products/{id}` | ✅ | Get single product |
-| POST | `/products` | ✅ | Create product |
-| PUT | `/products/{id}` | ✅ | Update product |
+| GET | `/products` | ✅ | List all products with variants, stocks, and attributes |
+| GET | `/products/{id}` | ✅ | Get single product (includes variants + variant stocks/attributes for variable products) |
+| POST | `/products` | ✅ | Create product (single/batch/variable) |
+| PUT | `/products/{id}` | ✅ | Update product (single/batch only) |
 | DELETE | `/products/{id}` | ✅ | Delete product |
+| GET | `/products/by-barcode/{barcode}` | ✅ | Find product by barcode (searches products, variants, batch numbers) |
+
+### Product Variants (Attribute-Based)
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/products/{productId}/variants` | ✅ | List variants for a product |
+| GET | `/variants/{variantId}` | ✅ | Get single variant details |
+| POST | `/products/{productId}/variants` | ✅ | Create new variant |
+| PUT | `/variants/{variantId}` | ✅ | Update variant (pricing, SKU, barcode, etc.) |
+| DELETE | `/variants/{variantId}` | ✅ | Delete variant |
+| PUT | `/variants/{variantId}/stock` | ✅ | Update variant stock |
+| PATCH | `/variants/{variantId}/toggle-active` | ✅ | Toggle variant active/inactive status |
+| POST | `/products/{productId}/variants/find` | ✅ | Find variant by attributes |
+| POST | `/products/{productId}/variants/generate` | ✅ | Bulk generate variants |
+| PUT | `/products/{productId}/variants/bulk` | ✅ | Bulk update multiple variants (HTTP 207 partial success) |
+| POST | `/products/{productId}/variants/duplicate` | ✅ | Duplicate/clone a variant with new attributes |
+| GET | `/products/{productId}/variants/stock-summary` | ✅ | Get stock breakdown by warehouse/branch |
+| GET | `/variants/by-barcode/{barcode}` | ✅ | Find variant by barcode |
 
 ### Categories
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/categories` | ✅ | List categories |
+| GET | `/categories` | ✅ | **Flexible pagination** - supports 4 modes (see below) |
+| GET | `/categories?limit=100` | ✅ | Limit mode - flat array (max 1000) |
+| GET | `/categories?page=1&per_page=10` | ✅ | Offset pagination - paginated object (max 100/page) |
+| GET | `/categories?cursor=0&per_page=100` | ✅ | Cursor pagination - flat array + cursor (max 1000/batch) |
+| GET | `/categories?status=1&search=elec` | ✅ | Filters - works with all modes |
+| GET | `/categories/paginated` | ✅ | ⚠️ Legacy - use `?page=1&per_page=10` instead |
+| GET | `/categories/filter` | ✅ | ⚠️ Legacy - use `?search=term` instead |
 | POST | `/categories` | ✅ | Create category |
+| GET | `/categories/{id}` | ✅ | Get single category |
 | PUT | `/categories/{id}` | ✅ | Update category |
 | DELETE | `/categories/{id}` | ✅ | Delete category |
+| PATCH | `/categories/{id}/status` | ✅ | Update category status |
+| POST | `/categories/delete-all` | ✅ | Delete multiple categories |
+
+**Pagination Modes:**
+- **Default** (no params): All items, flat array, limit 1000
+- **Limit** (`?limit=N`): First N items, flat array, max 1000 (for dropdowns)
+- **Offset** (`?page=X&per_page=Y`): Paginated object, max 100/page (for tables)
+- **Cursor** (`?cursor=X&per_page=Y`): Flat array + cursor, max 1000/batch (for sync)
+
+**Filters:** `status` (1/0), `search` (text) - compatible with all modes
 
 ### Brands
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/brands` | ✅ | List brands |
+| GET | `/brands` | ✅ | List all brands with pagination |
+| GET | `/brands/filter` | ✅ | Search/filter brands by name & description |
 | POST | `/brands` | ✅ | Create brand |
+| GET | `/brands/{id}` | ✅ | Get single brand |
 | PUT | `/brands/{id}` | ✅ | Update brand |
 | DELETE | `/brands/{id}` | ✅ | Delete brand |
+| PATCH | `/brands/{id}/status` | ✅ | Update brand status |
+| POST | `/brands/delete-all` | ✅ | Delete multiple brands |
+
+Note: List and filter endpoints accept `per_page` and `page`.
 
 ### Units
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/units` | ✅ | List units |
+| GET | `/units` | ✅ | List units (pagination) |
+| GET | `/units/filter` | ✅ | Search/filter units by name |
 | POST | `/units` | ✅ | Create unit |
 | PUT | `/units/{id}` | ✅ | Update unit |
 | DELETE | `/units/{id}` | ✅ | Delete unit |
+| PATCH | `/units/{id}/status` | ✅ | Update unit status |
+| POST | `/units/delete-all` | ✅ | Delete multiple units |
+
+Note: List and filter endpoints accept `per_page` and `page`.
 
 ### Product Models
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/product-models` | ✅ | List models |
+| GET | `/product-models` | ✅ | List all models with pagination |
+| GET | `/product-models/filter` | ✅ | Search/filter models by name |
 | POST | `/product-models` | ✅ | Create model |
+| GET | `/product-models/{id}` | ✅ | Get single model |
 | PUT | `/product-models/{id}` | ✅ | Update model |
 | DELETE | `/product-models/{id}` | ✅ | Delete model |
+| PATCH | `/product-models/{id}/status` | ✅ | Update model status |
+| POST | `/product-models/delete-all` | ✅ | Delete multiple models |
+
+Note: List and filter endpoints accept `per_page` and `page`.
 
 ### Attributes (Variable Products)
 | Method | Endpoint | Auth | Description |
@@ -111,18 +163,60 @@
 ### Sales
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/sales` | ✅ | List sales |
+| GET | `/sales` | ✅ | List sales (supports pagination: limit, page/per_page, cursor) |
 | POST | `/sales` | ✅ | Create sale |
 | PUT | `/sales/{id}` | ✅ | Update sale |
 | DELETE | `/sales/{id}` | ✅ | Delete sale |
 
+**Sales Pagination Examples:**
+```bash
+# Default - all with safety limit
+GET /sales
+
+# Dropdown mode
+GET /sales?limit=50
+
+# Table mode with filters
+GET /sales?page=1&per_page=20&party_id=5&isPaid=true
+
+# Cursor mode for sync
+GET /sales?cursor=0&per_page=500
+
+# Filter by date range
+GET /sales?date_from=2024-01-01&date_to=2024-12-31&limit=100
+
+# Show only sales with returns
+GET /sales?returned-sales=true
+```
+
 ### Purchases
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/purchase` | ✅ | List purchases |
-| POST | `/purchase` | ✅ | Create purchase |
-| PUT | `/purchase/{id}` | ✅ | Update purchase |
+| GET | `/purchase` | ✅ | List purchases (supports pagination: limit, page/per_page, cursor) |
+| POST | `/purchase` | ✅ | Create purchase (supports variant_id for variant-specific stock tracking) |
+| PUT | `/purchase/{id}` | ✅ | Update purchase (supports variant_id for variant-specific stock) |
 | DELETE | `/purchase/{id}` | ✅ | Delete purchase |
+
+**Purchases Pagination Examples:**
+```bash
+# Default - all with safety limit
+GET /purchase
+
+# Dropdown mode
+GET /purchase?limit=50
+
+# Table mode with filters
+GET /purchase?page=1&per_page=20&party_id=5&isPaid=true
+
+# Cursor mode for sync
+GET /purchase?cursor=0&per_page=500
+
+# Filter by date range
+GET /purchase?date_from=2024-01-01&date_to=2024-12-31&limit=100
+
+# Show only purchases with returns
+GET /purchase?returned-purchase=true
+```
 
 ### Returns
 | Method | Endpoint | Auth | Description |
@@ -145,8 +239,13 @@
 ### Expenses
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/expenses` | ✅ | List expenses |
+| GET | `/expenses` | ✅ | List all expenses with related data |
+| GET | `/expenses/filter` | ✅ | Search/filter expenses by branch & search term |
 | POST | `/expenses` | ✅ | Create expense |
+| GET | `/expenses/{id}` | ✅ | Get single expense details |
+| PUT | `/expenses/{id}` | ✅ | Update expense |
+| DELETE | `/expenses/{id}` | ✅ | Delete expense |
+| POST | `/expenses/delete-all` | ✅ | Delete multiple expenses |
 | GET | `/expense-categories` | ✅ | List categories |
 | POST | `/expense-categories` | ✅ | Create category |
 | PUT | `/expense-categories/{id}` | ✅ | Update category |
@@ -155,8 +254,13 @@
 ### Incomes
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/incomes` | ✅ | List incomes |
+| GET | `/incomes` | ✅ | List all incomes with related data |
+| GET | `/incomes/filter` | ✅ | Search/filter incomes by branch & search term |
 | POST | `/incomes` | ✅ | Create income |
+| GET | `/incomes/{id}` | ✅ | Get single income details |
+| PUT | `/incomes/{id}` | ✅ | Update income |
+| DELETE | `/incomes/{id}` | ✅ | Delete income |
+| POST | `/incomes/delete-all` | ✅ | Delete multiple incomes |
 | GET | `/income-categories` | ✅ | List categories |
 | POST | `/income-categories` | ✅ | Create category |
 | PUT | `/income-categories/{id}` | ✅ | Update category |
@@ -184,6 +288,7 @@
 
 ## Inventory
 
+### Stocks & Warehouses
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | POST | `/stocks` | ✅ | Add stock |
@@ -194,12 +299,43 @@
 | PUT | `/warehouses/{id}` | ✅ | Update warehouse |
 | DELETE | `/warehouses/{id}` | ✅ | Delete warehouse |
 
+### Racks
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/racks` | ✅ | List racks (pagination) |
+| GET | `/racks/filter` | ✅ | Search/filter racks by name |
+| POST | `/racks` | ✅ | Create rack |
+| GET | `/racks/{id}` | ✅ | Get single rack |
+| PUT | `/racks/{id}` | ✅ | Update rack |
+| DELETE | `/racks/{id}` | ✅ | Delete rack |
+| PATCH | `/racks/{id}/status` | ✅ | Update rack status |
+| POST | `/racks/delete-all` | ✅ | Delete multiple racks |
+
+Note: List and filter endpoints accept `per_page` and `page`.
+
+### Shelves
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/shelves` | ✅ | List shelves (pagination) |
+| GET | `/shelves/filter` | ✅ | Search/filter shelves by name |
+| POST | `/shelves` | ✅ | Create shelf |
+| GET | `/shelves/{id}` | ✅ | Get single shelf |
+| PUT | `/shelves/{id}` | ✅ | Update shelf |
+| DELETE | `/shelves/{id}` | ✅ | Delete shelf |
+| PATCH | `/shelves/{id}/status` | ✅ | Update shelf status |
+| POST | `/shelves/delete-all` | ✅ | Delete multiple shelves |
+
+Note: List and filter endpoints accept `per_page` and `page`.
+
 ## Reports & Analytics
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/summary` | ✅ | Get today's summary |
 | GET | `/dashboard` | ✅ | Get dashboard data |
+| GET | `/reports/variants/sales-summary` | ✅ | Variant sales analysis with grouping (by variant/product/day/month) |
+| GET | `/reports/variants/top-selling` | ✅ | Top selling variants by quantity/revenue/profit |
+| GET | `/reports/variants/slow-moving` | ✅ | Slow-moving inventory analysis with stock insights |
 
 ## Users & Staff
 
@@ -353,6 +489,8 @@ curl -X POST http://localhost:8000/api/v1/attributes \
 
 #### Step 2: Create Variable Product with Variants (Single Call)
 
+*Note:* `barcode` is optional but must be unique per business when provided.
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/products \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -367,14 +505,17 @@ curl -X POST http://localhost:8000/api/v1/products \
     "variants": [
       {
         "sku": "TSHIRT-S-RED",
+        "barcode": "8901234567001",
         "cost_price": 300,
         "price": 599,
         "dealer_price": 549,
         "wholesale_price": 499,
+        "initial_stock": 20,
         "attribute_value_ids": [1, 4]
       },
       {
         "sku": "TSHIRT-S-BLUE",
+        "barcode": "8901234567002",
         "cost_price": 300,
         "price": 599,
         "dealer_price": 549,
@@ -383,6 +524,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-M-RED",
+        "barcode": "8901234567003",
         "cost_price": 320,
         "price": 649,
         "dealer_price": 599,
@@ -391,6 +533,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-M-BLUE",
+        "barcode": "8901234567004",
         "cost_price": 320,
         "price": 649,
         "dealer_price": 599,
@@ -399,6 +542,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-L-RED",
+        "barcode": "8901234567005",
         "cost_price": 350,
         "price": 699,
         "dealer_price": 649,
@@ -407,6 +551,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       },
       {
         "sku": "TSHIRT-L-BLUE",
+        "barcode": "8901234567006",
         "cost_price": 350,
         "price": 699,
         "dealer_price": 649,
@@ -431,6 +576,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       {
         "id": 156,
         "sku": "TSHIRT-S-RED",
+        "barcode": "8901234567001",
         "variant_name": "Small, Red",
         "price": 599,
         "attributeValues": [
@@ -441,6 +587,7 @@ curl -X POST http://localhost:8000/api/v1/products \
       {
         "id": 157,
         "sku": "TSHIRT-S-BLUE",
+        "barcode": "8901234567002",
         "variant_name": "Small, Blue",
         "price": 599,
         "attributeValues": [
@@ -481,4 +628,104 @@ curl -X POST http://localhost/api/v1/products/1/variants/find \
 
 ---
 
-**Last Updated:** December 4, 2025
+## Batch/Lot Management
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/products/{id}/batches` | ✅ | List all batches for a product |
+| GET | `/variants/{id}/batches` | ✅ | List all batches for a variant |
+| GET | `/batches/expiring?days=30` | ✅ | Get batches expiring within N days |
+| GET | `/batches/expired` | ✅ | Get all expired batches |
+| GET | `/batches/{id}` | ✅ | Get batch details with history |
+| GET | `/batches/{id}/movements` | ✅ | Get batch movement history |
+| POST | `/products/{id}/select-batches` | ✅ | **Auto-select batches** using FIFO/FEFO/LIFO strategy |
+
+### Batch Selection Strategies
+
+Products can be configured with automatic batch selection strategies:
+
+- **`manual`** (default) - No automatic selection, user chooses batches
+- **`fifo`** - First In First Out - selects oldest batches first (by manufacturing date)
+- **`fefo`** - First Expire First Out - selects batches expiring soonest first
+- **`lifo`** - Last In First Out - selects newest batches first (by manufacturing date)
+
+**Configure Strategy:**
+```bash
+curl -X PUT http://localhost/api/v1/products/{id} \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{"batch_selection_strategy": "fefo"}'
+```
+
+**Auto-Select Batches:**
+```bash
+curl -X POST http://localhost/api/v1/products/{id}/select-batches \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "quantity": 100,
+    "variant_id": 12,
+    "warehouse_id": 1
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "strategy": "fefo",
+  "requested_quantity": 100,
+  "total_available": 150,
+  "selected_batches": [
+    {
+      "stock_id": 45,
+      "batch_no": "BATCH-001",
+      "allocated_quantity": 50,
+      "available_quantity": 50,
+      "mfg_date": "2024-01-15",
+      "expire_date": "2025-06-30",
+      "warehouse": {"id": 1, "name": "Main Warehouse"},
+      "pricing": {
+        "cost_price": 100.00,
+        "sale_price": 150.00
+      }
+    },
+    {
+      "stock_id": 46,
+      "batch_no": "BATCH-002",
+      "allocated_quantity": 50,
+      "available_quantity": 100,
+      "expire_date": "2025-12-31"
+    }
+  ]
+}
+```
+
+### Movement Types
+- `purchase` - Stock received from supplier
+- `sale` - Stock sold to customer  
+- `purchase_return` - Stock returned to supplier
+- `sale_return` - Stock returned from customer
+- `adjustment` - Inventory adjustment
+- `transfer_out` - Stock transferred out
+- `transfer_in` - Stock transferred in
+- `dispose` - Stock disposed/written off
+- `initial` - Initial stock entry
+
+### Expired Stock Prevention
+The system automatically blocks sales of expired batches and returns:
+```json
+{
+  "success": false,
+  "message": "Cannot sell expired batch",
+  "batch": {
+    "batch_no": "BATCH-2023-100",
+    "expire_date": "2023-12-31",
+    "days_expired": 30
+  }
+}
+```
+**HTTP Status:** 406 Not Acceptable
+
+---
+
+**Last Updated:** December 21, 2025

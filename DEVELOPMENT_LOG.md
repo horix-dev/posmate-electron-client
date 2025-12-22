@@ -1,3 +1,146 @@
+## 2025-12-21 — Sales Filters Enhanced UI (Calendar Date Pickers)
+
+**Problem**: Sales page had basic date input filters while purchases page had enhanced Calendar component date pickers with better UX.
+
+**Solution**: Updated SalesFiltersBar to match the enhanced purchases UI:
+- ✅ **Calendar Date Pickers**: Replaced basic `<Input type="date">` with Calendar component from shadcn/ui
+- ✅ **Consistent Layout**: Horizontal flex-wrap layout with consistent spacing
+- ✅ **Customer Dropdown**: Added customer dropdown using `partiesService.getCustomers()`
+- ✅ **Date Format Display**: Shows formatted dates (e.g., "Dec 21, 2025") instead of raw ISO format
+- ✅ **Clear Filters Button**: Consolidated clear button that appears when filters are active
+- ✅ **Memoization**: Added `memo()` for performance optimization
+
+**Files Modified**:
+- `src/pages/sales/components/SalesFiltersBar.tsx` - Complete rewrite with Calendar components
+
+**API Verified**:
+- Sales endpoints confirmed correct: `GET /sales` supports pagination (limit, page/per_page, cursor)
+- Supports filters: `date_from`, `date_to`, `party_id`, `isPaid`, `search`, `returned-sales`
+
+**UI Improvements**:
+- Date pickers now use Calendar popover with visual date selection
+- Consistent button styling and sizing across all filters
+- Improved mobile responsiveness with flex-wrap
+- Better visual feedback for active filters
+
+---
+
+## 2025-12-21 — Purchase Dialog Scrolling & Variable Product Support
+
+**Problem**: 
+1. New Purchase dialog content was not scrollable, causing overflow issues with many products
+2. Variable product variant selection was missing - dialog had `variant_id` field but no UI to select variants
+
+**Solution**:
+1. **Scrolling**: Added `overflow-y-auto` and explicit max-height to ScrollArea component: `style={{ maxHeight: 'calc(90vh - 200px)' }}`
+2. **Variable Products**: 
+   - Fetch and store products list in dialog state for variant access
+   - Added dynamic variant dropdown that appears when a variable product is added
+   - Dropdown shows variant name and stock level
+   - Auto-updates pricing fields when variant is selected from variant's stock data
+   - Uses native `<select>` with Tailwind classes matching shadcn/ui Input style
+
+**Files Modified**:
+- `src/pages/purchases/components/NewPurchaseDialog.tsx` - Added scrolling, variant selection UI, products state management
+
+**Features Added**:
+- ✅ Dialog content scrolls properly with multiple products
+- ✅ Variable product variant selection with stock display
+- ✅ Auto-fill prices from selected variant stock
+- ✅ Maintains standard product flow for simple products
+
+---
+
+## 2025-12-21 — Purchase Endpoints Refactored (Singular/Plural)
+
+**Problem**: API documentation updated to use singular endpoint for listing (`/purchase`) while keeping plural for CRUD operations (`/purchases`).
+
+**Solution**: Updated frontend endpoints configuration to match backend API:
+- `GET /purchase` - List purchases (with pagination, filters)
+- `POST /purchases` - Create purchase
+- `GET /purchases/{id}` - Get single purchase
+- `PUT /purchases/{id}` - Update purchase
+- `DELETE /purchases/{id}` - Delete purchase
+
+**Files Modified**:
+- `src/api/endpoints.ts` - Changed `PURCHASES.LIST` from `/purchases` to `/purchase`
+
+**Verification**: TypeScript typecheck passed, no breaking changes to existing purchase service implementation.
+
+---
+
+## 2025-01-XX — Purchase Management Implementation
+
+**Problem**: Purchase management page needed complete implementation with filtering, pagination, stats, and CRUD operations following the established SalesPage pattern.
+
+**Solution**: Implemented comprehensive purchase management feature with:
+- **Data Hook**: `usePurchases` with server-side pagination, filters (search, date range, supplier, payment status), stats calculation
+- **Table**: Paginated table with view/edit/delete actions and row formatting
+- **Filters**: Search, date range pickers (Calendar), supplier dropdown, payment status selector
+- **Stats**: Cards showing total purchases, amounts, paid/due breakdown
+- **Dialogs**: View details, delete confirmation, new purchase creation with product selection and batch/lot tracking
+- **Service**: Enhanced `purchases.service.ts` with `filter()` method and `per_page` parameter
+
+**Files Created**:
+- `src/pages/purchases/hooks/usePurchases.ts` - Main data fetching hook
+- `src/pages/purchases/hooks/index.ts` - Hook exports
+- `src/pages/purchases/components/PurchasesTable.tsx` - Paginated table
+- `src/pages/purchases/components/PurchasesFiltersBar.tsx` - Filter controls with Calendar
+- `src/pages/purchases/components/PurchasesStatsCards.tsx` - Stats display
+- `src/pages/purchases/components/PurchaseDetailsDialog.tsx` - View details
+- `src/pages/purchases/components/DeletePurchaseDialog.tsx` - Delete confirmation
+- `src/pages/purchases/components/NewPurchaseDialog.tsx` - Create purchase with batch/lot support
+- `src/pages/purchases/components/index.ts` - Component exports
+- `src/components/ui/calendar.tsx` - Added Calendar from shadcn/ui
+
+**Files Modified**:
+- `src/pages/purchases/PurchasesPage.tsx` - Complete rewrite with all components wired
+- `src/api/services/purchases.service.ts` - Added `filter()` method and `per_page` parameter
+
+**Features**:
+- ✅ Server-side pagination with per-page control
+- ✅ Search across invoice number and supplier
+- ✅ Date range filtering with Calendar pickers
+- ✅ Supplier dropdown (from partiesService.getSuppliers)
+- ✅ Payment status filter (Paid, Partial, Unpaid)
+- ✅ Stats cards with loading skeletons
+- ✅ Product selection with search in new purchase dialog
+- ✅ Batch/lot tracking fields (batch_no, mfg_date, expire_date)
+- ✅ Auto-calculation of totals and due amounts
+- ✅ Follows existing SalesPage pattern for consistency
+
+**Next Steps**:
+- Add edit purchase functionality (EditPurchaseDialog)
+- Add purchase returns feature
+- Add export to CSV/PDF
+- Add print invoice
+
+---
+
+## 2025-12-20 — Print Labels Preview Alignment
+
+- Problem: `BarcodePreview` used `BarcodeItem` from barcodes service and injected raw SVG via `dangerouslySetInnerHTML`; needed alignment with Print Labels API (`LabelPayload`) and proper PNG/SVG rendering.
+- Solution: Switched preview component to consume `LabelPayload` from `print-labels.service` and render barcode image using `<img src>` with base64 PNG or inline SVG data URL. Guarded price rendering for numeric values.
+- Files Modified: [src/pages/product-settings/components/print-labels/BarcodePreview.tsx](src/pages/product-settings/components/print-labels/BarcodePreview.tsx)
+
+## 2025-12-20 — Print Labels Settings + Generate Wiring
+
+- Problem: Settings were sourced from legacy `barcodesService` and preview/generate types mismatched new API.
+- Solution: Refactored `PrintLabelsPage` to load config from `printLabelsService.getConfig()` (mapping arrays to `{value,label}`), and use `printLabelsService.generate()` for both preview and print flows with aligned arrays (`stock_ids`, `qty`, `preview_date`) and toggles/sizes. Preview now consumes `LabelPayload[]`.
+- Files Modified: [src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx](src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx)
+- Docs Updated: [backend_docs/API_QUICK_REFERENCE.md](backend_docs/API_QUICK_REFERENCE.md) with latest endpoints and payloads.
+
+## 2025-12-20 — Printer Settings & Barcode Types Docs Sync
+
+- Problem: Quick reference missing detailed barcode types table and printer settings mapping.
+- Solution: Added comprehensive reference tables to both docs:
+  - Barcode types: C39E+, C93, S25, S25+, I25, I25+, C128 (default), C128A, C128B, C128C, EAN2, EAN5, EAN8, EAN13
+  - Label formats: 2x1 (50mm×25mm), 1.5x1 (38mm×25mm), 2x1.25 (sheet 28/page)
+  - Printer settings: 1=Roll 1.5"×1", 2=Roll 2"×1", 3=Sheet 28/page
+  - Frontend mapping: Config returns `printer_settings` array (1/2/3); UI dropdown maps to Printer 1/2/3 labels
+- Files Modified: [backend_docs/API_QUICK_REFERENCE.md](backend_docs/API_QUICK_REFERENCE.md) with tables, workflow example, and parameter docs
+- Services Updated: [src/api/services/print-labels.service.ts](src/api/services/print-labels.service.ts) extends `getConfig()` return type to include `printer_settings: number[]`
+
 # Horix POS Pro - Development Log
 
 > This document tracks development progress, architectural decisions, and implementation details for future reference.
@@ -11,6 +154,58 @@
 **Backend**: Laravel API (external)  
 **Offline Storage**: SQLite (better-sqlite3) in Electron, IndexedDB fallback in browser  
 **State Management**: Zustand  
+
+---
+
+## Latest Updates
+
+### December 20, 2025 - Category & Brand Icon Fallbacks
+
+**Problem**: API sometimes returns no `icon` for categories/brands, resulting in empty placeholders in tables.
+
+**Solution**: Implemented first-letter avatar fallback when `icon` is missing or image fails to load.
+
+**Files Modified**:
+- `src/pages/product-settings/components/categories/CategoriesTable.tsx` – Always renders an icon area; uses the category name's first letter when `icon` is missing; keeps `CachedImage` with letter fallback on load error.
+- `src/pages/product-settings/components/brands/BrandsTable.tsx` – Switched to `CachedImage`; renders brand name's first letter when `icon` is missing; letter fallback on load error.
+
+**Benefits**:
+- ✅ Consistent visual identity even without API-provided icons
+- ✅ No broken image placeholders; graceful degradation
+- ✅ Minimal changes aligned with existing component patterns
+
+**Next Steps**: Extend the same fallback to other entities that support icons (e.g., products, units) for consistency.
+
+<!-- Entry removed: Icon fallbacks for models, racks, shelves were reverted per request. -->
+
+### December 18, 2025 - Categories API Pagination Implementation
+
+**Problem**: Backend introduced pagination to Categories API, breaking POS screen
+- Frontend expected flat array: `response.data → Category[]`
+- Backend changed to: `response.data.data → Category[]` (nested pagination)
+- Error: `categories.find is not a function`
+
+**Solution**: Implemented flexible query parameter-based pagination (industry standard)
+- ✅ **Limit Mode** (`?limit=100`): Flat array for POS dropdowns
+- ✅ **Offset Pagination** (`?page=1&per_page=10`): Paginated object for management tables
+- ✅ **Cursor Pagination** (`?cursor=123&per_page=100`): Efficient batching for offline sync
+- ✅ **Offline Support**: Client-side pagination fallback from SQLite/IndexedDB cache
+
+**Files Modified**:
+- `src/api/services/categories.service.ts` - Added `getList()`, `getPaginated()`, `getCursor()` methods
+- `src/api/services/inventory.service.ts` - Re-export new categoriesService
+- `src/pages/pos/hooks/usePOSData.ts` - Changed from `getAll()` to `getList({ limit: 1000, status: true })`
+- `backend_docs/PAGINATION_IMPLEMENTATION_GUIDE.md` - Created comprehensive guide for Laravel developer
+
+**Benefits**:
+- ✅ Fixes `categories.find is not a function` error
+- ✅ POS screen works with flat array response
+- ✅ Prevents memory issues with large datasets (pagination in sync)
+- ✅ Follows industry standards (Stripe, GitHub, Shopify pattern)
+- ✅ Maintains offline support for all modes
+- ✅ Backward compatible with existing code
+
+**Next Steps**: Apply same pattern to Products, Brands, Units, Parties APIs
 
 ---
 
@@ -73,7 +268,294 @@ src/
 
 ## Feature Implementation Log
 
-### [Current Date - Update with today's date]
+### December 17, 2025 (Evening)
+
+#### Print Labels / Barcode Generator - Full Implementation
+
+**Problem**: Product Settings "Print Labels" tab was a placeholder.
+
+**Solution**: Implemented comprehensive barcode generator following FRONTEND_BARCODE_PROMPTS specs:
+
+**Files Created**:
+- `src/api/services/barcodes.service.ts` - Barcode API integration
+- `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx` - Main page
+- `src/pages/product-settings/components/print-labels/ProductSearch.tsx` - Product search with debounce
+- `src/pages/product-settings/components/print-labels/SelectedProductsTable.tsx` - Selected products list
+- `src/pages/product-settings/components/print-labels/LabelConfiguration.tsx` - Label settings (toggles, font sizes)
+- `src/pages/product-settings/components/print-labels/BarcodeSettings.tsx` - Barcode type & paper format
+- `src/pages/product-settings/components/print-labels/BarcodePreview.tsx` - Live barcode preview
+- `src/components/ui/slider.tsx` - Range slider component (native HTML)
+- `src/components/ui/radio-group.tsx` - Radio button group (custom implementation)
+
+**Files Modified**:
+- `src/pages/product-settings/ProductSettingsPage.tsx` - Wired PrintLabelsPage into print-labels tab
+
+**Features**:
+✅ Section 1: Product search with autocomplete + selected products table
+✅ Section 2: Label configuration (toggles for business name, product name, price, code, packing date + font size sliders)
+✅ Section 3: Barcode settings (type dropdown + paper format radio buttons)
+✅ Section 4: Live barcode preview with paper layout simulation
+✅ Section 5: Preview, Generate & Print, Clear Selection buttons
+✅ Full API integration with barcode endpoints
+✅ Loading states and error handling
+
+**Result**:
+- ✅ Print Labels tab now fully functional with all 5 required sections
+- ✅ Follows Product Settings styling (Cards, buttons, spacing)
+- ✅ Responsive layout with proper form controls
+- ✅ Real-time preview updates when settings change
+
+---
+
+#### Print Labels: Dropdown Product Selection
+
+**Problem**: UX change requested to remove inline search and use a dropdown to select products for label printing.
+
+**Solution**: Replaced `ProductSearch` with a shadcn `Select`-based dropdown that lists the first 50 products via `barcodesService.searchProducts`. On selection, the app fetches full details with `getProductDetails` and adds the item to the selection. Added a refresh action to reload the list.
+
+**Files Modified**:
+- `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx` — Added dropdown product selector, removed `ProductSearch` usage, wired selection to `getProductDetails`, and kept the rest of the flow unchanged.
+- `src/pages/product-settings/components/print-labels/LabelConfiguration.tsx` — Removed unused `businessName` and `onBusinessNameChange` props to satisfy strict TypeScript rules.
+
+**Notes**:
+- Maintains existing API integration and preview/print flows.
+- Uses shadcn/ui `Select` for consistency with the design system.
+- No backend changes required.
+
+---
+
+#### Product Settings: Racks & Shelves Integration (UI)
+
+**Problem**: The Product Settings page showed placeholder cards for Racks and Shelves tabs, and the add action did not open dialogs for these resources.
+
+**Solution**: Integrated fully functional Racks and Shelves management into the page:
+
+**Files Modified**:
+- `src/pages/product-settings/ProductSettingsPage.tsx`
+
+**Key Changes**:
+1. Imported and wired `RacksTable`, `ShelvesTable`, `RackDialog`, and `ShelfDialog` components.
+2. Added dialog state: `isRackOpen`, `editingRack`, `isShelfOpen`, `editingShelf`.
+3. Updated `handleAdd()` to support `racks` and `shelfs` tabs, opening the corresponding dialogs.
+4. Replaced placeholder cards with the real tables; hooked up `onEdit` to open dialogs with selected rows.
+5. De-duplicated `UnitDialog` rendering and positioned all dialogs consistently at the bottom.
+6. Corrected tab label to display “Shelves” (tab value remains `shelfs` for compatibility).
+
+**Result**:
+- ✅ Racks and Shelves now have full list/edit/create flows with dialogs
+- ✅ Search, pagination, status toggle, and bulk delete are accessible via their tables
+- ✅ Add button opens the correct dialog based on the active tab
+
+
+### December 16, 2025
+
+#### Fixed Pagination Not Updating in Categories, Models, and Brands Tables
+
+**Problem**: When selecting to show 10 records from 19 total records, pagination was not working correctly:
+- It showed "Showing 1 to 10 of 10 entries" instead of "Showing 1 to 10 of 19 entries"
+- No next page button appeared
+- The API was being called with correct pagination parameters, but response metadata was not being extracted
+
+**Root Cause**: The API response structure has pagination metadata nested inside the `data` field, not at the top level:
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "current_page": 1,
+    "data": [...],      // <- actual items array
+    "per_page": 20,
+    "total": 50,
+    "last_page": 3
+  }
+}
+```
+
+The code was looking for `total` and `last_page` at the top level of the response, causing pagination data to not be found.
+
+**Solution**: Updated response parsing in all three tables to properly extract pagination metadata from the nested structure:
+
+**Files Modified**:
+- `src/pages/product-settings/components/categories/CategoriesTable.tsx`
+- `src/pages/product-settings/components/models/ModelsTable.tsx`
+- `src/pages/product-settings/components/brands/BrandsTable.tsx`
+
+**Key Changes**:
+1. Removed client-side pagination slicing logic (was overriding server-side pagination)
+2. Fixed response data extraction to handle nested structure: `r.data.data` for items array, `r.data.total` for pagination metadata
+3. Fallback logic for different API response structures
+4. Proper calculation of `lastPage` from response metadata
+
+**Result**: 
+- ✅ Pagination now correctly shows total record count from API
+- ✅ Next/Previous page buttons appear and work correctly
+- ✅ Changing records per page (10, 25, 50, 100) properly refetches with new pagination
+- ✅ Page navigation correctly reflects available pages
+
+---
+
+### December 15, 2025
+
+#### POS Page Pagination Fix (Complete)
+
+**Problem**: The POS page crashed with `TypeError: categories.find is not a function`.
+**Cause**: The `categoriesService.getAll()` and `productsService.getAll()` methods were updated to return paginated responses (objects containing `data` arrays), but `usePOSData` hook still expected direct arrays.
+**Solution**: Updated `usePOSData` to normalize the response data, handling both direct arrays and nested paginated structures (`response.data.data`).
+
+**Files Modified**:
+- `src/pages/pos/hooks/usePOSData.ts`
+
+---
+
+### December 12, 2025
+
+#### SQLite Schema Enhancement for Variable Products
+
+**Problem**: Variable products were losing their variant data when cached to SQLite for offline use. The SQLite schema only stored basic product fields and didn't handle:
+- `product_type` field (simple/variable/batch)
+- `variants` array with full attribute information
+- Multiple stocks per product (for variants)
+- Variant-level pricing and stock
+
+**Solution**: Implemented proper relational database schema (Option A - Industry Standard):
+
+**New SQLite Tables**:
+```sql
+-- Added to products table
+product_type TEXT DEFAULT 'simple'
+has_variants INTEGER DEFAULT 0
+
+-- New product_variants table
+CREATE TABLE product_variants (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL,
+  sku TEXT NOT NULL,
+  barcode TEXT,
+  price, cost_price, wholesale_price, dealer_price,
+  image TEXT,
+  is_active INTEGER DEFAULT 1,
+  attributes_json TEXT, -- Serialized attribute values
+  FOREIGN KEY (product_id) REFERENCES products(id)
+)
+
+-- New variant_stocks table (replaces single stock columns)
+CREATE TABLE variant_stocks (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL,
+  variant_id INTEGER, -- NULL for simple products
+  batch_no TEXT,
+  stock_quantity REAL,
+  purchase_price, sale_price, wholesale_price, dealer_price,
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id)
+)
+```
+
+**Implementation Details**:
+1. **Schema Migration**: Added column migration to existing databases (ALTER TABLE for backward compatibility)
+2. **Bulk Upsert**: Updated to insert product → variants → stocks in transaction
+3. **Data Loading**: Enhanced `productGetAll()` to join variants and stocks
+4. **Type Updates**: Extended `LocalProduct` interface with `product_type`, `variants`, `stocks` arrays
+
+**Benefits**:
+- ✅ Variable products work completely offline with full variant selection
+- ✅ Proper data normalization (no JSON columns for queryable data)
+- ✅ Variant stock tracking per variant
+- ✅ Supports batch products and future extensions
+- ✅ Maintains backward compatibility with existing simple products
+
+**Files Modified**:
+- `electron/sqlite.service.ts` - Schema migration, new tables, updated insert/select logic
+- `src/pages/pos/hooks/usePOSData.ts` - Preserve full `variants` and `stocks` arrays when caching
+- `.github/copilot-instructions.md` - Clarified backend vs Electron main process distinction
+
+**Note**: Existing cached data will be migrated automatically on next app start. Users may need to go online once to refresh the cache with variant data.
+
+---
+
+### December 11, 2025
+
+#### API Alignment & New Backend Endpoint Integration
+
+**Problem**: Analysis revealed several gaps between frontend implementation and API documentation:
+1. Sale payload was missing `variant_id` and `variant_name` for variable products
+2. Cart display didn't show variant information
+3. New backend endpoints needed frontend integration (bulk operations, barcode lookup, reports)
+
+**Solution**: Comprehensive update to align with API and integrate new endpoints.
+
+**Critical Fixes**:
+1. **Sale Payload** (`POSPage.tsx`): Added `variant_id` and `variant_name` to `productsForApi` array
+2. **Cart Display** (`POSPage.tsx`): Enhanced `adaptedCartItems` to include variant SKU, name, ID, and use variant stock/image when available
+3. **Barcode Scanner** (`POSPage.tsx`): Enhanced to support API barcode lookup for variants not in local cache
+
+**Type Updates**:
+- `UpdateVariantRequest`: Added `barcode?: string` for variant barcode updates
+- `PurchaseProductItem`: Added `variant_id?: number` for variant-level purchases
+- Added new types for bulk operations, stock summary, barcode lookup, and reports
+
+**New API Endpoints** (`endpoints.ts`):
+```typescript
+VARIANTS: {
+  // ...existing endpoints...
+  BULK_UPDATE: (productId) => `/products/${productId}/variants/bulk`,
+  DUPLICATE: (productId) => `/products/${productId}/variants/duplicate`,
+  TOGGLE_ACTIVE: (id) => `/variants/${id}/toggle-active`,
+  BY_BARCODE: (barcode) => `/variants/by-barcode/${barcode}`,
+  STOCK_SUMMARY: (productId) => `/products/${productId}/variants/stock-summary`,
+},
+BARCODE: {
+  LOOKUP: (barcode) => `/products/by-barcode/${barcode}`,
+},
+VARIANT_REPORTS: {
+  SALES_SUMMARY: '/reports/variants/sales-summary',
+  TOP_SELLING: '/reports/variants/top-selling',
+  SLOW_MOVING: '/reports/variants/slow-moving',
+}
+```
+
+**New Service Methods** (`variants.service.ts`):
+- `bulkUpdate()`: Bulk update multiple variants (HTTP 207 support)
+- `duplicate()`: Clone variant with new attributes
+- `toggleActive()`: Quick active status toggle
+- `getStockSummary()`: Stock breakdown by warehouse/branch
+- `getByBarcode()`: Direct variant lookup by barcode
+
+**New Reports Service** (`variantReportsService`):
+- `getSalesSummary()`: Sales by variant with grouping options
+- `getTopSelling()`: Top selling variants by quantity/revenue/profit
+- `getSlowMoving()`: Slow-moving inventory identification
+
+**Products Service Update** (`products.service.ts`):
+- `getByBarcode()`: Universal barcode lookup (products, variants, batches)
+
+**Files Modified**:
+- `src/pages/pos/POSPage.tsx` - Sale payload, cart adapter, barcode scanner
+- `src/types/variant.types.ts` - New types for all operations
+- `src/types/api.types.ts` - `variant_id` in `PurchaseProductItem`
+- `src/api/endpoints.ts` - New endpoint definitions
+- `src/api/services/variants.service.ts` - New methods & reports service
+- `src/api/services/products.service.ts` - Barcode lookup method
+- `src/api/services/index.ts` - Export `variantReportsService`
+
+**Reference**: See `API_ALIGNMENT_ANALYSIS.md` for detailed analysis document.
+
+---
+
+### December 8, 2025
+
+#### Variable Products - Initial Stock Support
+
+**Problem**: Backend now supports `initial_stock` per variant in a single create call; frontend needed to collect and send it.
+
+**Solution**:
+1. Added `initial_stock` to variant schema and payload for create/update
+2. Added Initial Stock column to Variant Manager table (per-variant input)
+3. Type updates so ProductVariant and form mapping accept `initial_stock`
+
+**Files Modified**:
+- `src/pages/products/schemas/product.schema.ts` – schema + form mapping includes `initial_stock`
+- `src/pages/products/components/VariantManager.tsx` – UI column for initial stock
+- `src/types/variant.types.ts` – allow `initial_stock` on ProductVariant
 
 #### Variable Products - Single API Request Implementation (Complete)
 

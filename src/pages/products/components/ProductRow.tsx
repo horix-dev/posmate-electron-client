@@ -52,7 +52,17 @@ function ProductRowComponent({
   const salePrice = getSalePrice(product)
   const purchasePrice = getPurchasePrice(product)
   const isVariable = product.product_type === 'variable'
-  const variantCount = product.variants?.length ?? 0
+
+  // Count variants: use variants array if available, otherwise count unique variant_ids in stocks
+  const variantCount =
+    product.variants?.length ??
+    (product.stocks
+      ? new Set(
+          product.stocks
+            .filter((stock) => stock.variant_id !== null && stock.variant_id !== undefined)
+            .map((stock) => stock.variant_id)
+        ).size
+      : 0)
 
   const handleView = () => onView(product)
   const handleEdit = () => onEdit(product)
@@ -106,9 +116,7 @@ function ProductRowComponent({
 
       {/* Brand */}
       <TableCell>
-        <span className="text-sm text-muted-foreground">
-          {product.brand?.brandName || '-'}
-        </span>
+        <span className="text-sm text-muted-foreground">{product.brand?.brandName || '-'}</span>
       </TableCell>
 
       {/* Price */}
@@ -116,9 +124,7 @@ function ProductRowComponent({
         <div className="text-right">
           {isVariable && variantCount > 0 ? (
             <>
-              <p className="font-medium text-muted-foreground text-sm">
-                Variable pricing
-              </p>
+              <p className="text-sm font-medium text-muted-foreground">Variable pricing</p>
               <p className="text-xs text-muted-foreground">
                 Base: {currencySymbol}
                 {salePrice.toLocaleString()}
@@ -153,9 +159,7 @@ function ProductRowComponent({
       <TableCell>
         <Badge
           variant={stockStatus.variant === 'warning' ? 'outline' : stockStatus.variant}
-          className={cn(
-            stockStatus.variant === 'warning' && 'border-yellow-500 text-yellow-600'
-          )}
+          className={cn(stockStatus.variant === 'warning' && 'border-yellow-500 text-yellow-600')}
         >
           {stockStatus.status === 'low' && (
             <AlertTriangle className="mr-1 h-3 w-3" aria-hidden="true" />

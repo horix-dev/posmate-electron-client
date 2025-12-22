@@ -36,6 +36,7 @@ export {
 } from './attributes.service'
 export {
   variantsService,
+  variantReportsService,
   getVariantDisplayName,
   getVariantEffectivePrice,
   getVariantTotalStock,
@@ -63,5 +64,11 @@ export type {
 } from './sync.service'
 
 // Export axios instance and types
-export { default as api, setAuthToken, getAuthToken, clearAuthToken, getApiErrorMessage } from '../axios'
+export {
+  default as api,
+  setAuthToken,
+  getAuthToken,
+  clearAuthToken,
+  getApiErrorMessage,
+} from '../axios'
 export type { ApiResponse, PaginatedApiResponse, ApiError } from '../axios'

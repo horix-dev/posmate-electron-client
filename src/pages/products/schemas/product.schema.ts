@@ -4,7 +4,10 @@ import { z } from 'zod'
  * Variant input schema for variable products
  */
 export const variantInputSchema = z.object({
+  id: z.number().optional(), // Existing variant ID for updates
   sku: z.string().optional(),
+  barcode: z.string().optional(),
+  initial_stock: z.number().int().min(0).optional(),
   enabled: z.union([z.literal(0), z.literal(1)]).default(1),
   cost_price: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
@@ -90,12 +93,10 @@ export const productFormSchema = z.object({
         .optional()
     ),
 
-  // Variants for variable products - managed separately
-  variants: z.array(variantInputSchema).optional(),
-
   // Description field for products
   description: z.string().optional(),
 })
+// Note: variants are managed separately in component state and validated in handleSubmit
 
 export type ProductFormData = z.infer<typeof productFormSchema>
 
@@ -113,7 +114,6 @@ export const defaultProductFormValues: ProductFormData = {
   productPurchasePrice: '',
   productSalePrice: '',
   productStock: '',
-  variants: [],
   description: '',
 }
 
@@ -135,27 +135,36 @@ export function productToFormData(product: {
     productStock: number
   }>
   variants?: Array<{
+    id?: number
     sku: string
+    barcode?: string | null
+    initial_stock?: number | null
     price?: number | null
     cost_price?: number | null
     dealer_price?: number | null
     wholesale_price?: number | null
     is_active: boolean
+    attribute_value_ids?: number[]
     attribute_values?: Array<{ id: number }>
   }>
-}): ProductFormData {
+}): ProductFormData & { variants: VariantInputData[] } {
   const stock = product.stocks?.[0]
 
   // Convert existing variants to form format
   const variants: VariantInputData[] = product.variants?.map(v => ({
+    id: v.id, // Preserve variant ID for updates
     sku: v.sku || '',
+    barcode: v.barcode || '',
+    initial_stock: v.initial_stock ?? undefined,
     enabled: 1 as const,
     cost_price: v.cost_price ?? undefined,
     price: v.price ?? undefined,
     dealer_price: v.dealer_price ?? undefined,
     wholesale_price: v.wholesale_price ?? undefined,
     is_active: v.is_active ? 1 as const : 0 as const,
-    attribute_value_ids: v.attribute_values?.map(av => av.id) || [],
+    attribute_value_ids: v.attribute_value_ids
+      ? v.attribute_value_ids
+      : v.attribute_values?.map(av => av.id) || [],
   })) || []
 
   return {

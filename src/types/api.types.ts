@@ -224,6 +224,10 @@ export interface Category {
   variationSize?: number
   variationType?: number
   variationWeight?: number
+  icon?: string
+  status?: number
+  parentId?: number
+  version?: number
 }
 
 export interface CreateCategoryRequest {
@@ -233,6 +237,7 @@ export interface CreateCategoryRequest {
   variationSize?: boolean
   variationType?: boolean
   variationWeight?: boolean
+  icon?: File
 }
 
 // ============================================
@@ -242,10 +247,15 @@ export interface CreateCategoryRequest {
 export interface Brand {
   id: number
   brandName: string
+  description?: string
+  icon?: string
+  status?: number
 }
 
 export interface CreateBrandRequest {
   brandName: string
+  description?: string
+  icon?: File
 }
 
 // ============================================
@@ -255,10 +265,12 @@ export interface CreateBrandRequest {
 export interface Unit {
   id: number
   unitName: string
+  status?: number
 }
 
 export interface CreateUnitRequest {
   unitName: string
+  status?: boolean
 }
 
 // ============================================
@@ -268,10 +280,39 @@ export interface CreateUnitRequest {
 export interface ProductModel {
   id: number
   name: string
+  status?: number
 }
 
 export interface CreateProductModelRequest {
   name: string
+  status?: boolean
+}
+
+// ============================================
+// Rack & Shelf Types
+// ============================================
+
+export interface Rack {
+  id: number
+  name: string
+  status?: number
+}
+
+export interface CreateRackRequest {
+  name: string
+  status?: boolean
+  shelf_id?: number[]
+}
+
+export interface Shelf {
+  id: number
+  name: string
+  status?: number
+}
+
+export interface CreateShelfRequest {
+  name: string
+  status?: boolean
 }
 
 // ============================================
@@ -457,6 +498,7 @@ export interface CreatePurchaseRequest {
 
 export interface PurchaseProductItem {
   product_id: number
+  variant_id?: number // For variable products - identifies which variant is being purchased
   batch_no?: string
   quantities: number
   productPurchasePrice: number
@@ -533,12 +575,22 @@ export interface CreateDueCollectionRequest {
 export interface Expense {
   id: number
   amount: number
-  description?: string
+  // Note: Backend uses 'expanseFor' (typo with 'a' instead of 'e')
+  expanseFor?: string
+  expenseFor?: string
+  referenceNo?: string
+  note?: string
+  expenseDate?: string
   expense_category_id: number
   payment_type_id?: number
   created_at: string
   category?: ExpenseCategory
   payment_type?: PaymentType
+  // Legacy/Fallback/SnakeCase support
+  expense_for?: string
+  reference_no?: string
+  expense_date?: string
+  description?: string
 }
 
 export interface ExpenseCategory {
@@ -550,12 +602,20 @@ export interface ExpenseCategory {
 export interface Income {
   id: number
   amount: number
-  description?: string
+  incomeFor?: string
+  referenceNo?: string
+  note?: string
+  incomeDate?: string
   income_category_id: number
   payment_type_id?: number
   created_at: string
   category?: IncomeCategory
   payment_type?: PaymentType
+  // Legacy/Fallback/SnakeCase support
+  income_for?: string
+  reference_no?: string
+  income_date?: string
+  description?: string
 }
 
 export interface IncomeCategory {
@@ -652,4 +712,30 @@ export interface ProductSettingsModules {
   show_batch_no: string
   show_expire_date: string
   show_mfg_date: string
+}
+
+// ============================================
+// Print Labels Types
+// ============================================
+
+export interface PrintLabel {
+  id: number
+  name: string
+  description?: string
+  barcode_type: string
+  label_format: string
+  template_data?: Record<string, unknown>
+  status?: number
+  created_at?: string
+  updated_at?: string
+  business_id?: number
+}
+
+export interface CreatePrintLabelRequest {
+  name: string
+  description?: string
+  barcode_type: string
+  label_format: string
+  template_data?: Record<string, unknown>
+  status?: boolean
 }

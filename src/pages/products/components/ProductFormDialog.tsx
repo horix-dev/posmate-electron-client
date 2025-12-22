@@ -168,6 +168,9 @@ function ProductFormDialogComponent({
   // Handle form submission
   const handleSubmit = useCallback(
     async (data: ProductFormData) => {
+      console.log('✅ handleSubmit called with data:', data)
+      console.log('✅ Variants:', variants)
+      
       // Validate variants for variable products
       if (data.product_type === 'variable' && variants.length === 0) {
         toast.error('Variable products must have at least one variant')
@@ -175,9 +178,40 @@ function ProductFormDialogComponent({
         return
       }
 
+      // Check for duplicate SKUs in variants
+      if (data.product_type === 'variable' && variants.length > 0) {
+        console.log('🔍 Validating variants, checking each variant:')
+        variants.forEach((v, idx) => {
+          console.log(`  Variant ${idx}:`, {
+            sku: v.sku,
+            attribute_value_ids: v.attribute_value_ids,
+            has_attribute_value_ids: !!v.attribute_value_ids,
+            attribute_value_ids_length: v.attribute_value_ids?.length
+          })
+        })
+        
+        const skuCounts = new Map<string, number>()
+        variants.forEach((variant) => {
+          const sku = variant.sku?.trim().toUpperCase()
+          if (sku) {
+            skuCounts.set(sku, (skuCounts.get(sku) || 0) + 1)
+          }
+        })
+        const duplicates = Array.from(skuCounts.entries())
+          .filter(([, count]) => count > 1)
+          .map(([sku]) => sku)
+        
+        if (duplicates.length > 0) {
+          toast.error(`Duplicate SKUs found: ${duplicates.join(', ')}. Each variant must have a unique SKU.`)
+          setActiveTab('variants')
+          return
+        }
+      }
+
       setIsSubmitting(true)
       try {
         const isVariable = data.product_type === 'variable'
+        console.log('🚀 isVariable:', isVariable, 'isEdit:', isEdit)
         
         if (isVariable) {
           // Variable products: send JSON payload with variants
@@ -190,9 +224,32 @@ function ProductFormDialogComponent({
         }
         
         onOpenChange(false)
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Failed to save product:', error)
-        toast.error(isEdit ? 'Failed to update product' : 'Failed to create product')
+        
+        // Extract error message from various error formats (Axios, Error, string)
+        let errorMessage = ''
+        if (error && typeof error === 'object') {
+          // Axios error: error.response.data.message
+          const axiosError = error as { response?: { data?: { message?: string } }; message?: string }
+          errorMessage = axiosError.response?.data?.message || axiosError.message || String(error)
+        } else {
+          errorMessage = String(error)
+        }
+        
+        // Parse backend error for duplicate SKU
+        const duplicateSkuMatch = errorMessage.match(/Duplicate entry '[\d]+-([^']+)' for key 'product_variants\.unique_sku_business'/)
+        
+        if (duplicateSkuMatch) {
+          const duplicateSku = duplicateSkuMatch[1]
+          toast.error(`SKU "${duplicateSku}" already exists in another product. Please use a different SKU.`)
+          setActiveTab('variants')
+        } else if (errorMessage.includes('Duplicate entry') || errorMessage.includes('unique_sku')) {
+          toast.error('A variant with this SKU already exists. Please use a unique SKU.')
+          setActiveTab('variants')
+        } else {
+          toast.error(isEdit ? 'Failed to update product' : 'Failed to create product')
+        }
       } finally {
         setIsSubmitting(false)
       }
@@ -215,10 +272,10 @@ function ProductFormDialogComponent({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="max-w-3xl max-h-[90vh] overflow-y-auto"
+        className="max-w-3xl max-h-[90vh] flex flex-col p-0"
         aria-describedby="product-form-description"
       >
-        <DialogHeader>
+        <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
           <DialogTitle>{isEdit ? 'Edit Product' : 'Add New Product'}</DialogTitle>
           <DialogDescription id="product-form-description">
             {isEdit
@@ -229,13 +286,19 @@ function ProductFormDialogComponent({
 
         {/* Loading state while fetching product details */}
         {isLoadingProduct ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-12 px-6">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <span className="ml-2 text-muted-foreground">Loading product details...</span>
           </div>
         ) : (
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form onSubmit={(e) => {
+            console.log('📝 Form onSubmit event triggered')
+            console.log('📝 Form errors:', form.formState.errors)
+            console.log('📝 Form values:', form.getValues())
+            form.handleSubmit(handleSubmit)(e)
+          }} className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
             {/* Product Type Selection - Always visible at top */}
             <FormField
               control={form.control}
@@ -498,57 +561,6 @@ function ProductFormDialogComponent({
                   </div>
                 )}
 
-                {/* Default Pricing for Variable Products */}
-                {isVariableProduct && (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                      control={form.control}
-                      name="productPurchasePrice"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Purchase Price</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="0.00"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Base price for variants that don't have their own price
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="productSalePrice"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Sale Price</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="0.00"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Base price for variants that don't have their own price
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-
                 {/* Alert Quantity */}
                 <FormField
                   control={form.control}
@@ -574,8 +586,6 @@ function ProductFormDialogComponent({
                     attributesLoading={attributesLoading}
                     variants={variants}
                     onVariantsChange={handleVariantsChange}
-                    defaultCostPrice={parseFloat(form.watch('productPurchasePrice') || '0')}
-                    defaultSalePrice={parseFloat(form.watch('productSalePrice') || '0')}
                     currencySymbol={currencySymbol}
                   />
                 ) : (
@@ -586,10 +596,11 @@ function ProductFormDialogComponent({
                 )}
               </TabsContent>
             </Tabs>
+            </div>
 
-            <Separator />
+            <Separator className="shrink-0" />
 
-            <DialogFooter>
+            <DialogFooter className="px-6 py-4 shrink-0">
               <Button
                 type="button"
                 variant="outline"
@@ -598,7 +609,15 @@ function ProductFormDialogComponent({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+                onClick={() => {
+                  console.log('🔘 Update Product button clicked')
+                  console.log('🔘 Form is valid?', form.formState.isValid)
+                  console.log('🔘 Form errors:', form.formState.errors)
+                }}
+              >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
                 {isSubmitting ? 'Saving...' : isEdit ? 'Update Product' : 'Create Product'}
               </Button>

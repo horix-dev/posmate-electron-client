@@ -18,6 +18,8 @@ export interface LocalProduct {
   id?: number
   productName: string
   productCode?: string
+  product_type?: string
+  has_variants?: boolean
   categoryId?: number
   brandId?: number
   unitId?: number
@@ -35,6 +37,8 @@ export interface LocalProduct {
     productSalePrice?: number
     productWholeSalePrice?: number
   }
+  variants?: any[]
+  stocks?: any[]
   lastSyncedAt?: string
 }
 
@@ -164,6 +168,8 @@ export class SQLiteService {
         id INTEGER PRIMARY KEY,
         product_name TEXT NOT NULL,
         product_code TEXT,
+        product_type TEXT DEFAULT 'simple',
+        has_variants INTEGER DEFAULT 0,
         category_id INTEGER,
         brand_id INTEGER,
         unit_id INTEGER,
@@ -180,13 +186,65 @@ export class SQLiteService {
         updated_at TEXT DEFAULT (datetime('now'))
       );
 
+      -- Product variants table
+      CREATE TABLE IF NOT EXISTS product_variants (
+        id INTEGER PRIMARY KEY,
+        product_id INTEGER NOT NULL,
+        sku TEXT NOT NULL,
+        barcode TEXT,
+        price REAL,
+        cost_price REAL,
+        wholesale_price REAL,
+        dealer_price REAL,
+        image TEXT,
+        is_active INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0,
+        attributes_json TEXT,
+        last_synced_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+      );
+
+      -- Variant stocks table (handles all stock types including variants)
+      CREATE TABLE IF NOT EXISTS variant_stocks (
+        id INTEGER PRIMARY KEY,
+        product_id INTEGER NOT NULL,
+        variant_id INTEGER,
+        batch_no TEXT,
+        stock_quantity REAL DEFAULT 0,
+        purchase_price REAL DEFAULT 0,
+        sale_price REAL DEFAULT 0,
+        wholesale_price REAL DEFAULT 0,
+        dealer_price REAL DEFAULT 0,
+        profit_percent REAL DEFAULT 0,
+        mfg_date TEXT,
+        expire_date TEXT,
+        last_synced_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+        FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE
+      );
+
       -- Categories table
       CREATE TABLE IF NOT EXISTS categories (
         id INTEGER PRIMARY KEY,
         category_name TEXT NOT NULL,
+        icon TEXT,
+        status INTEGER DEFAULT 1,
         parent_id INTEGER,
+        variation_capacity INTEGER DEFAULT 0,
+        variation_color INTEGER DEFAULT 0,
+        variation_size INTEGER DEFAULT 0,
+        variation_type INTEGER DEFAULT 0,
+        variation_weight INTEGER DEFAULT 0,
+        version INTEGER DEFAULT 1,
+        business_id INTEGER,
         last_synced_at TEXT,
-        created_at TEXT DEFAULT (datetime('now'))
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT,
+        deleted_at TEXT
       );
 
       -- Parties (customers/suppliers) table
@@ -290,6 +348,12 @@ export class SQLiteService {
       CREATE INDEX IF NOT EXISTS idx_products_code ON products(product_code);
       CREATE INDEX IF NOT EXISTS idx_products_name ON products(product_name);
       CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+      CREATE INDEX IF NOT EXISTS idx_products_type ON products(product_type);
+      CREATE INDEX IF NOT EXISTS idx_variants_product ON product_variants(product_id);
+      CREATE INDEX IF NOT EXISTS idx_variants_sku ON product_variants(sku);
+      CREATE INDEX IF NOT EXISTS idx_variants_barcode ON product_variants(barcode);
+      CREATE INDEX IF NOT EXISTS idx_variant_stocks_product ON variant_stocks(product_id);
+      CREATE INDEX IF NOT EXISTS idx_variant_stocks_variant ON variant_stocks(variant_id);
       CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(sale_date);
       CREATE INDEX IF NOT EXISTS idx_sales_synced ON sales(is_synced);
       CREATE INDEX IF NOT EXISTS idx_sales_offline ON sales(is_offline);
@@ -297,6 +361,57 @@ export class SQLiteService {
       CREATE INDEX IF NOT EXISTS idx_parties_phone ON parties(phone);
       CREATE INDEX IF NOT EXISTS idx_parties_type ON parties(type);
     `)
+    
+    // Run migration to add new columns to existing products table (if they don't exist)
+    this.runColumnMigrations()
+  }
+
+  private runColumnMigrations() {
+    if (!this.db) return
+
+    try {
+      // ========== Products Table Migrations ==========
+      const productsInfo = this.db.prepare("PRAGMA table_info(products)").all() as any[]
+      const hasProductType = productsInfo.some(col => col.name === 'product_type')
+      const hasHasVariants = productsInfo.some(col => col.name === 'has_variants')
+
+      if (!hasProductType) {
+        this.db.exec("ALTER TABLE products ADD COLUMN product_type TEXT DEFAULT 'simple'")
+        console.log('[SQLite] Added product_type column to products table')
+      }
+
+      if (!hasHasVariants) {
+        this.db.exec("ALTER TABLE products ADD COLUMN has_variants INTEGER DEFAULT 0")
+        console.log('[SQLite] Added has_variants column to products table')
+      }
+
+      // ========== Categories Table Migrations ==========
+      const categoriesInfo = this.db.prepare("PRAGMA table_info(categories)").all() as any[]
+      const categoriesColumns = categoriesInfo.map(col => col.name)
+
+      const categoriesToAdd = [
+        { name: 'icon', type: 'TEXT', default: 'NULL' },
+        { name: 'status', type: 'INTEGER', default: '1' },
+        { name: 'variation_capacity', type: 'INTEGER', default: '0' },
+        { name: 'variation_color', type: 'INTEGER', default: '0' },
+        { name: 'variation_size', type: 'INTEGER', default: '0' },
+        { name: 'variation_type', type: 'INTEGER', default: '0' },
+        { name: 'variation_weight', type: 'INTEGER', default: '0' },
+        { name: 'version', type: 'INTEGER', default: '1' },
+        { name: 'business_id', type: 'INTEGER', default: 'NULL' },
+        { name: 'updated_at', type: 'TEXT', default: 'NULL' },
+        { name: 'deleted_at', type: 'TEXT', default: 'NULL' }
+      ]
+
+      for (const col of categoriesToAdd) {
+        if (!categoriesColumns.includes(col.name)) {
+          this.db.exec(`ALTER TABLE categories ADD COLUMN ${col.name} ${col.type} DEFAULT ${col.default}`)
+          console.log(`[SQLite] Added ${col.name} column to categories table`)
+        }
+      }
+    } catch (error) {
+      console.warn('[SQLite] Column migration warning:', error)
+    }
   }
 
   close() {
@@ -318,7 +433,19 @@ export class SQLiteService {
   productGetAll(): LocalProduct[] {
     if (!this.db) throw new Error('Database not initialized')
     const rows = this.db.prepare('SELECT * FROM products').all() as any[]
-    return rows.map(r => this.mapProduct(r))
+    return rows.map(r => {
+      const product = this.mapProduct(r)
+      
+      // Load variants if product is variable
+      if (r.product_type === 'variable' && r.has_variants) {
+        product.variants = this.getVariantsByProductId(r.id)
+      }
+      
+      // Load all stocks (includes variant stocks)
+      product.stocks = this.getStocksByProductId(r.id)
+      
+      return product
+    })
   }
 
   productCreate(product: Omit<LocalProduct, 'id'>): number {
@@ -418,14 +545,16 @@ export class SQLiteService {
   productBulkUpsert(products: LocalProduct[]): void {
     if (!this.db) throw new Error('Database not initialized')
     
-    const upsert = this.db.prepare(`
-      INSERT INTO products (id, product_name, product_code, category_id, brand_id, unit_id,
+    const upsertProduct = this.db.prepare(`
+      INSERT INTO products (id, product_name, product_code, product_type, has_variants, category_id, brand_id, unit_id,
         purchase_price, sale_price, wholesale_price, product_picture, description,
         stock_id, stock_quantity, stock_alert, last_synced_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         product_name = excluded.product_name,
         product_code = excluded.product_code,
+        product_type = excluded.product_type,
+        has_variants = excluded.has_variants,
         category_id = excluded.category_id,
         brand_id = excluded.brand_id,
         unit_id = excluded.unit_id,
@@ -440,17 +569,58 @@ export class SQLiteService {
         updated_at = datetime('now')
     `)
 
+    const upsertVariant = this.db.prepare(`
+      INSERT INTO product_variants (id, product_id, sku, barcode, price, cost_price, wholesale_price, dealer_price,
+        image, is_active, sort_order, attributes_json, last_synced_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        sku = excluded.sku,
+        barcode = excluded.barcode,
+        price = excluded.price,
+        cost_price = excluded.cost_price,
+        wholesale_price = excluded.wholesale_price,
+        dealer_price = excluded.dealer_price,
+        image = excluded.image,
+        is_active = excluded.is_active,
+        sort_order = excluded.sort_order,
+        attributes_json = excluded.attributes_json,
+        last_synced_at = excluded.last_synced_at,
+        updated_at = datetime('now')
+    `)
+
+    const upsertStock = this.db.prepare(`
+      INSERT INTO variant_stocks (id, product_id, variant_id, batch_no, stock_quantity, purchase_price, sale_price,
+        wholesale_price, dealer_price, profit_percent, mfg_date, expire_date, last_synced_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        stock_quantity = excluded.stock_quantity,
+        purchase_price = excluded.purchase_price,
+        sale_price = excluded.sale_price,
+        wholesale_price = excluded.wholesale_price,
+        dealer_price = excluded.dealer_price,
+        profit_percent = excluded.profit_percent,
+        mfg_date = excluded.mfg_date,
+        expire_date = excluded.expire_date,
+        last_synced_at = excluded.last_synced_at,
+        updated_at = datetime('now')
+    `)
+
     const insertMany = this.db.transaction((products: LocalProduct[]) => {
       for (const p of products) {
         // Get prices from stock object (where API stores them) or fallback to top-level
         const purchasePrice = p.stock?.productPurchasePrice ?? p.purchasePrice ?? 0
         const salePrice = p.stock?.productSalePrice ?? p.salePrice ?? 0
         const wholesalePrice = p.stock?.productWholeSalePrice ?? p.wholesalePrice ?? 0
+        const productType = (p as any).product_type || 'simple'
+        const hasVariants = (p as any).has_variants || Boolean((p as any).variants && (p as any).variants.length > 0)
         
-        upsert.run(
+        // Insert/update product
+        upsertProduct.run(
           p.id,
           p.productName,
           p.productCode,
+          productType,
+          hasVariants ? 1 : 0,
           p.categoryId ?? (p as any).category_id,
           p.brandId ?? (p as any).brand_id,
           p.unitId ?? (p as any).unit_id,
@@ -464,6 +634,46 @@ export class SQLiteService {
           p.stock?.stockAlert ?? (p as any).alert_qty ?? 10,
           p.lastSyncedAt || new Date().toISOString()
         )
+
+        // Insert/update variants if this is a variable product
+        const variants = (p as any).variants || []
+        for (const variant of variants) {
+          upsertVariant.run(
+            variant.id,
+            p.id,
+            variant.sku,
+            variant.barcode,
+            variant.price,
+            variant.cost_price,
+            variant.wholesale_price,
+            variant.dealer_price,
+            variant.image,
+            variant.is_active ? 1 : 0,
+            variant.sort_order || 0,
+            JSON.stringify(variant.attribute_values || variant.attributeValues || []),
+            p.lastSyncedAt || new Date().toISOString()
+          )
+        }
+
+        // Insert/update stocks (handles both simple and variant stocks)
+        const stocks = (p as any).stocks || []
+        for (const stock of stocks) {
+          upsertStock.run(
+            stock.id,
+            p.id,
+            stock.variant_id || null,
+            stock.batch_no || null,
+            stock.productStock || 0,
+            stock.productPurchasePrice || 0,
+            stock.productSalePrice || 0,
+            stock.productWholeSalePrice || 0,
+            stock.productDealerPrice || 0,
+            stock.profit_percent || 0,
+            stock.mfg_date || null,
+            stock.expire_date || null,
+            p.lastSyncedAt || new Date().toISOString()
+          )
+        }
       }
     })
 
@@ -475,6 +685,8 @@ export class SQLiteService {
       id: row.id,
       productName: row.product_name,
       productCode: row.product_code,
+      product_type: row.product_type || 'simple',
+      has_variants: Boolean(row.has_variants),
       categoryId: row.category_id,
       brandId: row.brand_id,
       unitId: row.unit_id,
@@ -494,8 +706,69 @@ export class SQLiteService {
         productSalePrice: row.sale_price,
         productWholeSalePrice: row.wholesale_price,
       },
+      // Arrays will be populated by caller if needed
+      variants: [],
+      stocks: [],
       lastSyncedAt: row.last_synced_at,
     }
+  }
+
+  private getVariantsByProductId(productId: number): any[] {
+    if (!this.db) return []
+    const rows = this.db.prepare('SELECT * FROM product_variants WHERE product_id = ? AND is_active = 1').all(productId) as any[]
+    return rows.map(row => ({
+      id: row.id,
+      product_id: row.product_id,
+      sku: row.sku,
+      barcode: row.barcode,
+      price: row.price,
+      cost_price: row.cost_price,
+      wholesale_price: row.wholesale_price,
+      dealer_price: row.dealer_price,
+      image: row.image,
+      is_active: Boolean(row.is_active),
+      sort_order: row.sort_order,
+      attribute_values: row.attributes_json ? JSON.parse(row.attributes_json) : [],
+      stocks: this.getStocksByVariantId(row.id),
+    }))
+  }
+
+  private getStocksByProductId(productId: number): any[] {
+    if (!this.db) return []
+    const rows = this.db.prepare('SELECT * FROM variant_stocks WHERE product_id = ?').all(productId) as any[]
+    return rows.map(row => ({
+      id: row.id,
+      product_id: row.product_id,
+      variant_id: row.variant_id,
+      batch_no: row.batch_no,
+      productStock: row.stock_quantity,
+      productPurchasePrice: row.purchase_price,
+      productSalePrice: row.sale_price,
+      productWholeSalePrice: row.wholesale_price,
+      productDealerPrice: row.dealer_price,
+      profit_percent: row.profit_percent,
+      mfg_date: row.mfg_date,
+      expire_date: row.expire_date,
+    }))
+  }
+
+  private getStocksByVariantId(variantId: number): any[] {
+    if (!this.db) return []
+    const rows = this.db.prepare('SELECT * FROM variant_stocks WHERE variant_id = ?').all(variantId) as any[]
+    return rows.map(row => ({
+      id: row.id,
+      product_id: row.product_id,
+      variant_id: row.variant_id,
+      batch_no: row.batch_no,
+      productStock: row.stock_quantity,
+      productPurchasePrice: row.purchase_price,
+      productSalePrice: row.sale_price,
+      productWholeSalePrice: row.wholesale_price,
+      productDealerPrice: row.dealer_price,
+      profit_percent: row.profit_percent,
+      mfg_date: row.mfg_date,
+      expire_date: row.expire_date,
+    }))
   }
 
   // ========== Categories ==========
@@ -569,17 +842,63 @@ export class SQLiteService {
     if (!this.db) throw new Error('Database not initialized')
     
     const upsert = this.db.prepare(`
-      INSERT INTO categories (id, category_name, parent_id, last_synced_at)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO categories (
+        id, category_name, icon, status, parent_id,
+        variation_capacity, variation_color, variation_size, variation_type, variation_weight,
+        version, business_id, last_synced_at, created_at, updated_at, deleted_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         category_name = excluded.category_name,
+        icon = excluded.icon,
+        status = excluded.status,
         parent_id = excluded.parent_id,
-        last_synced_at = excluded.last_synced_at
+        variation_capacity = excluded.variation_capacity,
+        variation_color = excluded.variation_color,
+        variation_size = excluded.variation_size,
+        variation_type = excluded.variation_type,
+        variation_weight = excluded.variation_weight,
+        version = excluded.version,
+        business_id = excluded.business_id,
+        last_synced_at = excluded.last_synced_at,
+        updated_at = excluded.updated_at,
+        deleted_at = excluded.deleted_at
     `)
+
+    // Helper to convert values to SQLite-compatible types
+    const toSQLiteValue = (val: any, defaultVal: any = null) => {
+      if (val === undefined || val === null) return defaultVal
+      if (typeof val === 'boolean') return val ? 1 : 0
+      return val
+    }
 
     const insertMany = this.db.transaction((categories: LocalCategory[]) => {
       for (const c of categories) {
-        upsert.run(c.id, c.categoryName, c.parentId, c.lastSyncedAt || new Date().toISOString())
+        const cat = c as any
+        try {
+          upsert.run(
+            c.id,
+            c.categoryName,
+            toSQLiteValue(cat.icon, null),
+            toSQLiteValue(cat.status, 1),
+            toSQLiteValue(c.parentId, null),
+            toSQLiteValue(cat.variationCapacity, 0),
+            toSQLiteValue(cat.variationColor, 0),
+            toSQLiteValue(cat.variationSize, 0),
+            toSQLiteValue(cat.variationType, 0),
+            toSQLiteValue(cat.variationWeight, 0),
+            toSQLiteValue(cat.version, 1),
+            toSQLiteValue(cat.business_id, null),
+            c.lastSyncedAt || new Date().toISOString(),
+            toSQLiteValue(cat.created_at, new Date().toISOString()),
+            toSQLiteValue(cat.updated_at, null),
+            toSQLiteValue(cat.deleted_at, null)
+          )
+        } catch (error) {
+          console.error('[SQLite] Error inserting category:', c.id, c.categoryName, error)
+          console.error('[SQLite] Category data:', JSON.stringify(c, null, 2))
+          throw error
+        }
       }
     })
 
@@ -590,9 +909,21 @@ export class SQLiteService {
     return {
       id: row.id,
       categoryName: row.category_name,
+      icon: row.icon || null,
+      status: row.status ?? 1,
       parentId: row.parent_id,
+      variationCapacity: row.variation_capacity ?? 0,
+      variationColor: row.variation_color ?? 0,
+      variationSize: row.variation_size ?? 0,
+      variationType: row.variation_type ?? 0,
+      variationWeight: row.variation_weight ?? 0,
+      version: row.version ?? 1,
+      business_id: row.business_id,
       lastSyncedAt: row.last_synced_at,
-    }
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      deleted_at: row.deleted_at,
+    } as LocalCategory
   }
 
   // ========== Parties ==========

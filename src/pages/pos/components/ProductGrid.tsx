@@ -11,11 +11,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { ProductCard } from './ProductCard'
 import type { Product, Category, Stock } from '@/types/api.types'
@@ -45,6 +41,8 @@ export interface ProductGridProps {
   onSearchChange: (query: string) => void
   /** Add to cart callback */
   onAddToCart: (product: Product, stock: Stock) => void
+  /** Open variant selector for variable products */
+  onSelectVariant?: (product: Product) => void
   /** View mode change callback */
   onViewModeChange: (mode: 'grid' | 'list') => void
 }
@@ -66,9 +64,7 @@ const CategoryCombobox = memo(function CategoryCombobox({
 }: CategoryComboboxProps) {
   const [open, setOpen] = useState(false)
 
-  const selectedCategory = categories.find(
-    (cat) => cat.id === selectedCategoryId
-  )
+  const selectedCategory = categories.find((cat) => cat.id === selectedCategoryId)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -104,26 +100,40 @@ const CategoryCombobox = memo(function CategoryCombobox({
                 />
                 All Categories
               </CommandItem>
-              {categories.map((category) => (
-                <CommandItem
-                  key={category.id}
-                  value={category.categoryName}
-                  onSelect={() => {
-                    onCategoryChange(category.id)
-                    setOpen(false)
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      'mr-2 h-4 w-4',
-                      selectedCategoryId === category.id
-                        ? 'opacity-100'
-                        : 'opacity-0'
-                    )}
-                  />
-                  {category.categoryName}
-                </CommandItem>
-              ))}
+              {categories.map((category) => {
+                // Check if there are duplicate category names
+                const duplicateCount = categories.filter(
+                  (c) => c.categoryName === category.categoryName
+                ).length
+                const displayName =
+                  duplicateCount > 1
+                    ? `${category.categoryName} (ID: ${category.id})`
+                    : category.categoryName
+
+                return (
+                  <CommandItem
+                    key={category.id}
+                    value={`category-${category.id}`}
+                    keywords={[category.categoryName]}
+                    onSelect={() => {
+                      console.log('[CategoryCombobox] Selected category:', {
+                        id: category.id,
+                        name: category.categoryName,
+                      })
+                      onCategoryChange(category.id)
+                      setOpen(false)
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        'mr-2 h-4 w-4',
+                        selectedCategoryId === category.id ? 'opacity-100' : 'opacity-0'
+                      )}
+                    />
+                    {displayName}
+                  </CommandItem>
+                )
+              })}
             </CommandGroup>
           </CommandList>
         </Command>
@@ -190,21 +200,13 @@ interface EmptyStateProps {
   onClear: () => void
 }
 
-const EmptyState = memo(function EmptyState({
-  searchQuery,
-  onClear,
-}: EmptyStateProps) {
+const EmptyState = memo(function EmptyState({ searchQuery, onClear }: EmptyStateProps) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center py-12">
-      <Package
-        className="mb-4 h-12 w-12 text-muted-foreground/50"
-        aria-hidden="true"
-      />
+      <Package className="mb-4 h-12 w-12 text-muted-foreground/50" aria-hidden="true" />
       <h3 className="text-lg font-semibold">No products found</h3>
       <p className="mb-4 text-sm text-muted-foreground">
-        {searchQuery
-          ? `No results for "${searchQuery}"`
-          : 'No products in this category'}
+        {searchQuery ? `No results for "${searchQuery}"` : 'No products in this category'}
       </p>
       {searchQuery && (
         <Button variant="outline" onClick={onClear}>
@@ -230,6 +232,7 @@ function ProductGridComponent({
   onCategoryChange,
   onSearchChange,
   onAddToCart,
+  onSelectVariant,
   onViewModeChange,
 }: ProductGridProps) {
   const gridClassName = useMemo(
@@ -264,16 +267,10 @@ function ProductGridComponent({
       <ScrollArea className="flex-1">
         {isLoading ? (
           <div className="flex flex-1 items-center justify-center py-12">
-            <Loader2
-              className="h-8 w-8 animate-spin text-primary"
-              aria-label="Loading products"
-            />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading products" />
           </div>
         ) : products.length === 0 ? (
-          <EmptyState
-            searchQuery={searchQuery}
-            onClear={() => onSearchChange('')}
-          />
+          <EmptyState searchQuery={searchQuery} onClear={() => onSearchChange('')} />
         ) : (
           <div className={gridClassName}>
             {products.map((product) => (
@@ -282,6 +279,7 @@ function ProductGridComponent({
                 product={product}
                 currencySymbol={currencySymbol}
                 onAddToCart={onAddToCart}
+                onSelectVariant={onSelectVariant}
               />
             ))}
           </div>

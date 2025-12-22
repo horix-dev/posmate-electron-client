@@ -75,22 +75,25 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
       }
 
       // Create category lookup map
-      const categoryMap = new Map(cachedCategories.map(c => [c.id, c]))
+      const categoryMap = new Map(cachedCategories.map((c) => [c.id, c]))
 
       // Load products from storage
       const cachedProducts = await storage.products.getAll()
       if (cachedProducts.length > 0) {
         const convertedProducts: Product[] = cachedProducts.map((p: LocalProduct) => {
           // Get category ID - SQLite returns camelCase, but type uses snake_case
-          const catId = ((p as unknown) as Record<string, unknown>).categoryId ?? p.category_id
+          const catId = (p as unknown as Record<string, unknown>).categoryId ?? p.category_id
           const categoryId = typeof catId === 'number' ? catId : undefined
-          
+
+          // Preserve stocks array from cache (includes variant_id for variable products)
+          const stocks = p.stocks && p.stocks.length > 0 ? p.stocks : p.stock ? [p.stock] : []
+
           return {
             ...p,
-            stocks: p.stock ? [p.stock] : [],
+            stocks, // Use full stocks array, not just [p.stock]
             // Ensure stock values are available at top level for UI components
-            stocks_sum_product_stock: p.stock?.productStock ?? 0,
-            productStock: p.stock?.productStock ?? 0,
+            stocks_sum_product_stock: stocks.reduce((sum, s) => sum + (s.productStock ?? 0), 0),
+            productStock: stocks[0]?.productStock ?? 0,
             // Normalize ID to snake_case
             category_id: categoryId,
             // Join category object for display
@@ -119,91 +122,112 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
   }, [])
 
   // Fetch all initial data from API
-  const fetchData = useCallback(async (showLoadingState = true) => {
-    if (showLoadingState) {
-      setIsLoading(true)
-    } else {
-      setIsProductsLoading(true)
-    }
-    setError(null)
-
-    // If offline, only load from cache
-    if (!navigator.onLine) {
-      const hasCached = await loadCachedData()
-      if (!hasCached) {
-        setError(new NoDataAvailableError('POS'))
-        toast.error('You are offline. No cached data available.')
+  const fetchData = useCallback(
+    async (showLoadingState = true) => {
+      if (showLoadingState) {
+        setIsLoading(true)
       } else {
-        toast.info('Working offline with cached data')
+        setIsProductsLoading(true)
       }
-      setIsLoading(false)
-      setIsProductsLoading(false)
-      return
-    }
+      setError(null)
 
-    try {
-      const [productsRes, categoriesRes, paymentTypesRes, vatsRes] = await Promise.all([
-        productsService.getAll(),
-        categoriesService.getAll(),
-        paymentTypesService.getAll(),
-        vatsService.getAll({ status: 'active' }),
-      ])
-
-      setProducts(productsRes.data)
-      setCategories(categoriesRes.data)
-      setPaymentTypes(paymentTypesRes.data)
-      setVats(vatsRes.data)
-
-      // Cache products to SQLite/IndexedDB for offline use
-      const localProducts: LocalProduct[] = productsRes.data.map((product) => {
-        const stock: Stock = product.stocks?.[0] || {
-          id: product.id,
-          product_id: product.id,
-          productStock: product.stocks_sum_product_stock ?? product.productStock ?? 0,
-          productPurchasePrice: 0,
-          productSalePrice: 0,
-        }
-        return {
-          ...product,
-          stock,
-          lastSyncedAt: new Date().toISOString(),
-        }
-      })
-      await storage.products.bulkUpsert(localProducts)
-
-      // Cache categories to SQLite/IndexedDB for offline use
-      const localCategories: LocalCategory[] = categoriesRes.data.map((cat) => ({
-        ...cat,
-        lastSyncedAt: new Date().toISOString(),
-      }))
-      await storage.categories.bulkUpsert(localCategories)
-
-      // Cache payment types and VATs to localStorage (with TTL)
-      setCache(CacheKeys.POS_PAYMENT_TYPES, paymentTypesRes.data)
-      setCache(CacheKeys.POS_VATS, vatsRes.data)
-    } catch (err) {
-      console.warn('[usePOSData] API fetch failed, trying cached data:', err)
-      
-      // Only load from cache if we don't already have data
-      if (products.length === 0) {
+      // If offline, only load from cache
+      if (!navigator.onLine) {
         const hasCached = await loadCachedData()
-        
-        if (hasCached) {
-          toast.warning('Network error. Using cached data.')
+        if (!hasCached) {
+          setError(new NoDataAvailableError('POS'))
+          toast.error('You are offline. No cached data available.')
         } else {
-          const appError = createAppError(err, 'POS data loading')
-          setError(appError)
-          toast.error('Failed to load POS data and no cache available.')
+          toast.info('Working offline with cached data')
         }
-      } else {
-        // Already have data, just show a subtle warning
-        toast.warning('Could not refresh data. Using current data.')
+        setIsLoading(false)
+        setIsProductsLoading(false)
+        return
       }
-    } finally {
-      setIsLoading(false)
-      setIsProductsLoading(false)
-    }
-  }, [loadCachedData, products.length])
+
+      try {
+        const [productsRes, categoriesRes, paymentTypesRes, vatsRes] = await Promise.all([
+          productsService.getAll(),
+          categoriesService.getList({ limit: 1000, status: true }), // ✅ Use getList for flat array
+          paymentTypesService.getAll(),
+          vatsService.getAll({ status: 'active' }),
+        ])
+
+        console.log(
+          '[POS Data] Loaded categories:',
+          categoriesRes.data.map((c) => ({ id: c.id, name: c.categoryName }))
+        )
+        console.log('[POS Data] Product category IDs:', [
+          ...new Set(productsRes.data.map((p) => p.category_id)),
+        ])
+
+        setProducts(productsRes.data)
+        setCategories(categoriesRes.data) // ✅ Now flat array, not paginated
+        setPaymentTypes(paymentTypesRes.data)
+        setVats(vatsRes.data)
+
+        // Cache to storage (non-blocking - don't fail if caching fails)
+        try {
+          // Cache products to SQLite/IndexedDB for offline use
+          const localProducts: LocalProduct[] = productsRes.data.map((product: Product) => {
+            const stock: Stock = product.stocks?.[0] || {
+              id: product.id,
+              product_id: product.id,
+              productStock: product.stocks_sum_product_stock ?? product.productStock ?? 0,
+              productPurchasePrice: 0,
+              productSalePrice: 0,
+            }
+            return {
+              ...product,
+              stock, // Fallback stock for simple products
+              // Preserve full stocks array (includes variant info for variable products)
+              stocks: product.stocks || [stock],
+              // Preserve variants array for variable products
+              variants: product.variants || [],
+              lastSyncedAt: new Date().toISOString(),
+            }
+          })
+          await storage.products.bulkUpsert(localProducts)
+
+          // Cache categories to SQLite/IndexedDB for offline use
+          const localCategories: LocalCategory[] = categoriesRes.data.map((cat: Category) => ({
+            ...cat,
+            lastSyncedAt: new Date().toISOString(),
+          }))
+          await storage.categories.bulkUpsert(localCategories)
+
+          // Cache payment types and VATs to localStorage (with TTL)
+          setCache(CacheKeys.POS_PAYMENT_TYPES, paymentTypesRes.data)
+          setCache(CacheKeys.POS_VATS, vatsRes.data)
+        } catch (cacheError) {
+          console.warn('[usePOSData] Failed to cache data, but continuing:', cacheError)
+          // Don't throw - caching is optional, we already have the data in state
+        }
+      } catch (err) {
+        console.warn('[usePOSData] API fetch failed, trying cached data:', err)
+
+        // Only load from cache if we don't already have data
+        if (products.length === 0) {
+          const hasCached = await loadCachedData()
+
+          if (hasCached) {
+            toast.warning('Network error. Using cached data.')
+          } else {
+            const appError = createAppError(err, 'POS data loading')
+            setError(appError)
+            toast.error('Failed to load POS data and no cache available.')
+          }
+        } else {
+          // Already have data, just show a subtle warning
+          toast.warning('Could not refresh data. Using current data.')
+        }
+      } finally {
+        setIsLoading(false)
+        setIsProductsLoading(false)
+      }
+    },
+    [loadCachedData, products.length]
+  )
 
   // Use online status hook with callbacks
   const { isOffline } = useOnlineStatus({
@@ -218,11 +242,11 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
     const initialize = async () => {
       // First, quickly load cached data for instant UI
       const hasCached = await loadCachedData()
-      
+
       if (hasCached) {
         // We have cached data, show it immediately
         setIsLoading(false)
-        
+
         // Then refresh from API in background if online
         if (navigator.onLine) {
           fetchData(false) // false = don't show loading state
@@ -232,14 +256,23 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
         fetchData(true)
       }
     }
-    
+
     initialize()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Empty deps - only run on mount
 
   // Filter products based on search and category
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
+    console.log('[POS Filter] Total products:', products.length)
+    console.log(
+      '[POS Filter] Active filter - categoryId:',
+      filters.categoryId,
+      'search:',
+      filters.search
+    )
+
+    let debugLogged = false
+    const filtered = products.filter((product) => {
       // Only show products with stock
       const hasStock =
         (product.stocks_sum_product_stock ?? product.productStock ?? 0) > 0 ||
@@ -257,11 +290,31 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
 
       // Category filter
       if (filters.categoryId) {
+        // Debug: log first product's category_id type and value
+        if (!debugLogged) {
+          console.log(
+            '[POS Filter] Sample product category_id:',
+            product.category_id,
+            'type:',
+            typeof product.category_id
+          )
+          console.log(
+            '[POS Filter] Filter categoryId:',
+            filters.categoryId,
+            'type:',
+            typeof filters.categoryId
+          )
+          debugLogged = true
+        }
+
         if (product.category_id !== filters.categoryId) return false
       }
 
       return true
     })
+
+    console.log('[POS Filter] Filtered products count:', filtered.length)
+    return filtered
   }, [products, filters])
 
   return {
