@@ -1,3 +1,122 @@
+## 2025-12-21 — Sales Filters Enhanced UI (Calendar Date Pickers)
+
+**Problem**: Sales page had basic date input filters while purchases page had enhanced Calendar component date pickers with better UX.
+
+**Solution**: Updated SalesFiltersBar to match the enhanced purchases UI:
+- ✅ **Calendar Date Pickers**: Replaced basic `<Input type="date">` with Calendar component from shadcn/ui
+- ✅ **Consistent Layout**: Horizontal flex-wrap layout with consistent spacing
+- ✅ **Customer Dropdown**: Added customer dropdown using `partiesService.getCustomers()`
+- ✅ **Date Format Display**: Shows formatted dates (e.g., "Dec 21, 2025") instead of raw ISO format
+- ✅ **Clear Filters Button**: Consolidated clear button that appears when filters are active
+- ✅ **Memoization**: Added `memo()` for performance optimization
+
+**Files Modified**:
+- `src/pages/sales/components/SalesFiltersBar.tsx` - Complete rewrite with Calendar components
+
+**API Verified**:
+- Sales endpoints confirmed correct: `GET /sales` supports pagination (limit, page/per_page, cursor)
+- Supports filters: `date_from`, `date_to`, `party_id`, `isPaid`, `search`, `returned-sales`
+
+**UI Improvements**:
+- Date pickers now use Calendar popover with visual date selection
+- Consistent button styling and sizing across all filters
+- Improved mobile responsiveness with flex-wrap
+- Better visual feedback for active filters
+
+---
+
+## 2025-12-21 — Purchase Dialog Scrolling & Variable Product Support
+
+**Problem**: 
+1. New Purchase dialog content was not scrollable, causing overflow issues with many products
+2. Variable product variant selection was missing - dialog had `variant_id` field but no UI to select variants
+
+**Solution**:
+1. **Scrolling**: Added `overflow-y-auto` and explicit max-height to ScrollArea component: `style={{ maxHeight: 'calc(90vh - 200px)' }}`
+2. **Variable Products**: 
+   - Fetch and store products list in dialog state for variant access
+   - Added dynamic variant dropdown that appears when a variable product is added
+   - Dropdown shows variant name and stock level
+   - Auto-updates pricing fields when variant is selected from variant's stock data
+   - Uses native `<select>` with Tailwind classes matching shadcn/ui Input style
+
+**Files Modified**:
+- `src/pages/purchases/components/NewPurchaseDialog.tsx` - Added scrolling, variant selection UI, products state management
+
+**Features Added**:
+- ✅ Dialog content scrolls properly with multiple products
+- ✅ Variable product variant selection with stock display
+- ✅ Auto-fill prices from selected variant stock
+- ✅ Maintains standard product flow for simple products
+
+---
+
+## 2025-12-21 — Purchase Endpoints Refactored (Singular/Plural)
+
+**Problem**: API documentation updated to use singular endpoint for listing (`/purchase`) while keeping plural for CRUD operations (`/purchases`).
+
+**Solution**: Updated frontend endpoints configuration to match backend API:
+- `GET /purchase` - List purchases (with pagination, filters)
+- `POST /purchases` - Create purchase
+- `GET /purchases/{id}` - Get single purchase
+- `PUT /purchases/{id}` - Update purchase
+- `DELETE /purchases/{id}` - Delete purchase
+
+**Files Modified**:
+- `src/api/endpoints.ts` - Changed `PURCHASES.LIST` from `/purchases` to `/purchase`
+
+**Verification**: TypeScript typecheck passed, no breaking changes to existing purchase service implementation.
+
+---
+
+## 2025-01-XX — Purchase Management Implementation
+
+**Problem**: Purchase management page needed complete implementation with filtering, pagination, stats, and CRUD operations following the established SalesPage pattern.
+
+**Solution**: Implemented comprehensive purchase management feature with:
+- **Data Hook**: `usePurchases` with server-side pagination, filters (search, date range, supplier, payment status), stats calculation
+- **Table**: Paginated table with view/edit/delete actions and row formatting
+- **Filters**: Search, date range pickers (Calendar), supplier dropdown, payment status selector
+- **Stats**: Cards showing total purchases, amounts, paid/due breakdown
+- **Dialogs**: View details, delete confirmation, new purchase creation with product selection and batch/lot tracking
+- **Service**: Enhanced `purchases.service.ts` with `filter()` method and `per_page` parameter
+
+**Files Created**:
+- `src/pages/purchases/hooks/usePurchases.ts` - Main data fetching hook
+- `src/pages/purchases/hooks/index.ts` - Hook exports
+- `src/pages/purchases/components/PurchasesTable.tsx` - Paginated table
+- `src/pages/purchases/components/PurchasesFiltersBar.tsx` - Filter controls with Calendar
+- `src/pages/purchases/components/PurchasesStatsCards.tsx` - Stats display
+- `src/pages/purchases/components/PurchaseDetailsDialog.tsx` - View details
+- `src/pages/purchases/components/DeletePurchaseDialog.tsx` - Delete confirmation
+- `src/pages/purchases/components/NewPurchaseDialog.tsx` - Create purchase with batch/lot support
+- `src/pages/purchases/components/index.ts` - Component exports
+- `src/components/ui/calendar.tsx` - Added Calendar from shadcn/ui
+
+**Files Modified**:
+- `src/pages/purchases/PurchasesPage.tsx` - Complete rewrite with all components wired
+- `src/api/services/purchases.service.ts` - Added `filter()` method and `per_page` parameter
+
+**Features**:
+- ✅ Server-side pagination with per-page control
+- ✅ Search across invoice number and supplier
+- ✅ Date range filtering with Calendar pickers
+- ✅ Supplier dropdown (from partiesService.getSuppliers)
+- ✅ Payment status filter (Paid, Partial, Unpaid)
+- ✅ Stats cards with loading skeletons
+- ✅ Product selection with search in new purchase dialog
+- ✅ Batch/lot tracking fields (batch_no, mfg_date, expire_date)
+- ✅ Auto-calculation of totals and due amounts
+- ✅ Follows existing SalesPage pattern for consistency
+
+**Next Steps**:
+- Add edit purchase functionality (EditPurchaseDialog)
+- Add purchase returns feature
+- Add export to CSV/PDF
+- Add print invoice
+
+---
+
 ## 2025-12-20 — Print Labels Preview Alignment
 
 - Problem: `BarcodePreview` used `BarcodeItem` from barcodes service and injected raw SVG via `dangerouslySetInnerHTML`; needed alignment with Print Labels API (`LabelPayload`) and proper PNG/SVG rendering.
