@@ -129,7 +129,8 @@ const getFormDataId = (formData: FormData, key: string): number | undefined => {
 
 const buildStockFromFormData = (productId: number, formData: FormData): Stock => {
   return {
-    id: productId,
+    // Synthetic stock for immediate UI display; backend assigns real stock id.
+    id: 0,
     product_id: productId,
     productStock: getFormDataNumber(formData, 'productStock') ?? 0,
     productPurchasePrice: getFormDataNumber(formData, 'productPurchasePrice') ?? 0,
@@ -162,18 +163,18 @@ const hydrateProductForList = (args: {
         ? [stockOverride]
         : []
 
-  const computedStockSum =
-    product.product_type === 'variable'
-      ? (product.variants_total_stock ??
-        product.stocks_sum_product_stock ??
-        product.productStock ??
-        0)
-      : (product.stocks_sum_product_stock ??
-        (stocks.length > 0
-          ? stocks.reduce((sum, s) => sum + (s.productStock ?? 0), 0)
-          : undefined) ??
-        product.productStock ??
-        0)
+  let computedStockSum: number
+
+  if (product.product_type === 'variable') {
+    const primary =
+      product.variants_total_stock ?? product.stocks_sum_product_stock ?? product.productStock
+    computedStockSum = primary ?? 0
+  } else {
+    const stocksArraySum =
+      stocks.length > 0 ? stocks.reduce((sum, s) => sum + (s.productStock ?? 0), 0) : undefined
+    const primary = product.stocks_sum_product_stock ?? stocksArraySum ?? product.productStock
+    computedStockSum = primary ?? 0
+  }
 
   return {
     ...product,
@@ -317,7 +318,7 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
       // Cache products to local storage for offline use
       const localProducts: LocalProduct[] = productsRes.data.map((product: Product) => {
         const stock: Stock = product.stocks?.[0] || {
-          id: product.id,
+          id: 0,
           product_id: product.id,
           productStock: product.stocks_sum_product_stock ?? product.productStock ?? 0,
           productPurchasePrice: 0,
@@ -418,6 +419,64 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
     )
   }, [products])
 
+  const persistProductToOfflineCache = useCallback(async (product: Product): Promise<void> => {
+    const stock: Stock =
+      product.stocks?.[0] ||
+      ({
+        id: 0,
+        product_id: product.id,
+        productStock: product.stocks_sum_product_stock ?? product.productStock ?? 0,
+        productPurchasePrice: 0,
+        productSalePrice: 0,
+      } satisfies Stock)
+
+    const localProduct: LocalProduct = {
+      ...product,
+      stock,
+      lastSyncedAt: new Date().toISOString(),
+    }
+
+    await storage.products.bulkUpsert([localProduct])
+  }, [])
+
+  const upsertProductInState = useCallback((nextProduct: Product, mode: 'prepend' | 'replace') => {
+    setProducts((prev) => {
+      const index = prev.findIndex((p) => p.id === nextProduct.id)
+
+      if (index === -1) {
+        return mode === 'prepend' ? [nextProduct, ...prev] : [...prev, nextProduct]
+      }
+
+      const updated = [...prev]
+      updated[index] = nextProduct
+      return updated
+    })
+  }, [])
+
+  const hydrateAndUpsert = useCallback(
+    async (args: {
+      product: Product
+      mode: 'prepend' | 'replace'
+      stockOverride?: Stock
+      idsOverride?: { category_id?: number; brand_id?: number; unit_id?: number }
+    }): Promise<Product> => {
+      const hydrated = hydrateProductForList({
+        product: args.product,
+        categories,
+        brands,
+        units,
+        stockOverride: args.stockOverride,
+        idsOverride: args.idsOverride,
+      })
+
+      upsertProductInState(hydrated, args.mode)
+      await persistProductToOfflineCache(hydrated)
+
+      return hydrated
+    },
+    [brands, categories, units, persistProductToOfflineCache, upsertProductInState]
+  )
+
   // CRUD Operations
   const createProduct = useCallback(
     async (data: FormData | VariableProductPayload, isVariable = false): Promise<Product> => {
@@ -436,68 +495,33 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
           ? buildStockFromFormData(result.data.id, data)
           : undefined
 
-      const hydrated = hydrateProductForList({
+      const hydrated = await hydrateAndUpsert({
         product: result.data,
-        categories,
-        brands,
-        units,
+        mode: 'prepend',
         stockOverride,
         idsOverride,
       })
 
-      setProducts((prev) => [hydrated, ...prev.filter((p) => p.id !== hydrated.id)])
-
-      // Persist to offline cache
-      const localProduct: LocalProduct = {
-        ...hydrated,
-        stock:
-          hydrated.stocks?.[0] ||
-          ({
-            id: hydrated.id,
-            product_id: hydrated.id,
-            productStock: hydrated.stocks_sum_product_stock ?? hydrated.productStock ?? 0,
-            productPurchasePrice: 0,
-            productSalePrice: 0,
-          } satisfies Stock),
-        lastSyncedAt: new Date().toISOString(),
-      }
-      await storage.products.bulkUpsert([localProduct])
-
       // Best-effort: fetch full product (includes joined category/brand/stocks on some backends)
       try {
         const full = await productsService.getById(hydrated.id)
-        const fullHydrated = hydrateProductForList({
+        // Do NOT override backend stocks/joins with form-derived overrides.
+        await hydrateAndUpsert({
           product: full.data,
-          categories,
-          brands,
-          units,
-          stockOverride,
-          idsOverride,
+          mode: 'replace',
         })
-        setProducts((prev) => [fullHydrated, ...prev.filter((p) => p.id !== fullHydrated.id)])
-
-        const localFull: LocalProduct = {
-          ...fullHydrated,
-          stock:
-            fullHydrated.stocks?.[0] ||
-            ({
-              id: fullHydrated.id,
-              product_id: fullHydrated.id,
-              productStock: fullHydrated.stocks_sum_product_stock ?? fullHydrated.productStock ?? 0,
-              productPurchasePrice: 0,
-              productSalePrice: 0,
-            } satisfies Stock),
-          lastSyncedAt: new Date().toISOString(),
-        }
-        await storage.products.bulkUpsert([localFull])
-      } catch {
+      } catch (error) {
         // Non-fatal: list hydration already applied
+        console.error('[useProducts] Failed to fetch full product after create', {
+          productId: hydrated.id,
+          error,
+        })
       }
 
       toast.success('Product created successfully')
       return hydrated
     },
-    [brands, categories, units]
+    [hydrateAndUpsert]
   )
 
   const updateProduct = useCallback(
@@ -520,36 +544,17 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
       const stockOverride =
         !isVariable && data instanceof FormData ? buildStockFromFormData(id, data) : undefined
 
-      const hydrated = hydrateProductForList({
+      const hydrated = await hydrateAndUpsert({
         product: result.data,
-        categories,
-        brands,
-        units,
+        mode: 'replace',
         stockOverride,
         idsOverride,
       })
 
-      setProducts((prev) => prev.map((p) => (p.id === id ? hydrated : p)))
-
-      const localProduct: LocalProduct = {
-        ...hydrated,
-        stock:
-          hydrated.stocks?.[0] ||
-          ({
-            id: hydrated.id,
-            product_id: hydrated.id,
-            productStock: hydrated.stocks_sum_product_stock ?? hydrated.productStock ?? 0,
-            productPurchasePrice: 0,
-            productSalePrice: 0,
-          } satisfies Stock),
-        lastSyncedAt: new Date().toISOString(),
-      }
-      await storage.products.bulkUpsert([localProduct])
-
       toast.success('Product updated successfully')
       return hydrated
     },
-    [brands, categories, units]
+    [hydrateAndUpsert]
   )
 
   const deleteProduct = useCallback(async (id: number): Promise<void> => {
