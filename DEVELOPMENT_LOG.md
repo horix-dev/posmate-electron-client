@@ -1,3 +1,45 @@
+## 2025-12-23 — Product Type Standard: 'simple' (Not 'single')
+
+**Requirement**: Backend API uses `product_type='simple'` for normal (non-variant) products.
+
+**Implementation**: Already correctly implemented throughout frontend:
+- ✅ **Type Definition**: `ProductType = 'simple' | 'variable'` in `src/types/variant.types.ts`
+- ✅ **API Types**: `Product.product_type: 'simple' | 'variable'` in `src/types/api.types.ts`
+- ✅ **Form Schema**: Default value `product_type: 'simple'` in `src/pages/products/schemas/product.schema.ts`
+- ✅ **Form Data**: Correctly passes `data.product_type` to API
+- ✅ **All Components**: Use 'simple' consistently (verified via grep search)
+
+**Allowed Values**:
+- `simple` - Regular products (non-batch, non-variants)
+- `variable` - Products with attribute-based variants (size, color, etc.)
+- ~~`single`~~ - **DEPRECATED** (legacy value, do not use)
+
+**Backend Alignment**: 
+- Backend validates: `product_type in ['simple', 'variant', 'variable']`
+- Frontend uses: `'simple' | 'variable'` (correctly aligned)
+- Note: 'variant' is not used in product creation (only for internal batch/lot tracking)
+
+---
+
+## 2025-12-23 — Products List Updates Without Refresh
+
+**Problem**: After creating/updating a product, the Products table showed missing/incorrect Category, Brand, and Stock until a manual refresh.
+
+**Root cause**: Create/update API responses can return a partial Product payload (missing joined `category`/`brand` objects and/or `stocks`), and the UI inserted that raw response into the table.
+
+**Solution**:
+- Hydrate the returned product for list display by joining `category`/`brand`/`unit` from the already-loaded lists.
+- For simple products, derive stock values from the submitted `FormData` when the response lacks `stocks`.
+- Persist the hydrated product to offline storage, and do a best-effort `GET /products/{id}` to further enrich if the backend provides expanded fields.
+
+**Files Modified**:
+- `src/pages/products/hooks/useProducts.ts`
+
+**Related**:
+- Updated `.husky/pre-commit` to remove deprecated Husky v10 header lines.
+
+---
+
 ## 2025-12-21 — Sales Filters Enhanced UI (Calendar Date Pickers)
 
 **Problem**: Sales page had basic date input filters while purchases page had enhanced Calendar component date pickers with better UX.
