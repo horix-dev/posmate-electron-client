@@ -1,5 +1,52 @@
 ## 2025-12-21 — Sales Filters Enhanced UI (Calendar Date Pickers)
 
+---
+
+## 2025-12-22 — Purchases Tests (Totals + Service Params)
+
+**Problem**: Purchases logic (totals math and request payload mapping) lived inside the dialog component, making it hard to unit test; purchases API service behavior had no direct coverage.
+
+**Solution**:
+- Extracted pure helper functions for purchases totals and create-purchase request payload building.
+- Added Vitest unit tests for the helper logic (totals, normalization of optional fields) and for `purchasesService` endpoint/params.
+
+**Files Added**:
+- `src/pages/purchases/utils/purchaseCalculations.ts`
+- `src/__tests__/pages/purchases/purchaseCalculations.test.ts`
+- `src/__tests__/pages/purchases/usePurchases.utils.test.ts`
+- `src/__tests__/services/purchases.service.test.ts`
+
+**Files Modified**:
+- `src/pages/purchases/components/NewPurchaseDialog.tsx` (uses shared helpers; no UX change)
+- `src/pages/purchases/hooks/usePurchases.ts` (extracted and reused pure helpers for params + stats)
+
+**Verification**:
+- `npx vitest --run --watch=false` (all tests passing)
+- `npx vitest --coverage --run --watch=false` → All files coverage improved to **35.79%**
+
+---
+
+## 2025-12-22 — Sales Tests (Filtering + Stats + Service)
+
+**Problem**: Sales filtering and stats logic lived inline inside the hook memo blocks and had no unit coverage; date filtering could behave inconsistently across timezones when the sale date included a time component.
+
+**Solution**:
+- Extracted pure helper functions in the sales hook for filtering and stats calculation.
+- Added unit tests for filtering (search/date/customer/payment/sync) and stats aggregation.
+- Added API service tests for `salesService` request shape, including `returned-sales` flag and invoice number generation.
+- Made date filtering timezone-safe by comparing `YYYY-MM-DD` keys when available.
+
+**Files Added**:
+- `src/__tests__/pages/sales/useSales.utils.test.ts`
+- `src/__tests__/services/sales.service.test.ts`
+
+**Files Modified**:
+- `src/pages/sales/hooks/useSales.ts` (exported helpers: `filterSales`, `calculateSalesStats`; improved date comparisons)
+
+**Verification**:
+- `npx vitest --run --watch=false` (all tests passing)
+- `npx vitest --coverage --run --watch=false` → All files coverage improved to **37.62%**
+
 **Problem**: Sales page had basic date input filters while purchases page had enhanced Calendar component date pickers with better UX.
 
 **Solution**: Updated SalesFiltersBar to match the enhanced purchases UI:

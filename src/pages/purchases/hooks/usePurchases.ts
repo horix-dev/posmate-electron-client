@@ -32,6 +32,62 @@ export interface PaymentStatus {
   variant: 'default' | 'destructive' | 'warning' | 'success'
 }
 
+export function buildPurchasesQueryParams(
+  filters: PurchasesFilters,
+  currentPage: number,
+  perPage: number
+): Parameters<typeof purchasesService.getAll>[0] {
+  const params: Record<string, unknown> = {
+    page: currentPage,
+    per_page: perPage,
+  }
+
+  if (filters.search) {
+    params.search = filters.search
+  }
+  if (filters.dateFrom) {
+    params.start_date = filters.dateFrom
+  }
+  if (filters.dateTo) {
+    params.end_date = filters.dateTo
+  }
+  if (filters.supplierId) {
+    params.party_id = Number(filters.supplierId)
+  }
+
+  return params as Parameters<typeof purchasesService.getAll>[0]
+}
+
+export function calculatePurchasesStats(purchases: Purchase[], totalItems: number): PurchasesStats {
+  let totalAmount = 0
+  let totalPaid = 0
+  let totalDue = 0
+  let paidCount = 0
+  let partialCount = 0
+  let unpaidCount = 0
+
+  purchases.forEach((purchase) => {
+    totalAmount += purchase.totalAmount ?? 0
+    totalPaid += purchase.paidAmount ?? 0
+    totalDue += purchase.dueAmount ?? 0
+
+    const status = getPaymentStatus(purchase)
+    if (status.status === 'paid') paidCount++
+    else if (status.status === 'partial') partialCount++
+    else unpaidCount++
+  })
+
+  return {
+    total: totalItems,
+    totalAmount,
+    totalPaid,
+    totalDue,
+    paidCount,
+    partialCount,
+    unpaidCount,
+  }
+}
+
 interface UsePurchasesReturn {
   // Data
   purchases: Purchase[]
@@ -147,28 +203,8 @@ export function usePurchases(filters: PurchasesFilters): UsePurchasesReturn {
     setError(null)
 
     try {
-      // Build params
-      const params: Record<string, unknown> = {
-        page: currentPage,
-        per_page: perPage,
-      }
-
-      // Add filters
-      if (filters.search) {
-        params.search = filters.search
-      }
-      if (filters.dateFrom) {
-        params.start_date = filters.dateFrom
-      }
-      if (filters.dateTo) {
-        params.end_date = filters.dateTo
-      }
-      if (filters.supplierId) {
-        params.party_id = Number(filters.supplierId)
-      }
-
       const response = await purchasesService.getAll(
-        params as Parameters<typeof purchasesService.getAll>[0]
+        buildPurchasesQueryParams(filters, currentPage, perPage)
       )
 
       // Handle paginated response
@@ -229,35 +265,7 @@ export function usePurchases(filters: PurchasesFilters): UsePurchasesReturn {
 
   // Calculate stats
   const stats = useMemo<PurchasesStats>(() => {
-    const allPurchases = purchases
-
-    let totalAmount = 0
-    let totalPaid = 0
-    let totalDue = 0
-    let paidCount = 0
-    let partialCount = 0
-    let unpaidCount = 0
-
-    allPurchases.forEach((purchase) => {
-      totalAmount += purchase.totalAmount ?? 0
-      totalPaid += purchase.paidAmount ?? 0
-      totalDue += purchase.dueAmount ?? 0
-
-      const status = getPaymentStatus(purchase)
-      if (status.status === 'paid') paidCount++
-      else if (status.status === 'partial') partialCount++
-      else unpaidCount++
-    })
-
-    return {
-      total: totalItems,
-      totalAmount,
-      totalPaid,
-      totalDue,
-      paidCount,
-      partialCount,
-      unpaidCount,
-    }
+    return calculatePurchasesStats(purchases, totalItems)
   }, [purchases, totalItems])
 
   // Delete purchase
