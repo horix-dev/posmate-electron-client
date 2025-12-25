@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Enhanced POS Dashboard</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#8B5CF6", // Violet-500 equivalent from screenshot
+              secondary: "#1E1B29", // Dark sidebar color
+              "background-light": "#F3F4F6", // Gray-100
+              "background-dark": "#111827", // Gray-900
+              "surface-light": "#FFFFFF",
+              "surface-dark": "#1F2937", // Gray-800
+              "text-primary-light": "#111827",
+              "text-primary-dark": "#F9FAFB",
+              "text-secondary-light": "#6B7280",
+              "text-secondary-dark": "#9CA3AF",
+            },
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+            },
+            borderRadius: {
+              DEFAULT: "0.5rem",
+              lg: "0.75rem",
+              xl: "1rem",
+            },
+            boxShadow: {
+                'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+                'glow': '0 0 15px rgba(139, 92, 246, 0.3)',
+            }
+          },
+        },
+      };
+    </script>
+<script>
+        // Simple dark mode toggle script
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-sans text-text-primary-light dark:text-text-primary-dark transition-colors duration-300 antialiased overflow-hidden">
+<div class="flex h-screen">
+<aside class="w-64 bg-secondary flex flex-col justify-between flex-shrink-0 transition-all duration-300">
+<div>
+<div class="h-16 flex items-center px-6 border-b border-gray-800">
+<div class="flex items-center gap-3">
+<div class="bg-primary p-1.5 rounded-lg">
+<span class="material-icons-round text-white text-xl">point_of_sale</span>
+</div>
+<span class="text-white font-bold text-lg tracking-wide">POS Mate</span>
+</div>
+</div>
+<nav class="mt-6 px-3 space-y-1 overflow-y-auto max-h-[calc(100vh-180px)] custom-scrollbar">
+<a class="flex items-center gap-3 px-3 py-2.5 bg-primary text-white rounded-lg shadow-glow transition-all" href="#">
+<span class="material-icons-round text-xl">dashboard</span>
+<span class="font-medium text-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors group" href="#">
+<span class="material-icons-round text-xl group-hover:text-primary transition-colors">shopping_cart</span>
+<span class="font-medium text-sm">POS</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors group" href="#">
+<span class="material-icons-round text-xl group-hover:text-primary transition-colors">inventory_2</span>
+<span class="font-medium text-sm">Products</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors group" href="#">
+<span class="material-icons-round text-xl group-hover:text-primary transition-colors">receipt_long</span>
+<span class="font-medium text-sm">Sales</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors group" href="#">
+<span class="material-icons-round text-xl group-hover:text-primary transition-colors">local_shipping</span>
+<span class="font-medium text-sm">Purchases</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors group" href="#">
+<span class="material-icons-round text-xl group-hover:text-primary transition-colors">people</span>
+<span class="font-medium text-sm">Parties</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors group" href="#">
+<span class="material-icons-round text-xl group-hover:text-primary transition-colors">account_balance_wallet</span>
+<span class="font-medium text-sm">Finance</span>
+</a>
+<div class="pt-4 pb-2">
+<div class="h-px bg-gray-800 mx-2"></div>
+</div>
+<a class="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors group" href="#">
+<span class="material-icons-round text-xl group-hover:text-primary transition-colors">settings_suggest</span>
+<span class="font-medium text-sm">Product Settings</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors group" href="#">
+<span class="material-icons-round text-xl group-hover:text-primary transition-colors">warehouse</span>
+<span class="font-medium text-sm">Warehouses</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors group" href="#">
+<span class="material-icons-round text-xl group-hover:text-primary transition-colors">bar_chart</span>
+<span class="font-medium text-sm">Reports</span>
+</a>
+</nav>
+</div>
+<div class="p-4 border-t border-gray-800 space-y-1">
+<div class="flex items-center gap-3 px-3 py-2 text-green-500">
+<span class="material-icons-round text-sm">cloud_done</span>
+<span class="text-xs font-medium uppercase tracking-wider">Synced</span>
+</div>
+<a class="flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors" href="#">
+<span class="material-icons-round text-xl">settings</span>
+<span class="font-medium text-sm">Settings</span>
+</a>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 text-gray-500 hover:text-white transition-colors mt-2">
+<span class="material-icons-round text-xl">chevron_left</span>
+<span class="font-medium text-sm">Collapse</span>
+</button>
+</div>
+</aside>
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark relative">
+<header class="h-16 bg-surface-light dark:bg-surface-dark border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 z-10 shadow-sm">
+<div class="relative w-96 hidden md:block">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 material-icons-round">search</span>
+<input class="w-full pl-10 pr-12 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white transition-all" placeholder="Search products, customers..." type="text"/>
+<div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+<kbd class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-semibold text-gray-500 bg-gray-100 border border-gray-300 rounded-md shadow-sm dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600">⌘ K</kbd>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-2 border-r border-gray-200 dark:border-gray-700 pr-4 mr-1">
+<button class="p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Connection Status">
+<span class="material-icons-round text-xl text-green-500">wifi</span>
+</button>
+<button class="p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg transition-colors" onclick="toggleDarkMode()" title="Toggle Theme">
+<span class="material-icons-round text-xl hidden dark:block">light_mode</span>
+<span class="material-icons-round text-xl block dark:hidden">dark_mode</span>
+</button>
+<button class="relative p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Notifications">
+<span class="material-icons-round text-xl">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+</button>
+</div>
+<div class="flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-1.5 rounded-lg transition-colors">
+<div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                            TG
+                        </div>
+<div class="hidden lg:block text-right">
+<p class="text-sm font-semibold text-text-primary-light dark:text-white leading-none">Tom Green</p>
+<p class="text-xs text-text-secondary-light dark:text-gray-400 mt-1">Admin</p>
+</div>
+</div>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto p-6 lg:p-8 custom-scrollbar">
+<div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+<div>
+<h1 class="text-3xl font-bold text-text-primary-light dark:text-white">Dashboard</h1>
+<p class="text-text-secondary-light dark:text-gray-400 mt-2">Welcome back! Here's what's happening with your store today.</p>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+<span class="material-icons-round text-base">calendar_today</span>
+<span>Last 30 Days</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm shadow-lg shadow-primary/30 hover:bg-primary/90 transition-colors">
+<span class="material-icons-round text-base">file_download</span>
+<span>Export Report</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-soft hover:shadow-lg transition-all duration-300 group">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-sm font-medium text-text-secondary-light dark:text-gray-400">Today's Sales</p>
+<h3 class="text-2xl font-bold text-text-primary-light dark:text-white mt-1">$3,570</h3>
+</div>
+<div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+<span class="material-icons-round text-xl">shopping_cart</span>
+</div>
+</div>
+<div class="mt-4 flex items-center text-xs">
+<span class="text-green-500 font-medium flex items-center">
+<span class="material-icons-round text-sm mr-0.5">trending_up</span>
+                                +8.2%
+                            </span>
+<span class="text-gray-400 ml-2">from yesterday</span>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-soft hover:shadow-lg transition-all duration-300 group">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-sm font-medium text-text-secondary-light dark:text-gray-400">Today's Income</p>
+<h3 class="text-2xl font-bold text-text-primary-light dark:text-white mt-1">$0</h3>
+</div>
+<div class="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-green-600 dark:text-green-400 group-hover:bg-green-600 group-hover:text-white transition-colors">
+<span class="material-icons-round text-xl">attach_money</span>
+</div>
+</div>
+<div class="mt-4 flex items-center text-xs">
+<span class="text-green-500 font-medium flex items-center">
+<span class="material-icons-round text-sm mr-0.5">north_east</span>
+                                12%
+                            </span>
+<span class="text-gray-400 ml-2">from yesterday</span>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-soft hover:shadow-lg transition-all duration-300 group">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-sm font-medium text-text-secondary-light dark:text-gray-400">Today's Expenses</p>
+<h3 class="text-2xl font-bold text-text-primary-light dark:text-white mt-1">$0</h3>
+</div>
+<div class="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-600 dark:text-red-400 group-hover:bg-red-600 group-hover:text-white transition-colors">
+<span class="material-icons-round text-xl">trending_down</span>
+</div>
+</div>
+<div class="mt-4 flex items-center text-xs">
+<span class="text-gray-400">No expenses recorded today</span>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-soft hover:shadow-lg transition-all duration-300 group">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-sm font-medium text-text-secondary-light dark:text-gray-400">Today's Purchases</p>
+<h3 class="text-2xl font-bold text-text-primary-light dark:text-white mt-1">$0</h3>
+</div>
+<div class="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-orange-600 dark:text-orange-400 group-hover:bg-orange-600 group-hover:text-white transition-colors">
+<span class="material-icons-round text-xl">inventory</span>
+</div>
+</div>
+<div class="mt-4 flex items-center text-xs">
+<span class="text-gray-400">No purchases yet</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-soft flex items-center justify-between group cursor-pointer">
+<div>
+<p class="text-xs font-medium uppercase tracking-wider text-text-secondary-light dark:text-gray-400 mb-1">Total Products</p>
+<h3 class="text-3xl font-bold text-text-primary-light dark:text-white">13</h3>
+</div>
+<div class="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
+<span class="material-icons-round">category</span>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-soft flex items-center justify-between group cursor-pointer">
+<div>
+<p class="text-xs font-medium uppercase tracking-wider text-text-secondary-light dark:text-gray-400 mb-1">Categories</p>
+<h3 class="text-3xl font-bold text-text-primary-light dark:text-white">19</h3>
+</div>
+<div class="w-12 h-12 rounded-full bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform">
+<span class="material-icons-round">style</span>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-soft flex items-center justify-between group cursor-pointer">
+<div>
+<p class="text-xs font-medium uppercase tracking-wider text-text-secondary-light dark:text-gray-400 mb-1">Stock Value</p>
+<h3 class="text-3xl font-bold text-text-primary-light dark:text-white">$0</h3>
+</div>
+<div class="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-900/20 flex items-center justify-center text-teal-500 group-hover:scale-110 transition-transform">
+<span class="material-icons-round">monetization_on</span>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-soft flex items-center justify-between group cursor-pointer">
+<div>
+<p class="text-xs font-medium uppercase tracking-wider text-text-secondary-light dark:text-gray-400 mb-1">Total Due</p>
+<h3 class="text-3xl font-bold text-text-primary-light dark:text-white">$1,604<span class="text-lg text-gray-400">.77</span></h3>
+</div>
+<div class="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
+<span class="material-icons-round">warning</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-soft relative overflow-hidden group">
+<div class="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-green-50 dark:from-green-900/10 to-transparent opacity-50"></div>
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-2">
+<div class="bg-green-100 dark:bg-green-900/30 p-1.5 rounded-md text-green-600 dark:text-green-400">
+<span class="material-icons-round text-lg">trending_up</span>
+</div>
+<h3 class="text-lg font-semibold text-text-primary-light dark:text-white">Total Profit</h3>
+</div>
+<p class="text-sm text-text-secondary-light dark:text-gray-400 mb-4">This month's net profit estimation</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-bold text-green-500">$1,058.35</span>
+</div>
+<div class="mt-4 h-1 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+<div class="h-full bg-green-500 w-3/4 rounded-full"></div>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-soft relative overflow-hidden group">
+<div class="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-red-50 dark:from-red-900/10 to-transparent opacity-50"></div>
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-2">
+<div class="bg-red-100 dark:bg-red-900/30 p-1.5 rounded-md text-red-600 dark:text-red-400">
+<span class="material-icons-round text-lg">trending_down</span>
+</div>
+<h3 class="text-lg font-semibold text-text-primary-light dark:text-white">Total Loss</h3>
+</div>
+<p class="text-sm text-text-secondary-light dark:text-gray-400 mb-4">This month's total operational loss</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-bold text-red-500">$0</span>
+</div>
+<div class="mt-4 h-1 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+<div class="h-full bg-red-500 w-0 rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-soft min-h-[300px] flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="text-lg font-bold text-text-primary-light dark:text-white">Sales Overview</h3>
+<p class="text-sm text-text-secondary-light dark:text-gray-400">Sales trend for this month</p>
+</div>
+<button class="text-primary hover:bg-primary/10 p-2 rounded-lg transition-colors">
+<span class="material-icons-round">more_horiz</span>
+</button>
+</div>
+<div class="flex-1 flex items-end justify-between gap-2 px-2">
+ <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-t-sm relative group cursor-pointer h-[40%]"><div class="absolute bottom-0 w-full bg-primary/20 group-hover:bg-primary/40 h-full rounded-t-sm transition-all duration-300"></div></div>
+ <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-t-sm relative group cursor-pointer h-[60%]"><div class="absolute bottom-0 w-full bg-primary/30 group-hover:bg-primary/50 h-full rounded-t-sm transition-all duration-300"></div></div>
+ <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-t-sm relative group cursor-pointer h-[35%]"><div class="absolute bottom-0 w-full bg-primary/20 group-hover:bg-primary/40 h-full rounded-t-sm transition-all duration-300"></div></div>
+ <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-t-sm relative group cursor-pointer h-[75%]"><div class="absolute bottom-0 w-full bg-primary/40 group-hover:bg-primary/60 h-full rounded-t-sm transition-all duration-300"></div></div>
+ <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-t-sm relative group cursor-pointer h-[55%]"><div class="absolute bottom-0 w-full bg-primary/30 group-hover:bg-primary/50 h-full rounded-t-sm transition-all duration-300"></div></div>
+ <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-t-sm relative group cursor-pointer h-[80%]"><div class="absolute bottom-0 w-full bg-primary/50 group-hover:bg-primary/70 h-full rounded-t-sm transition-all duration-300"></div></div>
+ <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-t-sm relative group cursor-pointer h-[95%]"><div class="absolute bottom-0 w-full bg-primary group-hover:bg-primary h-full rounded-t-sm transition-all duration-300 shadow-[0_0_10px_rgba(139,92,246,0.5)]"></div></div>
+</div>
+<div class="flex justify-between text-xs text-gray-400 mt-3 px-1">
+<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-soft min-h-[300px] flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="text-lg font-bold text-text-primary-light dark:text-white">Purchases Overview</h3>
+<p class="text-sm text-text-secondary-light dark:text-gray-400">Purchases trend for this month</p>
+</div>
+<button class="text-primary hover:bg-primary/10 p-2 rounded-lg transition-colors">
+<span class="material-icons-round">more_horiz</span>
+</button>
+</div>
+<div class="flex-1 relative flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-900/20">
+<div class="text-center">
+<span class="material-icons-round text-4xl text-gray-300 dark:text-gray-700 mb-2">show_chart</span>
+<p class="text-sm text-gray-400 dark:text-gray-500">Not enough data to display chart</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #CBD5E1;
+            border-radius: 20px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #374151;
+        }
+    </style>
+
+</body></html>

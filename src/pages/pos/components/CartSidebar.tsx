@@ -1,13 +1,5 @@
 import { memo, useMemo, useCallback } from 'react'
-import {
-  ShoppingCart,
-  Pause,
-  PlayCircle,
-  Trash2,
-  User,
-  Receipt,
-  CreditCard,
-} from 'lucide-react'
+import { ShoppingCart, Pause, PlayCircle, Trash2, User, Receipt, CreditCard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -82,7 +74,7 @@ const CartHeader = memo(function CartHeader({
   onOpenHeldCarts,
 }: CartHeaderProps) {
   return (
-    <CardHeader className="space-y-3 px-4 pb-3 pt-4">
+    <CardHeader className="space-y-3 bg-gray-300 px-4 pb-3 pt-4">
       {/* Invoice Info */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -104,17 +96,10 @@ const CartHeader = memo(function CartHeader({
           onClick={onSelectCustomer}
         >
           <User className="h-4 w-4" aria-hidden="true" />
-          <span className="truncate">
-            {customer?.name || 'Walk-in Customer'}
-          </span>
+          <span className="truncate">{customer?.name || 'Walk-in Customer'}</span>
         </Button>
         {heldCartsCount > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={onOpenHeldCarts}
-          >
+          <Button variant="outline" size="sm" className="gap-2" onClick={onOpenHeldCarts}>
             <PlayCircle className="h-4 w-4" aria-hidden="true" />
             <Badge variant="secondary" className="h-5 px-1.5">
               {heldCartsCount}
@@ -138,7 +123,7 @@ const CartTotalsSection = memo(function CartTotalsSection({
   currencySymbol,
 }: CartTotalsSectionProps) {
   return (
-    <div className="space-y-2 px-4 py-3">
+    <div className="space-y-2 bg-gray-200 px-4 py-3">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Subtotal</span>
         <span>
@@ -179,27 +164,14 @@ interface EmptyCartProps {
   onOpenHeldCarts: () => void
 }
 
-const EmptyCart = memo(function EmptyCart({
-  heldCartsCount,
-  onOpenHeldCarts,
-}: EmptyCartProps) {
+const EmptyCart = memo(function EmptyCart({ heldCartsCount, onOpenHeldCarts }: EmptyCartProps) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center py-8">
-      <ShoppingCart
-        className="mb-4 h-12 w-12 text-muted-foreground/50"
-        aria-hidden="true"
-      />
+      <ShoppingCart className="mb-4 h-12 w-12 text-muted-foreground/50" aria-hidden="true" />
       <p className="text-sm text-muted-foreground">Cart is empty</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Add products to start a sale
-      </p>
+      <p className="mt-1 text-xs text-muted-foreground">Add products to start a sale</p>
       {heldCartsCount > 0 && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-4"
-          onClick={onOpenHeldCarts}
-        >
+        <Button variant="outline" size="sm" className="mt-4" onClick={onOpenHeldCarts}>
           <PlayCircle className="mr-2 h-4 w-4" aria-hidden="true" />
           Recall Held Cart ({heldCartsCount})
         </Button>
@@ -229,10 +201,7 @@ function CartSidebarComponent({
   onSelectCustomer,
   onPayment,
 }: CartSidebarProps) {
-  const itemCount = useMemo(
-    () => items.reduce((acc, item) => acc + item.quantity, 0),
-    [items]
-  )
+  const itemCount = useMemo(() => items.reduce((acc, item) => acc + item.quantity, 0), [items])
 
   const isEmpty = items.length === 0
 
@@ -248,7 +217,7 @@ function CartSidebarComponent({
 
   return (
     <Card
-      className="flex h-full flex-col"
+      className="flex h-full flex-col border-0 bg-card shadow-none"
       role="region"
       aria-label="Shopping cart"
       onKeyDown={handleKeyboardPayment}
@@ -268,10 +237,7 @@ function CartSidebarComponent({
       {/* Cart Items */}
       <CardContent className="flex-1 overflow-hidden p-0">
         {isEmpty ? (
-          <EmptyCart
-            heldCartsCount={heldCartsCount}
-            onOpenHeldCarts={onOpenHeldCarts}
-          />
+          <EmptyCart heldCartsCount={heldCartsCount} onOpenHeldCarts={onOpenHeldCarts} />
         ) : (
           <ScrollArea className="h-full">
             <div className="space-y-2 p-4" role="list" aria-label="Cart items">
@@ -301,7 +267,7 @@ function CartSidebarComponent({
         </>
       )}
 
-      <CardFooter className="flex-col gap-2 px-4 pb-4 pt-2">
+      <CardFooter className="flex-col gap-2 bg-gray-200 px-4 pb-4 pt-2">
         {/* Action Buttons */}
         <div className="flex w-full gap-2">
           <Button
@@ -327,12 +293,7 @@ function CartSidebarComponent({
         </div>
 
         {/* Payment Button */}
-        <Button
-          size="lg"
-          className="w-full text-base"
-          onClick={onPayment}
-          disabled={isEmpty}
-        >
+        <Button size="lg" className="w-full text-base" onClick={onPayment} disabled={isEmpty}>
           <CreditCard className="mr-2 h-5 w-5" aria-hidden="true" />
           Pay {currencySymbol}
           {totals.total.toLocaleString()}
@@ -340,9 +301,7 @@ function CartSidebarComponent({
 
         {/* Payment Type Hint */}
         {paymentType && (
-          <p className="text-xs text-muted-foreground">
-            Payment: {paymentType.name}
-          </p>
+          <p className="text-xs text-muted-foreground">Payment: {paymentType.name}</p>
         )}
       </CardFooter>
     </Card>

@@ -27,15 +27,15 @@
     --ring: 262 83% 58%;
     --radius: 0.5rem;
 
-    /* Sidebar colors - purple theme */
-    --sidebar-background: 270 20% 98%;
-    --sidebar-foreground: 270 10% 25%;
-    --sidebar-primary: 262 83% 58%;
+    /* Sidebar colors - dark sidebar on light UI */
+    --sidebar-background: 270 20% 12%;
+    --sidebar-foreground: 270 5% 92%;
+    --sidebar-primary: 262 83% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 262 83% 95%;
-    --sidebar-accent-foreground: 262 83% 40%;
-    --sidebar-border: 270 10% 92%;
-    --sidebar-ring: 262 83% 58%;
+    --sidebar-accent: 262 50% 20%;
+    --sidebar-accent-foreground: 262 83% 85%;
+    --sidebar-border: 270 10% 18%;
+    --sidebar-ring: 262 83% 65%;
 
     /* POS custom colors */
     --pos-success: 142 76% 36%;
@@ -43,18 +43,18 @@
     --pos-danger: 0 84% 60%;
 
     /* Category colors - vibrant for quick identification */
-    --category-1: 262 83% 58%;   /* Purple */
-    --category-2: 142 76% 45%;   /* Green */
-    --category-3: 199 89% 48%;   /* Blue */
-    --category-4: 340 82% 52%;   /* Pink */
-    --category-5: 25 95% 53%;    /* Orange */
-    --category-6: 173 80% 40%;   /* Teal */
-    --category-7: 280 68% 60%;   /* Violet */
-    --category-8: 0 84% 60%;     /* Red */
-    --category-9: 160 84% 39%;   /* Emerald */
-    --category-10: 217 91% 60%;  /* Sky */
-    --category-11: 47 96% 53%;   /* Amber */
-    --category-12: 330 80% 60%;  /* Rose */
+    --category-1: 262 83% 58%; /* Purple */
+    --category-2: 142 76% 45%; /* Green */
+    --category-3: 199 89% 48%; /* Blue */
+    --category-4: 340 82% 52%; /* Pink */
+    --category-5: 25 95% 53%; /* Orange */
+    --category-6: 173 80% 40%; /* Teal */
+    --category-7: 280 68% 60%; /* Violet */
+    --category-8: 0 84% 60%; /* Red */
+    --category-9: 160 84% 39%; /* Emerald */
+    --category-10: 217 91% 60%; /* Sky */
+    --category-11: 47 96% 53%; /* Amber */
+    --category-12: 330 80% 60%; /* Rose */
 
     --chart-1: 262 83% 58%;
     --chart-2: 142 76% 45%;
@@ -87,13 +87,13 @@
     --ring: 262 83% 65%;
 
     /* Sidebar colors - dark purple theme */
-    --sidebar-background: 270 20% 10%;
+    --sidebar-background: 270 20% 14%;
     --sidebar-foreground: 270 5% 92%;
     --sidebar-primary: 262 83% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 262 50% 20%;
     --sidebar-accent-foreground: 262 83% 80%;
-    --sidebar-border: 270 10% 15%;
+    --sidebar-border: 270 10% 18%;
     --sidebar-ring: 262 83% 65%;
 
     /* POS custom colors - dark */
@@ -137,7 +137,9 @@
 
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
 
   /* Global scrollbar styling */

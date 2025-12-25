@@ -150,6 +150,11 @@ export interface ElectronAPI {
 
   // SQLite database API (available in Electron)
   sqlite?: SQLiteAPI
+
+  // Print API (available in Electron)
+  print?: {
+    receipt: (url: string) => Promise<{ success: boolean }>
+  }
 }
 
 export interface PlatformInfo {

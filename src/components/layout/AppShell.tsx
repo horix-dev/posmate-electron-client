@@ -29,8 +29,8 @@ export function AppShell() {
         <OfflineBanner />
 
         {/* Page Content */}
-        <ScrollArea className="flex-1">
-          <main className="p-6">
+        <ScrollArea className="flex-1 bg-muted/100">
+          <main className="min-h-full p-6">
             <Outlet />
           </main>
         </ScrollArea>

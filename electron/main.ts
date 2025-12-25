@@ -248,6 +248,52 @@ ipcMain.handle('secure-store-clear', () => {
   return true
 })
 
+// Silent printing handler
+ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
+  try {
+    // Create hidden window to load and print the invoice
+    const printWindow = new BrowserWindow({
+      width: 800,
+      height: 600,
+      show: false, // Hidden window
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    })
+
+    // Load the invoice URL
+    await printWindow.loadURL(invoiceUrl)
+
+    // Wait for content to load
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    // Silent print with default printer
+    await printWindow.webContents.print(
+      {
+        silent: true, // No dialog
+        printBackground: true,
+        deviceName: '', // Use default printer
+      },
+      (success, errorType) => {
+        if (!success) {
+          console.error('[Print] Print failed:', errorType)
+        }
+        // Close the hidden window after printing
+        printWindow.close()
+      }
+    )
+
+    return { success: true }
+  } catch (error) {
+    console.error('[Print] Error printing receipt:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+})
+
 // Device ID - unique identifier for this installation
 ipcMain.handle('get-device-id', () => {
   let deviceId = store.get('deviceId') as string | undefined
