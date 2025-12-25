@@ -397,6 +397,7 @@ export interface Sale {
   rounding_option?: RoundingOption
   vat_amount?: number
   note?: string
+  invoice_url?: string // URL for viewing/printing invoice
   user?: User
   party?: Party
   details?: SaleDetail[]

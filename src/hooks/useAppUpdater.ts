@@ -24,7 +24,7 @@ type UpdateStatus =
 
 interface UpdateStatusPayload {
   status: UpdateStatus
-  data: UpdateInfo | UpdateProgress | { message: string } | Record<string, unknown>
+  data: unknown
 }
 
 export function useAppUpdater() {
@@ -35,8 +35,8 @@ export function useAppUpdater() {
 
   useEffect(() => {
     // Check if running in Electron with updater API
-    const electronAPI = (window as any).electronAPI
-    if (!electronAPI?.updater?.onUpdateStatus) {
+    const updater = window.electronAPI?.updater
+    if (!updater?.onUpdateStatus) {
       return
     }
 
@@ -69,16 +69,16 @@ export function useAppUpdater() {
     }
 
     // Listen for update status from main process
-    electronAPI.updater.onUpdateStatus(handleUpdateStatus)
+    updater.onUpdateStatus(handleUpdateStatus)
 
     return () => {
       // Cleanup listener
-      electronAPI.updater.removeUpdateListener?.()
+      updater.removeUpdateListener?.()
     }
   }, [])
 
   const checkForUpdates = useCallback(() => {
-    const electronAPI = (window as any).electronAPI
+    const electronAPI = window.electronAPI
     if (electronAPI?.updater?.checkForUpdates) {
       setUpdateStatus('checking-for-update')
       electronAPI.updater.checkForUpdates()
@@ -86,14 +86,14 @@ export function useAppUpdater() {
   }, [])
 
   const downloadUpdate = useCallback(() => {
-    const electronAPI = (window as any).electronAPI
+    const electronAPI = window.electronAPI
     if (electronAPI?.updater?.downloadUpdate) {
       electronAPI.updater.downloadUpdate()
     }
   }, [])
 
   const quitAndInstall = useCallback(() => {
-    const electronAPI = (window as any).electronAPI
+    const electronAPI = window.electronAPI
     if (electronAPI?.updater?.quitAndInstall) {
       electronAPI.updater.quitAndInstall()
     }

@@ -6,10 +6,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useCartStore, getHeldCarts, deleteHeldCart } from '@/stores/cart.store'
 import type { HeldCart } from '@/stores/cart.store'
 import { useBusinessStore } from '@/stores/business.store'
+import { useUIStore } from '@/stores/ui.store'
 import { salesService } from '@/api/services/sales.service'
 import { offlineSalesService } from '@/api/services/offlineSales.service'
 import { partiesService } from '@/api/services/parties.service'
 import { productsService } from '@/api/services/products.service'
+import { getApiErrorMessage } from '@/api/axios'
+import { printReceipt } from '@/lib/receipt-printer'
 import type { Product, Stock, PaymentType, Party as Customer } from '@/types/api.types'
 import type { ProductVariant } from '@/types/variant.types'
 
@@ -52,6 +55,7 @@ export function POSPage() {
   // ----------------------------------------
   const business = useBusinessStore((state) => state.business)
   const currencySymbol = business?.business_currency?.symbol || '$'
+  const autoPrintReceipt = useUIStore((state) => state.autoPrintReceipt)
 
   // Cart store
   const {
@@ -340,6 +344,14 @@ export function POSPage() {
           toast.success('Sale saved offline - will sync when online')
         } else {
           toast.success('Sale completed successfully!')
+
+          // Print receipt if auto-print is enabled and invoice_url is available
+          if (autoPrintReceipt && result.data.invoice_url) {
+            const printSuccess = await printReceipt(result.data)
+            if (!printSuccess) {
+              toast.warning('Receipt print failed. Please check popup blocker settings.')
+            }
+          }
         }
 
         clearCart()
@@ -359,7 +371,8 @@ export function POSPage() {
         }
       } catch (error) {
         console.error('Payment processing error:', error)
-        toast.error('Failed to process payment')
+        const errorMessage = getApiErrorMessage(error)
+        toast.error(errorMessage)
       } finally {
         setIsProcessing(false)
       }
@@ -373,6 +386,7 @@ export function POSPage() {
       discountAmount,
       vatAmount,
       totalAmount,
+      autoPrintReceipt,
       clearCart,
       closeDialog,
       setInvoiceNumber,
@@ -548,9 +562,9 @@ export function POSPage() {
   // Render
   // ----------------------------------------
   return (
-    <div className="flex h-[calc(100vh-6rem)] gap-4">
+    <div className="relative h-[calc(100vh-6rem)] bg-muted/30 p-4 pr-[28rem]">
       {/* Products Section */}
-      <div className="flex-[4] overflow-hidden p-4">
+      <div className="h-full min-w-0 overflow-hidden rounded-xl border bg-background p-4 shadow-sm">
         <ProductGrid
           products={filteredProducts}
           categories={categories}
@@ -567,31 +581,33 @@ export function POSPage() {
         />
       </div>
 
-      {/* Cart Sidebar */}
-      <aside className="flex h-full flex-[3] flex-shrink-0 flex-col border-l bg-background p-4">
-        <CartSidebar
-          items={adaptedCartItems}
-          customer={customer}
-          paymentType={paymentType}
-          totals={cartTotals}
-          vatPercentage={vatPercentage}
-          currencySymbol={currencySymbol}
-          heldCartsCount={heldCarts.length}
-          invoiceNumber={invoiceNumber || 'Loading...'}
-          onUpdateQuantity={(productId, quantity) => {
-            const item = cartItems.find((i) => i.product.id === productId)
-            if (item) handleUpdateQuantity(item.id, quantity)
-          }}
-          onRemoveItem={(productId) => {
-            const item = cartItems.find((i) => i.product.id === productId)
-            if (item) handleRemoveItem(item.id)
-          }}
-          onClearCart={handleClearCart}
-          onHoldCart={handleHoldCart}
-          onOpenHeldCarts={handleOpenHeldCarts}
-          onSelectCustomer={handleOpenCustomerDialog}
-          onPayment={handleOpenPayment}
-        />
+      {/* Fixed Cart Panel (Right) */}
+      <aside className="fixed bottom-0 right-0 top-12 z-30 w-[28rem] border-l bg-background">
+        <div className="flex h-full flex-col overflow-hidden">
+          <CartSidebar
+            items={adaptedCartItems}
+            customer={customer}
+            paymentType={paymentType}
+            totals={cartTotals}
+            vatPercentage={vatPercentage}
+            currencySymbol={currencySymbol}
+            heldCartsCount={heldCarts.length}
+            invoiceNumber={invoiceNumber || 'Loading...'}
+            onUpdateQuantity={(productId, quantity) => {
+              const item = cartItems.find((i) => i.product.id === productId)
+              if (item) handleUpdateQuantity(item.id, quantity)
+            }}
+            onRemoveItem={(productId) => {
+              const item = cartItems.find((i) => i.product.id === productId)
+              if (item) handleRemoveItem(item.id)
+            }}
+            onClearCart={handleClearCart}
+            onHoldCart={handleHoldCart}
+            onOpenHeldCarts={handleOpenHeldCarts}
+            onSelectCustomer={handleOpenCustomerDialog}
+            onPayment={handleOpenPayment}
+          />
+        </div>
       </aside>
 
       {/* Keyboard Shortcuts Button */}

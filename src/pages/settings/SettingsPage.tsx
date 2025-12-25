@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Store, Receipt, Bell, Palette, Lock, Users, Tag } from 'lucide-react'
+import { toast } from 'sonner'
+import { Store, Receipt, Bell, Palette, Lock, Users, Tag, RefreshCw, Download } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useUIStore, useBusinessStore } from '@/stores'
 import { attributesService } from '@/api/services'
+import { useAppUpdater } from '@/hooks/useAppUpdater'
 import { AttributesSettings } from './components'
 import type { Attribute } from '@/types/variant.types'
 
@@ -15,6 +17,24 @@ export function SettingsPage() {
   const { theme, setTheme, soundEnabled, setSoundEnabled, autoPrintReceipt, setAutoPrintReceipt } =
     useUIStore()
   const business = useBusinessStore((state) => state.business)
+
+  const {
+    updateStatus,
+    updateInfo,
+    downloadProgress,
+    error: updateError,
+    isChecking,
+    isUpdateAvailable,
+    isDownloading,
+    isUpdateReady,
+    hasError,
+    checkForUpdates,
+    downloadUpdate,
+    quitAndInstall,
+  } = useAppUpdater()
+
+  const [manualUpdateCheckRequested, setManualUpdateCheckRequested] = useState(false)
+  const supportsUpdater = Boolean(window.electronAPI?.updater?.checkForUpdates)
 
   // Attributes state
   const [attributes, setAttributes] = useState<Attribute[]>([])
@@ -36,6 +56,62 @@ export function SettingsPage() {
   useEffect(() => {
     fetchAttributes()
   }, [])
+
+  useEffect(() => {
+    if (!manualUpdateCheckRequested) {
+      return
+    }
+
+    if (updateStatus === 'update-not-available') {
+      toast.success("You're up to date")
+      setManualUpdateCheckRequested(false)
+      return
+    }
+
+    if (
+      updateStatus === 'update-available' ||
+      updateStatus === 'update-downloaded' ||
+      updateStatus === 'update-error'
+    ) {
+      setManualUpdateCheckRequested(false)
+    }
+  }, [manualUpdateCheckRequested, updateStatus])
+
+  const handleCheckForUpdates = () => {
+    if (!supportsUpdater) {
+      toast.info('Update checking is only available in the desktop app')
+      return
+    }
+    setManualUpdateCheckRequested(true)
+    checkForUpdates()
+  }
+
+  const getUpdateStatusText = () => {
+    switch (updateStatus) {
+      case 'idle':
+        return 'Check for updates to see if a new version is available.'
+      case 'checking-for-update':
+        return 'Checking for updates…'
+      case 'update-not-available':
+        return "You're up to date."
+      case 'update-available':
+        return updateInfo?.version
+          ? `Update available: v${updateInfo.version}`
+          : 'Update available.'
+      case 'download-progress':
+        return downloadProgress
+          ? `Downloading… ${Math.round(downloadProgress.percent)}%`
+          : 'Downloading update…'
+      case 'update-downloaded':
+        return updateInfo?.version
+          ? `Update downloaded: v${updateInfo.version} (restart to install)`
+          : 'Update downloaded (restart to install).'
+      case 'update-error':
+        return updateError ? `Update error: ${updateError}` : 'Update error.'
+      default:
+        return ''
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -125,6 +201,57 @@ export function SettingsPage() {
                 </div>
                 <Switch checked={autoPrintReceipt} onCheckedChange={setAutoPrintReceipt} />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                Application Updates
+              </CardTitle>
+              <CardDescription>Manually check for new versions and install updates</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <Label>Update Status</Label>
+                  <p className="truncate text-sm text-muted-foreground">{getUpdateStatusText()}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCheckForUpdates}
+                  disabled={!supportsUpdater || isChecking || isDownloading}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Check for updates
+                </Button>
+              </div>
+
+              {isUpdateAvailable && (
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm text-muted-foreground">
+                    Download the update to begin installation.
+                  </p>
+                  <Button size="sm" onClick={downloadUpdate}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download
+                  </Button>
+                </div>
+              )}
+
+              {isUpdateReady && (
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm text-muted-foreground">Restart to complete installation.</p>
+                  <Button size="sm" onClick={quitAndInstall}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Restart now
+                  </Button>
+                </div>
+              )}
+
+              {hasError && updateError && <p className="text-sm text-destructive">{updateError}</p>}
             </CardContent>
           </Card>
         </TabsContent>

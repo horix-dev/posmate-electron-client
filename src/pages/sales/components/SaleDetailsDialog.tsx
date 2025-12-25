@@ -1,12 +1,23 @@
 import { memo } from 'react'
-import { Cloud, CloudOff, Receipt, User, Calendar, CreditCard, Package } from 'lucide-react'
+import {
+  Cloud,
+  CloudOff,
+  Receipt,
+  User,
+  Calendar,
+  CreditCard,
+  Package,
+  Printer,
+} from 'lucide-react'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
   Table,
@@ -16,7 +27,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { toast } from 'sonner'
 import type { Sale } from '@/types/api.types'
+import { printReceipt } from '@/lib/receipt-printer'
 import { getPaymentStatus, isSaleSynced, formatSaleDate } from '../hooks'
 
 // ============================================
@@ -90,9 +103,23 @@ function SaleDetailsDialogComponent({
     }
   }
 
+  const handlePrintReceipt = async () => {
+    if (!sale.invoice_url) {
+      toast.error('Invoice URL not available for this sale')
+      return
+    }
+
+    const success = await printReceipt(sale)
+    if (success) {
+      toast.success('Receipt sent to printer')
+    } else {
+      toast.error('Failed to open print window. Please check popup blocker settings.')
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
@@ -100,17 +127,15 @@ function SaleDetailsDialogComponent({
               Sale Details
             </DialogTitle>
             <div className="flex items-center gap-2">
-              <Badge variant={getPaymentBadgeVariant()}>
-                {paymentStatus.label}
-              </Badge>
+              <Badge variant={getPaymentBadgeVariant()}>{paymentStatus.label}</Badge>
               {synced ? (
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  <Cloud className="h-3 w-3 mr-1" />
+                <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+                  <Cloud className="mr-1 h-3 w-3" />
                   Synced
                 </Badge>
               ) : (
-                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                  <CloudOff className="h-3 w-3 mr-1" />
+                <Badge variant="outline" className="border-yellow-200 bg-yellow-50 text-yellow-700">
+                  <CloudOff className="mr-1 h-3 w-3" />
                   Pending
                 </Badge>
               )}
@@ -119,22 +144,14 @@ function SaleDetailsDialogComponent({
         </DialogHeader>
 
         {/* Sale Info Grid */}
-        <div className="grid grid-cols-2 gap-4 mt-4">
+        <div className="mt-4 grid grid-cols-2 gap-4">
           <InfoRow
             icon={Receipt}
             label="Invoice Number"
             value={sale.invoiceNumber || `#${sale.id}`}
           />
-          <InfoRow
-            icon={Calendar}
-            label="Date"
-            value={formatSaleDate(sale.saleDate)}
-          />
-          <InfoRow
-            icon={User}
-            label="Customer"
-            value={sale.party?.name || 'Walk-in Customer'}
-          />
+          <InfoRow icon={Calendar} label="Date" value={formatSaleDate(sale.saleDate)} />
+          <InfoRow icon={User} label="Customer" value={sale.party?.name || 'Walk-in Customer'} />
           <InfoRow
             icon={CreditCard}
             label="Payment Type"
@@ -146,13 +163,13 @@ function SaleDetailsDialogComponent({
 
         {/* Products Table */}
         <div>
-          <div className="flex items-center gap-2 mb-3">
+          <div className="mb-3 flex items-center gap-2">
             <Package className="h-4 w-4 text-muted-foreground" />
             <h4 className="font-medium">Products ({sale.details?.length || 0})</h4>
           </div>
-          
+
           {sale.details && sale.details.length > 0 ? (
-            <div className="border rounded-lg overflow-hidden">
+            <div className="overflow-hidden rounded-lg border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -168,12 +185,8 @@ function SaleDetailsDialogComponent({
                       <TableCell className="font-medium">
                         {detail.product?.productName || 'Product'}
                       </TableCell>
-                      <TableCell className="text-center">
-                        {detail.quantities}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(detail.price)}
-                      </TableCell>
+                      <TableCell className="text-center">{detail.quantities}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(detail.price)}</TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(detail.price * detail.quantities)}
                       </TableCell>
@@ -183,7 +196,7 @@ function SaleDetailsDialogComponent({
               </Table>
             </div>
           ) : (
-            <div className="border rounded-lg p-8 text-center text-muted-foreground">
+            <div className="rounded-lg border p-8 text-center text-muted-foreground">
               No product details available
             </div>
           )}
@@ -210,7 +223,7 @@ function SaleDetailsDialogComponent({
             </div>
           )}
           <Separator />
-          <div className="flex justify-between font-medium text-lg">
+          <div className="flex justify-between text-lg font-medium">
             <span>Total</span>
             <span>{formatCurrency(sale.totalAmount ?? 0)}</span>
           </div>
@@ -237,10 +250,20 @@ function SaleDetailsDialogComponent({
           <>
             <Separator className="my-4" />
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Note</p>
-              <p className="text-sm bg-muted/50 rounded-md p-3">{sale.note}</p>
+              <p className="mb-1 text-sm text-muted-foreground">Note</p>
+              <p className="rounded-md bg-muted/50 p-3 text-sm">{sale.note}</p>
             </div>
           </>
+        )}
+
+        {/* Footer with Print Button */}
+        {sale.invoice_url && (
+          <DialogFooter className="mt-6">
+            <Button onClick={handlePrintReceipt} variant="default">
+              <Printer className="mr-2 h-4 w-4" />
+              Print Receipt
+            </Button>
+          </DialogFooter>
         )}
       </DialogContent>
     </Dialog>

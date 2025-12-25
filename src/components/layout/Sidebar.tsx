@@ -19,12 +19,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useUIStore, useBusinessStore } from '@/stores'
 import { cn } from '@/lib/utils'
 import { SyncStatusIndicator } from '@/components/common/SyncStatusIndicator'
@@ -74,7 +69,7 @@ export function Sidebar() {
           'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
           isActive
             ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'
-            : 'text-muted-foreground',
+            : 'text-sidebar-foreground/70',
           isCollapsed && 'justify-center px-2'
         )}
       >
@@ -95,7 +90,7 @@ export function Sidebar() {
           <TooltipContent side="right" className="flex items-center gap-4">
             {item.title}
             {item.badge !== undefined && (
-              <span className="ml-auto text-muted-foreground">{item.badge}</span>
+              <span className="ml-auto text-sidebar-foreground/70">{item.badge}</span>
             )}
           </TooltipContent>
         </Tooltip>
@@ -109,21 +104,19 @@ export function Sidebar() {
     <TooltipProvider>
       <aside
         className={cn(
-          'fixed left-0 top-0 bottom-0 z-50 flex flex-col border-r bg-card transition-all duration-300',
+          'fixed bottom-0 left-0 top-0 z-50 flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-md transition-all duration-300',
           isCollapsed ? 'w-16' : 'w-64'
         )}
       >
         {/* Logo / Business Name - Matches unified title bar height */}
-        <div className="flex h-12 items-center justify-between border-b px-4">
+        <div className="flex h-12 items-center justify-between border-b border-sidebar-border bg-sidebar px-4">
           {!isCollapsed && (
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <ShoppingCart className="h-4 w-4" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-semibold">
-                  {business?.companyName || 'POS Mate'}
-                </span>
+                <span className="text-sm font-semibold">{business?.companyName || 'POS Mate'}</span>
               </div>
             </div>
           )}
@@ -152,13 +145,10 @@ export function Sidebar() {
         </ScrollArea>
 
         {/* Footer - Sync Status, Settings & Toggle */}
-        <div className="border-t p-3">
+        <div className="border-t border-sidebar-border p-3">
           {/* Sync Status Indicator */}
           <div className="mb-2">
-            <SyncStatusIndicator
-              collapsed={isCollapsed}
-              onViewAll={() => setSyncPanelOpen(true)}
-            />
+            <SyncStatusIndicator collapsed={isCollapsed} onViewAll={() => setSyncPanelOpen(true)} />
           </div>
 
           <Separator className="my-2" />

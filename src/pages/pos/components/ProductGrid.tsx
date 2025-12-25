@@ -272,7 +272,7 @@ function ProductGridComponent({
         ) : products.length === 0 ? (
           <EmptyState searchQuery={searchQuery} onClear={() => onSearchChange('')} />
         ) : (
-          <div className={gridClassName}>
+          <div className={cn(gridClassName, 'pr-3')}>
             {products.map((product) => (
               <ProductCard
                 key={product.id}
