@@ -1,6 +1,12 @@
 // Electron API types exposed via contextBridge
 
-import type { LocalProduct, LocalCategory, LocalParty, LocalSale, SyncQueueItem } from '@/lib/storage/interface'
+import type {
+  LocalProduct,
+  LocalCategory,
+  LocalParty,
+  LocalSale,
+  SyncQueueItem,
+} from '@/lib/storage/interface'
 
 export interface WindowControls {
   minimize: () => void
@@ -26,7 +32,7 @@ export interface SQLiteAPI {
     updateStock: (id: number, quantity: number) => Promise<void>
     getCount: () => Promise<number>
   }
-  
+
   // Categories
   categories: {
     getAll: () => Promise<LocalCategory[]>
@@ -38,7 +44,7 @@ export interface SQLiteAPI {
     bulkCreate: (categories: Omit<LocalCategory, 'id'>[]) => Promise<number[]>
     getChildren: (parentId: number | null) => Promise<LocalCategory[]>
   }
-  
+
   // Parties
   parties: {
     getAll: () => Promise<LocalParty[]>
@@ -52,7 +58,7 @@ export interface SQLiteAPI {
     getByType: (type: 'customer' | 'supplier') => Promise<LocalParty[]>
     updateBalance: (id: number, due: number, wallet: number) => Promise<void>
   }
-  
+
   // Sales
   sales: {
     getAll: () => Promise<LocalSale[]>
@@ -66,14 +72,17 @@ export interface SQLiteAPI {
     markSynced: (id: number, serverId: number) => Promise<void>
     getByDateRange: (start: Date, end: Date) => Promise<LocalSale[]>
     getByParty: (partyId: number) => Promise<LocalSale[]>
-    getSummary: (start?: Date, end?: Date) => Promise<{
+    getSummary: (
+      start?: Date,
+      end?: Date
+    ) => Promise<{
       totalSales: number
       totalAmount: number
       totalPaid: number
       totalDue: number
     }>
   }
-  
+
   // Sync Queue
   syncQueue: {
     getAll: () => Promise<SyncQueueItem[]>
@@ -94,7 +103,7 @@ export interface SQLiteAPI {
       completed: number
     }>
   }
-  
+
   // General operations
   clearAll: () => Promise<void>
   getMetadata: (key: string) => Promise<string | null>
@@ -117,7 +126,28 @@ export interface ElectronAPI {
   }>
   onMainProcessMessage: (callback: (message: string) => void) => void
   removeAllListeners: (channel: string) => void
-  
+
+  // Auto-updater API (available in Electron)
+  updater?: {
+    checkForUpdates: () => Promise<unknown>
+    downloadUpdate: () => Promise<unknown>
+    quitAndInstall: () => Promise<unknown>
+    onUpdateStatus: (
+      callback: (payload: {
+        status:
+          | 'idle'
+          | 'checking-for-update'
+          | 'update-available'
+          | 'update-not-available'
+          | 'download-progress'
+          | 'update-downloaded'
+          | 'update-error'
+        data: unknown
+      }) => void
+    ) => void
+    removeUpdateListener?: () => void
+  }
+
   // SQLite database API (available in Electron)
   sqlite?: SQLiteAPI
 }
