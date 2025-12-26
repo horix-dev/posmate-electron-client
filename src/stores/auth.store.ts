@@ -19,7 +19,11 @@ interface AuthState {
 
   // Actions
   login: (email: string, password: string) => Promise<{ success: boolean; requiresSetup?: boolean }>
-  signUp: (name: string, email: string, password: string) => Promise<{ success: boolean; requiresOtp?: boolean }>
+  signUp: (
+    name: string,
+    email: string,
+    password: string
+  ) => Promise<{ success: boolean; requiresOtp?: boolean }>
   submitOtp: (email: string, otp: string) => Promise<{ success: boolean }>
   logout: () => Promise<void>
   refreshToken: () => Promise<boolean>
@@ -41,7 +45,11 @@ function cacheAuthData(user: User | null, business: Business | null, currency: C
 }
 
 // Helper to load cached auth data
-function loadCachedAuthData(): { user: User | null; business: Business | null; currency: Currency | null } {
+function loadCachedAuthData(): {
+  user: User | null
+  business: Business | null
+  currency: Currency | null
+} {
   return {
     user: getCache<User>(CacheKeys.AUTH_USER, { ttl: 7 * 24 * 60 * 60 * 1000 }),
     business: getCache<Business>(CacheKeys.AUTH_BUSINESS, { ttl: 7 * 24 * 60 * 60 * 1000 }),
@@ -214,11 +222,11 @@ export const useAuthStore = create<AuthState>()(
           console.warn('[AuthStore] Failed to fetch profile, using cached data')
           const cached = loadCachedAuthData()
           if (cached.user) {
-            set({ 
-              user: cached.user, 
+            set({
+              user: cached.user,
               business: cached.business,
               currency: cached.currency,
-              isOfflineMode: true 
+              isOfflineMode: true,
             })
           }
         }
@@ -246,19 +254,19 @@ export const useAuthStore = create<AuthState>()(
       hydrateFromStorage: async () => {
         // First, immediately load cached auth data (non-blocking)
         const cached = loadCachedAuthData()
-        
+
         // Check for stored token
         let storedToken: string | null = null
-        if (window.electronAPI) {
-          storedToken = await window.electronAPI.secureStore.get<string>('authToken') ?? null
+        if (window.electronAPI?.secureStore?.get) {
+          storedToken = (await window.electronAPI.secureStore.get<string>('authToken')) ?? null
         }
 
         if (storedToken) {
           setAuthToken(storedToken)
-          
+
           // Immediately set auth state with cached data (UI can render)
-          set({ 
-            token: storedToken, 
+          set({
+            token: storedToken,
             isAuthenticated: true,
             user: cached.user,
             business: cached.business,
@@ -268,9 +276,11 @@ export const useAuthStore = create<AuthState>()(
 
           // Fetch fresh profile in background (non-blocking)
           if (navigator.onLine) {
-            get().fetchProfile().catch(() => {
-              // Already handled in fetchProfile
-            })
+            get()
+              .fetchProfile()
+              .catch(() => {
+                // Already handled in fetchProfile
+              })
           }
         } else if (cached.user) {
           // No token but have cached user - might be stale session

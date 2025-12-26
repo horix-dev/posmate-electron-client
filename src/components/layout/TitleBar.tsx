@@ -100,8 +100,8 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
 
     const checkMaximized = async () => {
       try {
-        const maximized = await window.electronAPI.windowControls.isMaximized()
-        setIsMaximized(maximized)
+        const maximized = await window.electronAPI?.windowControls?.isMaximized?.()
+        setIsMaximized(!!maximized)
       } catch {
         // Ignore errors
       }
@@ -127,17 +127,18 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
   }, [])
 
   const handleMinimize = useCallback(() => {
-    window.electronAPI?.windowControls.minimize()
+    window.electronAPI?.windowControls?.minimize?.()
   }, [])
 
   const handleMaximize = useCallback(async () => {
-    window.electronAPI?.windowControls.maximize()
-    const maximized = await window.electronAPI?.windowControls.isMaximized()
+    const controls = window.electronAPI?.windowControls
+    controls?.maximize?.()
+    const maximized = await controls?.isMaximized?.()
     setIsMaximized(maximized ?? false)
   }, [])
 
   const handleClose = useCallback(() => {
-    window.electronAPI?.windowControls.close()
+    window.electronAPI?.windowControls?.close?.()
   }, [])
 
   const handleFullscreen = useCallback(() => {

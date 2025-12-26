@@ -1,6 +1,6 @@
 /**
  * Cache Utilities
- * 
+ *
  * Industry-standard caching layer with:
  * - Type safety
  * - TTL (Time-To-Live) expiration
@@ -63,7 +63,7 @@ export function getCache<T>(key: string, options: CacheOptions = {}): T | null {
     if (!raw) return null
 
     const entry: CacheEntry<T> = JSON.parse(raw)
-    
+
     // Check version - invalidate if outdated
     const requiredVersion = options.version ?? CURRENT_CACHE_VERSION
     if (entry.version !== requiredVersion) {
@@ -127,15 +127,16 @@ export const CacheKeys = {
   AUTH_USER: 'cache:auth:user',
   AUTH_BUSINESS: 'cache:auth:business',
   AUTH_CURRENCY: 'cache:auth:currency',
-  
+
   // POS
   POS_PAYMENT_TYPES: 'cache:pos:payment-types',
   POS_VATS: 'cache:pos:vats',
-  
+
   // Products
   PRODUCTS_BRANDS: 'cache:products:brands',
   PRODUCTS_UNITS: 'cache:products:units',
-  
+  PRODUCT_VARIANTS: (productId: number) => `cache:products:${productId}:variants`,
+
   // Dashboard
   DASHBOARD_SUMMARY: 'cache:dashboard:summary',
   DASHBOARD_DATA: 'cache:dashboard:data',
@@ -148,7 +149,10 @@ export const CacheKeys = {
 /**
  * Set multiple cache entries at once
  */
-export function setCacheMultiple(entries: Record<string, unknown>, options: CacheOptions = {}): void {
+export function setCacheMultiple(
+  entries: Record<string, unknown>,
+  options: CacheOptions = {}
+): void {
   Object.entries(entries).forEach(([key, data]) => {
     if (data !== null && data !== undefined) {
       setCache(key, data, options)
@@ -164,14 +168,14 @@ export function getCacheMultiple<T extends Record<string, unknown>>(
   options: CacheOptions = {}
 ): Partial<T> {
   const result: Partial<T> = {}
-  
+
   keys.forEach((key) => {
     const data = getCache<T[typeof key]>(key as string, options)
     if (data !== null) {
       result[key] = data
     }
   })
-  
+
   return result
 }
 

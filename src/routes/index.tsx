@@ -22,6 +22,7 @@ const PartiesPage = lazy(() => import('@/pages/parties/PartiesPage'))
 const ExpensesPage = lazy(() => import('@/pages/expenses/ExpensesPage'))
 const ProductSettingsPage = lazy(() => import('@/pages/product-settings/ProductSettingsPage'))
 const WarehousesPage = lazy(() => import('@/pages/warehouses/WarehousesPage'))
+const StockAdjustmentsPage = lazy(() => import('@/pages/inventory/StockAdjustmentsPage'))
 const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage'))
 const InvoicesPage = lazy(() => import('@/pages/invoices/InvoicesPage'))
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'))
@@ -42,7 +43,9 @@ function PageLoader() {
 
 // Router configuration
 // Use HashRouter for Electron (file:// protocol), BrowserRouter for web
-const isElectron = typeof window !== 'undefined' && ((window as unknown) as Record<string, unknown>).electronAPI !== undefined
+const isElectron =
+  typeof window !== 'undefined' &&
+  (window as unknown as Record<string, unknown>).electronAPI !== undefined
 const routerCreator = isElectron ? createHashRouter : createBrowserRouter
 
 const router = routerCreator([
@@ -154,6 +157,14 @@ const router = routerCreator([
         element: (
           <Suspense fallback={<PageLoader />}>
             <WarehousesPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'inventory/stock-adjustments',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <StockAdjustmentsPage />
           </Suspense>
         ),
       },

@@ -4,6 +4,7 @@
  */
 
 import { syncQueueRepository, saleRepository } from '../repositories'
+import { stockAdjustmentRepository } from '../repositories/stockAdjustment.repository'
 import type { SyncQueueItem } from '../schema'
 import api from '@/api/axios'
 
@@ -191,14 +192,14 @@ export class SyncService {
   /**
    * Handle successful sync
    */
-  private async handleSuccess(
-    item: SyncQueueItem,
-    response: unknown
-  ): Promise<void> {
+  private async handleSuccess(item: SyncQueueItem, response: unknown): Promise<void> {
     // Handle entity-specific post-sync logic
     switch (item.entity) {
       case 'sale':
         await this.handleSaleSync(item, response)
+        break
+      case 'stock':
+        await this.handleStockAdjustmentSync(item, response)
         break
       // Add other entity types as needed
       default:
@@ -210,10 +211,7 @@ export class SyncService {
   /**
    * Handle sale-specific sync success
    */
-  private async handleSaleSync(
-    item: SyncQueueItem,
-    response: unknown
-  ): Promise<void> {
+  private async handleSaleSync(item: SyncQueueItem, response: unknown): Promise<void> {
     // Extract server ID from response
     const serverSale = (response as { data?: { id?: number } })?.data
     const serverId = serverSale?.id
@@ -221,6 +219,24 @@ export class SyncService {
     // Update local sale record
     if (typeof item.entityId === 'number') {
       await saleRepository.markAsSynced(item.entityId, serverId)
+    }
+  }
+
+  /**
+   * Handle stock adjustment-specific sync success
+   */
+  private async handleStockAdjustmentSync(item: SyncQueueItem, response: unknown): Promise<void> {
+    const data = (response as { data?: any })?.data
+    const serverId: number | undefined =
+      typeof data?.id === 'number'
+        ? data.id
+        : typeof data?.stock_record?.id === 'number'
+          ? data.stock_record.id
+          : undefined
+
+    // Update local stock adjustment record
+    if (typeof item.entityId === 'number' && typeof serverId === 'number') {
+      await stockAdjustmentRepository.markAsSynced(item.entityId, serverId)
     }
   }
 

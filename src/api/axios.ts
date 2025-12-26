@@ -12,14 +12,16 @@ let cachedDeviceId: string | null = null
  */
 async function getDeviceId(): Promise<string> {
   if (cachedDeviceId) return cachedDeviceId
-  
+
   if (window.electronAPI?.getDeviceId) {
     cachedDeviceId = await window.electronAPI.getDeviceId()
   } else {
-    cachedDeviceId = localStorage.getItem('device_id') || `WEB-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`
+    cachedDeviceId =
+      localStorage.getItem('device_id') ||
+      `WEB-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`
     localStorage.setItem('device_id', cachedDeviceId)
   }
-  
+
   return cachedDeviceId
 }
 
@@ -32,6 +34,17 @@ const api = axios.create({
     Accept: 'application/json',
   },
 })
+
+function shouldDebugStockRequests(): boolean {
+  if (!import.meta.env.DEV) return false
+  const flag = (import.meta.env.VITE_DEBUG_STOCK || '').toString().toLowerCase()
+  return flag === '1' || flag === 'true' || flag === 'yes'
+}
+
+function isStockRelatedEndpoint(url?: string): boolean {
+  if (!url) return false
+  return /\/variants\/(\d+)\/stock/.test(url) || /\/stocks\/(\d+)/.test(url)
+}
 
 // Configure axios-retry for network errors
 axiosRetry(api, {
@@ -48,14 +61,14 @@ let refreshPromise: Promise<string | null> | null = null
 
 export const setAuthToken = (token: string | null) => {
   authToken = token
-  if (token && window.electronAPI) {
+  if (token && window.electronAPI?.secureStore?.set) {
     window.electronAPI.secureStore.set('authToken', token)
   }
 }
 
 export const getAuthToken = async (): Promise<string | null> => {
   if (authToken) return authToken
-  if (window.electronAPI) {
+  if (window.electronAPI?.secureStore?.get) {
     authToken = (await window.electronAPI.secureStore.get<string>('authToken')) || null
   }
   return authToken
@@ -63,7 +76,7 @@ export const getAuthToken = async (): Promise<string | null> => {
 
 export const clearAuthToken = () => {
   authToken = null
-  if (window.electronAPI) {
+  if (window.electronAPI?.secureStore?.delete) {
     window.electronAPI.secureStore.delete('authToken')
   }
 }
@@ -76,16 +89,26 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
-    
+
     // Add device ID for sync-related endpoints
-    const isSyncEndpoint = config.url?.includes('/sync') || 
-                           config.url?.includes('/sales') ||
-                           config.url?.includes('/parties')
+    const isSyncEndpoint =
+      config.url?.includes('/sync') ||
+      config.url?.includes('/sales') ||
+      config.url?.includes('/parties')
     if (isSyncEndpoint) {
       const deviceId = await getDeviceId()
       config.headers['X-Device-ID'] = deviceId
     }
-    
+
+    if (shouldDebugStockRequests() && isStockRelatedEndpoint(config.url)) {
+      console.debug('[stock-debug] request', {
+        method: config.method,
+        url: config.url,
+        params: config.params,
+        data: config.data,
+      })
+    }
+
     return config
   },
   (error) => Promise.reject(error)
@@ -95,15 +118,33 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     // Capture server timestamp from headers or body
-    const serverTimestamp = response.headers['x-server-timestamp'] || 
-                           response.data?._server_timestamp
+    const serverTimestamp =
+      response.headers['x-server-timestamp'] || response.data?._server_timestamp
     if (serverTimestamp) {
       localStorage.setItem('last_server_timestamp', serverTimestamp)
+    }
+
+    if (shouldDebugStockRequests() && isStockRelatedEndpoint(response.config?.url)) {
+      console.debug('[stock-debug] response', {
+        url: response.config?.url,
+        status: response.status,
+        data: response.data,
+      })
     }
     return response
   },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+
+    if (shouldDebugStockRequests() && isStockRelatedEndpoint(originalRequest?.url)) {
+      console.debug('[stock-debug] error', {
+        url: originalRequest?.url,
+        method: originalRequest?.method,
+        status: error.response?.status,
+        response: error.response?.data,
+        requestData: originalRequest?.data,
+      })
+    }
 
     // Handle 401 - Try to refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {

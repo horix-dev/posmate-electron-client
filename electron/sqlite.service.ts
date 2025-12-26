@@ -116,6 +116,27 @@ export interface SyncQueueItem {
   completedAt?: string
 }
 
+export interface StockAdjustment {
+  id?: number
+  serverId?: number
+  productId: number
+  variantId?: number
+  batchId?: number
+  type: 'in' | 'out'
+  quantity: number
+  reason: string
+  referenceNumber?: string
+  notes?: string
+  adjustedBy: number
+  adjustmentDate: string
+  syncStatus?: 'pending' | 'synced' | 'error'
+  syncError?: string
+  oldQuantity?: number
+  newQuantity?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
 // ============================================
 // Database Service Class
 // ============================================
@@ -344,6 +365,30 @@ export class SQLiteService {
         created_at TEXT DEFAULT (datetime('now'))
       );
 
+      -- Stock adjustments table
+      CREATE TABLE IF NOT EXISTS stock_adjustments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        server_id INTEGER,
+        product_id INTEGER NOT NULL,
+        variant_id INTEGER,
+        batch_id INTEGER,
+        type TEXT NOT NULL CHECK(type IN ('in', 'out')),
+        quantity REAL NOT NULL,
+        reason TEXT NOT NULL,
+        reference_number TEXT,
+        notes TEXT,
+        adjusted_by INTEGER NOT NULL,
+        adjustment_date TEXT NOT NULL,
+        sync_status TEXT DEFAULT 'pending' CHECK(sync_status IN ('pending', 'synced', 'error')),
+        sync_error TEXT,
+        old_quantity REAL,
+        new_quantity REAL,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+        FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE
+      );
+
       -- Create indexes
       CREATE INDEX IF NOT EXISTS idx_products_code ON products(product_code);
       CREATE INDEX IF NOT EXISTS idx_products_name ON products(product_name);
@@ -360,6 +405,12 @@ export class SQLiteService {
       CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(status);
       CREATE INDEX IF NOT EXISTS idx_parties_phone ON parties(phone);
       CREATE INDEX IF NOT EXISTS idx_parties_type ON parties(type);
+      CREATE INDEX IF NOT EXISTS idx_stock_adjustments_product ON stock_adjustments(product_id);
+      CREATE INDEX IF NOT EXISTS idx_stock_adjustments_variant ON stock_adjustments(variant_id);
+      CREATE INDEX IF NOT EXISTS idx_stock_adjustments_batch ON stock_adjustments(batch_id);
+      CREATE INDEX IF NOT EXISTS idx_stock_adjustments_date ON stock_adjustments(adjustment_date);
+      CREATE INDEX IF NOT EXISTS idx_stock_adjustments_sync ON stock_adjustments(sync_status);
+      CREATE INDEX IF NOT EXISTS idx_stock_adjustments_type ON stock_adjustments(type);
     `)
     
     // Run migration to add new columns to existing products table (if they don't exist)
@@ -1504,6 +1555,242 @@ export class SQLiteService {
   vacuum(): void {
     if (!this.db) throw new Error('Database not initialized')
     this.db.exec('VACUUM')
+  }
+
+  // ========== Stock Adjustments ==========
+
+  stockAdjustmentCreate(adjustment: Omit<StockAdjustment, 'id'>): number {
+    if (!this.db) throw new Error('Database not initialized')
+    
+    const stmt = this.db.prepare(`
+      INSERT INTO stock_adjustments (
+        server_id, product_id, variant_id, batch_id, type, quantity,
+        reason, reference_number, notes, adjusted_by, adjustment_date,
+        sync_status, sync_error, old_quantity, new_quantity
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    
+    const result = stmt.run(
+      adjustment.serverId || null,
+      adjustment.productId,
+      adjustment.variantId || null,
+      adjustment.batchId || null,
+      adjustment.type,
+      adjustment.quantity,
+      adjustment.reason,
+      adjustment.referenceNumber || null,
+      adjustment.notes || null,
+      adjustment.adjustedBy,
+      adjustment.adjustmentDate,
+      adjustment.syncStatus || 'pending',
+      adjustment.syncError || null,
+      adjustment.oldQuantity || null,
+      adjustment.newQuantity || null
+    )
+    
+    return result.lastInsertRowid as number
+  }
+
+  stockAdjustmentGetById(id: number): StockAdjustment | undefined {
+    if (!this.db) throw new Error('Database not initialized')
+    const row = this.db.prepare('SELECT * FROM stock_adjustments WHERE id = ?').get(id) as any
+    return row ? this.mapStockAdjustment(row) : undefined
+  }
+
+  stockAdjustmentGetAll(filters?: {
+    startDate?: string
+    endDate?: string
+    type?: 'in' | 'out'
+    syncStatus?: 'pending' | 'synced' | 'error'
+    productId?: number
+  }): StockAdjustment[] {
+    if (!this.db) throw new Error('Database not initialized')
+    
+    let query = 'SELECT * FROM stock_adjustments WHERE 1=1'
+    const params: any[] = []
+    
+    if (filters?.startDate) {
+      query += ' AND adjustment_date >= ?'
+      params.push(filters.startDate)
+    }
+    
+    if (filters?.endDate) {
+      query += ' AND adjustment_date <= ?'
+      params.push(filters.endDate)
+    }
+    
+    if (filters?.type) {
+      query += ' AND type = ?'
+      params.push(filters.type)
+    }
+    
+    if (filters?.syncStatus) {
+      query += ' AND sync_status = ?'
+      params.push(filters.syncStatus)
+    }
+    
+    if (filters?.productId) {
+      query += ' AND product_id = ?'
+      params.push(filters.productId)
+    }
+    
+    query += ' ORDER BY adjustment_date DESC, created_at DESC'
+    
+    const rows = this.db.prepare(query).all(...params) as any[]
+    return rows.map(r => this.mapStockAdjustment(r))
+  }
+
+  stockAdjustmentGetByProductId(productId: number): StockAdjustment[] {
+    if (!this.db) throw new Error('Database not initialized')
+    const rows = this.db.prepare(
+      'SELECT * FROM stock_adjustments WHERE product_id = ? ORDER BY adjustment_date DESC'
+    ).all(productId) as any[]
+    return rows.map(r => this.mapStockAdjustment(r))
+  }
+
+  stockAdjustmentGetPending(): StockAdjustment[] {
+    if (!this.db) throw new Error('Database not initialized')
+    const rows = this.db.prepare(
+      'SELECT * FROM stock_adjustments WHERE sync_status = ? ORDER BY created_at ASC'
+    ).all('pending') as any[]
+    return rows.map(r => this.mapStockAdjustment(r))
+  }
+
+  stockAdjustmentMarkAsSynced(id: number, serverId: number): void {
+    if (!this.db) throw new Error('Database not initialized')
+    this.db.prepare(`
+      UPDATE stock_adjustments 
+      SET server_id = ?, sync_status = 'synced', sync_error = NULL, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(serverId, id)
+  }
+
+  stockAdjustmentMarkAsError(id: number, error: string): void {
+    if (!this.db) throw new Error('Database not initialized')
+    this.db.prepare(`
+      UPDATE stock_adjustments 
+      SET sync_status = 'error', sync_error = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(error, id)
+  }
+
+  stockAdjustmentUpdate(id: number, adjustment: Partial<StockAdjustment>): void {
+    if (!this.db) throw new Error('Database not initialized')
+    const fields: string[] = []
+    const values: any[] = []
+
+    if (adjustment.serverId !== undefined) { fields.push('server_id = ?'); values.push(adjustment.serverId) }
+    if (adjustment.quantity !== undefined) { fields.push('quantity = ?'); values.push(adjustment.quantity) }
+    if (adjustment.reason !== undefined) { fields.push('reason = ?'); values.push(adjustment.reason) }
+    if (adjustment.referenceNumber !== undefined) { fields.push('reference_number = ?'); values.push(adjustment.referenceNumber) }
+    if (adjustment.notes !== undefined) { fields.push('notes = ?'); values.push(adjustment.notes) }
+    if (adjustment.syncStatus !== undefined) { fields.push('sync_status = ?'); values.push(adjustment.syncStatus) }
+    if (adjustment.syncError !== undefined) { fields.push('sync_error = ?'); values.push(adjustment.syncError) }
+    if (adjustment.oldQuantity !== undefined) { fields.push('old_quantity = ?'); values.push(adjustment.oldQuantity) }
+    if (adjustment.newQuantity !== undefined) { fields.push('new_quantity = ?'); values.push(adjustment.newQuantity) }
+
+    fields.push("updated_at = datetime('now')")
+    values.push(id)
+
+    if (fields.length > 1) {
+      this.db.prepare(`UPDATE stock_adjustments SET ${fields.join(', ')} WHERE id = ?`).run(...values)
+    }
+  }
+
+  stockAdjustmentDelete(id: number): void {
+    if (!this.db) throw new Error('Database not initialized')
+    this.db.prepare('DELETE FROM stock_adjustments WHERE id = ?').run(id)
+  }
+
+  stockAdjustmentCount(filters?: { syncStatus?: 'pending' | 'synced' | 'error' }): number {
+    if (!this.db) throw new Error('Database not initialized')
+    
+    let query = 'SELECT COUNT(*) as count FROM stock_adjustments'
+    const params: any[] = []
+    
+    if (filters?.syncStatus) {
+      query += ' WHERE sync_status = ?'
+      params.push(filters.syncStatus)
+    }
+    
+    const row = this.db.prepare(query).get(...params) as any
+    return row.count
+  }
+
+  stockAdjustmentClear(): void {
+    if (!this.db) throw new Error('Database not initialized')
+    this.db.prepare('DELETE FROM stock_adjustments').run()
+  }
+
+  stockAdjustmentGetSummary(filters?: {
+    startDate?: string
+    endDate?: string
+    productId?: number
+  }): { totalIn: number; totalOut: number; netChange: number; pendingCount: number } {
+    if (!this.db) throw new Error('Database not initialized')
+    
+    let queryIn = "SELECT COALESCE(SUM(quantity), 0) as total FROM stock_adjustments WHERE type = 'in'"
+    let queryOut = "SELECT COALESCE(SUM(quantity), 0) as total FROM stock_adjustments WHERE type = 'out'"
+    const params: any[] = []
+    
+    if (filters?.startDate || filters?.endDate || filters?.productId) {
+      const conditions = []
+      
+      if (filters.startDate) {
+        conditions.push('adjustment_date >= ?')
+        params.push(filters.startDate)
+      }
+      
+      if (filters.endDate) {
+        conditions.push('adjustment_date <= ?')
+        params.push(filters.endDate)
+      }
+      
+      if (filters.productId) {
+        conditions.push('product_id = ?')
+        params.push(filters.productId)
+      }
+      
+      if (conditions.length > 0) {
+        const whereClause = ' AND ' + conditions.join(' AND ')
+        queryIn += whereClause
+        queryOut += whereClause
+      }
+    }
+    
+    const totalIn = (this.db.prepare(queryIn).get(...params) as any).total
+    const totalOut = (this.db.prepare(queryOut).get(...params) as any).total
+    const pendingCount = this.stockAdjustmentCount({ syncStatus: 'pending' })
+    
+    return {
+      totalIn,
+      totalOut,
+      netChange: totalIn - totalOut,
+      pendingCount,
+    }
+  }
+
+  private mapStockAdjustment(row: any): StockAdjustment {
+    return {
+      id: row.id,
+      serverId: row.server_id,
+      productId: row.product_id,
+      variantId: row.variant_id,
+      batchId: row.batch_id,
+      type: row.type,
+      quantity: row.quantity,
+      reason: row.reason,
+      referenceNumber: row.reference_number,
+      notes: row.notes,
+      adjustedBy: row.adjusted_by,
+      adjustmentDate: row.adjustment_date,
+      syncStatus: row.sync_status,
+      syncError: row.sync_error,
+      oldQuantity: row.old_quantity,
+      newQuantity: row.new_quantity,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
   }
 
   exportData(): {

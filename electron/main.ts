@@ -428,6 +428,20 @@ ipcMain.handle('sqlite:syncQueue:getStats', () => sqliteService.syncQueueGetStat
 ipcMain.handle('sqlite:getLastSyncTime', (_, entity: string) => sqliteService.getLastSyncTime(entity))
 ipcMain.handle('sqlite:setLastSyncTime', (_, entity: string, timestamp?: string) => sqliteService.setLastSyncTime(entity, timestamp))
 
+// Stock Adjustments
+ipcMain.handle('sqlite:stockAdjustment:create', (_, adjustment) => sqliteService.stockAdjustmentCreate(adjustment))
+ipcMain.handle('sqlite:stockAdjustment:getById', (_, id: number) => sqliteService.stockAdjustmentGetById(id))
+ipcMain.handle('sqlite:stockAdjustment:getAll', (_, filters) => sqliteService.stockAdjustmentGetAll(filters))
+ipcMain.handle('sqlite:stockAdjustment:getByProductId', (_, productId: number) => sqliteService.stockAdjustmentGetByProductId(productId))
+ipcMain.handle('sqlite:stockAdjustment:getPending', () => sqliteService.stockAdjustmentGetPending())
+ipcMain.handle('sqlite:stockAdjustment:markAsSynced', (_, id: number, serverId: number) => sqliteService.stockAdjustmentMarkAsSynced(id, serverId))
+ipcMain.handle('sqlite:stockAdjustment:markAsError', (_, id: number, error: string) => sqliteService.stockAdjustmentMarkAsError(id, error))
+ipcMain.handle('sqlite:stockAdjustment:update', (_, id: number, adjustment) => sqliteService.stockAdjustmentUpdate(id, adjustment))
+ipcMain.handle('sqlite:stockAdjustment:delete', (_, id: number) => sqliteService.stockAdjustmentDelete(id))
+ipcMain.handle('sqlite:stockAdjustment:count', (_, filters) => sqliteService.stockAdjustmentCount(filters))
+ipcMain.handle('sqlite:stockAdjustment:clear', () => sqliteService.stockAdjustmentClear())
+ipcMain.handle('sqlite:stockAdjustment:getSummary', (_, filters) => sqliteService.stockAdjustmentGetSummary(filters))
+
 // Database utilities
 ipcMain.handle('sqlite:getDatabaseSize', () => sqliteService.getDatabaseSize())
 ipcMain.handle('sqlite:vacuum', () => sqliteService.vacuum())
