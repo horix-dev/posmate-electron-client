@@ -37,6 +37,13 @@ Before making changes, always read `DEVELOPMENT_LOG.md` in the project root for:
 - Use shadcn/ui components from `src/components/ui/`
 - Follow existing patterns in similar files
 
+### API Specification
+To update the API specification from the Laravel backend:
+```powershell
+Invoke-WebRequest -Uri "http://127.0.0.1:8700/docs/api.json" -OutFile "api.json"
+```
+Run this command when the backend is running to sync the latest API documentation.
+
 ## Backend/API Requirements
 
 **Important:** If you identify a solution that requires changes at the **Laravel API backend** (the external REST API in a separate directory), **STOP and inform the user instead of attempting to implement a workaround in the frontend**.
