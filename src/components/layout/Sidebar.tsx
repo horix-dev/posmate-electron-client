@@ -104,74 +104,84 @@ export function Sidebar() {
     <TooltipProvider>
       <aside
         className={cn(
-          'fixed bottom-0 left-0 top-0 z-50 flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-md transition-all duration-300',
+          'fixed bottom-0 left-0 top-0 z-50 flex flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-md transition-all duration-300',
+          "relative before:absolute before:inset-0 before:z-0 before:content-['']",
+          'before:bg-[linear-gradient(115deg,transparent_0%,hsl(var(--sidebar-primary)/0.18)_38%,transparent_62%),linear-gradient(65deg,transparent_0%,hsl(var(--sidebar-accent)/0.14)_42%,transparent_70%),radial-gradient(800px_circle_at_18%_-12%,hsl(var(--sidebar-primary)/0.22),transparent_55%)]',
+          'before:pointer-events-none before:opacity-70',
           isCollapsed ? 'w-16' : 'w-64'
         )}
       >
-        {/* Logo / Business Name - Matches unified title bar height */}
-        <div className="flex h-12 items-center justify-between border-b border-sidebar-border bg-sidebar px-4">
-          {!isCollapsed && (
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <div className="relative z-10 flex h-full flex-col">
+          {/* Logo / Business Name - Matches unified title bar height */}
+          <div className="flex h-12 items-center justify-between border-b border-sidebar-border bg-sidebar px-4">
+            {!isCollapsed && (
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <ShoppingCart className="h-4 w-4" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold">
+                    {business?.companyName || 'POS Mate'}
+                  </span>
+                </div>
+              </div>
+            )}
+            {isCollapsed && (
+              <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <ShoppingCart className="h-4 w-4" />
               </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold">{business?.companyName || 'POS Mate'}</span>
-              </div>
-            </div>
-          )}
-          {isCollapsed && (
-            <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <ShoppingCart className="h-4 w-4" />
-            </div>
-          )}
-        </div>
-
-        {/* Navigation */}
-        <ScrollArea className="flex-1 px-3 py-4">
-          <nav className="flex flex-col gap-1">
-            {mainNavItems.map((item) => (
-              <NavLink key={item.href} item={item} />
-            ))}
-          </nav>
-
-          <Separator className="my-4" />
-
-          <nav className="flex flex-col gap-1">
-            {secondaryNavItems.map((item) => (
-              <NavLink key={item.href} item={item} />
-            ))}
-          </nav>
-        </ScrollArea>
-
-        {/* Footer - Sync Status, Settings & Toggle */}
-        <div className="border-t border-sidebar-border p-3">
-          {/* Sync Status Indicator */}
-          <div className="mb-2">
-            <SyncStatusIndicator collapsed={isCollapsed} onViewAll={() => setSyncPanelOpen(true)} />
+            )}
           </div>
 
-          <Separator className="my-2" />
+          {/* Navigation */}
+          <ScrollArea className="flex-1 px-3 py-4">
+            <nav className="flex flex-col gap-1">
+              {mainNavItems.map((item) => (
+                <NavLink key={item.href} item={item} />
+              ))}
+            </nav>
 
-          <nav className="mb-2">
-            <NavLink item={{ title: 'Settings', href: '/settings', icon: Settings }} />
-          </nav>
+            <Separator className="my-4" />
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleSidebar}
-            className={cn('w-full', isCollapsed && 'px-2')}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <>
-                <ChevronLeft className="mr-2 h-4 w-4" />
-                Collapse
-              </>
-            )}
-          </Button>
+            <nav className="flex flex-col gap-1">
+              {secondaryNavItems.map((item) => (
+                <NavLink key={item.href} item={item} />
+              ))}
+            </nav>
+          </ScrollArea>
+
+          {/* Footer - Sync Status, Settings & Toggle */}
+          <div className="border-t border-sidebar-border p-3">
+            {/* Sync Status Indicator */}
+            <div className="mb-2">
+              <SyncStatusIndicator
+                collapsed={isCollapsed}
+                onViewAll={() => setSyncPanelOpen(true)}
+              />
+            </div>
+
+            <Separator className="my-2" />
+
+            <nav className="mb-2">
+              <NavLink item={{ title: 'Settings', href: '/settings', icon: Settings }} />
+            </nav>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleSidebar}
+              className={cn('w-full', isCollapsed && 'px-2')}
+            >
+              {isCollapsed ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <>
+                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  Collapse
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </aside>
 

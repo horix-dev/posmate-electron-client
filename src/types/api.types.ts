@@ -140,7 +140,8 @@ export interface Product {
   productPurchasePrice?: number
   productStock?: number
   alert_qty?: number
-  product_type: 'simple' | 'variable'
+  // Backend uses 'variant' for legacy batch products (batch/lot tracked by batch_no)
+  product_type: 'simple' | 'variable' | 'variant'
   productPicture?: string
   stocks_sum_product_stock?: number
   category_id?: number
@@ -190,7 +191,7 @@ export interface CreateProductRequest {
   vat_id?: number
   vat_type?: string
   alert_qty?: number
-  product_type: 'simple' | 'variable'
+  product_type: 'simple' | 'variable' | 'variant'
   productPurchasePrice?: number
   productSalePrice?: number
   productDealerPrice?: number

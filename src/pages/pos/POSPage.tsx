@@ -554,6 +554,9 @@ export function POSPage() {
         variantId: item.variantId ?? null,
         variantName: item.variantName ?? null,
         variantSku: item.variant?.sku ?? null,
+        // Batch information for display
+        batchNo: item.stock.batch_no ?? null,
+        expiryDate: item.stock.expire_date ?? null,
       })),
     [cartItems]
   )

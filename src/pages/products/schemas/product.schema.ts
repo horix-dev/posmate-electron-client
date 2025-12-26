@@ -48,12 +48,7 @@ export const productFormSchema = z.object({
     .optional()
     .or(z.literal(''))
     .transform((val) => (val === '' ? undefined : val))
-    .pipe(
-      z
-        .string()
-        .regex(/^\d*$/, 'Alert quantity must be a positive number')
-        .optional()
-    ),
+    .pipe(z.string().regex(/^\d*$/, 'Alert quantity must be a positive number').optional()),
 
   product_type: z.enum(['simple', 'variable']).default('simple'),
 
@@ -86,12 +81,7 @@ export const productFormSchema = z.object({
     .optional()
     .or(z.literal(''))
     .transform((val) => (val === '' ? undefined : val))
-    .pipe(
-      z
-        .string()
-        .regex(/^\d*$/, 'Stock must be a positive number')
-        .optional()
-    ),
+    .pipe(z.string().regex(/^\d*$/, 'Stock must be a positive number').optional()),
 
   // Description field for products
   description: z.string().optional(),
@@ -127,7 +117,7 @@ export function productToFormData(product: {
   brand_id?: number | null
   unit_id?: number | null
   alert_qty?: number | null
-  product_type: 'simple' | 'variable'
+  product_type: 'simple' | 'variable' | 'variant'
   description?: string | null
   stocks?: Array<{
     productPurchasePrice: number
@@ -151,21 +141,22 @@ export function productToFormData(product: {
   const stock = product.stocks?.[0]
 
   // Convert existing variants to form format
-  const variants: VariantInputData[] = product.variants?.map(v => ({
-    id: v.id, // Preserve variant ID for updates
-    sku: v.sku || '',
-    barcode: v.barcode || '',
-    initial_stock: v.initial_stock ?? undefined,
-    enabled: 1 as const,
-    cost_price: v.cost_price ?? undefined,
-    price: v.price ?? undefined,
-    dealer_price: v.dealer_price ?? undefined,
-    wholesale_price: v.wholesale_price ?? undefined,
-    is_active: v.is_active ? 1 as const : 0 as const,
-    attribute_value_ids: v.attribute_value_ids
-      ? v.attribute_value_ids
-      : v.attribute_values?.map(av => av.id) || [],
-  })) || []
+  const variants: VariantInputData[] =
+    product.variants?.map((v) => ({
+      id: v.id, // Preserve variant ID for updates
+      sku: v.sku || '',
+      barcode: v.barcode || '',
+      initial_stock: v.initial_stock ?? undefined,
+      enabled: 1 as const,
+      cost_price: v.cost_price ?? undefined,
+      price: v.price ?? undefined,
+      dealer_price: v.dealer_price ?? undefined,
+      wholesale_price: v.wholesale_price ?? undefined,
+      is_active: v.is_active ? (1 as const) : (0 as const),
+      attribute_value_ids: v.attribute_value_ids
+        ? v.attribute_value_ids
+        : v.attribute_values?.map((av) => av.id) || [],
+    })) || []
 
   return {
     productName: product.productName,
@@ -174,7 +165,7 @@ export function productToFormData(product: {
     brand_id: product.brand_id?.toString() || '',
     unit_id: product.unit_id?.toString() || '',
     alert_qty: product.alert_qty?.toString() || '',
-    product_type: product.product_type,
+    product_type: product.product_type === 'variant' ? 'variable' : product.product_type,
     productPurchasePrice: stock?.productPurchasePrice?.toString() || '',
     productSalePrice: stock?.productSalePrice?.toString() || '',
     productStock: stock?.productStock?.toString() || '',
@@ -186,10 +177,7 @@ export function productToFormData(product: {
 /**
  * Convert form data to FormData for API submission (simple products)
  */
-export function formDataToFormData(
-  data: ProductFormData,
-  imageFile?: File | null
-): FormData {
+export function formDataToFormData(data: ProductFormData, imageFile?: File | null): FormData {
   const formData = new FormData()
 
   formData.append('productName', data.productName)
