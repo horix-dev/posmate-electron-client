@@ -184,14 +184,14 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
       {/* Left: Search Bar (only when authenticated) */}
       <div className="app-no-drag flex items-center">
         {isAuthenticated && (
-          <div className="relative w-full max-w-md pl-4">
+          <div className="relative w-full pl-4">
             <Search className="absolute left-7 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/70" />
             <Input
               placeholder="Search products, customers, invoices..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setSearchOpen(true)}
-              className="h-8 border-sidebar-border bg-sidebar-accent/30 pl-10 text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus-visible:ring-sidebar-ring"
+              className="h-8 max-w-xl border-sidebar-border bg-sidebar-accent/30 pl-10 pr-14 text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus-visible:ring-sidebar-ring"
             />
             <kbd className="pointer-events-none absolute right-3 top-1/2 hidden h-5 -translate-y-1/2 select-none items-center gap-1 rounded border border-sidebar-border bg-sidebar-accent/20 px-1.5 font-mono text-[10px] font-medium text-sidebar-foreground/80 opacity-100 sm:flex">
               <span className="text-xs">⌘</span>K
