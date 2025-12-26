@@ -30,12 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface TitleBarProps {
   /**
@@ -47,7 +42,7 @@ interface TitleBarProps {
 
 /**
  * Unified Title Bar Component
- * 
+ *
  * Combines the window controls with app header items (search, notifications, profile).
  * Layout: [Search] | [App Actions] | [Window Controls]
  */
@@ -105,8 +100,8 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
 
     const checkMaximized = async () => {
       try {
-        const maximized = await window.electronAPI.windowControls.isMaximized()
-        setIsMaximized(maximized)
+        const maximized = await window.electronAPI?.windowControls?.isMaximized?.()
+        setIsMaximized(!!maximized)
       } catch {
         // Ignore errors
       }
@@ -132,17 +127,18 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
   }, [])
 
   const handleMinimize = useCallback(() => {
-    window.electronAPI?.windowControls.minimize()
+    window.electronAPI?.windowControls?.minimize?.()
   }, [])
 
   const handleMaximize = useCallback(async () => {
-    window.electronAPI?.windowControls.maximize()
-    const maximized = await window.electronAPI?.windowControls.isMaximized()
+    const controls = window.electronAPI?.windowControls
+    controls?.maximize?.()
+    const maximized = await controls?.isMaximized?.()
     setIsMaximized(maximized ?? false)
   }, [])
 
   const handleClose = useCallback(() => {
-    window.electronAPI?.windowControls.close()
+    window.electronAPI?.windowControls?.close?.()
   }, [])
 
   const handleFullscreen = useCallback(() => {
@@ -182,12 +178,12 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
   return (
     <header
       className={cn(
-        'fixed top-0 right-0 z-40 flex h-12 items-center justify-between border-b bg-card select-none transition-all duration-300 app-drag-region',
-        showFullWidth ? 'left-0 px-4' : (sidebarState === 'expanded' ? 'left-64' : 'left-16')
+        'app-drag-region fixed right-0 top-0 z-40 flex h-12 select-none items-center justify-between border-b bg-card transition-all duration-300',
+        showFullWidth ? 'left-0 px-4' : sidebarState === 'expanded' ? 'left-64' : 'left-16'
       )}
     >
       {/* Left: Search Bar (only when authenticated) */}
-      <div className="flex items-center app-no-drag">
+      <div className="app-no-drag flex items-center">
         {isAuthenticated && (
           <div className="relative w-full max-w-md pl-4">
             <Search className="absolute left-7 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -209,11 +205,11 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
       <div className="flex-1" />
 
       {/* Right: App Actions + Window Controls */}
-      <div className="flex h-full items-center app-no-drag">
+      <div className="app-no-drag flex h-full items-center">
         {/* App Actions (only when authenticated) */}
         {isAuthenticated && (
           <TooltipProvider delayDuration={300}>
-            <div className="flex items-center gap-1 px-2 border-r mr-1">
+            <div className="mr-1 flex items-center gap-1 border-r px-2">
               {/* Sync Status */}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -258,16 +254,10 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggleTheme}>
-                    {theme === 'dark' ? (
-                      <Sun className="h-4 w-4" />
-                    ) : (
-                      <Moon className="h-4 w-4" />
-                    )}
+                    {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                </TooltipContent>
+                <TooltipContent>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</TooltipContent>
               </Tooltip>
 
               {/* Notifications */}

@@ -15,6 +15,7 @@ import {
   Tags,
   Warehouse,
   Receipt,
+  ClipboardList,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -44,6 +45,7 @@ const mainNavItems: NavItem[] = [
 
 const secondaryNavItems: NavItem[] = [
   { title: 'Product Settings', href: '/product-settings', icon: Tags },
+  { title: 'Stock Adjustments', href: '/inventory/stock-adjustments', icon: ClipboardList },
   { title: 'Warehouses', href: '/warehouses', icon: Warehouse },
   { title: 'Reports', href: '/reports', icon: BarChart3 },
   { title: 'Invoices', href: '/invoices', icon: FileText },
