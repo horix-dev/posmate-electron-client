@@ -90,10 +90,8 @@ export function PrintLabelsPage() {
       { value: 'ean13', label: 'EAN-13' },
       { value: 'ean8', label: 'EAN-8' },
       { value: 'upca', label: 'UPC-A' },
-      { value: 'upce', label: 'UPC-E' },
       { value: 'itf14', label: 'ITF-14' },
       { value: 'interleaved2of5', label: 'Interleaved 2 of 5' },
-      { value: 'codabar', label: 'Codabar' },
       { value: 'code93', label: 'Code 93' },
       { value: 'qrcode', label: 'QR Code' },
       { value: 'datamatrix', label: 'Data Matrix' },
@@ -248,7 +246,7 @@ export function PrintLabelsPage() {
         // Duplicate labels based on quantity
         for (let i = 0; i < qty; i++) {
           // Generate placeholder barcode SVG (simple code128-like representation)
-          const barcodeValue = String(product.batch_id ?? product.product_id)
+          const barcodeValue = String(product.product_code)
           const barcodeSvg = generateBarcodeSVG(barcodeValue, barcodeType)
 
           const label: LabelPayload = {
@@ -287,25 +285,67 @@ export function PrintLabelsPage() {
   }
 
   // Generate barcode SVG
+  // Generate barcode SVG
   function generateBarcodeSVG(value: string, type: string): string {
     try {
       const bcid = type || 'code128'
+      let text = value
 
-      const svg = (bwipjs as unknown as { toSVG: (opts: Record<string, unknown>) => string }).toSVG(
-        {
-          bcid,
-          text: value,
-          scale: 3,
-          height: 10,
-          includetext: false,
-          textxalign: 'center',
-          backgroundcolor: 'ffffff',
+      // Pre-processing for strict numeric barcode types
+      if (['ean13', 'ean8', 'upca', 'upce', 'itf14', 'interleaved2of5'].includes(bcid)) {
+        // Remove non-numeric characters
+        text = text.replace(/[^0-9]/g, '')
+
+        // Ensure at least 1 digit remains, else fallback will trigger naturally or below
+        if (!text) throw new Error('Numeric barcode requires numeric value')
+
+        // Specific Padding/Length Logic
+        if (bcid === 'ean13') {
+          // EAN-13: 12 digits (calc check) or 13 digits
+          if (text.length < 12) text = text.padStart(12, '0')
+          else if (text.length > 13) text = text.slice(0, 13)
+        } else if (bcid === 'ean8') {
+          // EAN-8: 7 digits (calc check) or 8 digits
+          if (text.length < 7) text = text.padStart(7, '0')
+          else if (text.length > 8) text = text.slice(0, 8)
+        } else if (bcid === 'upca') {
+          // UPC-A: 11 digits (calc check) or 12 digits
+          if (text.length < 11) text = text.padStart(11, '0')
+          else if (text.length > 12) text = text.slice(0, 12)
+        } else if (bcid === 'itf14') {
+          // ITF-14: 13 digits (calc check) or 14 digits
+          if (text.length < 13) text = text.padStart(13, '0')
+          else if (text.length > 14) text = text.slice(0, 14)
+        } else if (bcid === 'interleaved2of5') {
+          // I2of5: Must be even number of digits
+          if (text.length % 2 !== 0) text = '0' + text
         }
-      )
+      }
+
+      // Codabar specific handling (needs start/stop chars A-D)
+      if (bcid === 'codabar') {
+        text = text.toUpperCase()
+        const validStartStop = ['A', 'B', 'C', 'D']
+        const hasStart = validStartStop.includes(text[0])
+        const hasStop = validStartStop.includes(text[text.length - 1])
+
+        if (!hasStart) text = 'A' + text
+        if (!hasStop) text = text + 'A'
+      }
+
+      const svg = (bwipjs as any).toSVG({
+        bcid,
+        text: text,
+        scale: 3,
+        height: 10,
+        includetext: false,
+        textxalign: 'center',
+        backgroundcolor: 'ffffff'
+      })
 
       return svg
     } catch (err) {
-      console.warn('Barcode generation failed, using fallback:', err)
+      console.warn(`Barcode generation failed for ${type} with value ${value}:`, err)
       return generateFallbackBarcode(value)
     }
   }
@@ -329,7 +369,7 @@ export function PrintLabelsPage() {
       const qty = Number(product.quantity || 1)
 
       for (let i = 0; i < qty; i++) {
-        const barcodeValue = String(product.batch_id ?? product.product_id)
+        const barcodeValue = String(product.product_code || product.product_id)
         const barcodeSvg = generateBarcodeSVG(barcodeValue, barcodeType)
 
         const label: LabelPayload = {

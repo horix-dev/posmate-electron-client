@@ -286,6 +286,19 @@
 - Files Modified: [backend_docs/API_QUICK_REFERENCE.md](backend_docs/API_QUICK_REFERENCE.md) with tables, workflow example, and parameter docs
 - Services Updated: [src/api/services/print-labels.service.ts](src/api/services/print-labels.service.ts) extends `getConfig()` return type to include `printer_settings: number[]`
 
+## 2025-12-20 — Category Display Fix in Finance Screens
+
+- Problem: Categories not displaying in expense/income transaction tables (showing "-" instead of category name)
+- Root Cause: API returns category data with `name` field, but normalization code was looking for `categoryName` field
+- Solution: Updated [src/pages/expenses/utils/normalization.ts](src/pages/expenses/utils/normalization.ts) to handle both field names:
+  ```typescript
+  categoryName: (item.category as any)?.categoryName || (item.category as any)?.name || '-'
+  ```
+- Result: Categories now display correctly in transaction table with proper Badge styling
+- Files Modified: 
+  - [src/pages/expenses/utils/normalization.ts](src/pages/expenses/utils/normalization.ts) - Fixed category name extraction
+  - [src/pages/expenses/ExpensesPage.tsx](src/pages/expenses/ExpensesPage.tsx) - Simplified fetchData() to remove unnecessary fallback logic
+
 # Horix POS Pro - Development Log
 
 > This document tracks development progress, architectural decisions, and implementation details for future reference.

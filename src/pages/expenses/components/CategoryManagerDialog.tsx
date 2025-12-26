@@ -71,7 +71,22 @@ export function CategoryManagerDialog({
         setIsLoading(true)
         try {
             const response = await service.getCategories()
-            setCategories(Array.isArray(response) ? response : response.data || [])
+            // Handle both array response and paginated response formats
+            let categoryList: Category[] = []
+            
+            if (Array.isArray(response)) {
+                categoryList = response
+            } else if (response.data) {
+                // If response has data property, could be array or paginated object
+                if (Array.isArray(response.data)) {
+                    categoryList = response.data
+                } else if (response.data.data && Array.isArray(response.data.data)) {
+                  // Nested data property for paginated response
+                    categoryList = response.data.data
+                }
+            }
+            
+            setCategories(categoryList)
         } catch (error) {
             toast.error('Failed to load categories')
             console.error(error)

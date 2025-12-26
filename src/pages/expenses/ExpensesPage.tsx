@@ -12,6 +12,8 @@ import { expensesService, incomesService } from '@/api/services/expenses.service
 import type { Expense, Income } from '@/types/api.types'
 
 import { normalizeTransaction, type NormalizedTransaction } from './utils/normalization'
+import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'
+import { BulkDeleteConfirmDialog } from '@/components/common/BulkDeleteConfirmDialog'
 
 export function ExpensesPage() {
   const [activeTab, setActiveTab] = useState<'expenses' | 'income'>('expenses')
@@ -33,17 +35,39 @@ export function ExpensesPage() {
     setIsLoading(true)
     try {
       if (activeTab === 'expenses') {
-        const response = await expensesService.getAll()
-        // @ts-expect-error - Response type mismatch from API
-        const list = response.data?.data || response.data || []
+        const response = await expensesService.getAll({ limit: 1000 })
+        // Handle flexible pagination response format
+        let list: Expense[] = []
+
+        if (Array.isArray(response)) {
+          list = response
+        } else if (response.data) {
+          if (Array.isArray(response.data)) {
+            list = response.data
+          } else if ((response.data as any).data && Array.isArray((response.data as any).data)) {
+            list = (response.data as any).data
+          }
+        }
+
         const normalized = (Array.isArray(list) ? list : []).map((item: Expense) =>
           normalizeTransaction(item, 'expense')
         )
         setExpenses(normalized)
       } else {
-        const response = await incomesService.getAll()
-        // @ts-expect-error - Response type mismatch from API
-        const list = response.data?.data || response.data || []
+        const response = await incomesService.getAll({ limit: 1000 })
+        // Handle flexible pagination response format
+        let list: Income[] = []
+
+        if (Array.isArray(response)) {
+          list = response
+        } else if (response.data) {
+          if (Array.isArray(response.data)) {
+            list = response.data
+          } else if ((response.data as any).data && Array.isArray((response.data as any).data)) {
+            list = (response.data as any).data
+          }
+        }
+
         const normalized = (Array.isArray(list) ? list : []).map((item: Income) =>
           normalizeTransaction(item, 'income')
         )
@@ -66,14 +90,30 @@ export function ExpensesPage() {
     if (!isAddOpen) setEditingItem(null)
   }, [isAddOpen])
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this record?')) return
+  /* Dialogs */
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: number | null }>({
+    open: false,
+    id: null
+  })
+
+  const [bulkDeleteState, setBulkDeleteState] = useState<{ open: boolean; ids: number[] }>({
+    open: false,
+    ids: []
+  })
+
+  /* Delete Handlers */
+  const handleDeleteClick = (id: number) => {
+    setDeleteDialog({ open: true, id })
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteDialog.id) return
 
     try {
       if (activeTab === 'expenses') {
-        await expensesService.delete(id)
+        await expensesService.delete(deleteDialog.id)
       } else {
-        await incomesService.delete(id)
+        await incomesService.delete(deleteDialog.id)
       }
       toast.success('Record deleted')
       fetchData()
@@ -82,8 +122,13 @@ export function ExpensesPage() {
     }
   }
 
-  const handleBulkDelete = async (ids: number[]) => {
-    if (!confirm(`Are you sure you want to delete ${ids.length} records?`)) return
+  const handleBulkDeleteClick = (ids: number[]) => {
+    setBulkDeleteState({ open: true, ids })
+  }
+
+  const confirmBulkDelete = async () => {
+    const { ids } = bulkDeleteState
+    if (ids.length === 0) return
 
     try {
       const service = activeTab === 'expenses' ? expensesService : incomesService
@@ -92,6 +137,7 @@ export function ExpensesPage() {
 
       toast.success(`${ids.length} records deleted`)
       fetchData()
+      setBulkDeleteState({ open: false, ids: [] })
     } catch (error) {
       console.error(error)
       toast.error('Failed to delete some records')
@@ -121,50 +167,54 @@ export function ExpensesPage() {
 
   return (
     <div className="space-y-6 h-full flex flex-col">
+      {/* Header Section */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Finance</h1>
-          <p className="text-muted-foreground">Manage your {activeTab} and categories</p>
+          <h2 className="text-xl font-semibold">Finance Management</h2>
+          <p className="text-sm text-muted-foreground">Manage {activeTab === 'expenses' ? 'expenses' : 'income'} and categories</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setIsCategoryOpen(true)}>
-            <Tags className="mr-2 h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={() => setIsCategoryOpen(true)} className="gap-2">
+            <Tags className="h-4 w-4" />
             Categories
           </Button>
-          <Button onClick={() => {
+          <Button size="sm" onClick={() => {
             setEditingItem(null)
             setIsAddOpen(true)
-          }}>
-            <Plus className="mr-2 h-4 w-4" />
+          }} className="gap-2">
+            <Plus className="h-4 w-4" />
             Add {activeTab === 'expenses' ? 'Expense' : 'Income'}
           </Button>
         </div>
       </div>
 
+      {/* Summary Card */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="bg-gradient-to-br from-background to-muted/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total {activeTab === 'expenses' ? 'Expenses' : 'Income'}</CardTitle>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${activeTab === 'expenses' ? 'text-red-500' : 'text-green-500'}`}>
-              {activeTab === 'expenses' ? '-' : '+'} ${totalAmount.toLocaleString()}
+            <div className={`text-2xl font-bold ${activeTab === 'expenses' ? 'text-red-600' : 'text-green-600'}`}>
+              {activeTab === 'expenses' ? '-' : '+'} ${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Based on {filteredData.length} records
+            <p className="text-xs text-muted-foreground mt-1">
+              {filteredData.length} {filteredData.length === 1 ? 'record' : 'records'}
             </p>
           </CardContent>
         </Card>
       </div>
 
+      {/* Main Content Area */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'expenses' | 'income')} className="space-y-4 flex-1 flex flex-col">
-        <div className="flex items-center justify-between gap-4 py-2">
+        {/* Controls Section */}
+        <div className="flex items-center justify-between gap-4 px-1">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={`Search ${activeTab}...`}
-              className="pl-10 h-10 bg-background"
+              className="pl-10 h-10 bg-background border border-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -175,37 +225,45 @@ export function ExpensesPage() {
               value="expenses"
               className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-200 rounded-md text-sm font-medium"
             >
+              <Wallet className="h-4 w-4 mr-2" />
               Expenses
             </TabsTrigger>
             <TabsTrigger
               value="income"
               className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-200 rounded-md text-sm font-medium"
             >
+              <Wallet className="h-4 w-4 mr-2" />
               Income
             </TabsTrigger>
           </TabsList>
         </div>
 
+        {/* Expenses Tab */}
         <TabsContent value="expenses" className="flex-1 flex flex-col mt-0 border-none p-0 data-[state=active]:flex">
-          <TransactionTable
-            data={filteredData}
-            isLoading={isLoading}
-            type="expense"
-            onDelete={handleDelete}
-            onEdit={handleEdit}
-            onBulkDelete={handleBulkDelete}
-          />
+          <div className="bg-background rounded-lg border p-6 flex-1 flex flex-col">
+            <TransactionTable
+              data={filteredData}
+              isLoading={isLoading}
+              type="expense"
+              onDelete={handleDeleteClick}
+              onEdit={handleEdit}
+              onBulkDelete={handleBulkDeleteClick}
+            />
+          </div>
         </TabsContent>
 
+        {/* Income Tab */}
         <TabsContent value="income" className="flex-1 flex flex-col mt-0 border-none p-0 data-[state=active]:flex">
-          <TransactionTable
-            data={filteredData}
-            isLoading={isLoading}
-            type="income"
-            onDelete={handleDelete}
-            onEdit={handleEdit}
-            onBulkDelete={handleBulkDelete}
-          />
+          <div className="bg-background rounded-lg border p-6 flex-1 flex flex-col">
+            <TransactionTable
+              data={filteredData}
+              isLoading={isLoading}
+              type="income"
+              onDelete={handleDeleteClick}
+              onEdit={handleEdit}
+              onBulkDelete={handleBulkDeleteClick}
+            />
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -224,6 +282,22 @@ export function ExpensesPage() {
         open={isCategoryOpen}
         onOpenChange={setIsCategoryOpen}
         type={activeTab === 'expenses' ? 'expense' : 'income'}
+      />
+
+      <DeleteConfirmDialog
+        isOpen={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog(prev => ({ ...prev, open }))}
+        title={`Delete ${activeTab === 'expenses' ? 'Expense' : 'Income'}`}
+        description="Are you sure you want to delete this record? This action cannot be undone."
+        onConfirm={confirmDelete}
+      />
+
+      <BulkDeleteConfirmDialog
+        isOpen={bulkDeleteState.open}
+        onOpenChange={(open) => setBulkDeleteState(prev => ({ ...prev, open }))}
+        itemCount={bulkDeleteState.ids.length}
+        itemLabel={activeTab === 'expenses' ? 'expenses' : 'income records'}
+        onConfirm={confirmBulkDelete}
       />
     </div>
   )

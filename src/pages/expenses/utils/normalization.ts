@@ -31,7 +31,7 @@ export function normalizeTransaction(item: Expense | Income, type: 'expense' | '
         referenceNo: rawRef,
         note: item.note || '',
         categoryId: type === 'expense' ? (item as Expense).expense_category_id : (item as Income).income_category_id,
-        categoryName: item.category?.categoryName || '-',
+        categoryName: (item.category as any)?.categoryName || (item.category as any)?.name || '-',
         paymentTypeId: item.payment_type_id,
         paymentName: item.payment_type?.name || '-',
         type,
