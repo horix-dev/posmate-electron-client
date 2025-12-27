@@ -18,7 +18,8 @@ const POSPage = lazy(() => import('@/pages/pos/POSPage'))
 const ProductsPage = lazy(() => import('@/pages/products/ProductsPage'))
 const SalesPage = lazy(() => import('@/pages/sales/SalesPage'))
 const PurchasesPage = lazy(() => import('@/pages/purchases/PurchasesPage'))
-const PartiesPage = lazy(() => import('@/pages/parties/PartiesPage'))
+const CustomersPage = lazy(() => import('@/pages/customers/CustomersPage'))
+const SuppliersPage = lazy(() => import('@/pages/suppliers/SuppliersPage'))
 const ExpensesPage = lazy(() => import('@/pages/expenses/ExpensesPage'))
 const ProductSettingsPage = lazy(() => import('@/pages/product-settings/ProductSettingsPage'))
 const WarehousesPage = lazy(() => import('@/pages/warehouses/WarehousesPage'))
@@ -42,7 +43,9 @@ function PageLoader() {
 
 // Router configuration
 // Use HashRouter for Electron (file:// protocol), BrowserRouter for web
-const isElectron = typeof window !== 'undefined' && ((window as unknown) as Record<string, unknown>).electronAPI !== undefined
+const isElectron =
+  typeof window !== 'undefined' &&
+  (window as unknown as Record<string, unknown>).electronAPI !== undefined
 const routerCreator = isElectron ? createHashRouter : createBrowserRouter
 
 const router = routerCreator([
@@ -126,10 +129,18 @@ const router = routerCreator([
         ),
       },
       {
-        path: 'parties',
+        path: 'customers',
         element: (
           <Suspense fallback={<PageLoader />}>
-            <PartiesPage />
+            <CustomersPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'suppliers',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <SuppliersPage />
           </Suspense>
         ),
       },
