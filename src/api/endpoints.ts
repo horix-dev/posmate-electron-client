@@ -128,6 +128,7 @@ export const API_ENDPOINTS = {
   DUES: {
     LIST: '/dues',
     CREATE: '/dues',
+    INVOICES: '/dues/invoices',
   },
 
   // Expenses

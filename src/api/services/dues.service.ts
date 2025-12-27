@@ -19,6 +19,16 @@ export const duesService = {
   },
 
   /**
+   * Get invoices for a specific party
+   */
+  getInvoices: async (partyId: number): Promise<ApiResponse<any>> => {
+    const { data } = await api.get<ApiResponse<any>>(API_ENDPOINTS.DUES.INVOICES, {
+      params: { party_id: partyId },
+    })
+    return data
+  },
+
+  /**
    * Create a new due collection
    */
   create: async (

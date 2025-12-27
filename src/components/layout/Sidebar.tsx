@@ -39,10 +39,11 @@ const mainNavItems: NavItem[] = [
   { title: 'Sales', href: '/sales', icon: Receipt },
   { title: 'Purchases', href: '/purchases', icon: Truck },
   { title: 'Parties', href: '/parties', icon: Users },
-  { title: 'Finance', href: '/expenses', icon: Wallet },
+  { title: 'Due', href: '/due', icon: Wallet },
 ]
 
 const secondaryNavItems: NavItem[] = [
+  { title: 'Finance', href: '/finance', icon: Wallet },
   { title: 'Product Settings', href: '/product-settings', icon: Tags },
   { title: 'Warehouses', href: '/warehouses', icon: Warehouse },
   { title: 'Reports', href: '/reports', icon: BarChart3 },

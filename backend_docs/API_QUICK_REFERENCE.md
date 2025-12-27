@@ -1,6 +1,37 @@
 # Horix POS Pro - API Quick Reference
 
-**Base URL:** `http://your-domain/api/v1`
+**Base URL:** `http://your-domain/api/v1`  
+**Last Updated:** December 27, 2025
+
+---
+
+## 🎉 Recent Updates
+
+### Due Collection API - Complete CRUD (Dec 27, 2025) ✅
+- ✅ **8 Full Endpoints**: List, Show, Store, Update, Destroy, DeleteAll, Filter, GetDueInvoices
+- ✅ **Atomic Transactions**: Properly updates parties, sales/purchases, due_collects, branches
+- ✅ **Payment Difference Handling**: Correctly tracks increases/decreases with balance adjustments
+- ✅ **Invoice Management**: Get due invoices for party (for form population)
+- ✅ **Flexible Pagination**: 4 modes (default, limit, offset, cursor)
+
+### Quality Assurance (Dec 2025)
+- ✅ **140 tests passing** with 1,012 assertions
+- ✅ 100% API endpoint coverage for core features
+- ✅ Comprehensive pagination testing (all 4 modes)
+
+### New Features
+- ✅ **Expired Batch Validation** - Automatic prevention in sales (406 error)
+- ✅ **Batch Movement Tracking** - Full audit trail for all stock operations
+- ✅ **Flexible Input Formats** - Sales endpoint accepts array or JSON string
+- ✅ **Field Name Aliases** - `quantity`/`quantities`, `paid`/`paidAmount`, etc.
+
+### API Improvements
+- ✅ Standardized response structure (`data` key)
+- ✅ Fixed route model binding for attribute values
+- ✅ Invoice number search now uses LIKE (partial matches)
+- ✅ Accurate batch quantity tracking (before/after)
+
+---
 
 ## Authentication Endpoints
 
@@ -135,8 +166,10 @@ Note: List and filter endpoints accept `per_page` and `page`.
 | PUT | `/attributes/{id}` | ✅ | Update attribute |
 | DELETE | `/attributes/{id}` | ✅ | Delete attribute |
 | POST | `/attributes/{id}/values` | ✅ | Add value to attribute |
-| PUT | `/attribute-values/{id}` | ✅ | Update attribute value |
-| DELETE | `/attribute-values/{id}` | ✅ | Delete attribute value |
+| PUT | `/attribute-values/{id}` | ✅ | **Update attribute value** (✨ Fixed route binding) |
+| DELETE | `/attribute-values/{id}` | ✅ | **Delete attribute value** (✨ Fixed route binding) |
+
+**Note:** Attribute value routes now use proper route model binding with `{attributeValue}` parameter internally.
 
 ### Product Variants
 | Method | Endpoint | Auth | Description |
@@ -164,9 +197,15 @@ Note: List and filter endpoints accept `per_page` and `page`.
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/sales` | ✅ | List sales (supports pagination: limit, page/per_page, cursor) |
-| POST | `/sales` | ✅ | Create sale |
+| POST | `/sales` | ✅ | **Create sale** (✨ with expired batch validation & auto-tracking) |
 | PUT | `/sales/{id}` | ✅ | Update sale |
 | DELETE | `/sales/{id}` | ✅ | Delete sale |
+
+**✨ New Features (Dec 2025):**
+- ✅ Automatic expired batch validation (returns 406 if batch expired)
+- ✅ Automatic batch movement tracking for audit trail
+- ✅ Flexible input: accepts `products` as array OR JSON string
+- ✅ Field aliases: `quantity`/`quantities`, `paid`/`paidAmount`, `date`/`saleDate`
 
 **Sales Pagination Examples:**
 ```bash
@@ -187,6 +226,9 @@ GET /sales?date_from=2024-01-01&date_to=2024-12-31&limit=100
 
 # Show only sales with returns
 GET /sales?returned-sales=true
+
+# Search by invoice number (LIKE match)
+GET /sales?invoiceNumber=S-001
 ```
 
 ### Purchases
@@ -233,8 +275,14 @@ GET /purchase?returned-purchase=true
 ### Due Collection
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/dues` | ✅ | List due collections |
-| POST | `/dues` | ✅ | Collect due |
+| GET | `/dues` | ✅ | List due collections with pagination & filters |
+| GET | `/dues/invoices?party_id={id}` | ✅ | Get due invoices for a specific party |
+| GET | `/dues/filter` | ✅ | Search/filter due collections |
+| POST | `/dues` | ✅ | Create due collection |
+| GET | `/dues/{id}` | ✅ | Get single due collection details |
+| PUT | `/dues/{id}` | ✅ | Update due collection |
+| DELETE | `/dues/{id}` | ✅ | Delete due collection |
+| POST | `/dues/delete-all` | ✅ | Delete multiple due collections |
 
 ### Expenses
 | Method | Endpoint | Auth | Description |
@@ -250,6 +298,9 @@ GET /purchase?returned-purchase=true
 | POST | `/expense-categories` | ✅ | Create category |
 | PUT | `/expense-categories/{id}` | ✅ | Update category |
 | DELETE | `/expense-categories/{id}` | ✅ | Delete category |
+| GET | `/expense-categories/filter` | ✅ | Filter categories (status/search/date + pagination) |
+| POST | `/expense-categories/delete-all` | ✅ | Delete multiple categories |
+| PATCH | `/expense-categories/{id}/status` | ✅ | Toggle category status |
 
 ### Incomes
 | Method | Endpoint | Auth | Description |
@@ -265,6 +316,9 @@ GET /purchase?returned-purchase=true
 | POST | `/income-categories` | ✅ | Create category |
 | PUT | `/income-categories/{id}` | ✅ | Update category |
 | DELETE | `/income-categories/{id}` | ✅ | Delete category |
+| GET | `/income-categories/filter` | ✅ | Filter categories (status/search/date + pagination) |
+| POST | `/income-categories/delete-all` | ✅ | Delete multiple categories |
+| PATCH | `/income-categories/{id}/status` | ✅ | Toggle category status |
 
 ## Settings & Configuration
 
@@ -285,6 +339,22 @@ GET /purchase?returned-purchase=true
 | GET | `/business-settings` | ✅ | Get business settings |
 | GET | `/invoice-settings` | ✅ | Get invoice settings |
 | POST | `/invoice-settings/update` | ✅ | Update invoice settings |
+| GET | `/barcodes/config` | ✅ | Barcode types + printer presets |
+
+### Print Labels
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/print-labels` | ✅ | List print labels (supports limit/offset/cursor) |
+| GET | `/print-labels/filter` | ✅ | Search/filter print labels |
+| POST | `/print-labels` | ✅ | Create label template |
+| GET | `/print-labels/{id}` | ✅ | Get single label template |
+| PUT | `/print-labels/{id}` | ✅ | Update label template |
+| DELETE | `/print-labels/{id}` | ✅ | Delete label template |
+| PATCH | `/print-labels/{id}/status` | ✅ | Toggle label status |
+| POST | `/print-labels/delete-all` | ✅ | Delete multiple labels |
+| GET | `/print-labels/config` | ✅ | Get barcode types, label formats, printer presets |
+| GET | `/print-labels/products` | ✅ | Search products for label generation |
+| POST | `/print-labels/generate` | ✅ | Generate printable labels payload |
 
 ## Inventory
 
@@ -298,6 +368,12 @@ GET /purchase?returned-purchase=true
 | POST | `/warehouses` | ✅ | Create warehouse |
 | PUT | `/warehouses/{id}` | ✅ | Update warehouse |
 | DELETE | `/warehouses/{id}` | ✅ | Delete warehouse |
+
+Notes:
+- `inventory_tracking_mode` (product field) can be `simple` (default) or `batch`.
+- `POST /stocks` supports two modes:
+  - Increment existing stock: `{ "stock_id": 123, "productStock": 5 }`
+  - Create new stock/batch entry: `{ "product_id": 10, "variant_id": 156, "batch_no": "B-001", "productStock": 50 }`
 
 ### Racks
 | Method | Endpoint | Auth | Description |
@@ -501,6 +577,7 @@ curl -X POST http://localhost:8000/api/v1/products \
     "category_id": 2,
     "brand_id": 1,
     "product_type": "variable",
+    "inventory_tracking_mode": "simple",
     "description": "High-quality cotton t-shirt",
     "variants": [
       {
@@ -605,15 +682,16 @@ curl -X POST http://localhost:8000/api/v1/products \
 Stock is added separately via the stock/inventory API:
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/stock \
+curl -X POST http://localhost:8000/api/v1/stocks \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
+    "product_id": 245,
     "variant_id": 156,
-    "quantity": 100,
-    "cost_price": 300,
-    "warehouse_id": 1,
-    "reference": "PO-001"
+    "batch_no": "BATCH-TSHIRT-001",
+    "productStock": 100,
+    "productPurchasePrice": 300,
+    "warehouse_id": 1
   }'
 ```
 
@@ -699,6 +777,10 @@ curl -X POST http://localhost/api/v1/products/{id}/select-batches \
   ]
 }
 ```
+
+Notes:
+- `mfg_date` and `expire_date` are optional. If `expire_date` is omitted/null, the stock is treated as non-expiring.
+- Expired-stock prevention only blocks a sale when the selected stock has an `expire_date` that is in the past.
 
 ### Movement Types
 - `purchase` - Stock received from supplier

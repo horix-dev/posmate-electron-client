@@ -15,7 +15,7 @@ import { normalizeTransaction, type NormalizedTransaction } from './utils/normal
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'
 import { BulkDeleteConfirmDialog } from '@/components/common/BulkDeleteConfirmDialog'
 
-export function ExpensesPage() {
+export function FinancePage() {
   const [activeTab, setActiveTab] = useState<'expenses' | 'income'>('expenses')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -303,4 +303,4 @@ export function ExpensesPage() {
   )
 }
 
-export default ExpensesPage
+export default FinancePage
