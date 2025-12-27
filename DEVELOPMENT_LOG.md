@@ -1,3 +1,22 @@
+## 2025-12-27 — Tax Settings (VAT) Management in Product Settings
+
+**Problem**: Product Settings lacked a UI to manage VAT/Tax records from the backend.
+
+**Solution**: Added a Tax Settings tab with list/create/edit/delete (single & bulk) for VATs, mirroring existing settings patterns.
+
+**Files Created**:
+- `src/pages/product-settings/components/vats/VatDialog.tsx` — Dialog for creating/updating VAT records (name, rate)
+- `src/pages/product-settings/components/vats/VatsTable.tsx` — Paginated table with search, selection, single/bulk delete
+
+**Files Modified**:
+- `src/pages/product-settings/ProductSettingsPage.tsx` — New Tax Settings tab, dialog wiring, Add button label mapping
+- `src/api/services/inventory.service.ts` — Added `deleteMultiple` helper for VATs (sequential delete fallback)
+
+**Notes**:
+- Bulk delete uses sequential `DELETE /vats/{id}` calls; switch to API bulk endpoint when available.
+
+---
+
 ## 2025-12-25 — Receipt Printing Feature (Electron Silent Printing)
 
 **Problem**: After completing a sale, users need to print receipts. The initial implementation opened invoice_url in browser, but users wanted silent printing within the Electron app without consent dialogs.

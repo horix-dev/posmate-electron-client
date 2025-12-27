@@ -6,13 +6,49 @@
 **Authentication:** Bearer Token (Laravel Sanctum)
 
 ---
+-  - `search`: Search by VAT name (partial match)
+-  - Pagination (optional):
+    - `limit`: Return up to `limit` items (max 1000)
+    - `cursor` + `per_page`: Cursor pagination
+    - `page` + `per_page`: Page-based pagination
 
 ## 🎉 Recent Updates (December 27, 2025)
 
 ### Due Collection API - Complete CRUD Implementation ✅
-- ✅ **Full CRUD Operations**: Create (store), Read (show/index), Update, Delete due collections
+    "data": [],
+    "pagination": null
 - ✅ **Atomic Transactions**: All table updates (due_collects, sales/purchases, parties, branches) in single transaction
 - ✅ **Smart Payment Handling**: Correctly tracks payment amount changes with automatic balance adjustments
+
+### 20.1.1 Filter VATs
+- **Endpoint:** `GET /api/v1/vats/filter`
+- **Notes:** Same as List VATs (supports the same query parameters).
+
+### 20.1.2 Update VAT Status
+- **Endpoint:** `PATCH /api/v1/vats/{id}/status`
+- **Request Body:**
+  ```json
+  {
+    "status": true
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "message": "Status updated successfully.",
+    "data": {}
+  }
+  ```
+
+### 20.1.3 Bulk Delete VATs
+- **Endpoint:** `POST /api/v1/vats/delete-all`
+- **Request Body:**
+  ```json
+  {
+    "ids": [1, 2, 3]
+  }
+  ```
+- **Notes:** Single VATs that are part of a VAT group cannot be deleted.
 - ✅ **Invoice Management**: Support for both invoice-specific payments and opening due payments
 - ✅ **Flexible Pagination**: 4 modes - default, limit, offset, cursor
 - ✅ **Advanced Filtering**: party_id, payment_type_id, user_id, branch_id, date ranges, search
@@ -20,8 +56,9 @@
 - ✅ **Batch Operations**: Delete multiple records with validation
 
 ### Test Coverage Achievement
-- ✅ **140 tests passing** (1,012 assertions)
-- ✅ **100% API endpoint coverage** for core features
+    "rate": 5,
+    "vat_ids": [1, 2],
+    "status": true
 - ✅ Comprehensive pagination testing (4 modes: default, limit, offset, cursor)
 - ✅ Batch/lot management validation testing
 - ✅ Expired stock prevention testing
@@ -34,7 +71,8 @@
 - ✅ **Route Model Binding**: Fixed for attribute values using `{attributeValue}` parameter
 - ✅ **Response Structure**: Standardized to use `data` key across all endpoints
 
-### Bug Fixes
+    "rate": 10,
+    "status": true
 - ✅ Fixed AttributeController route model binding
 - ✅ Fixed ProductVariantController response structure consistency
 - ✅ Fixed BatchMovementService user ID tracking
@@ -42,6 +80,7 @@
 - ✅ Fixed variant batches query using correct column name
 - ✅ Fixed Due Collection update method to properly handle payment differences across all tables
 - ✅ Fixed balance calculations for payment increases and decreases
+  - Single VAT cannot be deleted if it is part of a VAT group.
 
 ---
 
@@ -4980,6 +5019,11 @@ Toggles `status` between active/inactive for the specified category.
 **Endpoint:** `GET /payment-types`  
 **Auth Required:** Yes
 
+**Query Params (optional):**
+- `search` (string)
+- `status` (boolean)
+- Pagination (same system-wide conventions): `limit`, `cursor`, `per_page`, `page`
+
 **Response:**
 ```json
 {
@@ -4999,7 +5043,7 @@ Toggles `status` between active/inactive for the specified category.
 
 ---
 
-### 19.2 Create Payment Type
+### 21.2 Create Payment Type
 
 **Endpoint:** `POST /payment-types`  
 **Auth Required:** Yes
@@ -5007,8 +5051,48 @@ Toggles `status` between active/inactive for the specified category.
 **Request Body:**
 ```json
 {
-  "name": "string (required, unique per business)"
+  "name": "string (required, unique per business)",
+  "status": "boolean (optional)"
 }
+
+```
+
+---
+
+### 21.2.1 Filter Payment Types
+
+**Endpoint:** `GET /payment-types/filter`
+**Auth Required:** Yes
+
+**Notes:** Same as list endpoint; provided for UI consistency.
+
+---
+
+### 21.2.2 Update Payment Type Status
+
+**Endpoint:** `PATCH /payment-types/{id}/status`
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "status": true
+}
+```
+
+---
+
+### 21.2.3 Delete Multiple Payment Types
+
+**Endpoint:** `POST /payment-types/delete-all`
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "ids": [1, 2, 3]
+}
+```
 ```
 
 ---

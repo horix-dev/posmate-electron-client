@@ -127,7 +127,7 @@ export function DuePage() {
     }
   }
 
-  const handleDeleteDue = async (partyId: number) => {
+  const handleDeleteDue = async (_partyId: number) => {
     // TODO: Implement delete logic
     toast.success('Due record deleted')
   }

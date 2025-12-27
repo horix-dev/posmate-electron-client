@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Pencil, Trash2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import {
     Dialog,
@@ -29,6 +29,14 @@ import {
     FormMessage,
 } from '@/components/ui/form'
 import { expensesService, incomesService } from '@/api/services/expenses.service'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'
 
 const categorySchema = z.object({
     categoryName: z.string().min(1, 'Category name is required'),
@@ -56,6 +64,12 @@ export function CategoryManagerDialog({
     const [isLoading, setIsLoading] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [editingId, setEditingId] = useState<number | null>(null)
+    const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: number | null; name: string }>(
+        { open: false, id: null, name: '' }
+    )
+
+    const [currentPage, setCurrentPage] = useState(1)
+    const [perPage, setPerPage] = useState(10)
 
     const service = type === 'expense' ? expensesService : incomesService
     const title = type === 'expense' ? 'Expense Categories' : 'Income Categories'
@@ -70,23 +84,24 @@ export function CategoryManagerDialog({
     const fetchCategories = useCallback(async () => {
         setIsLoading(true)
         try {
-            const response = await service.getCategories()
+            const response: any = await service.getCategories()
             // Handle both array response and paginated response formats
             let categoryList: Category[] = []
             
             if (Array.isArray(response)) {
                 categoryList = response
-            } else if (response.data) {
+            } else if (response?.data) {
                 // If response has data property, could be array or paginated object
                 if (Array.isArray(response.data)) {
                     categoryList = response.data
-                } else if (response.data.data && Array.isArray(response.data.data)) {
+                } else if (response.data?.data && Array.isArray(response.data.data)) {
                   // Nested data property for paginated response
                     categoryList = response.data.data
                 }
             }
             
             setCategories(categoryList)
+            setCurrentPage(1)
         } catch (error) {
             toast.error('Failed to load categories')
             console.error(error)
@@ -130,8 +145,6 @@ export function CategoryManagerDialog({
     }
 
     const handleDelete = async (id: number) => {
-        if (!confirm('Are you sure you want to delete this category?')) return
-
         try {
             await service.deleteCategory(id)
             toast.success('Category deleted')
@@ -187,61 +200,125 @@ export function CategoryManagerDialog({
                     </Form>
 
                     {/* List */}
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead className="w-[100px] text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {isLoading ? (
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>Show</span>
+                            <Select
+                                value={String(perPage)}
+                                onValueChange={(v) => {
+                                    setPerPage(Number(v))
+                                    setCurrentPage(1)
+                                }}
+                            >
+                                <SelectTrigger className="h-8 w-[70px]">
+                                    <SelectValue placeholder={perPage} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="25">25</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <span>entries</span>
+                        </div>
+
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
                                     <TableRow>
-                                        <TableCell colSpan={2} className="text-center py-8">
-                                            <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                                        </TableCell>
+                                        <TableHead>Name</TableHead>
+                                        <TableHead className="w-[100px] text-right">Actions</TableHead>
                                     </TableRow>
-                                ) : categories.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
-                                            No categories found
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    categories.map((category) => (
-                                        <TableRow key={category.id}>
-                                            <TableCell className="font-medium">
-                                                {category.categoryName}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-muted-foreground hover:text-primary"
-                                                        onClick={() => handleEdit(category)}
-                                                    >
-                                                        <Pencil className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                        onClick={() => handleDelete(category.id)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
+                                </TableHeader>
+                                <TableBody>
+                                    {isLoading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={2} className="text-center py-8">
+                                                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                                             </TableCell>
                                         </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
+                                    ) : categories.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                                                No categories found
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        categories
+                                            .slice((currentPage - 1) * perPage, (currentPage - 1) * perPage + perPage)
+                                            .map((category) => (
+                                                <TableRow key={category.id}>
+                                                    <TableCell className="font-medium">
+                                                        {category.categoryName}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                                                onClick={() => handleEdit(category)}
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                                onClick={() =>
+                                                                    setDeleteDialog({ open: true, id: category.id, name: category.categoryName })
+                                                                }
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+
+                        <div className="flex items-center justify-between py-1 text-sm text-muted-foreground">
+                            <span>
+                                Showing {categories.length === 0 ? 0 : (currentPage - 1) * perPage + 1} to
+                                {' '}
+                                {Math.min(currentPage * perPage, categories.length)} of {categories.length} entries
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                    Previous
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage((p) => Math.min(Math.max(1, Math.ceil(categories.length / perPage)), p + 1))}
+                                    disabled={currentPage >= Math.max(1, Math.ceil(categories.length / perPage))}
+                                >
+                                    Next
+                                    <ChevronRight className="h-4 w-4 ml-2" />
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </DialogContent>
+            <DeleteConfirmDialog
+                isOpen={deleteDialog.open}
+                onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+                itemName={deleteDialog.name}
+                onConfirm={() => {
+                    if (deleteDialog.id) handleDelete(deleteDialog.id)
+                    setDeleteDialog({ open: false, id: null, name: '' })
+                }}
+            />
         </Dialog>
     )
 }

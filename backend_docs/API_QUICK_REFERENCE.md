@@ -325,13 +325,19 @@ GET /purchase?returned-purchase=true
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/vats` | ✅ | List VATs |
+| GET | `/vats/filter` | ✅ | Filter VATs (type/status/search + pagination) |
 | POST | `/vats` | ✅ | Create VAT |
 | PUT | `/vats/{id}` | ✅ | Update VAT |
 | DELETE | `/vats/{id}` | ✅ | Delete VAT |
+| PATCH | `/vats/{id}/status` | ✅ | Update VAT status |
+| POST | `/vats/delete-all` | ✅ | Delete multiple VATs |
 | GET | `/payment-types` | ✅ | List payment types |
+| GET | `/payment-types/filter` | ✅ | Filter payment types |
 | POST | `/payment-types` | ✅ | Create payment type |
+| PATCH | `/payment-types/{id}/status` | ✅ | Update payment type status |
 | PUT | `/payment-types/{id}` | ✅ | Update payment type |
 | DELETE | `/payment-types/{id}` | ✅ | Delete payment type |
+| POST | `/payment-types/delete-all` | ✅ | Delete multiple payment types |
 | GET | `/currencies` | ✅ | List currencies |
 | GET | `/currencies/{id}` | ✅ | Change currency |
 | GET | `/product-settings` | ✅ | Get product settings |
