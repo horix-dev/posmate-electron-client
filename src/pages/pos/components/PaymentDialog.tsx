@@ -1,13 +1,5 @@
-import { memo, useState, useCallback, useMemo, useEffect } from 'react'
-import {
-  CreditCard,
-  Banknote,
-  Wallet,
-  CheckCircle2,
-  Loader2,
-  Calculator,
-  X,
-} from 'lucide-react'
+import { memo, useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { CreditCard, Banknote, Wallet, CheckCircle2, Loader2, Calculator, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -21,7 +13,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
-import type { PaymentType } from '@/types/api.types'
+import { isCreditPaymentType } from '@/constants/payment-types'
+import { toast } from 'sonner'
+import type { PaymentType, Party } from '@/types/api.types'
 
 // ============================================
 // Types
@@ -40,6 +34,8 @@ export interface PaymentDialogProps {
   paymentTypes: PaymentType[]
   /** Selected payment type */
   selectedPaymentType: PaymentType | null
+  /** Selected customer (null for walk-in) */
+  customer: Party | null
   /** Loading state */
   isProcessing: boolean
   /** Payment type change callback */
@@ -67,17 +63,25 @@ const QUICK_AMOUNTS = [50, 100, 200, 500, 1000, 2000]
 interface PaymentTypeButtonProps {
   paymentType: PaymentType
   isSelected: boolean
+  isDisabled?: boolean
   onClick: () => void
 }
 
 const PaymentTypeButton = memo(function PaymentTypeButton({
   paymentType,
   isSelected,
+  isDisabled = false,
   onClick,
 }: PaymentTypeButtonProps) {
-  const icon =
-    PAYMENT_TYPE_ICONS[paymentType.name.toLowerCase()] ||
-    PAYMENT_TYPE_ICONS.cash
+  const icon = PAYMENT_TYPE_ICONS[paymentType.name.toLowerCase()] || PAYMENT_TYPE_ICONS.cash
+
+  const handleClick = () => {
+    if (isDisabled) {
+      toast.info('💡 Credit payment requires a registered customer')
+      return
+    }
+    onClick()
+  }
 
   return (
     <Button
@@ -86,7 +90,8 @@ const PaymentTypeButton = memo(function PaymentTypeButton({
         'h-auto flex-col gap-2 py-4',
         isSelected && 'ring-2 ring-primary ring-offset-2'
       )}
-      onClick={onClick}
+      onClick={handleClick}
+      disabled={isDisabled}
       aria-pressed={isSelected}
     >
       {icon}
@@ -107,12 +112,7 @@ const QuickAmountButton = memo(function QuickAmountButton({
   onClick,
 }: QuickAmountButtonProps) {
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={onClick}
-      className="h-9"
-    >
+    <Button variant="outline" size="sm" onClick={onClick} className="h-9">
       {currencySymbol}
       {amount.toLocaleString()}
     </Button>
@@ -130,44 +130,65 @@ function PaymentDialogComponent({
   currencySymbol,
   paymentTypes,
   selectedPaymentType,
+  customer,
   isProcessing,
   onPaymentTypeChange,
   onProcessPayment,
 }: PaymentDialogProps) {
   const [amountPaid, setAmountPaid] = useState<string>(String(totalAmount))
+  const amountInputRef = useRef<HTMLInputElement>(null)
 
-  // Reset amount when dialog opens
+  // Check if selected payment is credit/due
+  const isCreditPayment = selectedPaymentType ? isCreditPaymentType(selectedPaymentType) : false
+
+  // Check if customer is walk-in (null customer)
+  const isWalkInCustomer = customer === null
+
+  // Reset amount and set default payment type when dialog opens
   useEffect(() => {
     if (open) {
       setAmountPaid(String(totalAmount))
-    }
-  }, [open, totalAmount])
 
-  const numericAmount = useMemo(
-    () => parseFloat(amountPaid) || 0,
-    [amountPaid]
-  )
+      // Set default payment type to Cash if none selected
+      if (!selectedPaymentType && paymentTypes.length > 0) {
+        const cashPayment = paymentTypes.find((pt) => pt.name.toLowerCase() === 'cash')
+        if (cashPayment) {
+          onPaymentTypeChange(cashPayment)
+        }
+      }
+
+      // Auto-focus amount input after a short delay
+      setTimeout(() => {
+        amountInputRef.current?.focus()
+        amountInputRef.current?.select()
+      }, 100)
+    }
+  }, [open, totalAmount, selectedPaymentType, paymentTypes, onPaymentTypeChange])
+
+  const numericAmount = useMemo(() => parseFloat(amountPaid) || 0, [amountPaid])
 
   const changeAmount = useMemo(
     () => Math.max(0, numericAmount - totalAmount),
     [numericAmount, totalAmount]
   )
 
-  const isValidPayment = useMemo(
-    () => numericAmount >= totalAmount && selectedPaymentType !== null,
-    [numericAmount, totalAmount, selectedPaymentType]
-  )
+  const isValidPayment = useMemo(() => {
+    if (!selectedPaymentType) return false
 
-  const handleAmountChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value
-      // Allow only numbers and decimal point
-      if (/^\d*\.?\d*$/.test(value)) {
-        setAmountPaid(value)
-      }
-    },
-    []
-  )
+    // For credit/due payment, no minimum amount required
+    if (isCreditPayment) return true
+
+    // For actual payments, must pay at least the total amount
+    return numericAmount >= totalAmount
+  }, [numericAmount, totalAmount, selectedPaymentType, isCreditPayment])
+
+  const handleAmountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    // Allow only numbers and decimal point
+    if (/^\d*\.?\d*$/.test(value)) {
+      setAmountPaid(value)
+    }
+  }, [])
 
   const handleQuickAmount = useCallback((amount: number) => {
     setAmountPaid(String(amount))
@@ -179,9 +200,11 @@ function PaymentDialogComponent({
 
   const handleProcessPayment = useCallback(() => {
     if (isValidPayment) {
-      onProcessPayment(numericAmount)
+      // For credit payment, pass 0 or the entered amount
+      // For actual payment, pass the entered amount
+      onProcessPayment(isCreditPayment ? 0 : numericAmount)
     }
-  }, [isValidPayment, numericAmount, onProcessPayment])
+  }, [isValidPayment, numericAmount, isCreditPayment, onProcessPayment])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -224,66 +247,69 @@ function PaymentDialogComponent({
           <div className="space-y-2">
             <Label>Payment Method</Label>
             <div className="grid grid-cols-3 gap-2">
-              {paymentTypes.map((pt) => (
-                <PaymentTypeButton
-                  key={pt.id}
-                  paymentType={pt}
-                  isSelected={selectedPaymentType?.id === pt.id}
-                  onClick={() => onPaymentTypeChange(pt)}
-                />
-              ))}
+              {paymentTypes.map((pt) => {
+                const isCreditType = isCreditPaymentType(pt)
+                const isDisabled = isCreditType && isWalkInCustomer
+
+                return (
+                  <PaymentTypeButton
+                    key={pt.id}
+                    paymentType={pt}
+                    isSelected={selectedPaymentType?.id === pt.id}
+                    isDisabled={isDisabled}
+                    onClick={() => onPaymentTypeChange(pt)}
+                  />
+                )
+              })}
             </div>
           </div>
 
-          {/* Amount Paid Input */}
-          <div className="space-y-2">
-            <Label htmlFor="amount-paid">Amount Paid</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  {currencySymbol}
-                </span>
-                <Input
-                  id="amount-paid"
-                  type="text"
-                  inputMode="decimal"
-                  value={amountPaid}
-                  onChange={handleAmountChange}
-                  className={cn(
-                    'pl-7 text-lg font-medium',
-                    numericAmount < totalAmount && 'border-destructive'
-                  )}
-                  aria-label="Amount paid"
-                />
+          {/* Amount Paid Input - Hidden for credit/due payment */}
+          {!isCreditPayment && (
+            <div className="space-y-2">
+              <Label htmlFor="amount-paid">Amount Paid</Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    {currencySymbol}
+                  </span>
+                  <Input
+                    ref={amountInputRef}
+                    id="amount-paid"
+                    type="text"
+                    inputMode="decimal"
+                    value={amountPaid}
+                    onChange={handleAmountChange}
+                    className={cn(
+                      'pl-7 text-lg font-medium',
+                      numericAmount < totalAmount && 'border-destructive'
+                    )}
+                    aria-label="Amount paid"
+                  />
+                </div>
+                <Button variant="outline" onClick={handleExactAmount} title="Exact amount">
+                  <Calculator className="h-4 w-4" aria-hidden="true" />
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                onClick={handleExactAmount}
-                title="Exact amount"
-              >
-                <Calculator className="h-4 w-4" aria-hidden="true" />
-              </Button>
-            </div>
 
-            {/* Quick Amount Buttons */}
-            <div className="flex flex-wrap gap-2">
-              {QUICK_AMOUNTS.map((amount) => (
-                <QuickAmountButton
-                  key={amount}
-                  amount={amount}
-                  currencySymbol={currencySymbol}
-                  onClick={() => handleQuickAmount(amount)}
-                />
-              ))}
+              {/* Quick Amount Buttons */}
+              <div className="flex flex-wrap gap-2">
+                {QUICK_AMOUNTS.map((amount) => (
+                  <QuickAmountButton
+                    key={amount}
+                    amount={amount}
+                    currencySymbol={currencySymbol}
+                    onClick={() => handleQuickAmount(amount)}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Change Calculation */}
-          {numericAmount >= totalAmount && (
+          {/* Change Calculation - Hidden for credit/due payment */}
+          {!isCreditPayment && numericAmount >= totalAmount && (
             <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center dark:border-green-800 dark:bg-green-950">
-              <p className="text-sm text-green-700 dark:text-green-300">
-                Change
-              </p>
+              <p className="text-sm text-green-700 dark:text-green-300">Change</p>
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {currencySymbol}
                 {changeAmount.toLocaleString()}
@@ -291,8 +317,8 @@ function PaymentDialogComponent({
             </div>
           )}
 
-          {/* Insufficient Amount Warning */}
-          {numericAmount < totalAmount && numericAmount > 0 && (
+          {/* Insufficient Amount Warning - Hidden for credit/due payment */}
+          {!isCreditPayment && numericAmount < totalAmount && numericAmount > 0 && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-center">
               <p className="text-sm text-destructive">
                 Insufficient amount. Need {currencySymbol}
@@ -312,6 +338,7 @@ function PaymentDialogComponent({
           <Button
             onClick={handleProcessPayment}
             disabled={!isValidPayment || isProcessing}
+            variant={isCreditPayment ? 'default' : 'success'}
             className="gap-2"
           >
             {isProcessing ? (
@@ -322,7 +349,7 @@ function PaymentDialogComponent({
             ) : (
               <>
                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                Complete Payment
+                {isCreditPayment ? 'Save Sale' : 'Complete Payment'}
               </>
             )}
           </Button>

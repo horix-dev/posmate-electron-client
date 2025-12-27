@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, Filter, WifiOff, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,15 +14,36 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useSuppliers } from '../suppliers/hooks/useSuppliers'
 import { useCustomers } from '../customers/hooks/useCustomers'
-import { CustomerFormDialog, type CustomerFormData } from '../customers/components/CustomerFormDialog'
-import { SupplierFormDialog, type SupplierFormData } from '../suppliers/components/SupplierFormDialog'
+import {
+  CustomerFormDialog,
+  type CustomerFormData,
+} from '../customers/components/CustomerFormDialog'
+import {
+  SupplierFormDialog,
+  type SupplierFormData,
+} from '../suppliers/components/SupplierFormDialog'
 import type { CreatePartyRequest, Party } from '@/types/api.types'
 
 export function PartiesPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<'customers' | 'suppliers'>('customers')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSupplier, setSelectedSupplier] = useState<Party | null>(null)
   const [showForm, setShowForm] = useState(false)
+
+  // Read tab from URL on mount
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'customers' || tab === 'suppliers') {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: 'customers' | 'suppliers') => {
+    setActiveTab(tab)
+    setSearchParams({ tab })
+  }
 
   const debouncedSearch = useDebounce(searchQuery, 300)
 
@@ -140,7 +162,10 @@ export function PartiesPage() {
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'customers' | 'suppliers')}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => handleTabChange(v as 'customers' | 'suppliers')}
+      >
         <TabsList>
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
@@ -188,7 +213,9 @@ export function PartiesPage() {
                         <li key={c.id} className="flex items-center justify-between py-2">
                           <div>
                             <div className="font-medium">{c.name}</div>
-                            <div className="text-sm text-muted-foreground">{c.email ?? c.phone}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {c.email ?? c.phone}
+                            </div>
                           </div>
                           <div>
                             <DropdownMenu>
@@ -203,7 +230,10 @@ export function PartiesPage() {
                                   <Pencil className="mr-2 h-4 w-4" />
                                   Edit
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDeleteCustomer(c)} className="text-destructive focus:text-destructive">
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteCustomer(c)}
+                                  className="text-destructive focus:text-destructive"
+                                >
                                   <Trash2 className="mr-2 h-4 w-4" />
                                   Delete
                                 </DropdownMenuItem>

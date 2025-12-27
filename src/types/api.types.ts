@@ -374,6 +374,11 @@ export interface CreateVatRequest {
 export interface PaymentType {
   id: number
   name: string
+  is_credit?: boolean
+  status?: number
+  business_id?: number
+  created_at?: string
+  updated_at?: string
 }
 
 export interface CreatePaymentTypeRequest {

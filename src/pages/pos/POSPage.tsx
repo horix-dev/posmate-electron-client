@@ -640,6 +640,7 @@ export function POSPage() {
         currencySymbol={currencySymbol}
         paymentTypes={paymentTypes}
         selectedPaymentType={paymentType}
+        customer={customer}
         isProcessing={isProcessing}
         onPaymentTypeChange={handlePaymentTypeChange}
         onProcessPayment={handleProcessPayment}
