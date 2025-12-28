@@ -122,16 +122,20 @@ export interface ElectronAPI {
     delete: (key: string) => Promise<boolean>
     clear: () => Promise<boolean>
   }
-  print?: {
-    receipt: AsyncFn<[string], { success: boolean }>
-  }
   sqlite?: ElectronSQLiteAPI
+  print?: {
+    receipt: (url: string) => Promise<{ success: boolean }>
+  }
   getDeviceId?: () => Promise<string>
-  getAppInfo?: () => Promise<{ name: string; version: string; platform: NodeJS.Platform }>
+  getAppInfo?: () => Promise<{
+    name: string
+    version: string
+    platform: NodeJS.Platform
+  }>
   updater?: {
-    checkForUpdates: AsyncFn
-    downloadUpdate: AsyncFn
-    quitAndInstall: AsyncFn
+    checkForUpdates: () => Promise<unknown>
+    downloadUpdate: () => Promise<unknown>
+    quitAndInstall: () => Promise<unknown>
     onUpdateStatus: (
       callback: (payload: {
         status:
@@ -145,7 +149,7 @@ export interface ElectronAPI {
         data: unknown
       }) => void
     ) => void
-    removeUpdateListener: () => void
+    removeUpdateListener?: () => void
   }
   onMainProcessMessage?: (callback: (message: string) => void) => void
   removeAllListeners?: (channel: string) => void
