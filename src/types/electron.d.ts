@@ -5,6 +5,7 @@ import type {
   StockAdjustmentFilters,
   StockAdjustmentSummary,
 } from '@/types/stockAdjustment.types'
+import type { LocalCategory, LocalParty, LocalSale } from '@/lib/storage/interface'
 
 type AsyncFn<Args extends unknown[] = unknown[], Result = unknown> = (
   ...args: Args
@@ -34,6 +35,8 @@ export interface ElectronSQLiteAPI {
     getLowStock: AsyncFn<[number | undefined], unknown[]>
     bulkUpsert: AsyncFn<[unknown[]], void>
   }
+
+  // Categories
   category: {
     getById: AsyncFn<[number], unknown>
     getAll: AsyncFn<[], unknown[]>
@@ -45,6 +48,18 @@ export interface ElectronSQLiteAPI {
     getByName: AsyncFn<[string], unknown>
     bulkUpsert: AsyncFn<[unknown[]], void>
   }
+  categories: {
+    getAll: () => Promise<LocalCategory[]>
+    getById: (id: number) => Promise<LocalCategory | null>
+    getByServerId: (serverId: number) => Promise<LocalCategory | null>
+    create: (category: Omit<LocalCategory, 'id'>) => Promise<number>
+    update: (id: number, updates: Partial<LocalCategory>) => Promise<void>
+    delete: (id: number) => Promise<void>
+    bulkCreate: (categories: Omit<LocalCategory, 'id'>[]) => Promise<number[]>
+    getChildren: (parentId: number | null) => Promise<LocalCategory[]>
+  }
+
+  // Parties
   party: {
     getById: AsyncFn<[number], unknown>
     getAll: AsyncFn<[], unknown[]>
@@ -60,6 +75,20 @@ export interface ElectronSQLiteAPI {
     getWithBalance: AsyncFn<[], unknown[]>
     bulkUpsert: AsyncFn<[unknown[]], void>
   }
+  parties: {
+    getAll: () => Promise<LocalParty[]>
+    getById: (id: number) => Promise<LocalParty | null>
+    getByServerId: (serverId: number) => Promise<LocalParty | null>
+    create: (party: Omit<LocalParty, 'id'>) => Promise<number>
+    update: (id: number, updates: Partial<LocalParty>) => Promise<void>
+    delete: (id: number) => Promise<void>
+    bulkCreate: (parties: Omit<LocalParty, 'id'>[]) => Promise<number[]>
+    search: (query: string) => Promise<LocalParty[]>
+    getByType: (type: 'customer' | 'supplier') => Promise<LocalParty[]>
+    updateBalance: (id: number, due: number, wallet: number) => Promise<void>
+  }
+
+  // Sales
   sale: {
     getById: AsyncFn<[number], unknown>
     getAll: AsyncFn<[], unknown[]>
@@ -76,6 +105,30 @@ export interface ElectronSQLiteAPI {
     getToday: AsyncFn<[], unknown[]>
     getSummary: AsyncFn<[string, string], unknown>
   }
+  sales: {
+    getAll: () => Promise<LocalSale[]>
+    getById: (id: number) => Promise<LocalSale | null>
+    getByServerId: (serverId: number) => Promise<LocalSale | null>
+    getByTempId: (tempId: string) => Promise<LocalSale | null>
+    create: (sale: Omit<LocalSale, 'id'>) => Promise<number>
+    update: (id: number, updates: Partial<LocalSale>) => Promise<void>
+    delete: (id: number) => Promise<void>
+    getUnsynced: () => Promise<LocalSale[]>
+    markSynced: (id: number, serverId: number) => Promise<void>
+    getByDateRange: (start: Date, end: Date) => Promise<LocalSale[]>
+    getByParty: (partyId: number) => Promise<LocalSale[]>
+    getSummary: (
+      start?: Date,
+      end?: Date
+    ) => Promise<{
+      totalSales: number
+      totalAmount: number
+      totalPaid: number
+      totalDue: number
+    }>
+  }
+
+  // Sync Queue
   syncQueue: {
     getById: AsyncFn<[number], unknown>
     getAll: AsyncFn<[], unknown[]>
@@ -112,6 +165,11 @@ export interface ElectronSQLiteAPI {
   getDatabaseSize: AsyncFn<[], number>
   vacuum: AsyncFn
   exportData: AsyncFn<[], unknown>
+
+  // General operations
+  clearAll: () => Promise<void>
+  getMetadata: (key: string) => Promise<string | null>
+  setMetadata: (key: string, value: string) => Promise<void>
 }
 
 export interface ElectronAPI {
@@ -132,6 +190,10 @@ export interface ElectronAPI {
     version: string
     platform: NodeJS.Platform
   }>
+  onMainProcessMessage: (callback: (message: string) => void) => void
+  removeAllListeners: (channel: string) => void
+
+  // Auto-updater API (available in Electron)
   updater?: {
     checkForUpdates: () => Promise<unknown>
     downloadUpdate: () => Promise<unknown>
@@ -151,8 +213,6 @@ export interface ElectronAPI {
     ) => void
     removeUpdateListener?: () => void
   }
-  onMainProcessMessage?: (callback: (message: string) => void) => void
-  removeAllListeners?: (channel: string) => void
 }
 
 export interface PlatformInfo {

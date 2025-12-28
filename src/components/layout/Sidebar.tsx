@@ -145,7 +145,7 @@ export function Sidebar() {
 
         {/* Sub-menu items */}
         {!isCollapsed && hasChildren && isExpanded && (
-          <div className="ml-8 mt-1 flex flex-col gap-1">
+          <div className="ml-6 mt-0.5 flex flex-col gap-0.5">
             {item.children?.map((child) => {
               const SubIcon = child.icon
               const childPath = child.href.split('?')[0]
@@ -158,14 +158,14 @@ export function Sidebar() {
                   key={child.href}
                   to={child.href}
                   className={cn(
-                    'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all',
+                    'flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
                     'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                     isSubActive
                       ? 'bg-primary/80 text-primary-foreground'
                       : 'text-sidebar-foreground/60'
                   )}
                 >
-                  <SubIcon className="h-4 w-4 shrink-0" />
+                  <SubIcon className="h-3.5 w-3.5 shrink-0" />
                   <span>{child.title}</span>
                 </Link>
               )
