@@ -3,15 +3,13 @@ import { Sidebar } from './Sidebar'
 import { TitleBar } from './TitleBar'
 import { OfflineBanner } from '@/components/common/OfflineBanner'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { useUIStore } from '@/stores'
 import { cn } from '@/lib/utils'
 
 export function AppShell() {
   const navigate = useNavigate()
-  const sidebarState = useUIStore((state) => state.sidebarState)
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-background">
+    <div className="flex h-full w-full overflow-hidden bg-[#f1ecf7] dark:bg-[#1c1c1e]">
       {/* Sidebar */}
       <Sidebar />
 
@@ -19,17 +17,12 @@ export function AppShell() {
       <TitleBar onNavigate={navigate} />
 
       {/* Main Content Area */}
-      <div
-        className={cn(
-          'flex flex-1 flex-col pt-12 transition-all duration-300',
-          sidebarState === 'expanded' ? 'ml-64' : 'ml-16'
-        )}
-      >
+      <div className={cn('flex flex-1 flex-col pt-12 transition-all duration-300')}>
         {/* Offline Banner */}
         <OfflineBanner />
 
         {/* Page Content */}
-        <ScrollArea className="flex-1 bg-muted/100">
+        <ScrollArea className="flex-1">
           <main className="min-h-full p-6">
             <Outlet />
           </main>

@@ -74,15 +74,15 @@ const CartHeader = memo(function CartHeader({
   onOpenHeldCarts,
 }: CartHeaderProps) {
   return (
-    <CardHeader className="space-y-3 bg-gray-300 px-4 pb-3 pt-4">
+    <CardHeader className="space-y-3 bg-primary px-4 pb-3 pt-4">
       {/* Invoice Info */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Receipt className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <span className="text-sm font-medium">{invoiceNumber}</span>
+          <Receipt className="h-4 w-4 text-white" aria-hidden="true" />
+          <span className="text-sm font-medium text-white">{invoiceNumber}</span>
         </div>
         <div className="flex items-center gap-2">
-          <ShoppingCart className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <ShoppingCart className="h-4 w-4 text-white" aria-hidden="true" />
           <Badge variant="secondary">{itemCount}</Badge>
         </div>
       </div>
@@ -293,7 +293,13 @@ function CartSidebarComponent({
         </div>
 
         {/* Payment Button */}
-        <Button size="lg" className="w-full text-base" onClick={onPayment} disabled={isEmpty}>
+        <Button
+          size="lg"
+          variant={'success'}
+          className="w-full text-base"
+          onClick={onPayment}
+          disabled={isEmpty}
+        >
           <CreditCard className="mr-2 h-5 w-5" aria-hidden="true" />
           Pay {currencySymbol}
           {totals.total.toLocaleString()}
