@@ -592,6 +592,59 @@ UI automatically updates via React Query invalidation
 
 ---
 
+## 2025-12-27 — Batch Product Visual Indicators
+
+**Problem**: When batch products (`product_type: 'variant'`) are displayed in POS, users cannot see which batch will be selected when adding to cart.
+
+**Solution**: Added visual indicators showing batch number and expiry date information:
+
+**Features Added**:
+1. ✅ **ProductCard Batch Info**: Shows batch number and expiry date for batch products
+2. ✅ **CartItem Batch Display**: Displays batch info in cart items
+3. ✅ **First-Stock Selection**: Currently shows the first stock entry (FIFO/FEFO to be implemented backend-side)
+
+**Visual Indicators**:
+- Batch products show a bordered info box with:
+  - Batch number with Package icon
+  - Expiry date with Calendar icon (if available)
+- Cart items display inline batch info with expiry date
+
+**Files Modified**:
+- `src/pages/pos/components/ProductCard.tsx` - Added batch detection and display
+- `src/pages/pos/components/CartItem.tsx` - Added batch info display with Calendar icon
+- `src/pages/pos/POSPage.tsx` - Pass batch info from stock to cart display adapter
+
+**Note**: Currently shows the first available stock entry. Proper FIFO/FEFO batch selection logic should be implemented in the backend API to automatically select the appropriate batch based on business settings.
+
+**Follow-up UI Fix**:
+- POS list view: `ProductCard` now renders as a compact horizontal row layout for better scanability
+
+---
+
+## 2025-12-27 — Sidebar Light Streaks Gradient
+
+**Goal**: Add a subtle decorative “light streaks” gradient to the layout sidebar without introducing new hard-coded colors.
+
+**Solution**: Added a low-opacity overlay on the sidebar using theme CSS variables (`--sidebar-primary`, `--sidebar-accent`) so it automatically matches light/dark modes.
+
+**Files Modified**:
+- `src/components/layout/Sidebar.tsx` - Added background overlay gradients via `::before` while keeping content above.
+
+## 2025-12-26 — Accent Color: Yellow → Mild Purple
+
+**Problem**: The UI accent token was yellow, but the desired accent is a mild purple.
+
+**Solution**: Updated the global theme accent CSS variables so any `accent`-based styles update consistently across the app.
+
+**Files Modified**:
+- `src/index.css` - Changed `--accent` and `--accent-foreground` (light + dark)
+
+**Follow-up**:
+- Tweaked dark mode `--background` to a purple-tinted shade for a more cohesive theme
+
+**UI**:
+- Added `Button` variant `success` (green) using `pos.success` theme token
+
 ## 2025-12-25 — Sidebar Contrast (Dark Sidebar)
 
 **Problem**: Sidebar blended with the rest of the UI and lacked visual contrast.

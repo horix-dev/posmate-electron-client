@@ -23,6 +23,9 @@ export interface CartItemDisplay {
   variantId?: number | null
   variantName?: string | null
   variantSku?: string | null
+  // Batch support
+  batchNo?: string | null
+  expiryDate?: string | null
 }
 
 export interface CartItemProps {
@@ -82,14 +85,14 @@ function CartItemComponent({
   return (
     <div
       className={cn(
-        'group flex items-start gap-3 rounded-lg border p-3 transition-colors bg-card',
+        'group flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors',
         isEditing && 'border-primary bg-primary/5'
       )}
       role="listitem"
       aria-label={`${productName}, quantity ${quantity}, ${currencySymbol}${lineTotal.toLocaleString()}`}
     >
       {/* Product Image */}
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-muted overflow-hidden">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
         {imageUrl ? (
           <CachedImage
             src={imageUrl}
@@ -107,14 +110,20 @@ function CartItemComponent({
       <div className="min-w-0 flex-1">
         <h4 className="truncate font-medium leading-tight">{productName}</h4>
         {/* Show variant name if present */}
-        {item.variantName && (
-          <p className="text-xs text-primary truncate">
-            {item.variantName}
-          </p>
+        {item.variantName && <p className="truncate text-xs text-primary">{item.variantName}</p>}
+        {/* Show batch info if present */}
+        {item.batchNo && (
+          <div className="flex items-center gap-1 text-xs text-primary">
+            <Package className="h-3 w-3" aria-hidden="true" />
+            <span>Batch: {item.batchNo}</span>
+            {item.expiryDate && (
+              <span className="text-muted-foreground">
+                · Exp: {new Date(item.expiryDate).toLocaleDateString()}
+              </span>
+            )}
+          </div>
         )}
-        <p className="text-xs text-muted-foreground">
-          {item.variantSku || productCode}
-        </p>
+        <p className="text-xs text-muted-foreground">{item.variantSku || productCode}</p>
         <p className="mt-1 text-sm text-muted-foreground">
           {currencySymbol}
           {salePrice.toLocaleString()} × {quantity}

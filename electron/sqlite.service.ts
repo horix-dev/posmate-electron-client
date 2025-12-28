@@ -487,8 +487,8 @@ export class SQLiteService {
     return rows.map(r => {
       const product = this.mapProduct(r)
       
-      // Load variants if product is variable
-      if (r.product_type === 'variable' && r.has_variants) {
+      // Load variants if product is variable (handles both 'variable' and 'variant' types)
+      if ((r.product_type === 'variable' || r.product_type === 'variant') && r.has_variants) {
         product.variants = this.getVariantsByProductId(r.id)
       }
       
@@ -662,7 +662,9 @@ export class SQLiteService {
         const purchasePrice = p.stock?.productPurchasePrice ?? p.purchasePrice ?? 0
         const salePrice = p.stock?.productSalePrice ?? p.salePrice ?? 0
         const wholesalePrice = p.stock?.productWholeSalePrice ?? p.wholesalePrice ?? 0
-        const productType = (p as any).product_type || 'simple'
+        // Normalize product_type: API returns 'variant' but we use 'variable' internally
+        const rawType = (p as any).product_type || 'simple'
+        const productType = rawType === 'variant' ? 'variable' : rawType
         const hasVariants = (p as any).has_variants || Boolean((p as any).variants && (p as any).variants.length > 0)
         
         // Insert/update product
