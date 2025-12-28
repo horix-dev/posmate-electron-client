@@ -23,6 +23,7 @@ const SuppliersPage = lazy(() => import('@/pages/suppliers/SuppliersPage'))
 const ExpensesPage = lazy(() => import('@/pages/expenses/ExpensesPage'))
 const ProductSettingsPage = lazy(() => import('@/pages/product-settings/ProductSettingsPage'))
 const WarehousesPage = lazy(() => import('@/pages/warehouses/WarehousesPage'))
+const StockAdjustmentsPage = lazy(() => import('@/pages/inventory/StockAdjustmentsPage'))
 const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage'))
 const InvoicesPage = lazy(() => import('@/pages/invoices/InvoicesPage'))
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'))
@@ -165,6 +166,14 @@ const router = routerCreator([
         element: (
           <Suspense fallback={<PageLoader />}>
             <WarehousesPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'inventory/stock-adjustments',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <StockAdjustmentsPage />
           </Suspense>
         ),
       },

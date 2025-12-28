@@ -1,12 +1,14 @@
 // Electron API types exposed via contextBridge
 
 import type {
-  LocalProduct,
-  LocalCategory,
-  LocalParty,
-  LocalSale,
-  SyncQueueItem,
-} from '@/lib/storage/interface'
+  StockAdjustment,
+  StockAdjustmentFilters,
+  StockAdjustmentSummary,
+} from '@/types/stockAdjustment.types'
+
+type AsyncFn<Args extends unknown[] = unknown[], Result = unknown> = (
+  ...args: Args
+) => Promise<Result>
 
 export interface WindowControls {
   minimize: () => void
@@ -15,119 +17,121 @@ export interface WindowControls {
   isMaximized: () => Promise<boolean>
 }
 
-// SQLite API exposed from Electron main process
-export interface SQLiteAPI {
-  // Products
-  products: {
-    getAll: () => Promise<LocalProduct[]>
-    getById: (id: number) => Promise<LocalProduct | null>
-    getByServerId: (serverId: number) => Promise<LocalProduct | null>
-    create: (product: Omit<LocalProduct, 'id'>) => Promise<number>
-    update: (id: number, updates: Partial<LocalProduct>) => Promise<void>
-    delete: (id: number) => Promise<void>
-    bulkCreate: (products: Omit<LocalProduct, 'id'>[]) => Promise<number[]>
-    search: (query: string) => Promise<LocalProduct[]>
-    getByCategory: (categoryId: number) => Promise<LocalProduct[]>
-    getLowStock: (threshold?: number) => Promise<LocalProduct[]>
-    updateStock: (id: number, quantity: number) => Promise<void>
-    getCount: () => Promise<number>
+export interface ElectronSQLiteAPI {
+  initialize: AsyncFn<[], { success: boolean; error?: string }>
+  close: AsyncFn
+  product: {
+    getById: AsyncFn<[number], unknown>
+    getAll: AsyncFn<[], unknown[]>
+    create: AsyncFn<[unknown], number>
+    update: AsyncFn<[number, unknown], void>
+    delete: AsyncFn<[number], void>
+    count: AsyncFn<[], number>
+    clear: AsyncFn
+    search: AsyncFn<[string], unknown[]>
+    getByBarcode: AsyncFn<[string], unknown>
+    getByCategory: AsyncFn<[number], unknown[]>
+    getLowStock: AsyncFn<[number | undefined], unknown[]>
+    bulkUpsert: AsyncFn<[unknown[]], void>
   }
-
-  // Categories
-  categories: {
-    getAll: () => Promise<LocalCategory[]>
-    getById: (id: number) => Promise<LocalCategory | null>
-    getByServerId: (serverId: number) => Promise<LocalCategory | null>
-    create: (category: Omit<LocalCategory, 'id'>) => Promise<number>
-    update: (id: number, updates: Partial<LocalCategory>) => Promise<void>
-    delete: (id: number) => Promise<void>
-    bulkCreate: (categories: Omit<LocalCategory, 'id'>[]) => Promise<number[]>
-    getChildren: (parentId: number | null) => Promise<LocalCategory[]>
+  category: {
+    getById: AsyncFn<[number], unknown>
+    getAll: AsyncFn<[], unknown[]>
+    create: AsyncFn<[unknown], number>
+    update: AsyncFn<[number, unknown], void>
+    delete: AsyncFn<[number], void>
+    count: AsyncFn<[], number>
+    clear: AsyncFn
+    getByName: AsyncFn<[string], unknown>
+    bulkUpsert: AsyncFn<[unknown[]], void>
   }
-
-  // Parties
-  parties: {
-    getAll: () => Promise<LocalParty[]>
-    getById: (id: number) => Promise<LocalParty | null>
-    getByServerId: (serverId: number) => Promise<LocalParty | null>
-    create: (party: Omit<LocalParty, 'id'>) => Promise<number>
-    update: (id: number, updates: Partial<LocalParty>) => Promise<void>
-    delete: (id: number) => Promise<void>
-    bulkCreate: (parties: Omit<LocalParty, 'id'>[]) => Promise<number[]>
-    search: (query: string) => Promise<LocalParty[]>
-    getByType: (type: 'customer' | 'supplier') => Promise<LocalParty[]>
-    updateBalance: (id: number, due: number, wallet: number) => Promise<void>
+  party: {
+    getById: AsyncFn<[number], unknown>
+    getAll: AsyncFn<[], unknown[]>
+    create: AsyncFn<[unknown], number>
+    update: AsyncFn<[number, unknown], void>
+    delete: AsyncFn<[number], void>
+    count: AsyncFn<[], number>
+    clear: AsyncFn
+    search: AsyncFn<[string], unknown[]>
+    getByPhone: AsyncFn<[string], unknown>
+    getCustomers: AsyncFn<[], unknown[]>
+    getSuppliers: AsyncFn<[], unknown[]>
+    getWithBalance: AsyncFn<[], unknown[]>
+    bulkUpsert: AsyncFn<[unknown[]], void>
   }
-
-  // Sales
-  sales: {
-    getAll: () => Promise<LocalSale[]>
-    getById: (id: number) => Promise<LocalSale | null>
-    getByServerId: (serverId: number) => Promise<LocalSale | null>
-    getByTempId: (tempId: string) => Promise<LocalSale | null>
-    create: (sale: Omit<LocalSale, 'id'>) => Promise<number>
-    update: (id: number, updates: Partial<LocalSale>) => Promise<void>
-    delete: (id: number) => Promise<void>
-    getUnsynced: () => Promise<LocalSale[]>
-    markSynced: (id: number, serverId: number) => Promise<void>
-    getByDateRange: (start: Date, end: Date) => Promise<LocalSale[]>
-    getByParty: (partyId: number) => Promise<LocalSale[]>
-    getSummary: (
-      start?: Date,
-      end?: Date
-    ) => Promise<{
-      totalSales: number
-      totalAmount: number
-      totalPaid: number
-      totalDue: number
-    }>
+  sale: {
+    getById: AsyncFn<[number], unknown>
+    getAll: AsyncFn<[], unknown[]>
+    create: AsyncFn<[unknown], number>
+    createOffline: AsyncFn<[unknown], number>
+    update: AsyncFn<[number, unknown], void>
+    delete: AsyncFn<[number], void>
+    count: AsyncFn<[], number>
+    clear: AsyncFn
+    getOffline: AsyncFn<[], unknown[]>
+    markAsSynced: AsyncFn<[number, number?], void>
+    getByInvoiceNumber: AsyncFn<[string], unknown>
+    getByDateRange: AsyncFn<[string, string], unknown[]>
+    getToday: AsyncFn<[], unknown[]>
+    getSummary: AsyncFn<[string, string], unknown>
   }
-
-  // Sync Queue
   syncQueue: {
-    getAll: () => Promise<SyncQueueItem[]>
-    getById: (id: number) => Promise<SyncQueueItem | null>
-    create: (item: Omit<SyncQueueItem, 'id'>) => Promise<number>
-    update: (id: number, updates: Partial<SyncQueueItem>) => Promise<void>
-    delete: (id: number) => Promise<void>
-    getPending: () => Promise<SyncQueueItem[]>
-    getFailed: () => Promise<SyncQueueItem[]>
-    markCompleted: (id: number) => Promise<void>
-    markFailed: (id: number, error: string) => Promise<void>
-    incrementAttempt: (id: number) => Promise<void>
-    clear: () => Promise<void>
-    getStats: () => Promise<{
-      pending: number
-      processing: number
-      failed: number
-      completed: number
-    }>
+    getById: AsyncFn<[number], unknown>
+    getAll: AsyncFn<[], unknown[]>
+    create: AsyncFn<[unknown], number>
+    update: AsyncFn<[number, unknown], void>
+    delete: AsyncFn<[number], void>
+    count: AsyncFn<[], number>
+    clear: AsyncFn
+    enqueue: AsyncFn<[unknown], number>
+    getPending: AsyncFn<[number?], unknown[]>
+    getFailed: AsyncFn<[], unknown[]>
+    markAsProcessing: AsyncFn<[number], void>
+    markAsCompleted: AsyncFn<[number], void>
+    markAsFailed: AsyncFn<[number, string], void>
+    clearCompleted: AsyncFn<[], void>
+    getStats: AsyncFn<[], unknown>
   }
-
-  // General operations
-  clearAll: () => Promise<void>
-  getMetadata: (key: string) => Promise<string | null>
-  setMetadata: (key: string, value: string) => Promise<void>
+  getLastSyncTime: AsyncFn<[string], string | null>
+  setLastSyncTime: AsyncFn<[string, string?], void>
+  stockAdjustment: {
+    create: AsyncFn<[Omit<StockAdjustment, 'id'>], number>
+    getById: AsyncFn<[number], StockAdjustment | undefined>
+    getAll: AsyncFn<[StockAdjustmentFilters?], StockAdjustment[]>
+    getByProductId: AsyncFn<[number], StockAdjustment[]>
+    getPending: AsyncFn<[], StockAdjustment[]>
+    markAsSynced: AsyncFn<[number, number], void>
+    markAsError: AsyncFn<[number, string], void>
+    update: AsyncFn<[number, Partial<StockAdjustment>], void>
+    delete: AsyncFn<[number], void>
+    count: AsyncFn<[StockAdjustmentFilters?], number>
+    clear: AsyncFn<[], void>
+    getSummary: AsyncFn<[StockAdjustmentFilters?], StockAdjustmentSummary>
+  }
+  getDatabaseSize: AsyncFn<[], number>
+  vacuum: AsyncFn
+  exportData: AsyncFn<[], unknown>
 }
 
 export interface ElectronAPI {
-  windowControls: WindowControls
-  secureStore: {
-    get: <T = unknown>(key: string) => Promise<T | undefined>
+  windowControls?: WindowControls
+  secureStore?: {
+    get: <T = unknown>(key: string) => Promise<T | null>
     set: (key: string, value: unknown) => Promise<boolean>
     delete: (key: string) => Promise<boolean>
     clear: () => Promise<boolean>
   }
-  getDeviceId: () => Promise<string>
-  getAppInfo: () => Promise<{
+  sqlite?: ElectronSQLiteAPI
+  print?: {
+    receipt: (url: string) => Promise<{ success: boolean }>
+  }
+  getDeviceId?: () => Promise<string>
+  getAppInfo?: () => Promise<{
     name: string
     version: string
     platform: NodeJS.Platform
   }>
-  onMainProcessMessage: (callback: (message: string) => void) => void
-  removeAllListeners: (channel: string) => void
-
-  // Auto-updater API (available in Electron)
   updater?: {
     checkForUpdates: () => Promise<unknown>
     downloadUpdate: () => Promise<unknown>
@@ -147,14 +151,8 @@ export interface ElectronAPI {
     ) => void
     removeUpdateListener?: () => void
   }
-
-  // SQLite database API (available in Electron)
-  sqlite?: SQLiteAPI
-
-  // Print API (available in Electron)
-  print?: {
-    receipt: (url: string) => Promise<{ success: boolean }>
-  }
+  onMainProcessMessage?: (callback: (message: string) => void) => void
+  removeAllListeners?: (channel: string) => void
 }
 
 export interface PlatformInfo {
@@ -166,8 +164,8 @@ export interface PlatformInfo {
 
 declare global {
   interface Window {
-    electronAPI: ElectronAPI
-    platform: PlatformInfo
+    electronAPI?: ElectronAPI
+    platform?: PlatformInfo
   }
 }
 

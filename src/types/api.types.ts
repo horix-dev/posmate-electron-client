@@ -428,7 +428,7 @@ export interface SaleDetail {
 }
 
 export interface CreateSaleRequest {
-  products: string // JSON string of SaleProductItem[]
+  products: SaleProductItem[] // Array of product items (not JSON string)
   saleDate?: string
   invoiceNumber?: string
   party_id?: number

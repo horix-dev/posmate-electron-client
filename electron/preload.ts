@@ -116,6 +116,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getLastSyncTime: (entity: string) => ipcRenderer.invoke('sqlite:getLastSyncTime', entity),
     setLastSyncTime: (entity: string, timestamp?: string) => ipcRenderer.invoke('sqlite:setLastSyncTime', entity, timestamp),
 
+    // Stock Adjustments
+    stockAdjustment: {
+      create: (adjustment: any) => ipcRenderer.invoke('sqlite:stockAdjustment:create', adjustment),
+      getById: (id: number) => ipcRenderer.invoke('sqlite:stockAdjustment:getById', id),
+      getAll: (filters?: any) => ipcRenderer.invoke('sqlite:stockAdjustment:getAll', filters),
+      getByProductId: (productId: number) => ipcRenderer.invoke('sqlite:stockAdjustment:getByProductId', productId),
+      getPending: () => ipcRenderer.invoke('sqlite:stockAdjustment:getPending'),
+      markAsSynced: (id: number, serverId: number) => ipcRenderer.invoke('sqlite:stockAdjustment:markAsSynced', id, serverId),
+      markAsError: (id: number, error: string) => ipcRenderer.invoke('sqlite:stockAdjustment:markAsError', id, error),
+      update: (id: number, adjustment: any) => ipcRenderer.invoke('sqlite:stockAdjustment:update', id, adjustment),
+      delete: (id: number) => ipcRenderer.invoke('sqlite:stockAdjustment:delete', id),
+      count: (filters?: any) => ipcRenderer.invoke('sqlite:stockAdjustment:count', filters),
+      clear: () => ipcRenderer.invoke('sqlite:stockAdjustment:clear'),
+      getSummary: (filters?: any) => ipcRenderer.invoke('sqlite:stockAdjustment:getSummary', filters),
+    },
+
     // Database utilities
     getDatabaseSize: () => ipcRenderer.invoke('sqlite:getDatabaseSize'),
     vacuum: () => ipcRenderer.invoke('sqlite:vacuum'),

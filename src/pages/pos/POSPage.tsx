@@ -322,7 +322,7 @@ export function POSPage() {
 
         // Prepare sale data matching CreateSaleRequest
         const saleData = {
-          products: JSON.stringify(productsForApi),
+          products: productsForApi, // Send as array, not string
           invoiceNumber: invoiceNumber || undefined,
           party_id: customer?.id,
           payment_type_id: paymentType.id,

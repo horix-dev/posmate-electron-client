@@ -87,15 +87,18 @@ const PaymentTypeButton = memo(function PaymentTypeButton({
     <Button
       variant={isSelected ? 'default' : 'outline'}
       className={cn(
-        'h-auto flex-col gap-2 py-4',
-        isSelected && 'ring-2 ring-primary ring-offset-2'
+        'flex h-auto flex-col items-center justify-center gap-1 rounded-xl border px-3 py-2 text-xs font-medium transition-all',
+        isSelected
+          ? 'shadow-sm shadow-primary/30 ring-2 ring-primary ring-offset-2'
+          : 'border-muted/70',
+        isDisabled && 'opacity-60'
       )}
       onClick={handleClick}
       disabled={isDisabled}
       aria-pressed={isSelected}
     >
       {icon}
-      <span className="text-sm">{paymentType.name}</span>
+      <span>{paymentType.name}</span>
     </Button>
   )
 })
@@ -165,6 +168,13 @@ function PaymentDialogComponent({
     }
   }, [open, totalAmount, selectedPaymentType, paymentTypes, onPaymentTypeChange])
 
+  // Reset amount to 0 when credit/due payment type is selected
+  useEffect(() => {
+    if (isCreditPayment) {
+      setAmountPaid('0')
+    }
+  }, [isCreditPayment])
+
   const numericAmount = useMemo(() => parseFloat(amountPaid) || 0, [amountPaid])
 
   const changeAmount = useMemo(
@@ -172,15 +182,45 @@ function PaymentDialogComponent({
     [numericAmount, totalAmount]
   )
 
+  const dueAmount = useMemo(
+    () => Math.max(0, totalAmount - numericAmount),
+    [totalAmount, numericAmount]
+  )
+
+  const newCustomerDue = useMemo(
+    () => (customer ? customer.due + dueAmount : dueAmount),
+    [customer, dueAmount]
+  )
+
+  const exceedsCreditLimit = useMemo(() => {
+    if (!customer || !customer.credit_limit || customer.credit_limit <= 0) return false
+    return newCustomerDue > customer.credit_limit
+  }, [customer, newCustomerDue])
+
   const isValidPayment = useMemo(() => {
     if (!selectedPaymentType) return false
 
-    // For credit/due payment, no minimum amount required
-    if (isCreditPayment) return true
+    // For credit/due payment, allow 0 to totalAmount
+    if (isCreditPayment) {
+      // Must have a customer for credit payment
+      if (!customer) return false
+      // Amount must be between 0 and total
+      if (numericAmount < 0 || numericAmount > totalAmount) return false
+      // Cannot exceed credit limit
+      if (exceedsCreditLimit) return false
+      return true
+    }
 
     // For actual payments, must pay at least the total amount
     return numericAmount >= totalAmount
-  }, [numericAmount, totalAmount, selectedPaymentType, isCreditPayment])
+  }, [
+    numericAmount,
+    totalAmount,
+    selectedPaymentType,
+    isCreditPayment,
+    customer,
+    exceedsCreditLimit,
+  ])
 
   const handleAmountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -200,11 +240,10 @@ function PaymentDialogComponent({
 
   const handleProcessPayment = useCallback(() => {
     if (isValidPayment) {
-      // For credit payment, pass 0 or the entered amount
-      // For actual payment, pass the entered amount
-      onProcessPayment(isCreditPayment ? 0 : numericAmount)
+      // Pass the entered amount for all payment types (including partial credit)
+      onProcessPayment(numericAmount)
     }
-  }, [isValidPayment, numericAmount, isCreditPayment, onProcessPayment])
+  }, [isValidPayment, numericAmount, onProcessPayment])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -219,7 +258,7 @@ function PaymentDialogComponent({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
-        className="max-w-md"
+        className="flex max-h-[85vh] max-w-3xl flex-col overflow-hidden"
         onKeyDown={handleKeyDown}
         aria-describedby="payment-dialog-description"
       >
@@ -233,41 +272,83 @@ function PaymentDialogComponent({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Amount Summary */}
-          <div className="rounded-lg bg-muted p-4 text-center">
-            <p className="text-sm text-muted-foreground">Amount Due</p>
-            <p className="text-3xl font-bold text-primary">
-              {currencySymbol}
-              {totalAmount.toLocaleString()}
-            </p>
-          </div>
+        <div className="grid flex-1 grid-cols-1 gap-6 overflow-y-auto pr-1 md:grid-cols-2">
+          {/* Left Column */}
+          <div className="space-y-6">
+            {/* Amount Summary */}
+            <div className="rounded-lg bg-muted p-4 text-center">
+              <p className="text-sm text-muted-foreground">Amount Due</p>
+              <p className="text-3xl font-bold text-primary">
+                {currencySymbol}
+                {totalAmount.toLocaleString()}
+              </p>
+            </div>
 
-          {/* Payment Types */}
-          <div className="space-y-2">
-            <Label>Payment Method</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {paymentTypes.map((pt) => {
-                const isCreditType = isCreditPaymentType(pt)
-                const isDisabled = isCreditType && isWalkInCustomer
+            {/* Payment Types */}
+            <div className="space-y-2">
+              <Label>Payment Method</Label>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {paymentTypes.map((pt) => {
+                  const isCreditType = isCreditPaymentType(pt)
+                  const isDisabled = isCreditType && isWalkInCustomer
 
-                return (
-                  <PaymentTypeButton
-                    key={pt.id}
-                    paymentType={pt}
-                    isSelected={selectedPaymentType?.id === pt.id}
-                    isDisabled={isDisabled}
-                    onClick={() => onPaymentTypeChange(pt)}
-                  />
-                )
-              })}
+                  return (
+                    <PaymentTypeButton
+                      key={pt.id}
+                      paymentType={pt}
+                      isSelected={selectedPaymentType?.id === pt.id}
+                      isDisabled={isDisabled}
+                      onClick={() => onPaymentTypeChange(pt)}
+                    />
+                  )
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Amount Paid Input - Hidden for credit/due payment */}
-          {!isCreditPayment && (
+          {/* Right Column */}
+          <div className="space-y-6">
+            {/* Customer Info - Show for registered customers */}
+            {customer && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950">
+                <p className="text-xs font-medium text-blue-900 dark:text-blue-100">
+                  Customer Balance
+                </p>
+                <div className="mt-1 space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-blue-700 dark:text-blue-300">Current Due:</span>
+                    <span className="font-semibold text-blue-900 dark:text-blue-100">
+                      {currencySymbol}
+                      {customer.due.toLocaleString()}
+                    </span>
+                  </div>
+                  {customer.credit_limit != null && customer.credit_limit > 0 ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-blue-700 dark:text-blue-300">Credit Limit:</span>
+                        <span className="font-semibold text-blue-900 dark:text-blue-100">
+                          {currencySymbol}
+                          {customer.credit_limit.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-blue-700 dark:text-blue-300">Available:</span>
+                        <span className="font-semibold text-blue-900 dark:text-blue-100">
+                          {currencySymbol}
+                          {Math.max(0, customer.credit_limit - customer.due).toLocaleString()}
+                        </span>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
+            {/* Amount Paid Input - Now shown for all payment types */}
             <div className="space-y-2">
-              <Label htmlFor="amount-paid">Amount Paid</Label>
+              <Label htmlFor="amount-paid">
+                Amount Paid (Enter partial amount or adjust as needed)
+              </Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -304,28 +385,106 @@ function PaymentDialogComponent({
                 ))}
               </div>
             </div>
-          )}
 
-          {/* Change Calculation - Hidden for credit/due payment */}
-          {!isCreditPayment && numericAmount >= totalAmount && (
-            <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center dark:border-green-800 dark:bg-green-950">
-              <p className="text-sm text-green-700 dark:text-green-300">Change</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {currencySymbol}
-                {changeAmount.toLocaleString()}
-              </p>
-            </div>
-          )}
+            {/* Due Amount Preview - Show for credit/partial payment */}
+            {isCreditPayment && dueAmount > 0 && (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 dark:border-orange-800 dark:bg-orange-950">
+                <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                  Payment Summary
+                </p>
+                <div className="mt-2 space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-orange-700 dark:text-orange-300">Amount Paying:</span>
+                    <span className="font-semibold text-orange-900 dark:text-orange-100">
+                      {currencySymbol}
+                      {numericAmount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-orange-700 dark:text-orange-300">Remaining Due:</span>
+                    <span className="font-bold text-orange-600 dark:text-orange-400">
+                      {currencySymbol}
+                      {dueAmount.toLocaleString()}
+                    </span>
+                  </div>
+                  {customer && (
+                    <div className="flex justify-between border-t border-orange-200 pt-1 dark:border-orange-800">
+                      <span className="text-orange-700 dark:text-orange-300">
+                        New Customer Due:
+                      </span>
+                      <span className="font-bold text-orange-900 dark:text-orange-100">
+                        {currencySymbol}
+                        {newCustomerDue.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
-          {/* Insufficient Amount Warning - Hidden for credit/due payment */}
-          {!isCreditPayment && numericAmount < totalAmount && numericAmount > 0 && (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-center">
-              <p className="text-sm text-destructive">
-                Insufficient amount. Need {currencySymbol}
-                {(totalAmount - numericAmount).toLocaleString()} more.
-              </p>
-            </div>
-          )}
+            {/* Credit Limit Warning */}
+            {exceedsCreditLimit && customer && customer.credit_limit && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950">
+                <p className="text-sm font-semibold text-red-900 dark:text-red-100">
+                  ⚠️ Credit Limit Exceeded
+                </p>
+                <p className="mt-1 text-xs text-red-700 dark:text-red-300">
+                  Customer {customer.name}'s credit limit would be exceeded.
+                </p>
+                <div className="mt-2 space-y-1 text-xs">
+                  <div className="flex justify-between text-red-700 dark:text-red-300">
+                    <span>Current Due:</span>
+                    <span>
+                      {currencySymbol}
+                      {customer.due.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-red-700 dark:text-red-300">
+                    <span>New Due:</span>
+                    <span>
+                      {currencySymbol}
+                      {dueAmount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t border-red-200 pt-1 font-semibold text-red-900 dark:border-red-800 dark:text-red-100">
+                    <span>Total:</span>
+                    <span>
+                      {currencySymbol}
+                      {newCustomerDue.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-red-700 dark:text-red-300">
+                    <span>Credit Limit:</span>
+                    <span>
+                      {currencySymbol}
+                      {customer.credit_limit.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Change Calculation - Hidden for credit/due payment */}
+            {!isCreditPayment && numericAmount >= totalAmount && (
+              <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center dark:border-green-800 dark:bg-green-950">
+                <p className="text-sm text-green-700 dark:text-green-300">Change</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {currencySymbol}
+                  {changeAmount.toLocaleString()}
+                </p>
+              </div>
+            )}
+
+            {/* Insufficient Amount Warning - Hidden for credit/due payment */}
+            {!isCreditPayment && numericAmount < totalAmount && numericAmount > 0 && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-center">
+                <p className="text-sm text-destructive">
+                  Insufficient amount. Need {currencySymbol}
+                  {(totalAmount - numericAmount).toLocaleString()} more.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         <Separator />

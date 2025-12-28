@@ -61,6 +61,7 @@ interface CartHeaderProps {
   invoiceNumber: string
   customer: Party | null
   heldCartsCount: number
+  currencySymbol: string
   onSelectCustomer: () => void
   onOpenHeldCarts: () => void
 }
@@ -70,6 +71,7 @@ const CartHeader = memo(function CartHeader({
   invoiceNumber,
   customer,
   heldCartsCount,
+  currencySymbol,
   onSelectCustomer,
   onOpenHeldCarts,
 }: CartHeaderProps) {
@@ -92,11 +94,19 @@ const CartHeader = memo(function CartHeader({
         <Button
           variant="outline"
           size="sm"
-          className="flex-1 justify-start gap-2"
+          className="h-auto flex-1 flex-col items-start justify-start gap-2 py-2"
           onClick={onSelectCustomer}
         >
-          <User className="h-4 w-4" aria-hidden="true" />
-          <span className="truncate">{customer?.name || 'Walk-in Customer'}</span>
+          <div className="flex w-full items-center gap-2">
+            <User className="h-4 w-4" aria-hidden="true" />
+            <span className="truncate">{customer?.name || 'Walk-in Customer'}</span>
+          </div>
+          {customer && customer.due > 0 && (
+            <span className="text-xs text-muted-foreground">
+              Due: {currencySymbol}
+              {customer.due.toLocaleString()}
+            </span>
+          )}
         </Button>
         {heldCartsCount > 0 && (
           <Button variant="outline" size="sm" className="gap-2" onClick={onOpenHeldCarts}>
@@ -123,7 +133,7 @@ const CartTotalsSection = memo(function CartTotalsSection({
   currencySymbol,
 }: CartTotalsSectionProps) {
   return (
-    <div className="space-y-2 px-4 py-3">
+    <div className="space-y-2 bg-gray-200 px-4 py-3">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Subtotal</span>
         <span>
@@ -228,6 +238,7 @@ function CartSidebarComponent({
         invoiceNumber={invoiceNumber}
         customer={customer}
         heldCartsCount={heldCartsCount}
+        currencySymbol={currencySymbol}
         onSelectCustomer={onSelectCustomer}
         onOpenHeldCarts={onOpenHeldCarts}
       />
@@ -267,7 +278,7 @@ function CartSidebarComponent({
         </>
       )}
 
-      <CardFooter className="flex-col gap-2 px-4 pb-4 pt-2">
+      <CardFooter className="flex-col gap-2 bg-gray-200 px-4 pb-4 pt-2">
         {/* Action Buttons */}
         <div className="flex w-full gap-2">
           <Button
