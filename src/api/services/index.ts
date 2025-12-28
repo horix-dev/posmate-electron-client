@@ -15,6 +15,7 @@ export {
 export { partiesService } from './parties.service'
 export { productsService } from './products.service'
 export { purchasesService } from './purchases.service'
+export { reportsService } from './reports.service'
 export { salesService } from './sales.service'
 export { settingsService } from './settings.service'
 export { stocksService } from './stocks.service'

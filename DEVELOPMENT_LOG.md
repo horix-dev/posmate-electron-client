@@ -1,5 +1,40 @@
 ## 2025-12-27 — Tax Settings (VAT) Management in Product Settings
 
+---
+
+## 2025-12-28 — Transaction Reports Page (Sales & Purchases)
+
+**Requirement**: Create a Reports page that uses the backend Transaction Reports APIs for sales and purchases.
+
+**Solution**: Implemented a functional Reports page showing Sales Report and Purchase Report with a simple date range filter, summary totals, and a transaction table. Includes offline fallback via local cache with TTL.
+
+**Files Created**:
+- `src/api/services/reports.service.ts` — Service for Transaction Reports endpoints (`/reports/sales`, `/reports/purchases`, and summary variants)
+- `src/pages/reports/hooks/useSalesReport.ts` — Sales report data hook (online fetch + offline cache fallback)
+- `src/pages/reports/hooks/usePurchasesReport.ts` — Purchases report data hook (online fetch + offline cache fallback)
+
+**Files Modified**:
+- `src/api/endpoints.ts` — Added `REPORTS.*` endpoints
+- `src/api/services/index.ts` — Exported `reportsService`
+- `src/pages/reports/ReportsPage.tsx` — Wired UI to Sales/Purchases reporting APIs
+- `src/types/api.types.ts` — Added typed models for Transaction Reports responses
+
+## 2025-12-28 — Reports: Sale/Purchase Returns + Date-Only
+
+**Requirement**: Show sale/purchase return reports in Reports section, and display only date (no time).
+
+**Solution**: Added Sale Returns and Purchase Returns tabs using Transaction Reports APIs and normalized all displayed dates to date-only.
+
+**Files Created**:
+- `src/pages/reports/hooks/useSaleReturnsReport.ts` — Sale returns report hook (online fetch + offline cache fallback)
+- `src/pages/reports/hooks/usePurchaseReturnsReport.ts` — Purchase returns report hook (online fetch + offline cache fallback)
+
+**Files Modified**:
+- `src/pages/reports/ReportsPage.tsx` — Added new tabs + date-only formatting
+- `src/api/endpoints.ts` — Added returns report endpoints
+- `src/api/services/reports.service.ts` — Added returns report service methods
+- `src/types/api.types.ts` — Added typed models for returns report responses
+
 **Problem**: Product Settings lacked a UI to manage VAT/Tax records from the backend.
 
 **Solution**: Added a Tax Settings tab with list/create/edit/delete (single & bulk) for VATs, mirroring existing settings patterns.
