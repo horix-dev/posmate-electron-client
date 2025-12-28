@@ -263,8 +263,14 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
             category: categoryId ? categoryMap.get(categoryId) : undefined,
             brand: brandId ? brandMap.get(brandId) : undefined,
             unit: unitId ? unitMap.get(unitId) : undefined,
+            // Preserve variants data for variable products
+            variants: p.variants ?? [],
+            variants_total_stock:
+              p.variants_total_stock ?? (p.product_type === 'variable' ? 0 : undefined),
           }
         })
+        // Sort by ID descending to match API order (newest first)
+        convertedProducts.sort((a, b) => b.id - a.id)
         setProducts(convertedProducts)
 
         // Calculate stock value

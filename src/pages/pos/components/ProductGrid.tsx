@@ -238,10 +238,10 @@ function ProductGridComponent({
   const gridClassName = useMemo(
     () =>
       cn(
-        'grid gap-3',
+        'grid',
         viewMode === 'grid'
-          ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-          : 'grid-cols-1'
+          ? 'grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+          : 'grid-cols-1 gap-2'
       ),
     [viewMode]
   )
@@ -280,6 +280,7 @@ function ProductGridComponent({
                 currencySymbol={currencySymbol}
                 onAddToCart={onAddToCart}
                 onSelectVariant={onSelectVariant}
+                viewMode={viewMode}
               />
             ))}
           </div>
