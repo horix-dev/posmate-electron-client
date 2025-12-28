@@ -1,3 +1,133 @@
+## 2025-12-29 — Sync: Fix Products Array Format for Batch Sync ✅
+
+**Status**: ✅ Fixed - Products now sent as array type instead of JSON string
+
+**Problem**: Offline sales sync was failing with error:
+```json
+{
+  "status": "error",
+  "error": "Field 'products' must be a JSON array type, not a string"
+}
+```
+
+The sync batch endpoint expected `products` as a native array type `[{...}]`, but frontend was sending it as a JSON string `"[{...}]"`.
+
+**Root Cause**:
+- POSPage.tsx was calling `JSON.stringify(productsForApi)` when building sale data
+- This converted the array to a string: `"[{\"stock_id\":11,...}]"`
+- Backend validation rejected it because field type was string, not array
+
+**Solution**: Send products as native array throughout the flow:
+
+1. **POSPage.tsx** - Remove stringify
+   ```typescript
+   // Before: products: JSON.stringify(productsForApi)
+   // After:  products: productsForApi
+   ```
+
+2. **api.types.ts** - Update type definition
+   ```typescript
+   // Before: products: string // JSON string
+   // After:  products: SaleProductItem[] // Array
+   ```
+
+3. **sales.service.ts** - Handle array in FormData
+   ```typescript
+   // Special handling for products array
+   if (key === 'products' && Array.isArray(value)) {
+     formData.append(key, JSON.stringify(value))
+   }
+   ```
+
+4. **Tests** - Update mock data to use arrays
+
+**Files Modified**:
+- `src/pages/pos/POSPage.tsx` - Removed `JSON.stringify()` call
+- `src/types/api.types.ts` - Changed `CreateSaleRequest.products` type
+- `src/api/services/sales.service.ts` - Added products array handling
+- `src/__tests__/services/offlineSales.service.test.ts` - Fixed test mocks
+
+**How It Works Now**:
+1. **In-memory**: Products stay as array `[{stock_id: 1, ...}]`
+2. **API call (online)**: FormData stringifies it for multipart upload
+3. **Sync queue (offline)**: Stored as array in IndexedDB
+4. **Batch sync**: Sent as array in JSON body (not double-stringified)
+
+**Verification**:
+- ✅ TypeScript: `npm run typecheck` passes
+- ✅ Tests: All 141 tests passing
+- ✅ Aligns with backend API contract (FRONTEND_SYNC_FIX_INSTRUCTIONS.md)
+
+**Impact**: Unblocks offline sales synchronization to backend
+
+---
+
+## 2025-12-28 — POS: Full Partial Payment Support ✅
+
+**Status**: ✅ Implemented complete partial payment UI with credit limit validation
+
+**Problem**: POS backend supported partial payments, but frontend UI was incomplete:
+- Customer due balances not displayed
+- Credit payment type hid amount input (no partial payment entry)
+- No credit limit validation or warnings
+- No preview of remaining balance before sale
+
+**Solution**: Implemented comprehensive partial payment UI following backend guide specifications:
+
+**Implementation**:
+1. **CartSidebar.tsx** - Customer Balance Display
+   - Added `currencySymbol` prop to CartHeader component
+   - Display customer's outstanding due below name in customer button
+   - Vertical layout with due amount in muted text
+   - Shows: "Due: $1,200" when customer has outstanding balance
+
+2. **PaymentDialog.tsx** - Partial Payment Support
+   - **Customer Info Section**: Shows current due, credit limit, and available credit
+   - **Amount Input**: Now visible for all payment types (including credit)
+     - Label changes to indicate optional amount for credit
+     - Supports partial payment entry (0 to totalAmount)
+   - **Validation Logic**:
+     - Credit payments: Allow 0 to totalAmount range
+     - Require customer for credit payments
+     - Check credit limit before allowing submission
+     - Cash/Card: Still require full payment or more
+   - **Payment Summary Card**: Real-time calculation showing:
+     - Amount being paid
+     - Remaining due amount
+     - New customer total due
+   - **Credit Limit Warning**: Red alert when limit would be exceeded
+     - Shows current due, new due, total, and limit
+     - Prevents submission until resolved
+   - **Payment Processing**: Pass actual entered amount (not 0) for credit payments
+
+3. **UI/UX Features**:
+   - Blue info card for customer balance (current due, limit, available)
+   - Orange summary card for partial payment preview
+   - Red warning card for credit limit violations
+   - Supports $0 payment (full credit) to full amount (no credit)
+   - Dark mode support for all new components
+
+**Files Modified**:
+- `src/pages/pos/components/CartSidebar.tsx` - Customer due display
+- `src/pages/pos/components/PaymentDialog.tsx` - Partial payment UI, validation, preview
+
+**Verification**:
+- ✅ TypeScript: `npm run typecheck` passes
+- ✅ Supports all payment scenarios from backend guide:
+  - Full credit (pay $0 of $1000)
+  - Partial payment (pay $600 of $1000)
+  - Full payment (pay $1000)
+- ✅ Credit limit enforcement works
+- ✅ Walk-in customer restrictions maintained
+- ✅ Real-time balance calculations
+
+**Features Enabled**:
+- Display customer outstanding balance in cart
+- Enter partial payment amounts
+- Preview due amount before confirming
+- Credit limit validation with warnings
+- Full alignment with FRONTEND_PARTIAL_PAYMENT_GUIDE.md
+
 ## 2025-12-26 — Stock Adjustment: Variant Support with TTL Cache ✅
 
 **Status**: ✅ Implemented variant-level stock adjustments with offline support
