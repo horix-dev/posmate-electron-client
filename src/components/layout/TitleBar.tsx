@@ -30,12 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface TitleBarProps {
   /**
@@ -47,7 +42,7 @@ interface TitleBarProps {
 
 /**
  * Unified Title Bar Component
- * 
+ *
  * Combines the window controls with app header items (search, notifications, profile).
  * Layout: [Search] | [App Actions] | [Window Controls]
  */
@@ -105,8 +100,8 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
 
     const checkMaximized = async () => {
       try {
-        const maximized = await window.electronAPI.windowControls.isMaximized()
-        setIsMaximized(maximized)
+        const maximized = await window.electronAPI?.windowControls?.isMaximized?.()
+        setIsMaximized(!!maximized)
       } catch {
         // Ignore errors
       }
@@ -132,17 +127,18 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
   }, [])
 
   const handleMinimize = useCallback(() => {
-    window.electronAPI?.windowControls.minimize()
+    window.electronAPI?.windowControls?.minimize?.()
   }, [])
 
   const handleMaximize = useCallback(async () => {
-    window.electronAPI?.windowControls.maximize()
-    const maximized = await window.electronAPI?.windowControls.isMaximized()
+    const controls = window.electronAPI?.windowControls
+    controls?.maximize?.()
+    const maximized = await controls?.isMaximized?.()
     setIsMaximized(maximized ?? false)
   }, [])
 
   const handleClose = useCallback(() => {
-    window.electronAPI?.windowControls.close()
+    window.electronAPI?.windowControls?.close?.()
   }, [])
 
   const handleFullscreen = useCallback(() => {
@@ -182,23 +178,23 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
   return (
     <header
       className={cn(
-        'fixed top-0 right-0 z-40 flex h-12 items-center justify-between border-b bg-card select-none transition-all duration-300 app-drag-region',
-        showFullWidth ? 'left-0 px-4' : (sidebarState === 'expanded' ? 'left-64' : 'left-16')
+        'app-drag-region fixed right-0 top-0 z-40 flex h-12 select-none items-center justify-between border-b border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300',
+        showFullWidth ? 'left-0 px-4' : sidebarState === 'expanded' ? 'left-64' : 'left-16'
       )}
     >
       {/* Left: Search Bar (only when authenticated) */}
-      <div className="flex items-center app-no-drag">
+      <div className="app-no-drag flex items-center">
         {isAuthenticated && (
-          <div className="relative w-full max-w-md pl-4">
-            <Search className="absolute left-7 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative w-full pl-4">
+            <Search className="absolute left-7 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/70" />
             <Input
               placeholder="Search products, customers, invoices..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setSearchOpen(true)}
-              className="h-8 pl-10 text-sm"
+              className="h-8 max-w-xl border-sidebar-border bg-sidebar-accent/30 pl-10 pr-14 text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus-visible:ring-sidebar-ring"
             />
-            <kbd className="pointer-events-none absolute right-3 top-1/2 hidden h-5 -translate-y-1/2 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+            <kbd className="pointer-events-none absolute right-3 top-1/2 hidden h-5 -translate-y-1/2 select-none items-center gap-1 rounded border border-sidebar-border bg-sidebar-accent/20 px-1.5 font-mono text-[10px] font-medium text-sidebar-foreground/80 opacity-100 sm:flex">
               <span className="text-xs">⌘</span>K
             </kbd>
           </div>
@@ -209,11 +205,11 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
       <div className="flex-1" />
 
       {/* Right: App Actions + Window Controls */}
-      <div className="flex h-full items-center app-no-drag">
+      <div className="app-no-drag flex h-full items-center">
         {/* App Actions (only when authenticated) */}
         {isAuthenticated && (
           <TooltipProvider delayDuration={300}>
-            <div className="flex items-center gap-1 px-2 border-r mr-1">
+            <div className="mr-1 flex items-center gap-1 border-r border-sidebar-border px-2">
               {/* Sync Status */}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -221,7 +217,7 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
                     variant="ghost"
                     size="icon"
                     className={cn(
-                      'relative h-8 w-8',
+                      'relative h-8 w-8 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                       !isOnline && 'text-destructive',
                       syncStatus === 'syncing' && 'animate-pulse',
                       syncStatus === 'error' && 'text-yellow-500'
@@ -257,23 +253,26 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
               {/* Theme Toggle */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggleTheme}>
-                    {theme === 'dark' ? (
-                      <Sun className="h-4 w-4" />
-                    ) : (
-                      <Moon className="h-4 w-4" />
-                    )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    onClick={toggleTheme}
+                  >
+                    {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                </TooltipContent>
+                <TooltipContent>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</TooltipContent>
               </Tooltip>
 
               {/* Notifications */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative h-8 w-8">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative h-8 w-8 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  >
                     <Bell className="h-4 w-4" />
                     {notificationCount > 0 && (
                       <Badge
@@ -291,7 +290,10 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
               {/* User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Button
+                    variant="ghost"
+                    className="relative h-8 w-8 rounded-full text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  >
                     <Avatar className="h-7 w-7">
                       <AvatarImage src={user?.image} alt={user?.name} />
                       <AvatarFallback className="text-xs">{getInitials(user?.name)}</AvatarFallback>
@@ -332,7 +334,7 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
             onClick={handleMinimize}
             className={cn(
               'flex h-full w-11 items-center justify-center',
-              'text-muted-foreground hover:bg-muted hover:text-foreground',
+              'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
               'transition-colors duration-150'
             )}
             title="Minimize"
@@ -346,7 +348,7 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
             onClick={handleMaximize}
             className={cn(
               'flex h-full w-11 items-center justify-center',
-              'text-muted-foreground hover:bg-muted hover:text-foreground',
+              'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
               'transition-colors duration-150'
             )}
             title={isMaximized ? 'Restore' : 'Maximize'}
@@ -364,7 +366,7 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
             onClick={handleFullscreen}
             className={cn(
               'flex h-full w-11 items-center justify-center',
-              'text-muted-foreground hover:bg-muted hover:text-foreground',
+              'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
               'transition-colors duration-150'
             )}
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
@@ -378,7 +380,7 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
             onClick={handleClose}
             className={cn(
               'flex h-full w-11 items-center justify-center',
-              'text-muted-foreground hover:bg-red-600 hover:text-white',
+              'text-sidebar-foreground/70 hover:bg-red-600 hover:text-white',
               'transition-colors duration-150'
             )}
             title="Close"

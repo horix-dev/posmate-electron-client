@@ -10,6 +10,11 @@
             "url": "http:\/\/127.0.0.1:8700\/api"
         }
     ],
+    "security": [
+        {
+            "http": []
+        }
+    ],
     "paths": {
         "\/v1\/banners": {
             "get": {
@@ -5170,44 +5175,7 @@
                     "content": {
                         "multipart\/form-data": {
                             "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "products": {
-                                        "type": "string"
-                                    },
-                                    "saleDate": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "format": "date-time"
-                                    },
-                                    "image": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "format": "binary",
-                                        "contentMediaType": "application\/octet-stream"
-                                    },
-                                    "rounding_option": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "enum": [
-                                            "none",
-                                            "round_up",
-                                            "nearest_whole_number",
-                                            "nearest_0.05",
-                                            "nearest_0.1",
-                                            "nearest_0.5"
-                                        ]
-                                    }
-                                },
-                                "required": [
-                                    "products"
-                                ]
+                                "$ref": "#\/components\/schemas\/StoreSaleRequest"
                             }
                         }
                     }
@@ -5236,139 +5204,50 @@
                         "content": {
                             "application\/json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {}
-                                                },
-                                                {
-                                                    "type": "null"
-                                                }
-                                            ]
-                                        },
-                                        "data": {
-                                            "$ref": "#\/components\/schemas\/SaleResource"
-                                        },
-                                        "_server_timestamp": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "message",
-                                        "data",
-                                        "_server_timestamp"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "406": {
-                        "description": "",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
                                     "anyOf": [
                                         {
-                                            "type": "object",
-                                            "properties": {
-                                                "message": {
-                                                    "type": "string"
-                                                }
-                                            },
-                                            "required": [
-                                                "message"
-                                            ]
+                                            "type": "string"
                                         },
                                         {
                                             "type": "object",
                                             "properties": {
-                                                "success": {
-                                                    "type": "boolean"
-                                                },
                                                 "message": {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "Cannot sell expired batch"
+                                                    "anyOf": [
+                                                        {
+                                                            "type": "string"
+                                                        },
+                                                        {
+                                                            "type": "array",
+                                                            "items": {}
+                                                        },
+                                                        {
+                                                            "type": "null"
+                                                        }
                                                     ]
                                                 },
-                                                "batch": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "batch_no": {
-                                                            "type": "string"
-                                                        },
-                                                        "expire_date": {
-                                                            "type": "string"
-                                                        },
-                                                        "days_expired": {
-                                                            "anyOf": [
-                                                                {
-                                                                    "type": "integer"
-                                                                },
-                                                                {
-                                                                    "type": "number"
-                                                                }
-                                                            ]
-                                                        }
-                                                    },
-                                                    "required": [
-                                                        "batch_no",
-                                                        "expire_date",
-                                                        "days_expired"
-                                                    ]
+                                                "data": {
+                                                    "$ref": "#\/components\/schemas\/SaleResource"
+                                                },
+                                                "_server_timestamp": {
+                                                    "type": "string"
                                                 }
                                             },
                                             "required": [
-                                                "success",
                                                 "message",
-                                                "batch"
+                                                "data",
+                                                "_server_timestamp"
                                             ]
                                         }
                                     ]
                                 }
                             }
                         }
-                    },
-                    "400": {
-                        "description": "",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {}
-                                                },
-                                                {
-                                                    "type": "null"
-                                                }
-                                            ]
-                                        }
-                                    },
-                                    "required": [
-                                        "message"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "$ref": "#\/components\/responses\/ValidationException"
                     },
                     "401": {
                         "$ref": "#\/components\/responses\/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
                     }
                 }
             }
@@ -5395,55 +5274,7 @@
                     "content": {
                         "multipart\/form-data": {
                             "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "saleDate": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "format": "date-time"
-                                    },
-                                    "image": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "format": "binary",
-                                        "contentMediaType": "application\/octet-stream"
-                                    },
-                                    "rounding_option": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "enum": [
-                                            "none",
-                                            "round_up",
-                                            "nearest_whole_number",
-                                            "nearest_0.05",
-                                            "nearest_0.1",
-                                            "nearest_0.5"
-                                        ]
-                                    },
-                                    "products": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "stock_id": {
-                                                    "type": "integer"
-                                                }
-                                            },
-                                            "required": [
-                                                "stock_id"
-                                            ]
-                                        }
-                                    }
-                                },
-                                "required": [
-                                    "products"
-                                ]
+                                "$ref": "#\/components\/schemas\/UpdateSaleRequest"
                             }
                         }
                     }
@@ -5457,18 +5288,11 @@
                                     "type": "object",
                                     "properties": {
                                         "message": {
-                                            "type": "string",
-                                            "enum": [
-                                                "Something went wrong."
-                                            ]
-                                        },
-                                        "error": {
                                             "type": "string"
                                         }
                                     },
                                     "required": [
-                                        "message",
-                                        "error"
+                                        "message"
                                     ]
                                 }
                             }
@@ -5479,90 +5303,50 @@
                         "content": {
                             "application\/json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {}
-                                                },
-                                                {
-                                                    "type": "null"
-                                                }
-                                            ]
-                                        },
-                                        "data": {
-                                            "$ref": "#\/components\/schemas\/SaleResource"
-                                        },
-                                        "_server_timestamp": {
+                                    "anyOf": [
+                                        {
                                             "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "message",
-                                        "data",
-                                        "_server_timestamp"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "anyOf": [
-                                                {
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "anyOf": [
+                                                        {
+                                                            "type": "string"
+                                                        },
+                                                        {
+                                                            "type": "array",
+                                                            "items": {}
+                                                        },
+                                                        {
+                                                            "type": "null"
+                                                        }
+                                                    ]
+                                                },
+                                                "data": {
+                                                    "$ref": "#\/components\/schemas\/SaleResource"
+                                                },
+                                                "_server_timestamp": {
                                                     "type": "string"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {}
-                                                },
-                                                {
-                                                    "type": "null"
                                                 }
+                                            },
+                                            "required": [
+                                                "message",
+                                                "data",
+                                                "_server_timestamp"
                                             ]
                                         }
-                                    },
-                                    "required": [
-                                        "message"
                                     ]
                                 }
                             }
                         }
-                    },
-                    "406": {
-                        "description": "",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "message"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "$ref": "#\/components\/responses\/ValidationException"
                     },
                     "401": {
                         "$ref": "#\/components\/responses\/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
                     }
                 }
             }
@@ -5586,6 +5370,24 @@
                     }
                 ],
                 "responses": {
+                    "500": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -14158,7 +13960,7 @@
                                                     "type": "string"
                                                 },
                                                 "stock_record": {
-                                                    "type": "object"
+                                                    "$ref": "#\/components\/schemas\/Stock"
                                                 }
                                             },
                                             "required": [
@@ -20702,6 +20504,13 @@
         }
     },
     "components": {
+        "securitySchemes": {
+            "http": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "sanctum"
+            }
+        },
         "schemas": {
             "Attribute": {
                 "type": "object",
@@ -23483,6 +23292,108 @@
                 ],
                 "title": "Shelf"
             },
+            "Stock": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "business_id": {
+                        "type": "integer"
+                    },
+                    "branch_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "warehouse_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "product_id": {
+                        "type": "integer"
+                    },
+                    "variant_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "batch_no": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "productStock": {
+                        "type": "number"
+                    },
+                    "productPurchasePrice": {
+                        "type": "number"
+                    },
+                    "profit_percent": {
+                        "type": "number"
+                    },
+                    "productSalePrice": {
+                        "type": "number"
+                    },
+                    "productWholeSalePrice": {
+                        "type": "number"
+                    },
+                    "productDealerPrice": {
+                        "type": "number"
+                    },
+                    "mfg_date": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "expire_date": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "business_id",
+                    "branch_id",
+                    "warehouse_id",
+                    "product_id",
+                    "variant_id",
+                    "batch_no",
+                    "productStock",
+                    "productPurchasePrice",
+                    "profit_percent",
+                    "productSalePrice",
+                    "productWholeSalePrice",
+                    "productDealerPrice",
+                    "mfg_date",
+                    "expire_date",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "Stock"
+            },
             "StockResource": {
                 "type": "object",
                 "properties": {
@@ -23654,6 +23565,204 @@
                 ],
                 "title": "StockResource"
             },
+            "StoreSaleRequest": {
+                "type": "object",
+                "properties": {
+                    "invoiceNumber": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "party_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "payment_type_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "saleDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "totalAmount": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "paidAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "dueAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "discountAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "vat_amount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "vat_percent": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "change_amount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "isPaid": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "image": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "binary",
+                        "contentMediaType": "application\/octet-stream",
+                        "maxLength": 2048
+                    },
+                    "note": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "customer_phone": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "rounding_option": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "none",
+                            "round_up",
+                            "nearest_whole_number",
+                            "nearest_0.05",
+                            "nearest_0.1",
+                            "nearest_0.5"
+                        ]
+                    },
+                    "offline_invoice_no": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Offline sync fields"
+                    },
+                    "device_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "client_reference": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "products": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "stock_id": {
+                                    "type": "integer"
+                                },
+                                "quantities": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ],
+                                    "minimum": 0.01
+                                },
+                                "quantity": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ],
+                                    "minimum": 0.01
+                                },
+                                "price": {
+                                    "type": "number",
+                                    "minimum": 0
+                                },
+                                "lossProfit": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ]
+                                },
+                                "variant_id": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ]
+                                },
+                                "variant_name": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                },
+                                "product_name": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "stock_id",
+                                "price"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "totalAmount",
+                    "products"
+                ],
+                "title": "StoreSaleRequest"
+            },
             "UnitResource": {
                 "type": "object",
                 "properties": {
@@ -23693,6 +23802,185 @@
                     "business_id"
                 ],
                 "title": "UnitResource"
+            },
+            "UpdateSaleRequest": {
+                "type": "object",
+                "properties": {
+                    "invoiceNumber": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "party_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "payment_type_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "saleDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "totalAmount": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "paidAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "dueAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "discountAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "vat_amount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "vat_percent": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "change_amount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "isPaid": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "image": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "binary",
+                        "contentMediaType": "application\/octet-stream",
+                        "maxLength": 2048
+                    },
+                    "note": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "customer_phone": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "rounding_option": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "none",
+                            "round_up",
+                            "nearest_whole_number",
+                            "nearest_0.05",
+                            "nearest_0.1",
+                            "nearest_0.5"
+                        ]
+                    },
+                    "products": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "stock_id": {
+                                    "type": "integer"
+                                },
+                                "quantities": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ],
+                                    "minimum": 0.01
+                                },
+                                "quantity": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ],
+                                    "minimum": 0.01
+                                },
+                                "price": {
+                                    "type": "number",
+                                    "minimum": 0
+                                },
+                                "lossProfit": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ]
+                                },
+                                "variant_id": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ]
+                                },
+                                "variant_name": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                },
+                                "product_name": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "stock_id",
+                                "price"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "totalAmount",
+                    "products"
+                ],
+                "title": "UpdateSaleRequest"
             },
             "Vat": {
                 "type": "object",
