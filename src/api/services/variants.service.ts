@@ -14,6 +14,7 @@ import type {
   GenerateVariantsRequest,
   FindVariantRequest,
   UpdateVariantStockRequest,
+  UpdateVariantStockResponse,
   VariantListResponse,
   VariantResponse,
   GenerateVariantsResponse,
@@ -173,8 +174,8 @@ export const variantsService = {
   updateStock: async (
     id: number,
     stockData: UpdateVariantStockRequest
-  ): Promise<VariantResponse> => {
-    const { data } = await api.put<VariantResponse>(
+  ): Promise<UpdateVariantStockResponse> => {
+    const { data } = await api.put<UpdateVariantStockResponse>(
       API_ENDPOINTS.VARIANTS.UPDATE_STOCK(id),
       stockData
     )

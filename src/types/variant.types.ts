@@ -226,6 +226,21 @@ export interface UpdateVariantStockRequest {
   quantity: number
   operation: 'set' | 'increment' | 'decrement'
   warehouse_id?: number
+  batch_no?: string | null
+}
+
+/**
+ * Update variant stock response
+ * Backend returns the updated aggregate and the underlying stock record.
+ */
+export interface UpdateVariantStockResponse {
+  message: string
+  data: {
+    variant_id: number
+    total_stock: string
+    stock_record: import('./api.types').Stock
+  }
+  _server_timestamp?: string
 }
 
 // ============================================
