@@ -38,6 +38,11 @@ import {
 } from '@/components/ui/select'
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'
 
+type UnknownRecord = Record<string, unknown>
+
+const isRecord = (value: unknown): value is UnknownRecord =>
+    typeof value === 'object' && value !== null
+
 const categorySchema = z.object({
     categoryName: z.string().min(1, 'Category name is required'),
 })
@@ -84,22 +89,18 @@ export function CategoryManagerDialog({
     const fetchCategories = useCallback(async () => {
         setIsLoading(true)
         try {
-            const response: any = await service.getCategories()
+            const response = await service.getCategories()
             // Handle both array response and paginated response formats
             let categoryList: Category[] = []
-            
-            if (Array.isArray(response)) {
-                categoryList = response
-            } else if (response?.data) {
-                // If response has data property, could be array or paginated object
-                if (Array.isArray(response.data)) {
-                    categoryList = response.data
-                } else if (response.data?.data && Array.isArray(response.data.data)) {
-                  // Nested data property for paginated response
-                    categoryList = response.data.data
-                }
+
+            const payload = response?.data as unknown
+
+            if (Array.isArray(payload)) {
+                categoryList = payload as Category[]
+            } else if (isRecord(payload) && Array.isArray(payload.data)) {
+                categoryList = payload.data as Category[]
             }
-            
+
             setCategories(categoryList)
             setCurrentPage(1)
         } catch (error) {

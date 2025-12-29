@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Calendar } from 'lucide-react'
-import { duesService } from '@/api/services/dues.service'
+import { duesService, type DueInvoicesResponse, type DueInvoice } from '@/api/services/dues.service'
 import { paymentTypesService } from '@/api/services/inventory.service'
 import type { Party } from '@/types/api.types'
 
@@ -71,21 +71,20 @@ export function CollectDueDialog({
   useEffect(() => {
     if (open && party) {
       setIsLoadingInvoices(true)
-      
+
       duesService
         .getInvoices(party.id)
         .then((response) => {
           // Response structure: { message, data: { party, invoices } }
-          const invoiceData = response.data
-          const dues = invoiceData?.invoices || []
+          const invoiceData: DueInvoicesResponse | undefined = response?.data
+          const dues = Array.isArray(invoiceData?.invoices) ? invoiceData?.invoices : []
 
-          // Map to Invoice format
-          const mappedInvoices: Invoice[] = dues.map((due: any) => ({
+          const mappedInvoices: Invoice[] = dues.map((due: DueInvoice) => ({
             id: due.id,
-            invoiceNumber: due.invoiceNumber,
-            dueAmount: due.dueAmount || 0,
+            invoiceNumber: due.invoiceNumber ?? due.invoice_number ?? '',
+            dueAmount: Number(due.dueAmount ?? due.due_amount ?? 0),
             paidAmount: 0, // Not provided in API response
-            totalAmount: due.totalAmount || 0,
+            totalAmount: Number(due.totalAmount ?? due.total_amount ?? 0),
           }))
 
           setInvoices(mappedInvoices)

@@ -21,6 +21,105 @@ import type { TransactionReportParams } from '@/api/services/reports.service'
 import type { ReportPeriod } from '@/types/api.types'
 import { useDebounce } from '@/hooks/useDebounce'
 
+type UnknownRecord = Record<string, unknown>
+
+interface SalesReportRow {
+  id?: number
+  invoiceNumber?: string
+  invoice_number?: string
+  saleDate?: string
+  sale_date?: string
+  totalAmount?: number
+  total_amount?: number
+  paidAmount?: number
+  paid_amount?: number
+  dueAmount?: number
+  due_amount?: number
+  paymentType?: string
+  payment_type?: { name?: string }
+  party?: { name?: string }
+}
+
+interface PurchaseReportRow {
+  id?: number
+  invoiceNumber?: string
+  invoice_number?: string
+  purchaseDate?: string
+  purchase_date?: string
+  totalAmount?: number
+  total_amount?: number
+  paidAmount?: number
+  paid_amount?: number
+  dueAmount?: number
+  due_amount?: number
+  paymentType?: string
+  payment_type?: { name?: string }
+  party?: { name?: string }
+}
+
+interface ReturnDetail {
+  return_qty?: number
+  returnQty?: number
+}
+
+interface SaleReturnEntry {
+  id?: number
+  return_date?: string
+  returnDate?: string
+  total_return_amount?: number
+  totalReturnAmount?: number
+  details?: ReturnDetail[]
+}
+
+type PurchaseReturnEntry = SaleReturnEntry
+
+type SaleWithReturns = SalesReportRow & {
+  saleReturns?: SaleReturnEntry[]
+  sale_returns?: SaleReturnEntry[]
+}
+
+type PurchaseWithReturns = PurchaseReportRow & {
+  purchaseReturns?: PurchaseReturnEntry[]
+  purchase_returns?: PurchaseReturnEntry[]
+}
+
+interface SaleReturnRow {
+  key: string
+  invoice: string
+  saleDate: string
+  returnDate: string
+  party: string
+  returnAmount: number
+  returnQty: number
+}
+
+interface PurchaseReturnRow {
+  key: string
+  invoice: string
+  purchaseDate: string
+  returnDate: string
+  party: string
+  returnAmount: number
+  returnQty: number
+}
+
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null
+
+const unwrapDataArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[]
+  if (isRecord(value) && Array.isArray(value.data)) {
+    return value.data as T[]
+  }
+  return []
+}
+
+const sumReturnQuantity = (details: ReturnDetail[] | undefined): number =>
+  (details ?? []).reduce(
+    (sum, detail) => sum + Number(detail.return_qty ?? detail.returnQty ?? 0),
+    0
+  )
+
 function toDateOnly(value: unknown): string {
   if (!value) return '-'
 
@@ -60,84 +159,48 @@ export function ReportsPage() {
   const saleReturnsQuery = useSaleReturnsReport(baseParams)
   const purchaseReturnsQuery = usePurchaseReturnsReport(baseParams)
 
-  const salesRows = useMemo(() => {
-    const salesAny = salesQuery.data?.sales as unknown
-    if (Array.isArray(salesAny)) return salesAny
-    if (salesAny && typeof salesAny === 'object' && 'data' in (salesAny as Record<string, unknown>)) {
-      const inner = (salesAny as { data?: unknown }).data
-      return Array.isArray(inner) ? inner : []
-    }
-    return []
+  const salesRows = useMemo<SalesReportRow[]>(() => {
+    return unwrapDataArray<SalesReportRow>(salesQuery.data?.sales)
   }, [salesQuery.data])
 
-  const purchaseRows = useMemo(() => {
-    const purchasesAny = purchasesQuery.data?.purchases as unknown
-    if (Array.isArray(purchasesAny)) return purchasesAny
-    if (
-      purchasesAny &&
-      typeof purchasesAny === 'object' &&
-      'data' in (purchasesAny as Record<string, unknown>)
-    ) {
-      const inner = (purchasesAny as { data?: unknown }).data
-      return Array.isArray(inner) ? inner : []
-    }
-    return []
+  const purchaseRows = useMemo<PurchaseReportRow[]>(() => {
+    return unwrapDataArray<PurchaseReportRow>(purchasesQuery.data?.purchases)
   }, [purchasesQuery.data])
 
-  const saleReturnRows = useMemo(() => {
-    const salesAny = saleReturnsQuery.data?.sales as unknown
-    const sales: any[] =
-      Array.isArray(salesAny)
-        ? salesAny
-        : salesAny && typeof salesAny === 'object' && 'data' in (salesAny as Record<string, unknown>)
-          ? (Array.isArray((salesAny as any).data) ? (salesAny as any).data : [])
-          : []
+  const saleReturnRows = useMemo<SaleReturnRow[]>(() => {
+    const sales = unwrapDataArray<SaleWithReturns>(saleReturnsQuery.data?.sales)
 
-    return sales.flatMap((sale: any) => {
-      const returnsAny = sale?.saleReturns ?? sale?.sale_returns
-      const returns: any[] = Array.isArray(returnsAny) ? returnsAny : []
+    return sales.flatMap((sale, saleIndex) => {
+      const returns = unwrapDataArray<SaleReturnEntry>(sale.saleReturns ?? sale.sale_returns)
 
-      return returns.map((r: any) => ({
-        key: `return-${sale?.id ?? 'x'}-${r?.id ?? Math.random()}`,
-        invoice: sale?.invoiceNumber ?? sale?.invoice_number ?? '-',
-        saleDate: sale?.saleDate ?? sale?.sale_date ?? '-',
-        returnDate: r?.return_date ?? r?.returnDate ?? '-',
-        party: sale?.party?.name ?? '-',
-        returnAmount: r?.total_return_amount ?? r?.totalReturnAmount ?? 0,
-        returnQty:
-          (r?.details ?? []).reduce(
-            (sum: number, d: any) => sum + Number(d?.return_qty ?? d?.returnQty ?? 0),
-            0
-          ) ?? 0,
+      return returns.map((r, returnIndex) => ({
+        key: `return-${sale.id ?? saleIndex}-${r.id ?? returnIndex}`,
+        invoice: sale.invoiceNumber ?? sale.invoice_number ?? '-',
+        saleDate: sale.saleDate ?? sale.sale_date ?? '-',
+        returnDate: r.return_date ?? r.returnDate ?? '-',
+        party: sale.party?.name ?? '-',
+        returnAmount: Number(r.total_return_amount ?? r.totalReturnAmount ?? 0),
+        returnQty: sumReturnQuantity(Array.isArray(r.details) ? r.details : []),
       }))
     })
   }, [saleReturnsQuery.data])
 
-  const purchaseReturnRows = useMemo(() => {
-    const purchasesAny = purchaseReturnsQuery.data?.purchases as unknown
-    const purchases: any[] =
-      Array.isArray(purchasesAny)
-        ? purchasesAny
-        : purchasesAny && typeof purchasesAny === 'object' && 'data' in (purchasesAny as Record<string, unknown>)
-          ? (Array.isArray((purchasesAny as any).data) ? (purchasesAny as any).data : [])
-          : []
+  const purchaseReturnRows = useMemo<PurchaseReturnRow[]>(() => {
+    const purchases = unwrapDataArray<PurchaseWithReturns>(purchaseReturnsQuery.data?.purchases)
 
-    return purchases.flatMap((purchase: any) => {
-      const returnsAny = purchase?.purchaseReturns ?? purchase?.purchase_returns
-      const returns: any[] = Array.isArray(returnsAny) ? returnsAny : []
+    return purchases.flatMap((purchase, purchaseIndex) => {
+      const returns = unwrapDataArray<PurchaseReturnEntry>(
+        purchase.purchaseReturns ?? purchase.purchase_returns
+      )
 
-      return returns.map((r: any) => ({
-        key: `return-${purchase?.id ?? 'x'}-${r?.id ?? Math.random()}`,
-        invoice: purchase?.invoiceNumber ?? purchase?.invoice_number ?? '-',
-        purchaseDate: purchase?.purchaseDate ?? purchase?.purchase_date ?? '-',
-        returnDate: r?.return_date ?? r?.returnDate ?? '-',
-        party: purchase?.party?.name ?? '-',
-        returnAmount: r?.total_return_amount ?? r?.totalReturnAmount ?? 0,
-        returnQty:
-          (r?.details ?? []).reduce(
-            (sum: number, d: any) => sum + Number(d?.return_qty ?? d?.returnQty ?? 0),
-            0
-          ) ?? 0,
+      return returns.map((r, returnIndex) => ({
+        key: `return-${purchase.id ?? purchaseIndex}-${r.id ?? returnIndex}`,
+        invoice: purchase.invoiceNumber ?? purchase.invoice_number ?? '-',
+        purchaseDate: purchase.purchaseDate ?? purchase.purchase_date ?? '-',
+        returnDate: r.return_date ?? r.returnDate ?? '-',
+        party: purchase.party?.name ?? '-',
+        returnAmount: Number(r.total_return_amount ?? r.totalReturnAmount ?? 0),
+        returnQty: sumReturnQuantity(Array.isArray(r.details) ? r.details : []),
       }))
     })
   }, [purchaseReturnsQuery.data])
@@ -303,7 +366,7 @@ export function ReportsPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      salesRows.map((row: any) => (
+                      salesRows.map((row) => (
                         <TableRow key={row.id}>
                           <TableCell className="font-medium">
                             {row.invoiceNumber ?? row.invoice_number ?? '-'}
@@ -416,7 +479,7 @@ export function ReportsPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      purchaseRows.map((row: any) => (
+                      purchaseRows.map((row) => (
                         <TableRow key={row.id}>
                           <TableCell className="font-medium">
                             {row.invoiceNumber ?? row.invoice_number ?? '-'}
@@ -529,7 +592,7 @@ export function ReportsPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      saleReturnRows.map((row: any) => (
+                      saleReturnRows.map((row) => (
                         <TableRow key={row.key}>
                           <TableCell className="font-medium">{row.invoice}</TableCell>
                           <TableCell>{toDateOnly(row.saleDate)}</TableCell>
@@ -635,7 +698,7 @@ export function ReportsPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      purchaseReturnRows.map((row: any) => (
+                      purchaseReturnRows.map((row) => (
                         <TableRow key={row.key}>
                           <TableCell className="font-medium">{row.invoice}</TableCell>
                           <TableCell>{toDateOnly(row.purchaseDate)}</TableCell>

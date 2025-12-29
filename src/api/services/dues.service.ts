@@ -1,6 +1,21 @@
 import api, { ApiResponse, PaginatedApiResponse } from '../axios'
 import { API_ENDPOINTS } from '../endpoints'
-import type { DueCollection, CreateDueCollectionRequest } from '@/types/api.types'
+import type { DueCollection, CreateDueCollectionRequest, Party } from '@/types/api.types'
+
+export interface DueInvoice {
+  id: number
+  invoiceNumber?: string
+  invoice_number?: string
+  dueAmount?: number
+  due_amount?: number
+  totalAmount?: number
+  total_amount?: number
+}
+
+export interface DueInvoicesResponse {
+  party?: Party
+  invoices?: DueInvoice[]
+}
 
 export const duesService = {
   /**
@@ -21,8 +36,8 @@ export const duesService = {
   /**
    * Get invoices for a specific party
    */
-  getInvoices: async (partyId: number): Promise<ApiResponse<any>> => {
-    const { data } = await api.get<ApiResponse<any>>(API_ENDPOINTS.DUES.INVOICES, {
+  getInvoices: async (partyId: number): Promise<ApiResponse<DueInvoicesResponse>> => {
+    const { data } = await api.get<ApiResponse<DueInvoicesResponse>>(API_ENDPOINTS.DUES.INVOICES, {
       params: { party_id: partyId },
     })
     return data

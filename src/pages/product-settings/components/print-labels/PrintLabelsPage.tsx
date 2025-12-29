@@ -37,6 +37,20 @@ interface SelectedProduct extends BarcodeBatchItem {
   stock?: number
 }
 
+type BwipJs = {
+  toSVG: (options: {
+    bcid: string
+    text: string
+    scale?: number
+    height?: number
+    includetext?: boolean
+    textxalign?: string
+    backgroundcolor?: string
+  }) => string
+}
+
+const bwip: BwipJs = bwipjs as unknown as BwipJs
+
 export function PrintLabelsPage() {
   type BarcodeTypeOpt = { value: string; label: string }
   type PaperSettingOpt = { value: string; label: string; name: string; dimensions?: string }
@@ -333,7 +347,7 @@ export function PrintLabelsPage() {
         if (!hasStop) text = text + 'A'
       }
 
-      const svg = (bwipjs as any).toSVG({
+      const svg = bwip.toSVG({
         bcid,
         text: text,
         scale: 3,

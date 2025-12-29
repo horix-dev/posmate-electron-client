@@ -18,6 +18,11 @@ import { partiesService } from '@/api/services/parties.service'
 import { duesService } from '@/api/services/dues.service'
 import type { Party } from '@/types/api.types'
 
+type UnknownRecord = Record<string, unknown>
+
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null
+
 export function DuePage() {
   const [activeTab, setActiveTab] = useState<'all' | 'supplier' | 'customer'>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -34,19 +39,17 @@ export function DuePage() {
     setIsLoading(true)
     try {
       const response = await partiesService.getAll()
-      
+
       // Handle flexible response format
       let parties: Party[] = []
-      if (Array.isArray(response)) {
-        parties = response
-      } else if (response.data) {
-        if (Array.isArray(response.data)) {
-          parties = response.data
-        } else if ((response.data as any).data && Array.isArray((response.data as any).data)) {
-          parties = (response.data as any).data
-        }
+      const payload = response?.data as unknown
+
+      if (Array.isArray(payload)) {
+        parties = payload
+      } else if (isRecord(payload) && Array.isArray(payload.data)) {
+        parties = payload.data as Party[]
       }
-      
+
       setAllParties(parties)
       setSupplierParties(parties.filter(p => p.type === 'Supplier'))
       setCustomerParties(parties.filter(p => p.type !== 'Supplier'))
@@ -118,17 +121,25 @@ export function DuePage() {
       setSelectedParty(null)
       // Refresh data to show updated due amounts
       fetchData()
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error collecting due:', error)
-      const errorMsg = error?.response?.data?.message || 'Failed to collect due'
+      const errorMessage =
+        isRecord(error) &&
+        'response' in error &&
+        isRecord((error as { response?: unknown }).response) &&
+        isRecord((error as { response?: { data?: unknown } }).response?.data) &&
+        typeof (error as { response?: { data?: { message?: unknown } } }).response?.data?.message === 'string'
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined
+      const errorMsg = errorMessage || 'Failed to collect due'
       toast.error(errorMsg)
     } finally {
       setIsSubmittingDue(false)
     }
   }
 
-  const handleDeleteDue = async (_partyId: number) => {
-    // TODO: Implement delete logic
+  const handleDeleteDue = async (partyId: number) => {
+    console.debug('Delete due not implemented yet for party', partyId)
     toast.success('Due record deleted')
   }
 

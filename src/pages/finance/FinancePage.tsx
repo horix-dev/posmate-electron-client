@@ -15,6 +15,19 @@ import { normalizeTransaction, type NormalizedTransaction } from './utils/normal
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'
 import { BulkDeleteConfirmDialog } from '@/components/common/BulkDeleteConfirmDialog'
 
+type UnknownRecord = Record<string, unknown>
+
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null
+
+const unwrapItems = <T,>(payload: unknown): T[] => {
+  if (Array.isArray(payload)) return payload as T[]
+  if (isRecord(payload) && Array.isArray(payload.data)) {
+    return payload.data as T[]
+  }
+  return []
+}
+
 export function FinancePage() {
   const [activeTab, setActiveTab] = useState<'expenses' | 'income'>('expenses')
   const [searchQuery, setSearchQuery] = useState('')
@@ -37,17 +50,7 @@ export function FinancePage() {
       if (activeTab === 'expenses') {
         const response = await expensesService.getAll({ limit: 1000 })
         // Handle flexible pagination response format
-        let list: Expense[] = []
-
-        if (Array.isArray(response)) {
-          list = response
-        } else if (response.data) {
-          if (Array.isArray(response.data)) {
-            list = response.data
-          } else if ((response.data as any).data && Array.isArray((response.data as any).data)) {
-            list = (response.data as any).data
-          }
-        }
+        const list = unwrapItems<Expense>(response?.data)
 
         const normalized = (Array.isArray(list) ? list : []).map((item: Expense) =>
           normalizeTransaction(item, 'expense')
@@ -56,17 +59,7 @@ export function FinancePage() {
       } else {
         const response = await incomesService.getAll({ limit: 1000 })
         // Handle flexible pagination response format
-        let list: Income[] = []
-
-        if (Array.isArray(response)) {
-          list = response
-        } else if (response.data) {
-          if (Array.isArray(response.data)) {
-            list = response.data
-          } else if ((response.data as any).data && Array.isArray((response.data as any).data)) {
-            list = (response.data as any).data
-          }
-        }
+        const list = unwrapItems<Income>(response?.data)
 
         const normalized = (Array.isArray(list) ? list : []).map((item: Income) =>
           normalizeTransaction(item, 'income')

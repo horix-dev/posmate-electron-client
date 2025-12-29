@@ -1,3 +1,23 @@
+## 2025-12-29 — Lint Cleanups (Typing)
+
+**Problem**: ESLint `no-explicit-any` findings across due, finance, reports, and product settings pages.
+
+**Solution**: Added typed helpers/type guards for flexible API responses, removed `any` casts, tightened error handling, and typed the barcode generator wrapper.
+
+**Files Modified**:
+- `src/api/services/dues.service.ts`
+- `src/pages/Due/DuePage.tsx`
+- `src/pages/Due/components/CollectDueDialog.tsx`
+- `src/pages/finance/FinancePage.tsx`
+- `src/pages/finance/components/CategoryManagerDialog.tsx`
+- `src/pages/finance/utils/normalization.ts`
+- `src/pages/product-settings/components/payment-types/PaymentTypeDialog.tsx`
+- `src/pages/product-settings/components/vats/VatDialog.tsx`
+- `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx`
+- `src/pages/reports/ReportsPage.tsx`
+
+---
+
 ## 2025-12-27 — Tax Settings (VAT) Management in Product Settings
 
 ---
