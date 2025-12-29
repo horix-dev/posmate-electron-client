@@ -59,7 +59,6 @@ const mainNavItems: NavItem[] = [
       { title: 'Suppliers', href: '/suppliers', icon: Building2 },
     ],
   },
-  { title: 'Finance', href: '/expenses', icon: Wallet },
 ]
 
 const secondaryNavItems: NavItem[] = [
