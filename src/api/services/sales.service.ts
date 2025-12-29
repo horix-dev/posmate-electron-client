@@ -72,6 +72,9 @@ function buildSaleFormData(saleData: Partial<CreateSaleRequest>): FormData {
 
     if (value instanceof File) {
       formData.append(key, value)
+    } else if (key === 'products' && Array.isArray(value)) {
+      // Send products as JSON string for FormData (backend will parse)
+      formData.append(key, JSON.stringify(value))
     } else if (typeof value === 'object') {
       formData.append(key, JSON.stringify(value))
     } else {
