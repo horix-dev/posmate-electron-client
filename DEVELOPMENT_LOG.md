@@ -1,3 +1,74 @@
+## 2025-12-29 — Lint Cleanups (Typing)
+
+**Problem**: ESLint `no-explicit-any` findings across due, finance, reports, and product settings pages.
+
+**Solution**: Added typed helpers/type guards for flexible API responses, removed `any` casts, tightened error handling, and typed the barcode generator wrapper.
+
+**Files Modified**:
+- `src/api/services/dues.service.ts`
+- `src/pages/Due/DuePage.tsx`
+- `src/pages/Due/components/CollectDueDialog.tsx`
+- `src/pages/finance/FinancePage.tsx`
+- `src/pages/finance/components/CategoryManagerDialog.tsx`
+- `src/pages/finance/utils/normalization.ts`
+- `src/pages/product-settings/components/payment-types/PaymentTypeDialog.tsx`
+- `src/pages/product-settings/components/vats/VatDialog.tsx`
+- `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx`
+- `src/pages/reports/ReportsPage.tsx`
+
+---
+
+## 2025-12-27 — Tax Settings (VAT) Management in Product Settings
+
+---
+
+## 2025-12-28 — Transaction Reports Page (Sales & Purchases)
+
+**Requirement**: Create a Reports page that uses the backend Transaction Reports APIs for sales and purchases.
+
+**Solution**: Implemented a functional Reports page showing Sales Report and Purchase Report with a simple date range filter, summary totals, and a transaction table. Includes offline fallback via local cache with TTL.
+
+**Files Created**:
+- `src/api/services/reports.service.ts` — Service for Transaction Reports endpoints (`/reports/sales`, `/reports/purchases`, and summary variants)
+- `src/pages/reports/hooks/useSalesReport.ts` — Sales report data hook (online fetch + offline cache fallback)
+- `src/pages/reports/hooks/usePurchasesReport.ts` — Purchases report data hook (online fetch + offline cache fallback)
+
+**Files Modified**:
+- `src/api/endpoints.ts` — Added `REPORTS.*` endpoints
+- `src/api/services/index.ts` — Exported `reportsService`
+- `src/pages/reports/ReportsPage.tsx` — Wired UI to Sales/Purchases reporting APIs
+- `src/types/api.types.ts` — Added typed models for Transaction Reports responses
+
+## 2025-12-28 — Reports: Sale/Purchase Returns + Date-Only
+
+**Requirement**: Show sale/purchase return reports in Reports section, and display only date (no time).
+
+**Solution**: Added Sale Returns and Purchase Returns tabs using Transaction Reports APIs and normalized all displayed dates to date-only.
+
+**Files Created**:
+- `src/pages/reports/hooks/useSaleReturnsReport.ts` — Sale returns report hook (online fetch + offline cache fallback)
+- `src/pages/reports/hooks/usePurchaseReturnsReport.ts` — Purchase returns report hook (online fetch + offline cache fallback)
+
+**Files Modified**:
+- `src/pages/reports/ReportsPage.tsx` — Added new tabs + date-only formatting
+- `src/api/endpoints.ts` — Added returns report endpoints
+- `src/api/services/reports.service.ts` — Added returns report service methods
+- `src/types/api.types.ts` — Added typed models for returns report responses
+
+**Problem**: Product Settings lacked a UI to manage VAT/Tax records from the backend.
+
+**Solution**: Added a Tax Settings tab with list/create/edit/delete (single & bulk) for VATs, mirroring existing settings patterns.
+
+**Files Created**:
+- `src/pages/product-settings/components/vats/VatDialog.tsx` — Dialog for creating/updating VAT records (name, rate)
+- `src/pages/product-settings/components/vats/VatsTable.tsx` — Paginated table with search, selection, single/bulk delete
+
+**Files Modified**:
+- `src/pages/product-settings/ProductSettingsPage.tsx` — New Tax Settings tab, dialog wiring, Add button label mapping
+- `src/api/services/inventory.service.ts` — Added `deleteMultiple` helper for VATs (sequential delete fallback)
+
+**Notes**:
+- Bulk delete uses sequential `DELETE /vats/{id}` calls; switch to API bulk endpoint when available.
 ## 2025-12-29 — Sync: Fix Products Array Format for Batch Sync ✅
 
 **Status**: ✅ Fixed - Products now sent as array type instead of JSON string
@@ -992,6 +1063,19 @@ UI automatically updates via React Query invalidation
   - Frontend mapping: Config returns `printer_settings` array (1/2/3); UI dropdown maps to Printer 1/2/3 labels
 - Files Modified: [backend_docs/API_QUICK_REFERENCE.md](backend_docs/API_QUICK_REFERENCE.md) with tables, workflow example, and parameter docs
 - Services Updated: [src/api/services/print-labels.service.ts](src/api/services/print-labels.service.ts) extends `getConfig()` return type to include `printer_settings: number[]`
+
+## 2025-12-20 — Category Display Fix in Finance Screens
+
+- Problem: Categories not displaying in expense/income transaction tables (showing "-" instead of category name)
+- Root Cause: API returns category data with `name` field, but normalization code was looking for `categoryName` field
+- Solution: Updated [src/pages/expenses/utils/normalization.ts](src/pages/expenses/utils/normalization.ts) to handle both field names:
+  ```typescript
+  categoryName: (item.category as any)?.categoryName || (item.category as any)?.name || '-'
+  ```
+- Result: Categories now display correctly in transaction table with proper Badge styling
+- Files Modified: 
+  - [src/pages/expenses/utils/normalization.ts](src/pages/expenses/utils/normalization.ts) - Fixed category name extraction
+  - [src/pages/expenses/ExpensesPage.tsx](src/pages/expenses/ExpensesPage.tsx) - Simplified fetchData() to remove unnecessary fallback logic
 
 # Horix POS Pro - Development Log
 

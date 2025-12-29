@@ -90,6 +90,11 @@ export const vatsService = {
   delete: async (id: number): Promise<void> => {
     await api.delete(API_ENDPOINTS.VATS.DELETE(id))
   },
+
+  deleteMultiple: async (ids: number[]): Promise<void> => {
+    // API doc lists bulk delete, but fall back to sequential deletes if not available
+    await Promise.all(ids.map((id) => api.delete(API_ENDPOINTS.VATS.DELETE(id))))
+  },
 }
 
 // ============================================
@@ -123,5 +128,10 @@ export const paymentTypesService = {
 
   delete: async (id: number): Promise<void> => {
     await api.delete(API_ENDPOINTS.PAYMENT_TYPES.DELETE(id))
+  },
+
+  deleteMultiple: async (ids: number[]): Promise<void> => {
+    // Delete one by one since API doesn't have bulk delete endpoint
+    await Promise.all(ids.map((id) => api.delete(API_ENDPOINTS.PAYMENT_TYPES.DELETE(id))))
   },
 }

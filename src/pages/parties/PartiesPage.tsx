@@ -23,6 +23,7 @@ import {
   type SupplierFormData,
 } from '../suppliers/components/SupplierFormDialog'
 import type { CreatePartyRequest, Party } from '@/types/api.types'
+import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'
 
 export function PartiesPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -100,9 +101,20 @@ export function PartiesPage() {
     setShowCustomerForm(true)
   }
 
+  // Delete Dialog state
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean
+    type: 'customer' | 'supplier'
+    item: Party | null
+  }>({
+    open: false,
+    type: 'customer',
+    item: null,
+  })
+
   // Supplier handlers
-  const handleDelete = async (supplier: Party) => {
-    await deleteSupplier(supplier.id)
+  const handleDelete = (supplier: Party) => {
+    setDeleteDialog({ open: true, type: 'supplier', item: supplier })
   }
 
   const handleSave = async (data: SupplierFormData) => {
@@ -127,8 +139,21 @@ export function PartiesPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Party | null>(null)
   const [showCustomerForm, setShowCustomerForm] = useState(false)
 
-  const handleDeleteCustomer = async (customer: Party) => {
-    await deleteCustomer(customer.id)
+  const handleDeleteCustomer = (customer: Party) => {
+    setDeleteDialog({ open: true, type: 'customer', item: customer })
+  }
+
+  const handleConfirmDelete = async () => {
+    const { type, item } = deleteDialog
+    if (!item) return
+
+    if (type === 'supplier') {
+      await deleteSupplier(item.id)
+    } else {
+      await deleteCustomer(item.id)
+    }
+    // Dialog closes automatically via onOpenChange or we can force it, usually onConfirm awaits so it's fine.
+    // The DeleteConfirmDialog component handles the loading state via the Promise returned here.
   }
 
   const handleSaveCustomer = async (data: CustomerFormData) => {
@@ -363,6 +388,15 @@ export function PartiesPage() {
           />
         </TabsContent>
       </Tabs>
+
+      <DeleteConfirmDialog
+        isOpen={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog((prev) => ({ ...prev, open }))}
+        title={`Delete ${deleteDialog.type === 'customer' ? 'Customer' : 'Supplier'}`}
+        description={`Are you sure you want to delete this ${deleteDialog.type}? This action cannot be undone.`}
+        itemName={deleteDialog.item?.name}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }
