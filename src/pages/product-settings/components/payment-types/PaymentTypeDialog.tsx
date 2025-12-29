@@ -60,17 +60,23 @@ export function PaymentTypeDialog({ open, onOpenChange, editData, onSuccess }: P
       reset()
     } catch (error) {
       console.error(error)
-      const errorMessage =
-        typeof error === 'object' &&
+      const response = typeof error === 'object' &&
         error !== null &&
-        'response' in error &&
-        typeof (error as { response?: unknown }).response === 'object' &&
-        (error as { response?: { data?: unknown } }).response !== null &&
-        'data' in (error as { response?: { data?: unknown } }).response &&
-        typeof (error as { response?: { data?: { message?: unknown } } }).response?.data === 'object' &&
-        (error as { response?: { data?: { message?: unknown } } }).response?.data !== null &&
-        typeof (error as { response?: { data?: { message?: unknown } } }).response?.data?.message === 'string'
-          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+        'response' in error
+          ? (error as { response?: unknown }).response
+          : undefined
+
+      const data = typeof response === 'object' &&
+        response !== null &&
+        'data' in response
+          ? (response as { data?: unknown }).data
+          : undefined
+
+      const errorMessage = typeof data === 'object' &&
+        data !== null &&
+        'message' in data &&
+        typeof (data as { message?: unknown }).message === 'string'
+          ? (data as { message?: string }).message
           : undefined
 
       const fallback = `Failed to ${editData ? 'update' : 'create'} payment type`
