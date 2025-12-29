@@ -10,6 +10,11 @@
             "url": "http:\/\/127.0.0.1:8700\/api"
         }
     ],
+    "security": [
+        {
+            "http": []
+        }
+    ],
     "paths": {
         "\/v1\/banners": {
             "get": {
@@ -1645,9 +1650,88 @@
                 }
             }
         },
-        "\/v1\/dues": {
+        "\/v1\/dues\/invoices": {
             "get": {
-                "operationId": "dues.index",
+                "operationId": "dues.invoices",
+                "summary": "Get due invoices for a specific party (customer or supplier)",
+                "tags": [
+                    "AcnooDue"
+                ],
+                "parameters": [
+                    {
+                        "name": "party_id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        },
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/dues\/filter": {
+            "get": {
+                "operationId": "dues.filter",
+                "summary": "Filter due collections",
                 "tags": [
                     "AcnooDue"
                 ],
@@ -1685,11 +1769,188 @@
                                                     }
                                                 }
                                             ]
+                                        },
+                                        "pagination": {
+                                            "type": "object",
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer"
+                                                },
+                                                "per_page": {
+                                                    "type": "integer"
+                                                },
+                                                "current_page": {
+                                                    "type": "integer"
+                                                },
+                                                "last_page": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "required": [
+                                                "total",
+                                                "per_page",
+                                                "current_page",
+                                                "last_page"
+                                            ]
                                         }
                                     },
                                     "required": [
                                         "message",
-                                        "data"
+                                        "data",
+                                        "pagination"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/dues\/delete-all": {
+            "post": {
+                "operationId": "dues.deleteAll",
+                "summary": "Delete multiple due collections",
+                "tags": [
+                    "AcnooDue"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/dues": {
+            "get": {
+                "operationId": "dues.index",
+                "summary": "List all due collections",
+                "tags": [
+                    "AcnooDue"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        },
+                                        "data": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "object"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "pagination": {
+                                            "type": "object",
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer"
+                                                },
+                                                "per_page": {
+                                                    "type": "integer"
+                                                },
+                                                "current_page": {
+                                                    "type": "integer"
+                                                },
+                                                "last_page": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "required": [
+                                                "total",
+                                                "per_page",
+                                                "current_page",
+                                                "last_page"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "data",
+                                        "pagination"
                                     ]
                                 }
                             }
@@ -1702,6 +1963,7 @@
             },
             "post": {
                 "operationId": "dues.store",
+                "summary": "Store a newly created due collection",
                 "tags": [
                     "AcnooDue"
                 ],
@@ -1719,7 +1981,8 @@
                                         "type": "string"
                                     },
                                     "payDueAmount": {
-                                        "type": "number"
+                                        "type": "number",
+                                        "minimum": 0.01
                                     },
                                     "party_id": {
                                         "type": "integer"
@@ -1742,6 +2005,50 @@
                     }
                 },
                 "responses": {
+                    "400": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "message"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "anyOf": [
+                                                        {
+                                                            "type": "string"
+                                                        },
+                                                        {
+                                                            "type": "array",
+                                                            "items": {}
+                                                        },
+                                                        {
+                                                            "type": "null"
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "message"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -1775,50 +2082,6 @@
                             }
                         }
                     },
-                    "400": {
-                        "description": "",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "anyOf": [
-                                        {
-                                            "type": "object",
-                                            "properties": {
-                                                "message": {
-                                                    "anyOf": [
-                                                        {
-                                                            "type": "string"
-                                                        },
-                                                        {
-                                                            "type": "array",
-                                                            "items": {}
-                                                        },
-                                                        {
-                                                            "type": "null"
-                                                        }
-                                                    ]
-                                                }
-                                            },
-                                            "required": [
-                                                "message"
-                                            ]
-                                        },
-                                        {
-                                            "type": "object",
-                                            "properties": {
-                                                "message": {
-                                                    "type": "string"
-                                                }
-                                            },
-                                            "required": [
-                                                "message"
-                                            ]
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
                     "404": {
                         "description": "",
                         "content": {
@@ -1827,9 +2090,17 @@
                                     "type": "object",
                                     "properties": {
                                         "message": {
-                                            "type": "string",
-                                            "enum": [
-                                                "Invoice Not Found."
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
                                             ]
                                         }
                                     },
@@ -1849,12 +2120,22 @@
                 }
             }
         },
-        "\/v1\/expenses\/filter": {
+        "\/v1\/dues\/{due}": {
             "get": {
-                "operationId": "expenses.filter",
-                "summary": "Filter expenses with search and branch filtering",
+                "operationId": "dues.show",
+                "summary": "Display the specified due collection",
                 "tags": [
-                    "AcnooExpense"
+                    "AcnooDue"
+                ],
+                "parameters": [
+                    {
+                        "name": "due",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
                 ],
                 "responses": {
                     "200": {
@@ -1879,12 +2160,41 @@
                                             ]
                                         },
                                         "data": {
-                                            "$ref": "#\/components\/schemas\/LengthAwarePaginator"
+                                            "$ref": "#\/components\/schemas\/DueCollect"
                                         }
                                     },
                                     "required": [
                                         "message",
                                         "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
                                     ]
                                 }
                             }
@@ -1896,12 +2206,215 @@
                 }
             }
         },
-        "\/v1\/expenses\/delete-all": {
-            "post": {
-                "operationId": "expenses.deleteAll",
-                "summary": "Delete multiple expenses",
+        "\/v1\/dues\/{id}": {
+            "put": {
+                "operationId": "dues.update",
+                "summary": "Update the specified due collection",
                 "tags": [
-                    "AcnooExpense"
+                    "AcnooDue"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "payment_type_id": {
+                                        "type": "integer"
+                                    },
+                                    "paymentDate": {
+                                        "type": "string"
+                                    },
+                                    "payDueAmount": {
+                                        "type": "number",
+                                        "minimum": 0.01
+                                    },
+                                    "invoiceNumber": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "payment_type_id",
+                                    "paymentDate",
+                                    "payDueAmount"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "400": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "message"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "anyOf": [
+                                                        {
+                                                            "type": "string"
+                                                        },
+                                                        {
+                                                            "type": "array",
+                                                            "items": {}
+                                                        },
+                                                        {
+                                                            "type": "null"
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "message"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        },
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "dues.destroy",
+                "summary": "Remove the specified due collection",
+                "tags": [
+                    "AcnooDue"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
                 ],
                 "responses": {
                     "404": {
@@ -1997,6 +2510,135 @@
                 }
             }
         },
+        "\/v1\/expenses\/filter": {
+            "get": {
+                "operationId": "expenses.filter",
+                "summary": "Filter expenses with search and branch filtering",
+                "tags": [
+                    "AcnooExpense"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#\/components\/schemas\/ExpenseResource"
+                                            }
+                                        },
+                                        "pagination": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "data",
+                                        "pagination"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/expenses\/delete-all": {
+            "post": {
+                "operationId": "expenses.deleteAll",
+                "summary": "Delete multiple expenses",
+                "tags": [
+                    "AcnooExpense"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
         "\/v1\/expenses": {
             "get": {
                 "operationId": "expenses.index",
@@ -2026,7 +2668,16 @@
                                             ]
                                         },
                                         "data": {
-                                            "$ref": "#\/components\/schemas\/LengthAwarePaginator"
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#\/components\/schemas\/ExpenseResource"
+                                            }
+                                        },
+                                        "pagination": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
                                         },
                                         "expense_categories": {
                                             "type": "string"
@@ -2041,6 +2692,7 @@
                                     "required": [
                                         "message",
                                         "data",
+                                        "pagination",
                                         "expense_categories",
                                         "payment_types",
                                         "branches"
@@ -2162,7 +2814,7 @@
                                             ]
                                         },
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#\/components\/schemas\/ExpenseResource"
                                         }
                                     },
                                     "required": [
@@ -2223,7 +2875,7 @@
                                             ]
                                         },
                                         "data": {
-                                            "$ref": "#\/components\/schemas\/Expense"
+                                            "$ref": "#\/components\/schemas\/ExpenseResource"
                                         }
                                     },
                                     "required": [
@@ -2391,17 +3043,7 @@
                                             ]
                                         },
                                         "data": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "object"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "type": "object"
-                                                    }
-                                                }
-                                            ]
+                                            "$ref": "#\/components\/schemas\/ExpenseResource"
                                         }
                                     },
                                     "required": [
@@ -2821,12 +3463,22 @@
                                             ]
                                         },
                                         "data": {
-                                            "$ref": "#\/components\/schemas\/LengthAwarePaginator"
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#\/components\/schemas\/IncomeResource"
+                                            }
+                                        },
+                                        "pagination": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
                                         }
                                     },
                                     "required": [
                                         "message",
-                                        "data"
+                                        "data",
+                                        "pagination"
                                     ]
                                 }
                             }
@@ -2904,35 +3556,6 @@
                             }
                         }
                     },
-                    "403": {
-                        "description": "",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {}
-                                                },
-                                                {
-                                                    "type": "null"
-                                                }
-                                            ]
-                                        }
-                                    },
-                                    "required": [
-                                        "message"
-                                    ]
-                                }
-                            }
-                        }
-                    },
                     "401": {
                         "$ref": "#\/components\/responses\/AuthenticationException"
                     }
@@ -2968,7 +3591,16 @@
                                             ]
                                         },
                                         "data": {
-                                            "$ref": "#\/components\/schemas\/LengthAwarePaginator"
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#\/components\/schemas\/IncomeResource"
+                                            }
+                                        },
+                                        "pagination": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
                                         },
                                         "income_categories": {
                                             "type": "string"
@@ -2983,6 +3615,7 @@
                                     "required": [
                                         "message",
                                         "data",
+                                        "pagination",
                                         "income_categories",
                                         "payment_types",
                                         "branches"
@@ -3104,7 +3737,7 @@
                                             ]
                                         },
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#\/components\/schemas\/IncomeResource"
                                         }
                                     },
                                     "required": [
@@ -3165,7 +3798,7 @@
                                             ]
                                         },
                                         "data": {
-                                            "$ref": "#\/components\/schemas\/Income"
+                                            "$ref": "#\/components\/schemas\/IncomeResource"
                                         }
                                     },
                                     "required": [
@@ -3333,17 +3966,7 @@
                                             ]
                                         },
                                         "data": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "object"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "type": "object"
-                                                    }
-                                                }
-                                            ]
+                                            "$ref": "#\/components\/schemas\/IncomeResource"
                                         }
                                     },
                                     "required": [
@@ -3501,6 +4124,163 @@
                 }
             }
         },
+        "\/v1\/income-categories\/filter": {
+            "get": {
+                "operationId": "income-categories.filter",
+                "summary": "Filter categories",
+                "tags": [
+                    "AcnooIncomeCategory"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#\/components\/schemas\/IncomeCategoryResource"
+                                            }
+                                        },
+                                        "pagination": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "data",
+                                        "pagination"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/income-categories\/delete-all": {
+            "post": {
+                "operationId": "income-categories.deleteAll",
+                "summary": "Bulk delete",
+                "tags": [
+                    "AcnooIncomeCategory"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/income-categories\/{id}\/status": {
+            "patch": {
+                "operationId": "income-categories.status",
+                "summary": "Toggle status",
+                "tags": [
+                    "AcnooIncomeCategory"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        },
+                                        "data": {
+                                            "$ref": "#\/components\/schemas\/IncomeCategoryResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
         "\/v1\/income-categories": {
             "get": {
                 "operationId": "income-categories.index",
@@ -3530,22 +4310,22 @@
                                             ]
                                         },
                                         "data": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "object"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "type": "object"
-                                                    }
-                                                }
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#\/components\/schemas\/IncomeCategoryResource"
+                                            }
+                                        },
+                                        "pagination": {
+                                            "type": [
+                                                "string",
+                                                "null"
                                             ]
                                         }
                                     },
                                     "required": [
                                         "message",
-                                        "data"
+                                        "data",
+                                        "pagination"
                                     ]
                                 }
                             }
@@ -3603,7 +4383,7 @@
                                             ]
                                         },
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#\/components\/schemas\/IncomeCategoryResource"
                                         }
                                     },
                                     "required": [
@@ -3679,10 +4459,14 @@
                                                     "type": "null"
                                                 }
                                             ]
+                                        },
+                                        "data": {
+                                            "$ref": "#\/components\/schemas\/IncomeCategoryResource"
                                         }
                                     },
                                     "required": [
-                                        "message"
+                                        "message",
+                                        "data"
                                     ]
                                 }
                             }
@@ -5170,44 +5954,7 @@
                     "content": {
                         "multipart\/form-data": {
                             "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "products": {
-                                        "type": "string"
-                                    },
-                                    "saleDate": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "format": "date-time"
-                                    },
-                                    "image": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "format": "binary",
-                                        "contentMediaType": "application\/octet-stream"
-                                    },
-                                    "rounding_option": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "enum": [
-                                            "none",
-                                            "round_up",
-                                            "nearest_whole_number",
-                                            "nearest_0.05",
-                                            "nearest_0.1",
-                                            "nearest_0.5"
-                                        ]
-                                    }
-                                },
-                                "required": [
-                                    "products"
-                                ]
+                                "$ref": "#\/components\/schemas\/StoreSaleRequest"
                             }
                         }
                     }
@@ -5236,139 +5983,50 @@
                         "content": {
                             "application\/json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {}
-                                                },
-                                                {
-                                                    "type": "null"
-                                                }
-                                            ]
-                                        },
-                                        "data": {
-                                            "$ref": "#\/components\/schemas\/SaleResource"
-                                        },
-                                        "_server_timestamp": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "message",
-                                        "data",
-                                        "_server_timestamp"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "406": {
-                        "description": "",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
                                     "anyOf": [
                                         {
-                                            "type": "object",
-                                            "properties": {
-                                                "message": {
-                                                    "type": "string"
-                                                }
-                                            },
-                                            "required": [
-                                                "message"
-                                            ]
+                                            "type": "string"
                                         },
                                         {
                                             "type": "object",
                                             "properties": {
-                                                "success": {
-                                                    "type": "boolean"
-                                                },
                                                 "message": {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "Cannot sell expired batch"
+                                                    "anyOf": [
+                                                        {
+                                                            "type": "string"
+                                                        },
+                                                        {
+                                                            "type": "array",
+                                                            "items": {}
+                                                        },
+                                                        {
+                                                            "type": "null"
+                                                        }
                                                     ]
                                                 },
-                                                "batch": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "batch_no": {
-                                                            "type": "string"
-                                                        },
-                                                        "expire_date": {
-                                                            "type": "string"
-                                                        },
-                                                        "days_expired": {
-                                                            "anyOf": [
-                                                                {
-                                                                    "type": "integer"
-                                                                },
-                                                                {
-                                                                    "type": "number"
-                                                                }
-                                                            ]
-                                                        }
-                                                    },
-                                                    "required": [
-                                                        "batch_no",
-                                                        "expire_date",
-                                                        "days_expired"
-                                                    ]
+                                                "data": {
+                                                    "$ref": "#\/components\/schemas\/SaleResource"
+                                                },
+                                                "_server_timestamp": {
+                                                    "type": "string"
                                                 }
                                             },
                                             "required": [
-                                                "success",
                                                 "message",
-                                                "batch"
+                                                "data",
+                                                "_server_timestamp"
                                             ]
                                         }
                                     ]
                                 }
                             }
                         }
-                    },
-                    "400": {
-                        "description": "",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {}
-                                                },
-                                                {
-                                                    "type": "null"
-                                                }
-                                            ]
-                                        }
-                                    },
-                                    "required": [
-                                        "message"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "$ref": "#\/components\/responses\/ValidationException"
                     },
                     "401": {
                         "$ref": "#\/components\/responses\/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
                     }
                 }
             }
@@ -5395,55 +6053,7 @@
                     "content": {
                         "multipart\/form-data": {
                             "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "saleDate": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "format": "date-time"
-                                    },
-                                    "image": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "format": "binary",
-                                        "contentMediaType": "application\/octet-stream"
-                                    },
-                                    "rounding_option": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "enum": [
-                                            "none",
-                                            "round_up",
-                                            "nearest_whole_number",
-                                            "nearest_0.05",
-                                            "nearest_0.1",
-                                            "nearest_0.5"
-                                        ]
-                                    },
-                                    "products": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "stock_id": {
-                                                    "type": "integer"
-                                                }
-                                            },
-                                            "required": [
-                                                "stock_id"
-                                            ]
-                                        }
-                                    }
-                                },
-                                "required": [
-                                    "products"
-                                ]
+                                "$ref": "#\/components\/schemas\/UpdateSaleRequest"
                             }
                         }
                     }
@@ -5457,18 +6067,11 @@
                                     "type": "object",
                                     "properties": {
                                         "message": {
-                                            "type": "string",
-                                            "enum": [
-                                                "Something went wrong."
-                                            ]
-                                        },
-                                        "error": {
                                             "type": "string"
                                         }
                                     },
                                     "required": [
-                                        "message",
-                                        "error"
+                                        "message"
                                     ]
                                 }
                             }
@@ -5479,90 +6082,50 @@
                         "content": {
                             "application\/json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {}
-                                                },
-                                                {
-                                                    "type": "null"
-                                                }
-                                            ]
-                                        },
-                                        "data": {
-                                            "$ref": "#\/components\/schemas\/SaleResource"
-                                        },
-                                        "_server_timestamp": {
+                                    "anyOf": [
+                                        {
                                             "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "message",
-                                        "data",
-                                        "_server_timestamp"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "anyOf": [
-                                                {
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "anyOf": [
+                                                        {
+                                                            "type": "string"
+                                                        },
+                                                        {
+                                                            "type": "array",
+                                                            "items": {}
+                                                        },
+                                                        {
+                                                            "type": "null"
+                                                        }
+                                                    ]
+                                                },
+                                                "data": {
+                                                    "$ref": "#\/components\/schemas\/SaleResource"
+                                                },
+                                                "_server_timestamp": {
                                                     "type": "string"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {}
-                                                },
-                                                {
-                                                    "type": "null"
                                                 }
+                                            },
+                                            "required": [
+                                                "message",
+                                                "data",
+                                                "_server_timestamp"
                                             ]
                                         }
-                                    },
-                                    "required": [
-                                        "message"
                                     ]
                                 }
                             }
                         }
-                    },
-                    "406": {
-                        "description": "",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "message"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "$ref": "#\/components\/responses\/ValidationException"
                     },
                     "401": {
                         "$ref": "#\/components\/responses\/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
                     }
                 }
             }
@@ -5586,6 +6149,24 @@
                     }
                 ],
                 "responses": {
+                    "500": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -6010,6 +6591,228 @@
                 }
             }
         },
+        "\/v1\/vats\/filter": {
+            "get": {
+                "operationId": "vats.filter",
+                "tags": [
+                    "AcnooVat"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "enum": [
+                                                "Data fetched successfully."
+                                            ]
+                                        },
+                                        "data": {
+                                            "type": "string"
+                                        },
+                                        "pagination": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "data",
+                                        "pagination"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/vats\/delete-all": {
+            "post": {
+                "operationId": "vats.deleteAll",
+                "tags": [
+                    "AcnooVat"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        },
+                                        "minItems": 1
+                                    }
+                                },
+                                "required": [
+                                    "ids"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/vats\/{id}\/status": {
+            "patch": {
+                "operationId": "vats.status",
+                "tags": [
+                    "AcnooVat"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "status": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "required": [
+                                    "status"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        },
+                                        "data": {
+                                            "$ref": "#\/components\/schemas\/Vat"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
         "\/v1\/vats": {
             "get": {
                 "operationId": "vats.index",
@@ -6032,11 +6835,15 @@
                                         },
                                         "data": {
                                             "type": "string"
+                                        },
+                                        "pagination": {
+                                            "type": "string"
                                         }
                                     },
                                     "required": [
                                         "message",
-                                        "data"
+                                        "data",
+                                        "pagination"
                                     ]
                                 }
                             }
@@ -6063,11 +6870,26 @@
                                         "type": "string",
                                         "maxLength": 255
                                     },
-                                    "vat_ids": {
-                                        "type": "string"
-                                    },
                                     "rate": {
-                                        "type": "number"
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ]
+                                    },
+                                    "status": {
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ]
+                                    },
+                                    "vat_ids": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {
+                                            "type": "integer"
+                                        }
                                     }
                                 },
                                 "required": [
@@ -6092,7 +6914,7 @@
                                             ]
                                         },
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#\/components\/schemas\/Vat"
                                         }
                                     },
                                     "required": [
@@ -6111,10 +6933,7 @@
                                     "type": "object",
                                     "properties": {
                                         "message": {
-                                            "type": "string",
-                                            "enum": [
-                                                "Invalid data format."
-                                            ]
+                                            "type": "string"
                                         }
                                     },
                                     "required": [
@@ -6161,11 +6980,26 @@
                                         "type": "string",
                                         "maxLength": 255
                                     },
-                                    "vat_ids": {
-                                        "type": "string"
-                                    },
                                     "rate": {
-                                        "type": "number"
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ]
+                                    },
+                                    "status": {
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ]
+                                    },
+                                    "vat_ids": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {
+                                            "type": "integer"
+                                        }
                                     }
                                 },
                                 "required": [
@@ -6209,10 +7043,7 @@
                                     "type": "object",
                                     "properties": {
                                         "message": {
-                                            "type": "string",
-                                            "enum": [
-                                                "Invalid data format."
-                                            ]
+                                            "type": "string"
                                         }
                                     },
                                     "required": [
@@ -9308,6 +10139,163 @@
                 }
             }
         },
+        "\/v1\/expense-categories\/filter": {
+            "get": {
+                "operationId": "expense-categories.filter",
+                "summary": "Filter categories",
+                "tags": [
+                    "ExpenseCategory"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#\/components\/schemas\/ExpenseCategoryResource"
+                                            }
+                                        },
+                                        "pagination": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "data",
+                                        "pagination"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/expense-categories\/delete-all": {
+            "post": {
+                "operationId": "expense-categories.deleteAll",
+                "summary": "Bulk delete",
+                "tags": [
+                    "ExpenseCategory"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/expense-categories\/{id}\/status": {
+            "patch": {
+                "operationId": "expense-categories.status",
+                "summary": "Toggle status",
+                "tags": [
+                    "ExpenseCategory"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        },
+                                        "data": {
+                                            "$ref": "#\/components\/schemas\/ExpenseCategoryResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
         "\/v1\/expense-categories": {
             "get": {
                 "operationId": "expense-categories.index",
@@ -9338,22 +10326,22 @@
                                             ]
                                         },
                                         "data": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "object"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "type": "object"
-                                                    }
-                                                }
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#\/components\/schemas\/ExpenseCategoryResource"
+                                            }
+                                        },
+                                        "pagination": {
+                                            "type": [
+                                                "string",
+                                                "null"
                                             ]
                                         }
                                     },
                                     "required": [
                                         "message",
-                                        "data"
+                                        "data",
+                                        "pagination"
                                     ]
                                 }
                             }
@@ -9411,7 +10399,7 @@
                                             ]
                                         },
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#\/components\/schemas\/ExpenseCategoryResource"
                                         }
                                     },
                                     "required": [
@@ -9487,10 +10475,14 @@
                                                     "type": "null"
                                                 }
                                             ]
+                                        },
+                                        "data": {
+                                            "$ref": "#\/components\/schemas\/ExpenseCategoryResource"
                                         }
                                     },
                                     "required": [
-                                        "message"
+                                        "message",
+                                        "data"
                                     ]
                                 }
                             }
@@ -10222,6 +11214,200 @@
                 }
             }
         },
+        "\/v1\/payment-types\/filter": {
+            "get": {
+                "operationId": "payment-types.filter",
+                "tags": [
+                    "PaymentType"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        },
+                                        "data": {
+                                            "type": "string"
+                                        },
+                                        "pagination": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "data",
+                                        "pagination"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/payment-types\/delete-all": {
+            "post": {
+                "operationId": "payment-types.deleteAll",
+                "tags": [
+                    "PaymentType"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        },
+                                        "minItems": 1
+                                    }
+                                },
+                                "required": [
+                                    "ids"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/payment-types\/{id}\/status": {
+            "patch": {
+                "operationId": "payment-types.status",
+                "tags": [
+                    "PaymentType"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "status": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "required": [
+                                    "status"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        },
+                                        "data": {
+                                            "$ref": "#\/components\/schemas\/PaymentType"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
         "\/v1\/payment-types": {
             "get": {
                 "operationId": "payment-types.index",
@@ -10251,22 +11437,16 @@
                                             ]
                                         },
                                         "data": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "object"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "type": "object"
-                                                    }
-                                                }
-                                            ]
+                                            "type": "string"
+                                        },
+                                        "pagination": {
+                                            "type": "string"
                                         }
                                     },
                                     "required": [
                                         "message",
-                                        "data"
+                                        "data",
+                                        "pagination"
                                     ]
                                 }
                             }
@@ -10291,6 +11471,12 @@
                                 "properties": {
                                     "name": {
                                         "type": "string"
+                                    },
+                                    "status": {
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -10323,7 +11509,7 @@
                                             ]
                                         },
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#\/components\/schemas\/PaymentType"
                                         }
                                     },
                                     "required": [
@@ -10368,6 +11554,12 @@
                                 "properties": {
                                     "name": {
                                         "type": "string"
+                                    },
+                                    "status": {
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -10400,17 +11592,7 @@
                                             ]
                                         },
                                         "data": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "object"
-                                                },
-                                                {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "type": "object"
-                                                    }
-                                                }
-                                            ]
+                                            "$ref": "#\/components\/schemas\/PaymentType"
                                         }
                                     },
                                     "required": [
@@ -14158,7 +15340,7 @@
                                                     "type": "string"
                                                 },
                                                 "stock_record": {
-                                                    "type": "object"
+                                                    "$ref": "#\/components\/schemas\/Stock"
                                                 }
                                             },
                                             "required": [
@@ -19383,6 +20565,357 @@
                 }
             }
         },
+        "\/v1\/sync\/health": {
+            "get": {
+                "operationId": "sync.health",
+                "summary": "GET \/api\/v1\/sync\/health\r\n\r\nCheck sync service health and server time",
+                "tags": [
+                    "Sync"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "enum": [
+                                                "healthy"
+                                            ]
+                                        },
+                                        "timestamp": {
+                                            "type": "string"
+                                        },
+                                        "version": {
+                                            "type": "string",
+                                            "enum": [
+                                                "1.0.0"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "status",
+                                        "timestamp",
+                                        "version"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/sync\/register": {
+            "post": {
+                "operationId": "sync.registerDevice",
+                "summary": "POST \/api\/v1\/sync\/register\r\n\r\nRegister a new sync device",
+                "tags": [
+                    "Sync"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "device_id": {
+                                        "type": "string",
+                                        "maxLength": 64
+                                    },
+                                    "device_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "maxLength": 255
+                                    },
+                                    "os": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "maxLength": 50
+                                    },
+                                    "app_version": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "maxLength": 20
+                                    }
+                                },
+                                "required": [
+                                    "device_id"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "enum": [
+                                                "Device registered successfully."
+                                            ]
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "device_id": {
+                                                    "type": "string"
+                                                },
+                                                "registered_at": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "device_id",
+                                                "registered_at"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/sync\/full": {
+            "get": {
+                "operationId": "sync.fullSync",
+                "summary": "GET \/api\/v1\/sync\/full\r\n\r\nGet full data dump for initial sync",
+                "tags": [
+                    "Sync"
+                ],
+                "parameters": [
+                    {
+                        "name": "entities",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "data": {
+                                            "type": "string"
+                                        },
+                                        "sync_token": {
+                                            "type": "string"
+                                        },
+                                        "server_timestamp": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "data",
+                                        "sync_token",
+                                        "server_timestamp"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/sync\/changes": {
+            "get": {
+                "operationId": "sync.changes",
+                "summary": "GET \/api\/v1\/sync\/changes\r\n\r\nGet all changes since last sync for incremental sync.\r\n\r\nQuery params:\r\n- since: ISO8601 timestamp of last sync\r\n- entities: Comma-separated list of entities to sync (optional)\r\n- page_size: Number of records per entity (optional, default 500)",
+                "tags": [
+                    "Sync"
+                ],
+                "parameters": [
+                    {
+                        "name": "since",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "entities",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 1,
+                            "maximum": 1000
+                        }
+                    }
+                ],
+                "responses": {
+                    "500": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "enum": [
+                                                "Failed to fetch changes."
+                                            ]
+                                        },
+                                        "error": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "error"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "data": {
+                                            "type": "string"
+                                        },
+                                        "sync_token": {
+                                            "type": "string"
+                                        },
+                                        "server_timestamp": {
+                                            "type": "string"
+                                        },
+                                        "has_more": {
+                                            "type": "boolean"
+                                        },
+                                        "total_records": {
+                                            "type": "integer",
+                                            "enum": [
+                                                0
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "data",
+                                        "sync_token",
+                                        "server_timestamp",
+                                        "has_more",
+                                        "total_records"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "\/v1\/sync\/batch": {
+            "post": {
+                "operationId": "sync.batch",
+                "description": "\u26a0\ufe0f Cannot generate request documentation: Cannot access private constant App\\Http\\Controllers\\Api\\SyncController::MAX_BATCH_SIZE",
+                "summary": "POST \/api\/v1\/sync\/batch\r\n\r\nProcess multiple offline operations in a single batch.\r\n\r\nRequest body:\r\n{\r\n  \"operations\": [\r\n    {\r\n      \"idempotency_key\": \"uuid\",\r\n      \"entity\": \"sale|party|due_collection\",\r\n      \"action\": \"create|update|delete\",\r\n      \"data\": { ... },\r\n      \"offline_timestamp\": \"ISO8601\"\r\n    }\r\n  ],\r\n  \"client_timestamp\": \"ISO8601\",\r\n  \"device_id\": \"device-uuid\"\r\n}",
+                "tags": [
+                    "Sync"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#\/components\/responses\/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#\/components\/responses\/AuthenticationException"
+                    }
+                }
+            }
+        },
         "\/v1\/units\/filter": {
             "get": {
                 "operationId": "units.filter",
@@ -20702,6 +22235,13 @@
         }
     },
     "components": {
+        "securitySchemes": {
+            "http": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "sanctum"
+            }
+        },
         "schemas": {
             "Attribute": {
                 "type": "object",
@@ -21077,24 +22617,15 @@
                 ],
                 "title": "CategoryResource"
             },
-            "Expense": {
+            "DueCollect": {
                 "type": "object",
                 "properties": {
                     "id": {
                         "type": "integer"
                     },
-                    "amount": {
-                        "type": "number"
-                    },
-                    "expense_category_id": {
+                    "client_reference": {
                         "type": [
-                            "integer",
-                            "null"
-                        ]
-                    },
-                    "user_id": {
-                        "type": [
-                            "integer",
+                            "string",
                             "null"
                         ]
                     },
@@ -21107,7 +22638,160 @@
                             "null"
                         ]
                     },
-                    "expanseFor": {
+                    "party_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "user_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "sale_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "purchase_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "invoiceNumber": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "totalDue": {
+                        "type": "number"
+                    },
+                    "dueAmountAfterPay": {
+                        "type": "number"
+                    },
+                    "payDueAmount": {
+                        "type": "number"
+                    },
+                    "paymentType": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "payment_type_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "paymentDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "version": {
+                        "type": "integer"
+                    },
+                    "deleted_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "client_reference",
+                    "business_id",
+                    "branch_id",
+                    "party_id",
+                    "user_id",
+                    "sale_id",
+                    "purchase_id",
+                    "invoiceNumber",
+                    "totalDue",
+                    "dueAmountAfterPay",
+                    "payDueAmount",
+                    "paymentType",
+                    "payment_type_id",
+                    "paymentDate",
+                    "created_at",
+                    "updated_at",
+                    "version",
+                    "deleted_at"
+                ],
+                "title": "DueCollect"
+            },
+            "ExpenseCategoryResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "categoryName": {
+                        "type": "string"
+                    },
+                    "categoryDescription": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "status": {
+                        "type": "boolean"
+                    },
+                    "business_id": {
+                        "type": "integer"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "categoryName",
+                    "categoryDescription",
+                    "status",
+                    "business_id",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "ExpenseCategoryResource"
+            },
+            "ExpenseResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "amount": {
+                        "type": "number"
+                    },
+                    "expenseFor": {
                         "type": [
                             "string",
                             "null"
@@ -21117,9 +22801,16 @@
                         "type": [
                             "string",
                             "null"
-                        ]
+                        ],
+                        "description": "model uses expanseFor"
                     },
                     "payment_type_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "expense_category_id": {
                         "type": [
                             "integer",
                             "null"
@@ -21143,55 +22834,7 @@
                             "null"
                         ]
                     },
-                    "created_at": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "format": "date-time"
-                    },
-                    "updated_at": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "format": "date-time"
-                    }
-                },
-                "required": [
-                    "id",
-                    "amount",
-                    "expense_category_id",
-                    "user_id",
-                    "business_id",
-                    "branch_id",
-                    "expanseFor",
-                    "paymentType",
-                    "payment_type_id",
-                    "referenceNo",
-                    "note",
-                    "expenseDate",
-                    "created_at",
-                    "updated_at"
-                ],
-                "title": "Expense"
-            },
-            "Income": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "amount": {
-                        "type": "number"
-                    },
-                    "income_category_id": {
-                        "type": [
-                            "integer",
-                            "null"
-                        ]
-                    },
-                    "user_id": {
+                    "branch_id": {
                         "type": [
                             "integer",
                             "null"
@@ -21200,11 +22843,129 @@
                     "business_id": {
                         "type": "integer"
                     },
-                    "branch_id": {
+                    "user_id": {
                         "type": [
                             "integer",
                             "null"
                         ]
+                    },
+                    "category": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "name"
+                        ]
+                    },
+                    "payment_type": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "name"
+                        ]
+                    },
+                    "branch": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "name"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "amount",
+                    "expenseFor",
+                    "paymentType",
+                    "payment_type_id",
+                    "expense_category_id",
+                    "referenceNo",
+                    "note",
+                    "expenseDate",
+                    "branch_id",
+                    "business_id",
+                    "user_id",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "ExpenseResource"
+            },
+            "IncomeCategoryResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "categoryName": {
+                        "type": "string"
+                    },
+                    "categoryDescription": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "status": {
+                        "type": "boolean"
+                    },
+                    "business_id": {
+                        "type": "integer"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "categoryName",
+                    "categoryDescription",
+                    "status",
+                    "business_id",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "IncomeCategoryResource"
+            },
+            "IncomeResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "amount": {
+                        "type": "number"
                     },
                     "incomeFor": {
                         "type": [
@@ -21219,6 +22980,12 @@
                         ]
                     },
                     "payment_type_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "income_category_id": {
                         "type": [
                             "integer",
                             "null"
@@ -21242,38 +23009,90 @@
                             "null"
                         ]
                     },
-                    "created_at": {
+                    "branch_id": {
                         "type": [
-                            "string",
+                            "integer",
                             "null"
-                        ],
-                        "format": "date-time"
+                        ]
+                    },
+                    "business_id": {
+                        "type": "integer"
+                    },
+                    "user_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "category": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "name"
+                        ]
+                    },
+                    "payment_type": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "name"
+                        ]
+                    },
+                    "branch": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "name"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string"
                     },
                     "updated_at": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "format": "date-time"
+                        "type": "string"
                     }
                 },
                 "required": [
                     "id",
                     "amount",
-                    "income_category_id",
-                    "user_id",
-                    "business_id",
-                    "branch_id",
                     "incomeFor",
                     "paymentType",
                     "payment_type_id",
+                    "income_category_id",
                     "referenceNo",
                     "note",
                     "incomeDate",
+                    "branch_id",
+                    "business_id",
+                    "user_id",
                     "created_at",
                     "updated_at"
                 ],
-                "title": "Income"
+                "title": "IncomeResource"
             },
             "LengthAwarePaginator": {
                 "type": "object",
@@ -21485,6 +23304,62 @@
                     "deleted_at"
                 ],
                 "title": "Party"
+            },
+            "PaymentType": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "business_id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "is_credit": {
+                        "type": "boolean"
+                    },
+                    "status": {
+                        "type": "integer"
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "version": {
+                        "type": "integer"
+                    },
+                    "deleted_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "business_id",
+                    "name",
+                    "is_credit",
+                    "status",
+                    "created_at",
+                    "updated_at",
+                    "version",
+                    "deleted_at"
+                ],
+                "title": "PaymentType"
             },
             "PrintLabelResource": {
                 "type": "object",
@@ -23483,6 +25358,108 @@
                 ],
                 "title": "Shelf"
             },
+            "Stock": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "business_id": {
+                        "type": "integer"
+                    },
+                    "branch_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "warehouse_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "product_id": {
+                        "type": "integer"
+                    },
+                    "variant_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "batch_no": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "productStock": {
+                        "type": "number"
+                    },
+                    "productPurchasePrice": {
+                        "type": "number"
+                    },
+                    "profit_percent": {
+                        "type": "number"
+                    },
+                    "productSalePrice": {
+                        "type": "number"
+                    },
+                    "productWholeSalePrice": {
+                        "type": "number"
+                    },
+                    "productDealerPrice": {
+                        "type": "number"
+                    },
+                    "mfg_date": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "expire_date": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "business_id",
+                    "branch_id",
+                    "warehouse_id",
+                    "product_id",
+                    "variant_id",
+                    "batch_no",
+                    "productStock",
+                    "productPurchasePrice",
+                    "profit_percent",
+                    "productSalePrice",
+                    "productWholeSalePrice",
+                    "productDealerPrice",
+                    "mfg_date",
+                    "expire_date",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "Stock"
+            },
             "StockResource": {
                 "type": "object",
                 "properties": {
@@ -23654,6 +25631,204 @@
                 ],
                 "title": "StockResource"
             },
+            "StoreSaleRequest": {
+                "type": "object",
+                "properties": {
+                    "invoiceNumber": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "party_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "payment_type_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "saleDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "totalAmount": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "paidAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "dueAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "discountAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "vat_amount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "vat_percent": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "change_amount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "isPaid": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "image": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "binary",
+                        "contentMediaType": "application\/octet-stream",
+                        "maxLength": 2048
+                    },
+                    "note": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "customer_phone": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "rounding_option": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "none",
+                            "round_up",
+                            "nearest_whole_number",
+                            "nearest_0.05",
+                            "nearest_0.1",
+                            "nearest_0.5"
+                        ]
+                    },
+                    "offline_invoice_no": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Offline sync fields"
+                    },
+                    "device_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "client_reference": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "products": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "stock_id": {
+                                    "type": "integer"
+                                },
+                                "quantities": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ],
+                                    "minimum": 0.01
+                                },
+                                "quantity": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ],
+                                    "minimum": 0.01
+                                },
+                                "price": {
+                                    "type": "number",
+                                    "minimum": 0
+                                },
+                                "lossProfit": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ]
+                                },
+                                "variant_id": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ]
+                                },
+                                "variant_name": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                },
+                                "product_name": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "stock_id",
+                                "price"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "totalAmount",
+                    "products"
+                ],
+                "title": "StoreSaleRequest"
+            },
             "UnitResource": {
                 "type": "object",
                 "properties": {
@@ -23693,6 +25868,185 @@
                     "business_id"
                 ],
                 "title": "UnitResource"
+            },
+            "UpdateSaleRequest": {
+                "type": "object",
+                "properties": {
+                    "invoiceNumber": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "party_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "payment_type_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "saleDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "totalAmount": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "paidAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "dueAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "discountAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "vat_amount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "vat_percent": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "change_amount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "isPaid": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "image": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "binary",
+                        "contentMediaType": "application\/octet-stream",
+                        "maxLength": 2048
+                    },
+                    "note": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "customer_phone": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "rounding_option": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "none",
+                            "round_up",
+                            "nearest_whole_number",
+                            "nearest_0.05",
+                            "nearest_0.1",
+                            "nearest_0.5"
+                        ]
+                    },
+                    "products": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "stock_id": {
+                                    "type": "integer"
+                                },
+                                "quantities": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ],
+                                    "minimum": 0.01
+                                },
+                                "quantity": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ],
+                                    "minimum": 0.01
+                                },
+                                "price": {
+                                    "type": "number",
+                                    "minimum": 0
+                                },
+                                "lossProfit": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ]
+                                },
+                                "variant_id": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ]
+                                },
+                                "variant_name": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                },
+                                "product_name": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "stock_id",
+                                "price"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "totalAmount",
+                    "products"
+                ],
+                "title": "UpdateSaleRequest"
             },
             "Vat": {
                 "type": "object",
