@@ -38,7 +38,6 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { getImageUrl } from '@/lib/utils'
-import { useCurrency } from '@/hooks'
 import type { Product, Category, Brand, Unit } from '@/types/api.types'
 import type { Attribute } from '@/types/variant.types'
 import {
@@ -102,7 +101,6 @@ function ProductFormDialogComponent({
   attributesLoading = false,
   onSubmit,
 }: ProductFormDialogProps) {
-  const { symbol: currencySymbol } = useCurrency()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)

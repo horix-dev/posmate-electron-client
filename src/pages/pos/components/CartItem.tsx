@@ -50,7 +50,7 @@ function CartItemComponent({
   onUpdateQuantity,
   onRemove,
 }: CartItemProps) {
-  const { format: formatCurrency, symbol: currencySymbol } = useCurrency()
+  const { format: formatCurrency } = useCurrency()
   const { productId, productName, productCode, productImage, quantity, salePrice, maxStock } = item
   const lineTotal = quantity * salePrice
   const imageUrl = getImageUrl(productImage)
