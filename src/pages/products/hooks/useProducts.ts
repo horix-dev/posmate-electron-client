@@ -109,6 +109,87 @@ export function getPurchasePrice(product: Product): number {
   return product.stocks?.[0]?.productPurchasePrice ?? product.productPurchasePrice ?? 0
 }
 
+const toFiniteNumber = (value: unknown): number | undefined => {
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : undefined
+}
+
+const getFormDataNumber = (formData: FormData, key: string): number | undefined => {
+  const value = formData.get(key)
+  if (value === null) return undefined
+  return toFiniteNumber(value)
+}
+
+const getFormDataId = (formData: FormData, key: string): number | undefined => {
+  const value = formData.get(key)
+  if (value === null) return undefined
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
+const buildStockFromFormData = (productId: number, formData: FormData): Stock => {
+  return {
+    // Synthetic stock for immediate UI display; backend assigns real stock id.
+    id: 0,
+    product_id: productId,
+    productStock: getFormDataNumber(formData, 'productStock') ?? 0,
+    productPurchasePrice: getFormDataNumber(formData, 'productPurchasePrice') ?? 0,
+    productSalePrice: getFormDataNumber(formData, 'productSalePrice') ?? 0,
+  }
+}
+
+const hydrateProductForList = (args: {
+  product: Product
+  categories: Category[]
+  brands: Brand[]
+  units: Unit[]
+  stockOverride?: Stock
+  idsOverride?: { category_id?: number; brand_id?: number; unit_id?: number }
+}): Product => {
+  const { product, categories, brands, units, stockOverride, idsOverride } = args
+
+  const categoryId = idsOverride?.category_id ?? product.category_id
+  const brandId = idsOverride?.brand_id ?? product.brand_id
+  const unitId = idsOverride?.unit_id ?? product.unit_id
+
+  const category = categoryId ? categories.find((c) => c.id === categoryId) : undefined
+  const brand = brandId ? brands.find((b) => b.id === brandId) : undefined
+  const unit = unitId ? units.find((u) => u.id === unitId) : undefined
+
+  const stocks =
+    product.stocks && product.stocks.length > 0
+      ? product.stocks
+      : stockOverride
+        ? [stockOverride]
+        : []
+
+  let computedStockSum: number
+
+  if (product.product_type === 'variable') {
+    const primary =
+      product.variants_total_stock ?? product.stocks_sum_product_stock ?? product.productStock
+    computedStockSum = primary ?? 0
+  } else {
+    const stocksArraySum =
+      stocks.length > 0 ? stocks.reduce((sum, s) => sum + (s.productStock ?? 0), 0) : undefined
+    const primary = product.stocks_sum_product_stock ?? stocksArraySum ?? product.productStock
+    computedStockSum = primary ?? 0
+  }
+
+  return {
+    ...product,
+    category_id: categoryId,
+    brand_id: brandId,
+    unit_id: unitId,
+    category,
+    brand,
+    unit,
+    stocks,
+    stocks_sum_product_stock: computedStockSum,
+    productStock: product.productStock ?? computedStockSum,
+  }
+}
+
 // ============================================
 // Default Filter State
 // ============================================
@@ -182,8 +263,14 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
             category: categoryId ? categoryMap.get(categoryId) : undefined,
             brand: brandId ? brandMap.get(brandId) : undefined,
             unit: unitId ? unitMap.get(unitId) : undefined,
+            // Preserve variants data for variable products
+            variants: p.variants ?? [],
+            variants_total_stock:
+              p.variants_total_stock ?? (p.product_type === 'variable' ? 0 : undefined),
           }
         })
+        // Sort by ID descending to match API order (newest first)
+        convertedProducts.sort((a, b) => b.id - a.id)
         setProducts(convertedProducts)
 
         // Calculate stock value
@@ -237,7 +324,7 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
       // Cache products to local storage for offline use
       const localProducts: LocalProduct[] = productsRes.data.map((product: Product) => {
         const stock: Stock = product.stocks?.[0] || {
-          id: product.id,
+          id: 0,
           product_id: product.id,
           productStock: product.stocks_sum_product_stock ?? product.productStock ?? 0,
           productPurchasePrice: 0,
@@ -338,15 +425,109 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
     )
   }, [products])
 
+  const persistProductToOfflineCache = useCallback(async (product: Product): Promise<void> => {
+    const stock: Stock =
+      product.stocks?.[0] ||
+      ({
+        id: 0,
+        product_id: product.id,
+        productStock: product.stocks_sum_product_stock ?? product.productStock ?? 0,
+        productPurchasePrice: 0,
+        productSalePrice: 0,
+      } satisfies Stock)
+
+    const localProduct: LocalProduct = {
+      ...product,
+      stock,
+      lastSyncedAt: new Date().toISOString(),
+    }
+
+    await storage.products.bulkUpsert([localProduct])
+  }, [])
+
+  const upsertProductInState = useCallback((nextProduct: Product, mode: 'prepend' | 'replace') => {
+    setProducts((prev) => {
+      const index = prev.findIndex((p) => p.id === nextProduct.id)
+
+      if (index === -1) {
+        return mode === 'prepend' ? [nextProduct, ...prev] : [...prev, nextProduct]
+      }
+
+      const updated = [...prev]
+      updated[index] = nextProduct
+      return updated
+    })
+  }, [])
+
+  const hydrateAndUpsert = useCallback(
+    async (args: {
+      product: Product
+      mode: 'prepend' | 'replace'
+      stockOverride?: Stock
+      idsOverride?: { category_id?: number; brand_id?: number; unit_id?: number }
+    }): Promise<Product> => {
+      const hydrated = hydrateProductForList({
+        product: args.product,
+        categories,
+        brands,
+        units,
+        stockOverride: args.stockOverride,
+        idsOverride: args.idsOverride,
+      })
+
+      upsertProductInState(hydrated, args.mode)
+      await persistProductToOfflineCache(hydrated)
+
+      return hydrated
+    },
+    [brands, categories, units, persistProductToOfflineCache, upsertProductInState]
+  )
+
   // CRUD Operations
   const createProduct = useCallback(
     async (data: FormData | VariableProductPayload, isVariable = false): Promise<Product> => {
       const result = await productsService.create(data, isVariable)
-      setProducts((prev) => [result.data, ...prev])
+      const idsOverride =
+        data instanceof FormData
+          ? {
+              category_id: getFormDataId(data, 'category_id'),
+              brand_id: getFormDataId(data, 'brand_id'),
+              unit_id: getFormDataId(data, 'unit_id'),
+            }
+          : undefined
+
+      const stockOverride =
+        !isVariable && data instanceof FormData
+          ? buildStockFromFormData(result.data.id, data)
+          : undefined
+
+      const hydrated = await hydrateAndUpsert({
+        product: result.data,
+        mode: 'prepend',
+        stockOverride,
+        idsOverride,
+      })
+
+      // Best-effort: fetch full product (includes joined category/brand/stocks on some backends)
+      try {
+        const full = await productsService.getById(hydrated.id)
+        // Do NOT override backend stocks/joins with form-derived overrides.
+        await hydrateAndUpsert({
+          product: full.data,
+          mode: 'replace',
+        })
+      } catch (error) {
+        // Non-fatal: list hydration already applied
+        console.error('[useProducts] Failed to fetch full product after create', {
+          productId: hydrated.id,
+          error,
+        })
+      }
+
       toast.success('Product created successfully')
-      return result.data
+      return hydrated
     },
-    []
+    [hydrateAndUpsert]
   )
 
   const updateProduct = useCallback(
@@ -356,11 +537,30 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
       isVariable = false
     ): Promise<Product> => {
       const result = await productsService.update(id, data, isVariable)
-      setProducts((prev) => prev.map((p) => (p.id === id ? result.data : p)))
+
+      const idsOverride =
+        data instanceof FormData
+          ? {
+              category_id: getFormDataId(data, 'category_id'),
+              brand_id: getFormDataId(data, 'brand_id'),
+              unit_id: getFormDataId(data, 'unit_id'),
+            }
+          : undefined
+
+      const stockOverride =
+        !isVariable && data instanceof FormData ? buildStockFromFormData(id, data) : undefined
+
+      const hydrated = await hydrateAndUpsert({
+        product: result.data,
+        mode: 'replace',
+        stockOverride,
+        idsOverride,
+      })
+
       toast.success('Product updated successfully')
-      return result.data
+      return hydrated
     },
-    []
+    [hydrateAndUpsert]
   )
 
   const deleteProduct = useCallback(async (id: number): Promise<void> => {

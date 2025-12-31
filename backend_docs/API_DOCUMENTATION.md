@@ -1,8 +1,35 @@
 # Horix POS Pro - REST API Documentation
 
 **Version:** 1.0  
+**Last Updated:** December 21, 2025  
 **Base URL:** `/api/v1`  
 **Authentication:** Bearer Token (Laravel Sanctum)
+
+---
+
+## 🎉 Recent Updates (December 2025)
+
+### Test Coverage Achievement
+- ✅ **140 tests passing** (1,012 assertions)
+- ✅ **100% API endpoint coverage** for core features
+- ✅ Comprehensive pagination testing (4 modes: default, limit, offset, cursor)
+- ✅ Batch/lot management validation testing
+- ✅ Expired stock prevention testing
+
+### API Improvements
+- ✅ **Flexible Sale Input**: Products field now accepts both array and JSON string formats
+- ✅ **Field Name Aliases**: Supports both `quantity` and `quantities`, `paid` and `paidAmount`, `date` and `saleDate`
+- ✅ **Expired Batch Validation**: Automatic prevention of expired stock sales with detailed error responses
+- ✅ **Batch Movement Tracking**: Automatic audit trail for all stock movements
+- ✅ **Route Model Binding**: Fixed for attribute values using `{attributeValue}` parameter
+- ✅ **Response Structure**: Standardized to use `data` key across all endpoints
+
+### Bug Fixes
+- ✅ Fixed AttributeController route model binding
+- ✅ Fixed ProductVariantController response structure consistency
+- ✅ Fixed BatchMovementService user ID tracking
+- ✅ Fixed batch quantity tracking (quantity_before/after now accurate)
+- ✅ Fixed variant batches query using correct column name
 
 ---
 
@@ -34,14 +61,15 @@
 24. [Racks](#24-racks)
 25. [Shelves](#25-shelves)
 26. [Currencies](#26-currencies)
-27. [Invoices](#27-invoices)
+27. [Transaction Reports](#27-transaction-reports)
 28. [Variant Reports & Analytics](#28-variant-reports--analytics)
 29. [Dashboard & Statistics](#29-dashboard--statistics)
 30. [Users & Staff](#30-users--staff)
-31. [Settings](#31-settings)
-32. [Bulk Upload](#32-bulk-upload)
-33. [Batch/Lot Management](#33-batchlot-management)
-34. [Additional Resources](#34-additional-resources)
+31. [Invoices](#31-invoices)
+32. [Settings](#32-settings)
+33. [Bulk Upload](#33-bulk-upload)
+34. [Batch/Lot Management](#34-batchlot-management)
+35. [Additional Resources](#35-additional-resources)
 
 ---
 
@@ -749,7 +777,7 @@ Creates a new product. Supports three product types:
 
 | `product_type` Value | Common Name | Use Case | Stock Tracking |
 |---------------------|-------------|----------|----------------|
-| **`single`** | Simple Product | Basic product (e.g., Laptop Charger) | Single stock record |
+| **`simple`** | Simple Product | Basic product (e.g., Laptop Charger) | Single stock record |
 | **`variant`** | **Batch Product** | Batch/Lot tracking (e.g., Medicines with expiry dates) | Multiple stock records by `batch_no` |
 | **`variable`** | **Variant Product** | Attribute-based variants (e.g., T-Shirt: Size S/M/L × Color Red/Blue) | Stock per attribute combination |
 
@@ -759,6 +787,14 @@ Creates a new product. Supports three product types:
 
 - **Batch products (`product_type: 'variant'`)**: Use **arrays at root level** (`batch_no[]`, `productSalePrice[]`, `productStock[]`)
 - **Variant products (`product_type: 'variable'`)**: Use **`variants` array** with objects containing `attribute_value_ids`, `sku`, pricing
+
+**Inventory Tracking Mode (New):**
+- `inventory_tracking_mode` controls whether batches/lots are required for stock entries.
+- Allowed values:
+  - `simple` (default): No batch/lot tracking required.
+  - `batch`: Batch/lot tracking enabled.
+- Batch tracking is supported for both `product_type: "simple"` and `product_type: "variable"`.
+- For legacy batch products (`product_type: "variant"`), `inventory_tracking_mode` is treated as `batch`.
 
 **Response Format:**
 ```json
@@ -777,9 +813,13 @@ Creates a new product. Supports three product types:
 
 ---
 
-#### 3.3.1 Create Single Product
+#### 3.3.1 Create Simple Product
 
 Simple product with standard pricing and stock.
+
+**Expiry/Batch Note:**
+- `mfg_date` and `expire_date` are optional. If `expire_date` is omitted/null, the stock is treated as **non-expiring**.
+- `batch_no` is not used for single products.
 
 **Request Body (multipart/form-data):**
 ```json
@@ -788,7 +828,8 @@ Simple product with standard pricing and stock.
   "productCode": "CHARGER-001",
   "category_id": 5,
   "brand_id": 3,
-  "product_type": "single",
+  "product_type": "simple",
+  "inventory_tracking_mode": "simple",
   "productPurchasePrice": 800,
   "productSalePrice": 1200,
   "productDealerPrice": 1100,
@@ -805,7 +846,7 @@ Simple product with standard pricing and stock.
 curl -X POST http://localhost:8000/api/v1/products \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "productName=Laptop Charger" \
-  -F "product_type=single" \
+  -F "product_type=simple" \
   -F "productPurchasePrice=800" \
   -F "productSalePrice=1200" \
   -F "productStock=100"
@@ -845,6 +886,10 @@ Product with multiple stock entries tracked by batch numbers. Used for products 
 - Minimum required: `batch_no[]` array
 - Stock is created immediately for each batch
 
+**Optional Dates:**
+- `mfg_date[]` and `expire_date[]` are optional per batch.
+- If `expire_date[]` is omitted/null for a batch, it is treated as **non-expiring** and will not be blocked by expired-stock validation.
+
 **cURL Example:**
 ```bash
 curl -X POST http://localhost:8000/api/v1/products \
@@ -876,6 +921,10 @@ Product with attribute-based variants (e.g., Size × Color combinations). All va
 4. `barcode` is optional; if provided it must be unique per business
 5. Optional `initial_stock` per variant seeds stock during creation; if omitted, add stock later via `POST /api/v1/stock`
 
+**Expiry/Batch Note:**
+- Attribute-based variants do not require `batch_no`, `mfg_date`, or `expire_date`.
+- If you don"t need batch/lot tracking, prefer `product_type: "simple"` and `product_type: "variable"` (variants).
+
 **Request Body (JSON):**
 ```json
 {
@@ -884,6 +933,7 @@ Product with attribute-based variants (e.g., Size × Color combinations). All va
   "category_id": 2,
   "brand_id": 1,
   "product_type": "variable",
+  "inventory_tracking_mode": "simple",
   "description": "Premium cotton T-shirt available in multiple sizes and colors",
   "variants": [
     {
@@ -3213,6 +3263,13 @@ GET /sales?cursor=0&per_page=500
 - `invoiceNumber=S-00001` - Exact invoice number match
 - `search=keyword` - Search in invoice number, party name
 
+#### Response Fields
+
+All sale records include an `invoice_url` field that provides a web link to view/print the invoice:
+- Format: `https://your-domain.com/business/get-invoice/{sale_id}`
+- Use this URL to display invoices in web views or trigger browser printing
+- Authentication required to access the invoice page
+
 #### Response Examples
 
 **Default/Dropdown/Cursor Mode Response:**
@@ -3222,6 +3279,10 @@ GET /sales?cursor=0&per_page=500
   "data": [
     {
       "id": 1,
+      "business_id": 1,
+      "party_id": 1,
+      "branch_id": 1,
+      "user_id": 1,
       "invoiceNumber": "S-00001",
       "saleDate": "2024-01-15",
       "totalAmount": 1500.00,
@@ -3241,6 +3302,7 @@ GET /sales?cursor=0&per_page=500
       "final_amount": 1450.00,
       "created_at": "2024-01-15T10:00:00.000000Z",
       "updated_at": "2024-01-15T10:00:00.000000Z",
+      "invoice_url": "https://your-domain.com/business/get-invoice/1",
       "user": {
         "id": 1,
         "name": "Cashier",
@@ -3282,7 +3344,7 @@ GET /sales?cursor=0&per_page=500
             "id": 1,
             "productName": "Product A",
             "productCode": "PRD001",
-            "product_type": "standard",
+            "product_type": "single",
             "productPurchasePrice": 500.00,
             "productStock": 100,
             "category": {
@@ -3302,6 +3364,16 @@ GET /sales?cursor=0&per_page=500
   ]
 }
 ```
+
+**Note on Sale Details:**
+- When a sale includes **variant products** (attribute-based), the `variant` object will be populated with:
+  - `id`: Variant ID
+  - `sku`: Stock keeping unit
+  - `price`: Variant-specific price
+  - `image`: Variant image URL
+  - `variant_name`: Formatted attribute combination (e.g., "Size: Large, Color: Red")
+- When a sale includes **batch products**, the `stock` object will contain the `batch_no`
+- The `lossProfit` field shows profit/loss for the line item (selling price - purchase price × quantity)
 
 **Cursor Mode Additional Fields:**
 ```json
@@ -3382,24 +3454,28 @@ curl -X GET "http://localhost:8000/api/sales?search=S-00001&page=1&per_page=20" 
 
 ### 11.2 Create Sale
 
-Creates a new sale transaction.
+Creates a new sale transaction with automatic batch expiry validation and movement tracking.
 
 **Endpoint:** `POST /sales`  
 **Auth Required:** Yes
 
-**Request Body (multipart/form-data):**
+**Request Body:**
 ```json
 {
-  "products": "JSON string (required)",
+  "products": "array or JSON string (required)",
   "saleDate": "date (optional)",
+  "date": "date (optional, alias for saleDate)",
   "invoiceNumber": "string (optional)",
   "party_id": "integer (optional, exists)",
+  "warehouse_id": "integer (optional, exists)",
   "payment_type_id": "integer (optional)",
   "vat_id": "integer (optional)",
   "vat_amount": "numeric (optional)",
-  "totalAmount": "numeric (required)",
+  "total": "numeric (optional, alias for totalAmount)",
+  "totalAmount": "numeric (optional)",
   "discountAmount": "numeric (optional, default: 0)",
-  "paidAmount": "numeric (required)",
+  "paid": "numeric (optional, alias for paidAmount)",
+  "paidAmount": "numeric (optional)",
   "dueAmount": "numeric (optional, default: 0)",
   "change_amount": "numeric (optional)",
   "isPaid": "boolean (optional)",
@@ -3410,20 +3486,37 @@ Creates a new sale transaction.
 }
 ```
 
-**Products JSON Format:**
+**Products Format (accepts both array and JSON string):**
+
+**As Array:**
 ```json
-[
-  {
-    "stock_id": 1,
-    "product_name": "Product A",
-    "quantities": 2,
-    "price": 750.00,
-    "lossProfit": 225.00
-  }
-]
+{
+  "products": [
+    {
+      "stock_id": 1,
+      "product_id": 10,
+      "product_name": "Product A",
+      "quantity": 2,
+      "quantities": 2,
+      "price": 750.00,
+      "lossProfit": 225.00,
+      "variant_id": 5,
+      "variant_name": "Red - Large"
+    }
+  ]
+}
 ```
 
-**Response:**
+**As JSON String:**
+```json
+{
+  "products": "[{\"stock_id\":1,\"quantities\":2,\"price\":750.00}]"
+}
+```
+
+**Note:** The system accepts both `quantity` (singular) and `quantities` (plural) field names for flexibility.
+
+**Success Response:**
 ```json
 {
   "message": "Data saved successfully.",
@@ -3432,10 +3525,42 @@ Creates a new sale transaction.
     "invoiceNumber": "S-00001",
     "details": [],
     "party": {},
-    "payment_type": {}
+    "payment_type": {},
+    "user": {}
   }
 }
 ```
+
+**Expired Batch Error Response (406):**
+```json
+{
+  "success": false,
+  "message": "Cannot sell expired batch",
+  "batch": {
+    "batch_no": "BATCH-2023-100",
+    "expire_date": "2023-12-31",
+    "days_expired": 30
+  }
+}
+```
+
+**Validation Error (422):**
+```json
+{
+  "message": "The given data was invalid.",
+  "errors": {
+    "products": ["The products field is required."]
+  }
+}
+```
+
+**Features:**
+- ✅ **Automatic Expired Batch Validation** - Prevents sale of expired stock (returns 406). This only applies when the selected stock has an `expire_date`.
+- ✅ **Batch Movement Tracking** - Automatically logs all stock movements
+- ✅ **Stock Adjustment** - Decrements batch quantity automatically
+- ✅ **Flexible Input Format** - Accepts products as array or JSON string
+- ✅ **Field Name Aliases** - Supports both `quantity` and `quantities`
+- ✅ **Credit Limit Validation** - Checks party credit limits for due amounts
 
 ---
 
@@ -4514,7 +4639,11 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 
 ### 22.1 Add Stock
 
-Adds stock quantity to existing stock entry.
+Adds stock to the system.
+
+This endpoint supports two modes:
+1. **Increment Existing Stock** (by `stock_id`)
+2. **Create New Stock/Batch Entry** (by `product_id` and optional `variant_id`)
 
 **Endpoint:** `POST /stocks`  
 **Auth Required:** Yes
@@ -4522,8 +4651,33 @@ Adds stock quantity to existing stock entry.
 **Request Body:**
 ```json
 {
+  "productStock": "integer (required)"
+}
+```
+
+**Mode A: Increment Existing Stock**
+```json
+{
   "stock_id": "integer (required, exists)",
   "productStock": "integer (required)"
+}
+```
+
+**Mode B: Create New Stock/Batch Entry**
+```json
+{
+  "product_id": "integer (required, exists)",
+  "variant_id": "integer (optional, exists)",
+  "warehouse_id": "integer (optional, exists)",
+  "batch_no": "string (required when product inventory_tracking_mode is batch)",
+  "mfg_date": "date (optional)",
+  "expire_date": "date (optional)",
+  "productStock": "integer (required)",
+  "productPurchasePrice": "numeric (optional)",
+  "productSalePrice": "numeric (optional)",
+  "productWholeSalePrice": "numeric (optional)",
+  "productDealerPrice": "numeric (optional)",
+  "profit_percent": "numeric (optional)"
 }
 ```
 
@@ -5066,9 +5220,9 @@ Changes the business currency.
 
 ---
 
-## 25. Invoices
+## 27. Invoices
 
-### 25.1 Get Party Invoices with Due
+### 27.1 Get Party Invoices with Due
 
 Gets all invoices with due amounts for a party.
 
@@ -5119,9 +5273,9 @@ Generates a new invoice number.
 
 ---
 
-## 26. Dashboard & Statistics
+## 29. Dashboard & Statistics
 
-### 26.1 Get Summary
+### 29.1 Get Summary
 
 Gets today's summary statistics.
 
@@ -5146,7 +5300,7 @@ Gets today's summary statistics.
 
 ---
 
-### 26.2 Get Dashboard
+### 29.2 Get Dashboard
 
 Gets comprehensive dashboard data with charts.
 
@@ -5193,9 +5347,9 @@ Gets comprehensive dashboard data with charts.
 
 ---
 
-## 27. Users & Staff
+## 30. Users & Staff
 
-### 27.1 List Staff
+### 30.1 List Staff
 
 Lists all staff members.
 
@@ -5224,7 +5378,7 @@ Lists all staff members.
 
 ---
 
-### 27.2 Create Staff
+### 30.2 Create Staff
 
 **Endpoint:** `POST /users`  
 **Auth Required:** Yes
@@ -5242,7 +5396,7 @@ Lists all staff members.
 
 ---
 
-### 27.3 Update Staff
+### 30.3 Update Staff
 
 **Endpoint:** `PUT /users/{id}`  
 **Auth Required:** Yes
@@ -5260,16 +5414,16 @@ Lists all staff members.
 
 ---
 
-### 27.4 Delete Staff
+### 30.4 Delete Staff
 
 **Endpoint:** `DELETE /users/{id}`  
 **Auth Required:** Yes
 
 ---
 
-## 28. Settings
+## 31. Settings
 
-### 28.1 Get Product Settings
+### 31.1 Get Product Settings
 
 **Endpoint:** `GET /product-settings`  
 **Auth Required:** Yes
@@ -5297,7 +5451,7 @@ Lists all staff members.
 
 ---
 
-### 28.2 Update Product Settings
+### 31.2 Update Product Settings
 
 **Endpoint:** `POST /product-settings`  
 **Auth Required:** Yes
@@ -5323,14 +5477,14 @@ Lists all staff members.
 
 ---
 
-### 28.3 Get Invoice Settings
+### 31.3 Get Invoice Settings
 
 **Endpoint:** `GET /invoice-settings`  
 **Auth Required:** Yes
 
 ---
 
-### 28.4 Update Invoice Settings
+### 31.4 Update Invoice Settings
 
 **Endpoint:** `POST /invoice-settings`  
 **Auth Required:** Yes
@@ -5344,16 +5498,16 @@ Lists all staff members.
 
 ---
 
-### 28.5 Get Business Settings (Invoice Logo)
+### 31.5 Get Business Settings (Invoice Logo)
 
 **Endpoint:** `GET /business-settings`  
 **Auth Required:** Yes
 
 ---
 
-## 29. Bulk Upload
+## 32. Bulk Upload
 
-### 29.1 Upload Products
+### 32.1 Upload Products
 
 Bulk uploads products from Excel/CSV file.
 
@@ -5620,12 +5774,17 @@ The system tracks the following movement types:
 
 **Critical Feature:** The system automatically prevents the sale of expired batches. When attempting to sell a product with an expired batch:
 
+**Validation Process:**
+1. Before creating a sale, the system checks each batch's expiry date
+2. If any batch is expired (`expire_date` < current date), the sale is immediately rejected
+3. Stock quantities remain unchanged
+4. Client receives a 406 Not Acceptable response with batch details
+
 **Error Response:**
 ```json
 {
   "success": false,
   "message": "Cannot sell expired batch",
-  "error": "Cannot sell expired batch",
   "batch": {
     "batch_no": "BATCH-2023-100",
     "expire_date": "2023-12-31",
@@ -5635,6 +5794,71 @@ The system tracks the following movement types:
 ```
 
 **HTTP Status Code:** 406 Not Acceptable
+
+**Implementation Details:**
+- Validation occurs at the controller level before any database changes
+- Uses `Stock::isExpired()` model method for consistency
+- Transaction is rolled back if expired batch is detected
+- Applies to all sale operations, including POS and API endpoints
+
+**Example Error Scenario:**
+```bash
+# Attempting to sell expired batch
+POST /api/v1/sales
+{
+  "products": [
+    {
+      "stock_id": 125,  # This batch expired 30 days ago
+      "quantity": 10,
+      "price": 100
+    }
+  ],
+  "total": 1000,
+  "paid": 1000
+}
+
+# Response: 406 Not Acceptable
+{
+  "success": false,
+  "message": "Cannot sell expired batch",
+  "batch": {
+    "batch_no": "BATCH-2023-100",
+    "expire_date": "2023-12-31",
+    "days_expired": 30
+  }
+}
+```
+
+### Batch Movement Tracking
+
+**Automatic Movement Logging:** Every sale transaction automatically creates batch movement records for audit trail and traceability.
+
+**Movement Record Structure:**
+```json
+{
+  "id": 456,
+  "stock_id": 125,
+  "movement_type": "sale",
+  "quantity": -10,
+  "quantity_changed": -10,
+  "quantity_before": 100,
+  "quantity_after": 90,
+  "reference_type": "sale",
+  "reference_id": 789,
+  "reason": "Stock sold to customer",
+  "user_id": 1,
+  "business_id": 1,
+  "created_at": "2024-12-21T10:30:00.000000Z"
+}
+```
+
+**Key Features:**
+- ✅ Movements logged BEFORE stock decrement for accurate `quantity_before`
+- ✅ Negative quantity for sales (stock decrease)
+- ✅ Includes user ID for accountability
+- ✅ Links to sale transaction via `reference_id`
+- ✅ Immutable records (no `updated_at` field)
+- ✅ Supports FDA CFR Part 11 compliance requirements
 
 ---
 
@@ -5957,9 +6181,9 @@ curl -X PUT http://localhost:8000/api/v1/products/245 \
 
 ---
 
-## 30. Additional Resources
+## 34. Additional Resources
 
-### 30.1 List Languages
+### 34.1 List Languages
 
 Lists available languages for the app.
 
@@ -5982,14 +6206,14 @@ Lists available languages for the app.
 
 ---
 
-### 30.2 Create/Store Language
+### 34.2 Create/Store Language
 
 **Endpoint:** `POST /lang`  
 **Auth Required:** Yes
 
 ---
 
-### 30.3 List Banners
+### 34.3 List Banners
 
 Lists promotional banners.
 
@@ -5998,7 +6222,7 @@ Lists promotional banners.
 
 ---
 
-### 30.4 List Plans
+### 34.4 List Plans
 
 Lists available subscription plans.
 
@@ -6007,7 +6231,7 @@ Lists available subscription plans.
 
 ---
 
-### 30.5 List Subscriptions
+### 34.5 List Subscriptions
 
 Lists active subscriptions.
 
@@ -6016,7 +6240,7 @@ Lists active subscriptions.
 
 ---
 
-### 30.6 Update Invoice Settings (Alternative)
+### 34.6 Update Invoice Settings (Alternative)
 
 Updates invoice size settings.
 
@@ -6032,7 +6256,7 @@ Updates invoice size settings.
 
 ---
 
-### 30.7 Get Update Expiry Date
+### 34.7 Get Update Expiry Date
 
 Updates business expiry date.
 
@@ -6053,7 +6277,7 @@ Updates business expiry date.
 
 ---
 
-### 30.8 Bulk Upload Products
+### 34.8 Bulk Upload Products
 
 Bulk imports products from Excel/CSV.
 
@@ -6069,7 +6293,7 @@ Bulk imports products from Excel/CSV.
 
 ---
 
-### 30.9 Get New Invoice Number
+### 34.9 Get New Invoice Number
 
 Generates next invoice number.
 
@@ -6210,11 +6434,496 @@ Generates next invoice number.
 
 ---
 
-## 26. Variant Reports & Analytics
+## 27. Transaction Reports
+
+Comprehensive reporting endpoints for sales, purchases, and returns with flexible filtering and summary statistics.
+
+### 27.1 Sales Report
+
+Get detailed sales transactions with filtering and summary totals.
+
+**Endpoint:** `GET /reports/sales`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `period` (optional): `today` (default), `yesterday`, `last_7_days`, `last_30_days`, `current_month`, `last_month`, `current_year`
+- `from_date` (optional): Start date (YYYY-MM-DD) - use with `to_date` instead of `period`
+- `to_date` (optional): End date (YYYY-MM-DD)
+- `branch_id` (optional): Filter by specific branch
+- `party_id` (optional): Filter by specific customer
+- `payment_type_id` (optional): Filter by payment method
+- `search` (optional): Search in invoice number, party name, payment type, or branch
+- `per_page` (optional): Results per page (default: 20, max: 100)
+- `page` (optional): Page number
+
+**Response Fields:**
+
+All sale records include an `invoice_url` field for viewing/printing invoices:
+- Format: `https://your-domain.com/business/get-invoice/{sale_id}`
+- Use for displaying invoices or triggering browser printing
+- Authentication required to access
+
+**Response:**
+```json
+{
+  "message": "Sales report retrieved successfully",
+  "data": {
+    "summary": {
+      "total_sales": 145,
+      "total_amount": 487550.00,
+      "total_paid": 455200.00,
+      "total_due": 32350.00,
+      "total_discount": 12500.00,
+      "total_vat": 48755.00,
+      "total_profit": 145680.00,
+      "period": {
+        "from": "2025-12-01",
+        "to": "2025-12-24"
+      }
+    },
+    "sales": {
+      "current_page": 1,
+      "data": [
+        {
+          "id": 1234,
+          "invoiceNumber": "INV-00123",
+          "saleDate": "2025-12-24",
+          "totalAmount": 5500.00,
+          "discountAmount": 200.00,
+          "paidAmount": 5300.00,
+          "dueAmount": 0.00,
+          "vat_amount": 550.00,
+          "lossProfit": 1650.00,
+          "isPaid": true,
+          "paymentType": "Cash",
+          "created_at": "2025-12-24T10:00:00.000000Z",
+          "updated_at": "2025-12-24T10:00:00.000000Z",
+          "invoice_url": "https://your-domain.com/business/get-invoice/1234",
+          "user": {
+            "id": 1,
+            "name": "John Doe"
+          },
+          "party": {
+            "id": 45,
+            "name": "ABC Store",
+            "email": "abc@store.com",
+            "phone": "1234567890",
+            "type": "Retailer"
+          },
+          "branch": {
+            "id": 1,
+            "name": "Main Branch"
+          },
+          "payment_type": {
+            "id": 1,
+            "name": "Cash"
+          }
+        }
+      ],
+      "per_page": 20,
+      "total": 145,
+      "last_page": 8
+    }
+  }
+}
+```
+
+---
+
+### 27.2 Sales Summary
+
+Get aggregated sales statistics without transaction details.
+
+**Endpoint:** `GET /reports/sales/summary`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `period` (optional): `today` (default), `yesterday`, `last_7_days`, `last_30_days`, `current_month`, `last_month`, `current_year`
+- `from_date` (optional): Start date (YYYY-MM-DD)
+- `to_date` (optional): End date (YYYY-MM-DD)
+- `branch_id` (optional): Filter by specific branch
+
+**Response:**
+```json
+{
+  "message": "Sales summary retrieved successfully",
+  "data": {
+    "total_sales": 145,
+    "total_amount": 487550.00,
+    "total_paid": 455200.00,
+    "total_due": 32350.00,
+    "total_discount": 12500.00,
+    "total_vat": 48755.00,
+    "total_profit": 145680.00,
+    "average_sale_amount": 3362.41,
+    "fully_paid_count": 132,
+    "partially_paid_count": 13,
+    "period": {
+      "from": "2025-12-01",
+      "to": "2025-12-24"
+    }
+  }
+}
+```
+
+---
+
+### 27.3 Purchases Report
+
+Get detailed purchase transactions with filtering and summary totals.
+
+**Endpoint:** `GET /reports/purchases`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `period` (optional): `today` (default), `yesterday`, `last_7_days`, `last_30_days`, `current_month`, `last_month`, `current_year`
+- `from_date` (optional): Start date (YYYY-MM-DD)
+- `to_date` (optional): End date (YYYY-MM-DD)
+- `branch_id` (optional): Filter by specific branch
+- `party_id` (optional): Filter by specific supplier
+- `payment_type_id` (optional): Filter by payment method
+- `search` (optional): Search in invoice number, party name, payment type, or branch
+- `per_page` (optional): Results per page (default: 20, max: 100)
+- `page` (optional): Page number
+
+**Response:**
+```json
+{
+  "message": "Purchases report retrieved successfully",
+  "data": {
+    "summary": {
+      "total_purchases": 87,
+      "total_amount": 325600.00,
+      "total_paid": 310000.00,
+      "total_due": 15600.00,
+      "total_discount": 5200.00,
+      "total_vat": 32560.00,
+      "period": {
+        "from": "2025-12-01",
+        "to": "2025-12-24"
+      }
+    },
+    "purchases": {
+      "current_page": 1,
+      "data": [
+        {
+          "id": 567,
+          "invoiceNumber": "PUR-00089",
+          "purchaseDate": "2025-12-24",
+          "totalAmount": 12500.00,
+          "discountAmount": 500.00,
+          "paidAmount": 12000.00,
+          "dueAmount": 0.00,
+          "vat_amount": 1250.00,
+          "isPaid": true,
+          "paymentType": "Bank Transfer",
+          "user": {
+            "id": 1,
+            "name": "John Doe"
+          },
+          "party": {
+            "id": 78,
+            "name": "Global Suppliers Ltd",
+            "email": "info@global.com",
+            "phone": "0987654321",
+            "type": "Supplier"
+          },
+          "branch": {
+            "id": 1,
+            "name": "Main Branch"
+          },
+          "payment_type": {
+            "id": 2,
+            "name": "Bank Transfer"
+          }
+        }
+      ],
+      "per_page": 20,
+      "total": 87,
+      "last_page": 5
+    }
+  }
+}
+```
+
+---
+
+### 27.4 Purchases Summary
+
+Get aggregated purchase statistics without transaction details.
+
+**Endpoint:** `GET /reports/purchases/summary`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `period` (optional): `today` (default), `yesterday`, `last_7_days`, `last_30_days`, `current_month`, `last_month`, `current_year`
+- `from_date` (optional): Start date (YYYY-MM-DD)
+- `to_date` (optional): End date (YYYY-MM-DD)
+- `branch_id` (optional): Filter by specific branch
+
+**Response:**
+```json
+{
+  "message": "Purchases summary retrieved successfully",
+  "data": {
+    "total_purchases": 87,
+    "total_amount": 325600.00,
+    "total_paid": 310000.00,
+    "total_due": 15600.00,
+    "total_discount": 5200.00,
+    "total_vat": 32560.00,
+    "average_purchase_amount": 3743.68,
+    "fully_paid_count": 80,
+    "partially_paid_count": 7,
+    "period": {
+      "from": "2025-12-01",
+      "to": "2025-12-24"
+    }
+  }
+}
+```
+
+---
+
+### 27.5 Sale Returns Report
+
+Get detailed sale return transactions with filtering.
+
+**Endpoint:** `GET /reports/sale-returns`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `period` (optional): `today` (default), `yesterday`, `last_7_days`, `last_30_days`, `current_month`, `last_month`, `current_year`
+- `from_date` (optional): Start date (YYYY-MM-DD)
+- `to_date` (optional): End date (YYYY-MM-DD)
+- `branch_id` (optional): Filter by specific branch
+- `party_id` (optional): Filter by specific customer
+- `search` (optional): Search in invoice number, party name, or branch
+- `per_page` (optional): Results per page (default: 20, max: 100)
+- `page` (optional): Page number
+
+**Response:**
+```json
+{
+  "message": "Sale returns report retrieved successfully",
+  "data": {
+    "summary": {
+      "total_returns": 23,
+      "total_return_amount": 45600.00,
+      "total_return_quantity": 89.00,
+      "period": {
+        "from": "2025-12-01",
+        "to": "2025-12-24"
+      }
+    },
+    "sales": {
+      "current_page": 1,
+      "data": [
+        {
+          "id": 1234,
+          "invoiceNumber": "INV-00123",
+          "saleDate": "2025-12-20",
+          "totalAmount": 5500.00,
+          "user": {
+            "id": 1,
+            "name": "John Doe"
+          },
+          "party": {
+            "id": 45,
+            "name": "ABC Store",
+            "phone": "1234567890"
+          },
+          "branch": {
+            "id": 1,
+            "name": "Main Branch"
+          },
+          "saleReturns": [
+            {
+              "id": 89,
+              "return_date": "2025-12-21",
+              "total_return_amount": 1200.00,
+              "branch": {
+                "id": 1,
+                "name": "Main Branch"
+              },
+              "details": [
+                {
+                  "product": {
+                    "id": 45,
+                    "productName": "T-Shirt Blue"
+                  },
+                  "return_qty": 2,
+                  "return_amount": 1200.00
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "per_page": 20,
+      "total": 23,
+      "last_page": 2
+    }
+  }
+}
+```
+
+---
+
+### 27.6 Sale Returns Summary
+
+Get aggregated sale return statistics.
+
+**Endpoint:** `GET /reports/sale-returns/summary`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `period` (optional): `today` (default), `yesterday`, `last_7_days`, `last_30_days`, `current_month`, `last_month`, `current_year`
+- `from_date` (optional): Start date (YYYY-MM-DD)
+- `to_date` (optional): End date (YYYY-MM-DD)
+- `branch_id` (optional): Filter by specific branch
+
+**Response:**
+```json
+{
+  "message": "Sale returns summary retrieved successfully",
+  "data": {
+    "total_returns": 23,
+    "total_return_amount": 45600.00,
+    "total_return_quantity": 89.00,
+    "average_return_amount": 1982.61,
+    "period": {
+      "from": "2025-12-01",
+      "to": "2025-12-24"
+    }
+  }
+}
+```
+
+---
+
+### 27.7 Purchase Returns Report
+
+Get detailed purchase return transactions with filtering.
+
+**Endpoint:** `GET /reports/purchase-returns`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `period` (optional): `today` (default), `yesterday`, `last_7_days`, `last_30_days`, `current_month`, `last_month`, `current_year`
+- `from_date` (optional): Start date (YYYY-MM-DD)
+- `to_date` (optional): End date (YYYY-MM-DD)
+- `branch_id` (optional): Filter by specific branch
+- `party_id` (optional): Filter by specific supplier
+- `search` (optional): Search in invoice number, party name, or branch
+- `per_page` (optional): Results per page (default: 20, max: 100)
+- `page` (optional): Page number
+
+**Response:**
+```json
+{
+  "message": "Purchase returns report retrieved successfully",
+  "data": {
+    "summary": {
+      "total_returns": 15,
+      "total_return_amount": 28400.00,
+      "total_return_quantity": 56.00,
+      "period": {
+        "from": "2025-12-01",
+        "to": "2025-12-24"
+      }
+    },
+    "purchases": {
+      "current_page": 1,
+      "data": [
+        {
+          "id": 567,
+          "invoiceNumber": "PUR-00089",
+          "purchaseDate": "2025-12-20",
+          "totalAmount": 12500.00,
+          "user": {
+            "id": 1,
+            "name": "John Doe"
+          },
+          "party": {
+            "id": 78,
+            "name": "Global Suppliers Ltd",
+            "phone": "0987654321"
+          },
+          "branch": {
+            "id": 1,
+            "name": "Main Branch"
+          },
+          "purchaseReturns": [
+            {
+              "id": 34,
+              "return_date": "2025-12-21",
+              "total_return_amount": 2400.00,
+              "branch": {
+                "id": 1,
+                "name": "Main Branch"
+              },
+              "details": [
+                {
+                  "product": {
+                    "id": 67,
+                    "productName": "Widget XL"
+                  },
+                  "return_qty": 5,
+                  "return_amount": 2400.00
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "per_page": 20,
+      "total": 15,
+      "last_page": 1
+    }
+  }
+}
+```
+
+---
+
+### 27.8 Purchase Returns Summary
+
+Get aggregated purchase return statistics.
+
+**Endpoint:** `GET /reports/purchase-returns/summary`  
+**Auth Required:** Yes
+
+**Query Parameters:**
+- `period` (optional): `today` (default), `yesterday`, `last_7_days`, `last_30_days`, `current_month`, `last_month`, `current_year`
+- `from_date` (optional): Start date (YYYY-MM-DD)
+- `to_date` (optional): End date (YYYY-MM-DD)
+- `branch_id` (optional): Filter by specific branch
+
+**Response:**
+```json
+{
+  "message": "Purchase returns summary retrieved successfully",
+  "data": {
+    "total_returns": 15,
+    "total_return_amount": 28400.00,
+    "total_return_quantity": 56.00,
+    "average_return_amount": 1893.33,
+    "period": {
+      "from": "2025-12-01",
+      "to": "2025-12-24"
+    }
+  }
+}
+```
+
+---
+
+## 28. Variant Reports & Analytics
 
 Advanced reporting endpoints for variant product analysis and insights.
 
-### 26.1 Variant Sales Summary
+### 28.1 Variant Sales Summary
 
 Get detailed sales analytics for variants with flexible grouping and filtering options.
 
@@ -6287,7 +6996,7 @@ Get detailed sales analytics for variants with flexible grouping and filtering o
 
 ---
 
-### 26.2 Top Selling Variants
+### 28.2 Top Selling Variants
 
 Identify best-performing variants by various metrics.
 
@@ -6335,7 +7044,7 @@ Identify best-performing variants by various metrics.
 
 ---
 
-### 26.3 Slow Moving Variants
+### 28.3 Slow Moving Variants
 
 Identify slow-moving inventory for optimization and clearance decisions.
 

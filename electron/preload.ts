@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clear: () => ipcRenderer.invoke('secure-store-clear'),
   },
 
+  // Receipt Printing
+  print: {
+    receipt: (invoiceUrl: string) => ipcRenderer.invoke('print-receipt', invoiceUrl),
+  },
+
   // SQLite Database
   sqlite: {
     // Database lifecycle

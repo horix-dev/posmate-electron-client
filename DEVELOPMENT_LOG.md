@@ -1,3 +1,148 @@
+## 2025-12-25 — Receipt Printing Feature (Electron Silent Printing)
+
+**Problem**: After completing a sale, users need to print receipts. The initial implementation opened invoice_url in browser, but users wanted silent printing within the Electron app without consent dialogs.
+
+**Solution**: Implemented silent printing using Electron's built-in printing capabilities with fallback for web:
+
+**Features Added**:
+1. ✅ **Silent Printing**: No print dialog - prints directly to default printer in Electron
+2. ✅ **Auto-Print Setting**: Uses existing `autoPrintReceipt` setting from UI store (Settings > POS Settings)
+3. ✅ **Receipt Printer Utility**: Created `src/lib/receipt-printer.ts` with environment detection
+4. ✅ **Auto-Print on Sale**: After successful online sale, automatically prints receipt if auto-print is enabled
+5. ✅ **Manual Print Button**: Added "Print Receipt" button in Sale Details Dialog for reprinting
+6. ✅ **Web Fallback**: Opens print dialog in browser for web version (non-Electron)
+7. ✅ **Offline Handling**: Receipt printing only works for online sales (requires invoice_url from API)
+
+**Implementation Details**:
+
+**Electron Main Process** (`electron/main.ts`):
+- Added `print-receipt` IPC handler
+- Creates hidden BrowserWindow to load invoice_url
+- Uses `webContents.print()` with `silent: true` option
+- Prints to default printer without user interaction
+- Closes hidden window after printing completes
+
+**Preload Script** (`electron/preload.ts`):
+- Exposed `electronAPI.print.receipt(invoiceUrl)` to renderer process
+- Uses secure IPC communication via context bridge
+
+**Receipt Printer Utility** (`src/lib/receipt-printer.ts`):
+- Detects Electron environment automatically
+- **Electron**: Calls IPC for silent printing
+- **Web**: Falls back to `window.open()` with print dialog
+- Handles errors gracefully with console warnings
+
+**User Flow**:
+1. Complete a sale in POS page
+2. If auto-print enabled + Electron → Receipt prints silently to default printer
+3. If auto-print enabled + Web → Opens print dialog
+4. View sale in Sales page → Click "Print Receipt" button to reprint
+
+**Settings**:
+- Navigate to Settings > POS Settings > Auto-print Receipt toggle
+- Enabled by default: `false` (user must opt-in)
+- Works in both Electron and Web environments
+
+**Backend API**:
+- Endpoint: `POST /api/v1/sales`
+- Response includes: `invoice_url: "https://your-domain.com/business/get-invoice/{sale_id}"`
+- Invoice page must be accessible (authenticated) for printing to work
+
+**Files Created**:
+- `src/lib/receipt-printer.ts` - Receipt printing utility with environment detection
+
+**Files Modified**:
+- `src/types/api.types.ts` - Added `invoice_url?: string` field to Sale interface
+- `electron/main.ts` - Added silent print IPC handler
+- `electron/preload.ts` - Exposed print API to renderer
+- `src/pages/pos/POSPage.tsx` - Integrated auto-print after successful sale
+- `src/pages/sales/components/SaleDetailsDialog.tsx` - Added manual "Print Receipt" button
+
+**Technical Notes**:
+- Hidden BrowserWindow created for each print job (width: 800, height: 600)
+- 1 second delay before printing to ensure content loads
+- `silent: true` prevents print dialog from showing
+- `printBackground: true` ensures invoice styling is printed
+- Window automatically closes after print completes
+- No dependencies added - uses native Electron APIs
+
+---
+
+## 2025-12-25 — Sidebar Contrast (Dark Sidebar)
+
+**Problem**: Sidebar blended with the rest of the UI and lacked visual contrast.
+
+**Solution**: Made the sidebar a dark surface (even in light mode) by switching the layout sidebar to use the dedicated `sidebar` theme tokens and updating `:root` sidebar CSS variables to a dark palette with light foreground text.
+
+**Files Modified**:
+- `src/components/layout/Sidebar.tsx` - Uses `bg-sidebar`, `text-sidebar-foreground`, `border-sidebar-border` and updates inactive text styles for readability
+- `src/index.css` - Updated `--sidebar-*` variables in `:root` for a dark sidebar on light UI
+
+**Follow-up UI tweak**:
+- `src/pages/pos/components/CartSidebar.tsx` - Cart header uses a subtle `bg-muted/30` + border surface for mild contrast without pulling too much attention
+
+**POS layout tweak**:
+- `src/pages/pos/POSPage.tsx` - Removed right padding on the POS layout container and made the cart panel right edge non-rounded so it sits flush to the right side
+
+**POS cart panel**:
+- `src/pages/pos/POSPage.tsx` - Cart is now a fixed right-side panel (`fixed right-0 top-12 bottom-0`) instead of an in-flow card; products area reserves space with `pr-[28rem]`
+
+---
+
+## 2025-12-25 — POS Page Panel Contrast
+
+**Problem**: The Products grid and Cart panel blended together (same surface/background), reducing scanability.
+
+**Solution**: Added a subtle muted page backdrop and rendered both sections as distinct bordered panels with consistent padding and light shadow.
+
+**Files Modified**:
+- `src/pages/pos/POSPage.tsx` - Adds `bg-muted/30` container and panel wrappers for Products/Cart
+- `src/pages/pos/components/CartSidebar.tsx` - Removes outer Card border/shadow to avoid double-panel styling
+
+---
+
+## 2025-12-23 — Product Type Standard: 'simple' (Not 'single')
+
+**Requirement**: Backend API uses `product_type='simple'` for normal (non-variant) products.
+
+**Implementation**: Already correctly implemented throughout frontend:
+- ✅ **Type Definition**: `ProductType = 'simple' | 'variable'` in `src/types/variant.types.ts`
+- ✅ **API Types**: `Product.product_type: 'simple' | 'variable'` in `src/types/api.types.ts`
+- ✅ **Form Schema**: Default value `product_type: 'simple'` in `src/pages/products/schemas/product.schema.ts`
+- ✅ **Form Data**: Correctly passes `data.product_type` to API
+- ✅ **All Components**: Use 'simple' consistently (verified via grep search)
+
+**Allowed Values**:
+- `simple` - Regular products (non-batch, non-variants)
+- `variable` - Products with attribute-based variants (size, color, etc.)
+- ~~`single`~~ - **DEPRECATED** (legacy value, do not use)
+
+**Backend Alignment**: 
+- Backend validates: `product_type in ['simple', 'variant', 'variable']`
+- Frontend uses: `'simple' | 'variable'` (correctly aligned)
+- Note: 'variant' is not used in product creation (only for internal batch/lot tracking)
+
+---
+
+## 2025-12-23 — Products List Updates Without Refresh
+
+**Problem**: After creating/updating a product, the Products table showed missing/incorrect Category, Brand, and Stock until a manual refresh.
+
+**Root cause**: Create/update API responses can return a partial Product payload (missing joined `category`/`brand` objects and/or `stocks`), and the UI inserted that raw response into the table.
+
+**Solution**:
+- Hydrate the returned product for list display by joining `category`/`brand`/`unit` from the already-loaded lists.
+- For simple products, derive stock values from the submitted `FormData` when the response lacks `stocks`.
+- Persist the hydrated product to offline storage, and do a best-effort `GET /products/{id}` to further enrich if the backend provides expanded fields.
+
+**Files Modified**:
+- `src/pages/products/hooks/useProducts.ts`
+
+**Related**:
+- Updated `.husky/pre-commit` to remove deprecated Husky v10 header lines.
+
+---
+
 ## 2025-12-21 — Sales Filters Enhanced UI (Calendar Date Pickers)
 
 ---
