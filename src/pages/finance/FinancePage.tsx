@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Wallet, Plus, Search, Tags } from 'lucide-react'
 import { toast } from 'sonner'
+import { useCurrency } from '@/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,6 +30,7 @@ const unwrapItems = <T,>(payload: unknown): T[] => {
 }
 
 export function FinancePage() {
+  const { format: formatCurrency } = useCurrency()
   const [activeTab, setActiveTab] = useState<'expenses' | 'income'>('expenses')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -190,7 +192,7 @@ export function FinancePage() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${activeTab === 'expenses' ? 'text-red-600' : 'text-green-600'}`}>
-              {activeTab === 'expenses' ? '-' : '+'} ${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {activeTab === 'expenses' ? '-' : '+'} {formatCurrency(totalAmount)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {filteredData.length} {filteredData.length === 1 ? 'record' : 'records'}

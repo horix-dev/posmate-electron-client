@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { toast } from 'sonner'
+import { useCurrency } from '@/hooks'
 import type { Sale } from '@/types/api.types'
 import { printReceipt } from '@/lib/receipt-printer'
 import { getPaymentStatus, isSaleSynced, formatSaleDate } from '../hooks'
@@ -43,8 +44,6 @@ export interface SaleDetailsDialogProps {
   open: boolean
   /** Callback when dialog open state changes */
   onOpenChange: (open: boolean) => void
-  /** Currency symbol for price display */
-  currencySymbol: string
 }
 
 // ============================================
@@ -79,16 +78,13 @@ function SaleDetailsDialogComponent({
   sale,
   open,
   onOpenChange,
-  currencySymbol,
 }: SaleDetailsDialogProps) {
+  const { format: formatCurrency } = useCurrency()
+
   if (!sale) return null
 
   const paymentStatus = getPaymentStatus(sale)
   const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
-
-  const formatCurrency = (amount: number) => {
-    return `${currencySymbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
 
   const getPaymentBadgeVariant = (): 'default' | 'destructive' | 'secondary' | 'outline' => {
     switch (paymentStatus.status) {

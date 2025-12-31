@@ -5,6 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
+import { useCurrency } from '@/hooks'
 import { CartItem, type CartItemDisplay } from './CartItem'
 import type { Party, PaymentType } from '@/types/api.types'
 
@@ -30,8 +31,6 @@ export interface CartSidebarProps {
   totals: CartTotals
   /** VAT percentage */
   vatPercentage: number
-  /** Currency symbol */
-  currencySymbol: string
   /** Number of held carts */
   heldCartsCount: number
   /** Invoice number */
@@ -61,7 +60,6 @@ interface CartHeaderProps {
   invoiceNumber: string
   customer: Party | null
   heldCartsCount: number
-  currencySymbol: string
   onSelectCustomer: () => void
   onOpenHeldCarts: () => void
 }
@@ -71,10 +69,10 @@ const CartHeader = memo(function CartHeader({
   invoiceNumber,
   customer,
   heldCartsCount,
-  currencySymbol,
   onSelectCustomer,
   onOpenHeldCarts,
 }: CartHeaderProps) {
+  const { format: formatCurrency } = useCurrency()
   return (
     <CardHeader className="space-y-3 bg-primary px-4 pb-3 pt-4">
       {/* Invoice Info */}
@@ -103,8 +101,7 @@ const CartHeader = memo(function CartHeader({
           </div>
           {customer && customer.due > 0 && (
             <span className="text-xs text-muted-foreground">
-              Due: {currencySymbol}
-              {customer.due.toLocaleString()}
+              Due: {formatCurrency(customer.due)}
             </span>
           )}
         </Button>
@@ -124,45 +121,40 @@ const CartHeader = memo(function CartHeader({
 interface CartTotalsSectionProps {
   totals: CartTotals
   vatPercentage: number
-  currencySymbol: string
 }
 
 const CartTotalsSection = memo(function CartTotalsSection({
   totals,
   vatPercentage,
-  currencySymbol,
 }: CartTotalsSectionProps) {
+  const { format: formatCurrency } = useCurrency()
   return (
     <div className="space-y-2 bg-gray-200 px-4 py-3">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Subtotal</span>
         <span>
-          {currencySymbol}
-          {totals.subtotal.toLocaleString()}
+          {formatCurrency(totals.subtotal)}
         </span>
       </div>
       {totals.discountAmount > 0 && (
         <div className="flex justify-between text-sm text-green-600">
           <span>Discount</span>
           <span>
-            -{currencySymbol}
-            {totals.discountAmount.toLocaleString()}
+            -{formatCurrency(totals.discountAmount)}
           </span>
         </div>
       )}
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">VAT ({vatPercentage}%)</span>
         <span>
-          {currencySymbol}
-          {totals.vatAmount.toLocaleString()}
+          {formatCurrency(totals.vatAmount)}
         </span>
       </div>
       <Separator />
       <div className="flex justify-between text-lg font-bold">
         <span>Total</span>
         <span className="text-primary">
-          {currencySymbol}
-          {totals.total.toLocaleString()}
+          {formatCurrency(totals.total)}
         </span>
       </div>
     </div>
@@ -200,7 +192,6 @@ function CartSidebarComponent({
   paymentType,
   totals,
   vatPercentage,
-  currencySymbol,
   heldCartsCount,
   invoiceNumber,
   onUpdateQuantity,
@@ -211,6 +202,7 @@ function CartSidebarComponent({
   onSelectCustomer,
   onPayment,
 }: CartSidebarProps) {
+  const { format: formatCurrency } = useCurrency()
   const itemCount = useMemo(() => items.reduce((acc, item) => acc + item.quantity, 0), [items])
 
   const isEmpty = items.length === 0
@@ -238,7 +230,6 @@ function CartSidebarComponent({
         invoiceNumber={invoiceNumber}
         customer={customer}
         heldCartsCount={heldCartsCount}
-        currencySymbol={currencySymbol}
         onSelectCustomer={onSelectCustomer}
         onOpenHeldCarts={onOpenHeldCarts}
       />
@@ -256,7 +247,6 @@ function CartSidebarComponent({
                 <CartItem
                   key={item.id}
                   item={item}
-                  currencySymbol={currencySymbol}
                   onUpdateQuantity={onUpdateQuantity}
                   onRemove={onRemoveItem}
                 />
@@ -273,7 +263,6 @@ function CartSidebarComponent({
           <CartTotalsSection
             totals={totals}
             vatPercentage={vatPercentage}
-            currencySymbol={currencySymbol}
           />
         </>
       )}
@@ -312,8 +301,7 @@ function CartSidebarComponent({
           disabled={isEmpty}
         >
           <CreditCard className="mr-2 h-5 w-5" aria-hidden="true" />
-          Pay {currencySymbol}
-          {totals.total.toLocaleString()}
+          Pay {formatCurrency(totals.total)}
         </Button>
 
         {/* Payment Type Hint */}

@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo } from 'react'
 import { Plus, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { useBusinessStore } from '@/stores'
 import { useDebounce } from '@/hooks'
 import { productsService } from '@/api/services'
 import type { Product } from '@/types/api.types'
@@ -72,12 +71,6 @@ export function ProductsPage() {
     attributes,
     isLoading: attributesLoading,
   } = useAttributes()
-
-  // ============================================
-  // Business Store
-  // ============================================
-  const business = useBusinessStore((state) => state.business)
-  const currencySymbol = business?.business_currency?.symbol || '$'
 
   // ============================================
   // Dialog State
@@ -234,7 +227,6 @@ export function ProductsPage() {
       <ProductStatsCards
         stats={stats}
         totalStockValue={totalStockValue}
-        currencySymbol={currencySymbol}
         isLoading={isLoading}
       />
 
@@ -250,7 +242,6 @@ export function ProductsPage() {
       <ProductTable
         products={filteredProducts}
         hasProducts={products.length > 0}
-        currencySymbol={currencySymbol}
         isLoading={isLoading}
         onView={handleView}
         onEdit={handleEdit}
@@ -262,7 +253,6 @@ export function ProductsPage() {
       {/* View Product Dialog */}
       <ProductDetailsDialog
         product={viewProduct}
-        currencySymbol={currencySymbol}
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
       />
@@ -278,7 +268,6 @@ export function ProductsPage() {
         units={units}
         attributes={attributes}
         attributesLoading={attributesLoading}
-        currencySymbol={currencySymbol}
         onSubmit={handleFormSubmit}
       />
 

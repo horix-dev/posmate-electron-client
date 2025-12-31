@@ -20,8 +20,6 @@ export interface ProductTableProps {
   products: Product[]
   /** Whether there are any products at all (before filtering) */
   hasProducts: boolean
-  /** Currency symbol for price display */
-  currencySymbol: string
   /** Whether data is loading */
   isLoading: boolean
   /** Callback when view action is clicked */
@@ -65,7 +63,6 @@ const ProductTableHeader = memo(function ProductTableHeader() {
 function ProductTableComponent({
   products,
   hasProducts,
-  currencySymbol,
   isLoading,
   onView,
   onEdit,
@@ -117,7 +114,6 @@ function ProductTableComponent({
               <ProductRow
                 key={product.id}
                 product={product}
-                currencySymbol={currencySymbol}
                 onView={onView}
                 onEdit={onEdit}
                 onDelete={onDelete}

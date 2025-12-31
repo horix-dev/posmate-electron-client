@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useCurrency } from '@/hooks'
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ interface DueTableProps {
 }
 
 export function DueTable({ data, isLoading, onSelectionChange, onCollectDue, onDelete }: DueTableProps) {
+  const { format: formatCurrency } = useCurrency()
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [perPage, setPerPage] = useState(10)
@@ -181,10 +183,7 @@ export function DueTable({ data, isLoading, onSelectionChange, onCollectDue, onD
                         {party.phone || '-'}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-red-600">
-                        ${(party.due || 0).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                        {formatCurrency(party.due || 0)}
                       </TableCell>
                       <TableCell>{getDueStatusBadge(party.due || 0)}</TableCell>
                       <TableCell className="text-right">

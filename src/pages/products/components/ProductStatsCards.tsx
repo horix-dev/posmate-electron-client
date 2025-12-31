@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react'
 import { Package, TrendingUp, AlertTriangle, DollarSign } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { useCurrency } from '@/hooks'
 import type { ProductStats } from '../hooks'
 
 // ============================================
@@ -13,8 +14,6 @@ export interface ProductStatsCardsProps {
   stats: ProductStats
   /** Total stock value from API */
   totalStockValue: number
-  /** Currency symbol for display */
-  currencySymbol: string
   /** Whether data is loading */
   isLoading?: boolean
 }
@@ -80,12 +79,13 @@ const StatCard = memo(function StatCard({
 function ProductStatsCardsComponent({
   stats,
   totalStockValue,
-  currencySymbol,
   isLoading = false,
 }: ProductStatsCardsProps) {
+  const { format: formatCurrency } = useCurrency()
+
   const formattedStockValue = useMemo(() => {
-    return `${currencySymbol}${totalStockValue.toLocaleString()}`
-  }, [currencySymbol, totalStockValue])
+    return formatCurrency(totalStockValue)
+  }, [formatCurrency, totalStockValue])
 
   return (
     <div

@@ -20,6 +20,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn, getImageUrl } from '@/lib/utils'
+import { useCurrency } from '@/hooks'
 import type { Product } from '@/types/api.types'
 import { getStockStatus } from '../hooks'
 
@@ -30,8 +31,6 @@ import { getStockStatus } from '../hooks'
 export interface ProductDetailsDialogProps {
   /** Product to display, null if dialog should be closed */
   product: Product | null
-  /** Currency symbol for price display */
-  currencySymbol: string
   /** Whether the dialog is open */
   open: boolean
   /** Callback when dialog open state changes */
@@ -63,10 +62,11 @@ const DetailItem = memo(function DetailItem({
 
 function ProductDetailsDialogComponent({
   product,
-  currencySymbol,
   open,
   onOpenChange,
 }: ProductDetailsDialogProps) {
+  const { format: formatCurrency } = useCurrency()
+
   // Don't render if no product
   if (!product) return null
 
@@ -205,8 +205,7 @@ function ProductDetailsDialogComponent({
                           <TableCell className="text-right">
                             {variant.price ? (
                               <span>
-                                {currencySymbol}
-                                {variant.price.toLocaleString()}
+                                {formatCurrency(variant.price)}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">Base</span>
@@ -282,12 +281,10 @@ function ProductDetailsDialogComponent({
                         <TableCell>{stock.batch_no || 'Default'}</TableCell>
                         <TableCell className="text-right">{stock.productStock}</TableCell>
                         <TableCell className="text-right">
-                          {currencySymbol}
-                          {stock.productPurchasePrice.toLocaleString()}
+                          {formatCurrency(stock.productPurchasePrice)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {currencySymbol}
-                          {stock.productSalePrice.toLocaleString()}
+                          {formatCurrency(stock.productSalePrice)}
                         </TableCell>
                       </TableRow>
                     ))}

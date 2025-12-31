@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
+import { useCurrency } from '@/hooks'
 import {
     Table,
     TableBody,
@@ -42,6 +43,7 @@ export function TransactionTable({
     onSelectionChange,
     onBulkDelete,
 }: TransactionTableProps) {
+    const { format: formatCurrency } = useCurrency()
     const [selectedIds, setSelectedIds] = useState<number[]>([])
     const [page, setPage] = useState(1)
     const [rowsPerPage, setRowsPerPage] = useState(10)
@@ -195,7 +197,7 @@ export function TransactionTable({
                                         <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{item.paymentName}</TableCell>
                                         <TableCell className="text-right font-bold font-mono whitespace-nowrap">
                                             <span className={type === 'income' ? 'text-green-600' : 'text-red-600'}>
-                                                {type === 'income' ? '+' : '-'} {item.amount.toLocaleString()}
+                                                {type === 'income' ? '+' : '-'} {formatCurrency(item.amount)}
                                             </span>
                                         </TableCell>
                                         <TableCell className="text-right">

@@ -38,6 +38,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { getImageUrl } from '@/lib/utils'
+import { useCurrency } from '@/hooks'
 import type { Product, Category, Brand, Unit } from '@/types/api.types'
 import type { Attribute } from '@/types/variant.types'
 import {
@@ -76,8 +77,6 @@ export interface ProductFormDialogProps {
   attributesLoading?: boolean
   /** Callback when form is submitted successfully - handles both FormData and VariableProductPayload */
   onSubmit: (data: FormData | ReturnType<typeof formDataToVariableProductPayload>, isEdit: boolean, isVariable: boolean) => Promise<void>
-  /** Currency symbol for display */
-  currencySymbol?: string
 }
 
 // ============================================
@@ -102,8 +101,8 @@ function ProductFormDialogComponent({
   attributes = [],
   attributesLoading = false,
   onSubmit,
-  currencySymbol = '$',
 }: ProductFormDialogProps) {
+  const { symbol: currencySymbol } = useCurrency()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -586,7 +585,6 @@ function ProductFormDialogComponent({
                     attributesLoading={attributesLoading}
                     variants={variants}
                     onVariantsChange={handleVariantsChange}
-                    currencySymbol={currencySymbol}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
