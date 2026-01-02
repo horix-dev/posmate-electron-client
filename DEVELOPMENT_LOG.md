@@ -1,3 +1,127 @@
+## 2026-01-03 — Convert Product Type to Checkbox UI ✅
+
+**Context**: Simplified product type selection by converting from dropdown to checkbox for better UX and clearer visual hierarchy.
+
+**Problem**: Dropdown select for product type:
+- Required extra clicks to see options
+- Didn't clearly indicate the default (simple) vs. advanced (variable) choice
+- Tabs were always visible but disabled for simple products
+
+**Solution Implemented**:
+
+**File**: `src/pages/products/components/ProductFormDialog.tsx`
+
+**Changes**:
+1. **Replaced Select with Checkbox**:
+   - Unchecked = Simple Product (default)
+   - Checked = Variable Product
+  - Edit mode: checkbox hidden; shows read-only product type
+
+2. **Conditional Tab Display**:
+   - Tabs only appear when checkbox is checked (variable product)
+   - Simple products show form fields directly without tabs
+   - Cleaner interface for simple products
+
+3. **Duplicate Field Sets**:
+   - Created separate field sections for simple products outside tabs
+   - Maintains all form functionality (image upload, basic info, pricing, alert qty)
+   - Properly handles edit mode (hides initial stock field)
+
+**Impact**:
+- ✅ Simpler, more intuitive UI for product type selection
+- ✅ Cleaner interface for simple products (no unnecessary tabs)
+- ✅ Single action to enable/disable variable product features
+- ✅ Clear visual distinction between simple and variable products
+
+---
+
+## 2026-01-03 — Product Update Uses Method Spoofing ✅
+
+**Context**: Laravel backends commonly require `POST` + `_method=PUT` for `multipart/form-data` updates (especially when uploading files).
+
+**Problem**: Product update for simple products used `PUT` with `multipart/form-data`, which can fail on some Laravel deployments and result in no effective update.
+
+**Solution Implemented**:
+
+**File**: `src/api/services/products.service.ts`
+
+**Changes**:
+- Simple product updates now send `POST /products/{id}` with `FormData` and append `_method=PUT`
+- Keeps `Content-Type: multipart/form-data`
+
+**Impact**:
+- ✅ Product updates work reliably with file uploads
+- ✅ No backend changes required
+
+---
+
+## 2026-01-03 — Lock Product Type on Update ✅
+
+**Context**: Product type (simple vs. variable) is a fundamental structural property that cannot be safely changed after creation due to underlying data model differences.
+
+**Problem**: Users could change a simple product to variable or vice versa during edit, which would:
+- Break existing product structures and relationships
+- Cause data integrity issues
+- Create inconsistencies with variant data
+- Result in invalid state in the database
+
+**Solution Implemented**:
+
+**File**: `src/pages/products/components/ProductFormDialog.tsx`
+
+**Changes**:
+- Changed product type select from `disabled={isEdit && product?.product_type === 'variable'}` to `disabled={isEdit}`
+- Now prevents ANY product type change during edit (both directions: simple→variable and variable→simple)
+
+**Impact**:
+- ✅ Prevents accidental or intentional product type changes
+- ✅ Maintains data integrity and consistency
+- ✅ Clear business rule: product type is immutable after creation
+
+---
+
+## 2026-01-03 — Remove Initial Stock Field from Product Updates ✅
+
+**Context**: Initial stock should only be set during product creation, not updates. Stock adjustments must use the dedicated Stock Adjustment feature for proper audit trail.
+
+**Problem**: Product update form incorrectly included "Initial Stock" field for both simple and variable products, which:
+- Violates REST API specification (`PUT /products/{id}` doesn't accept `initial_stock`)
+- Confuses users about stock vs. initial stock
+- Bypasses stock adjustment audit trail
+- Creates data integrity issues
+
+**Solution Implemented**: 
+
+### 1. Hidden Stock Field on Edit Mode
+
+**File**: `src/pages/products/components/ProductFormDialog.tsx`
+
+**Changes**:
+- Conditionally hide `productStock` field when `isEdit=true`
+- Create mode: Show 3 columns (purchase price, sale price, initial stock)
+- Edit mode: Show 2 columns (purchase price, sale price only)
+
+### 2. Updated FormData Conversion
+
+**File**: `src/pages/products/schemas/product.schema.ts`
+
+**Changes**:
+- Added `isEdit` parameter to `formDataToFormData()` function
+- Only appends `productStock` when `!isEdit`
+- Prevents stock field from being sent to API during updates
+
+**Impact**:
+- ✅ Aligns with API specification
+- ✅ Users must use Stock Adjustment feature for stock changes
+- ✅ Maintains proper audit trail for all inventory changes
+- ✅ Reduces user confusion between initial stock vs. current stock
+
+**Files Modified**:
+- `src/pages/products/components/ProductFormDialog.tsx` — Conditional field rendering & isEdit parameter
+- `src/pages/products/schemas/product.schema.ts` — FormData conversion logic
+
+---
+
 ## 2026-01-03 — Frontend Caching & Sync Optimization ✅
 
 **Context**: Backend team completed Phase 1-2 of sync enhancements (total count validation, database indexes, ETag headers). Frontend now implements corresponding caching improvements to reduce API calls by 70-80%.

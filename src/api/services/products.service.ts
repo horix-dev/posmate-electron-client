@@ -143,7 +143,14 @@ export const productsService = {
       productData instanceof FormData
         ? productData
         : buildFormData(productData as unknown as Record<string, unknown>)
-    const { data } = await api.put<ApiResponse<Product>>(
+
+    // Laravel-friendly method spoofing for multipart updates
+    // Some backends do not reliably accept PUT with multipart/form-data, especially with files.
+    if (!formData.has('_method')) {
+      formData.append('_method', 'PUT')
+    }
+
+    const { data } = await api.post<ApiResponse<Product>>(
       API_ENDPOINTS.PRODUCTS.UPDATE(id),
       formData,
       {
