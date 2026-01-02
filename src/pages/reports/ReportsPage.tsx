@@ -13,12 +13,6 @@ import {
 } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { useSalesReport } from './hooks/useSalesReport'
 import { usePurchasesReport } from './hooks/usePurchasesReport'
 import { useSaleReturnsReport } from './hooks/useSaleReturnsReport'
@@ -421,7 +415,7 @@ export function ReportsPage() {
                                   <div className="flex flex-col items-end text-xs text-muted-foreground space-y-0.5 mt-1 pl-2 border-l-2 border-muted">
                                     <span>Initial: {initialPaid.toLocaleString()}</span>
                                     <span className="text-green-600 dark:text-green-400">
-                                      +Collections: {collectionsTotal.toLocaleString()}
+                                      +Collections: {collectionsTotal.toLocaleString()} ({collectionsCount})
                                     </span>
                                   </div>
                                 )}
