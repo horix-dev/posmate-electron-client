@@ -38,12 +38,9 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { purchasesService, productsService, partiesService } from '@/api/services'
+import { useCurrency } from '@/hooks'
+import { calculatePurchaseTotals, buildCreatePurchaseRequest } from '../utils/purchaseCalculations'
 import type { Product, Party } from '@/types/api.types'
-import { useBusinessStore } from '@/stores'
-import {
-  buildCreatePurchaseRequest,
-  calculatePurchaseTotals,
-} from '@/pages/purchases/utils/purchaseCalculations'
 
 // ============================================
 // Form Schema
@@ -195,8 +192,7 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
   const [supplierOpen, setSupplierOpen] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
 
-  const business = useBusinessStore((state) => state.business)
-  const currencySymbol = business?.business_currency?.symbol || '$'
+  const { format: formatCurrency } = useCurrency()
 
   // Form
   const form = useForm<PurchaseFormValues>({
@@ -709,14 +705,10 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
                             <div>
                               <Label>Subtotal</Label>
                               <div className="flex h-10 items-center font-medium">
-                                {currencySymbol}
-                                {(
+                                {formatCurrency(
                                   (form.watch(`products.${index}.quantities`) || 0) *
                                   (form.watch(`products.${index}.productPurchasePrice`) || 0)
-                                ).toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
+                                )}
                               </div>
                             </div>
                           </div>
@@ -756,11 +748,7 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
                   <div>
                     <Label>Total Amount</Label>
                     <div className="flex h-10 items-center text-lg font-bold">
-                      {currencySymbol}
-                      {totalAmount.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      {formatCurrency(totalAmount)}
                     </div>
                   </div>
 
@@ -795,11 +783,7 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
                         dueAmount > 0 && 'text-destructive'
                       )}
                     >
-                      {currencySymbol}
-                      {dueAmount.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      {formatCurrency(dueAmount)}
                     </div>
                   </div>
                 </div>

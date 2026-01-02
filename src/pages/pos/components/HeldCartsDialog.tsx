@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { useCurrency } from '@/hooks'
 import type { HeldCart } from '@/stores/cart.store'
 
 // ============================================
@@ -31,8 +32,6 @@ export interface HeldCartsDialogProps {
   onClose: () => void
   /** Held carts data */
   heldCarts: HeldCart[]
-  /** Currency symbol */
-  currencySymbol: string
   /** Recall cart callback */
   onRecallCart: (cartId: string) => void
   /** Delete held cart callback */
@@ -45,17 +44,16 @@ export interface HeldCartsDialogProps {
 
 interface HeldCartCardProps {
   cart: HeldCart
-  currencySymbol: string
   onRecall: () => void
   onDelete: () => void
 }
 
 const HeldCartCard = memo(function HeldCartCard({
   cart,
-  currencySymbol,
   onRecall,
   onDelete,
 }: HeldCartCardProps) {
+  const { format: formatCurrency } = useCurrency()
   const itemCount = cart.items.reduce((acc, item) => acc + item.quantity, 0)
   const total = cart.items.reduce(
     (acc, item) => acc + item.unitPrice * item.quantity,
@@ -101,8 +99,7 @@ const HeldCartCard = memo(function HeldCartCard({
         {/* Total & Actions */}
         <div className="flex flex-col items-end gap-2">
           <Badge variant="secondary" className="text-base">
-            {currencySymbol}
-            {total.toLocaleString()}
+            {formatCurrency(total)}
           </Badge>
           <div className="flex gap-1">
             <Button
@@ -169,7 +166,6 @@ function HeldCartsDialogComponent({
   open,
   onClose,
   heldCarts,
-  currencySymbol,
   onRecallCart,
   onDeleteCart,
 }: HeldCartsDialogProps) {
@@ -211,7 +207,6 @@ function HeldCartsDialogComponent({
                 <HeldCartCard
                   key={cart.id}
                   cart={cart}
-                  currencySymbol={currencySymbol}
                   onRecall={() => handleRecall(cart.id)}
                   onDelete={() => onDeleteCart(cart.id)}
                 />

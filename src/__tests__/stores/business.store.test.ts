@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { act } from '@testing-library/react'
 import { useBusinessStore } from '@/stores/business.store'

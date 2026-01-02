@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { Store, Receipt, Bell, Palette, Lock, Users, Tag, RefreshCw, Download } from 'lucide-react'
+import { Store, Receipt, Bell, Palette, Lock, Users, Tag, RefreshCw, Download, DollarSign } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { useUIStore, useBusinessStore } from '@/stores'
 import { attributesService } from '@/api/services'
 import { useAppUpdater } from '@/hooks/useAppUpdater'
-import { AttributesSettings } from './components'
+import { AttributesSettings, CurrencySettings } from './components'
 import type { Attribute } from '@/types/variant.types'
 
 export function SettingsPage() {
@@ -127,6 +127,10 @@ export function SettingsPage() {
           <TabsTrigger value="attributes">
             <Tag className="mr-1 h-3 w-3" />
             Attributes
+          </TabsTrigger>
+          <TabsTrigger value="currency">
+            <DollarSign className="mr-1 h-3 w-3" />
+            Currency
           </TabsTrigger>
           <TabsTrigger value="invoice">Invoice</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
@@ -291,6 +295,10 @@ export function SettingsPage() {
             isLoading={attributesLoading}
             onRefresh={fetchAttributes}
           />
+        </TabsContent>
+
+        <TabsContent value="currency" className="space-y-4">
+          <CurrencySettings />
         </TabsContent>
 
         <TabsContent value="invoice" className="space-y-4">

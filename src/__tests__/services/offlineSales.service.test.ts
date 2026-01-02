@@ -72,9 +72,7 @@ const mockIsOfflineQueuedError = isOfflineQueuedError as ReturnType<typeof vi.fn
 // Test Fixtures
 // ============================================
 
-const createMockSaleRequest = (
-  overrides: Partial<CreateSaleRequest> = {}
-): CreateSaleRequest => ({
+const createMockSaleRequest = (overrides: Partial<CreateSaleRequest> = {}): CreateSaleRequest => ({
   party_id: 1,
   saleDate: '2025-01-01',
   totalAmount: 1000,
@@ -83,7 +81,7 @@ const createMockSaleRequest = (
   dueAmount: 0,
   payment_type_id: 1,
   note: 'Test sale',
-  products: JSON.stringify([
+  products: [
     {
       stock_id: 1,
       product_name: 'Test Product',
@@ -91,7 +89,7 @@ const createMockSaleRequest = (
       price: 500,
       lossProfit: 100,
     },
-  ]),
+  ],
   ...overrides,
 })
 
@@ -237,7 +235,7 @@ describe('OfflineSalesService', () => {
         const minimalSaleRequest: CreateSaleRequest = {
           totalAmount: 500,
           paidAmount: 500,
-          products: JSON.stringify([
+          products: [
             {
               stock_id: 1,
               product_name: 'Test Product',
@@ -245,7 +243,7 @@ describe('OfflineSalesService', () => {
               price: 500,
               lossProfit: 50,
             },
-          ]),
+          ],
         }
 
         const syncState = createMockSyncState({ isOnline: false })

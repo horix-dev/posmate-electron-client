@@ -1,18 +1,16 @@
 import { DollarSign, Receipt, CreditCard, Cloud, CloudOff } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useCurrency } from '@/hooks'
 import type { SalesStats } from '../hooks'
 
 interface SalesStatsCardsProps {
   stats: SalesStats
-  currencySymbol: string
   isLoading: boolean
 }
 
-export function SalesStatsCards({ stats, currencySymbol, isLoading }: SalesStatsCardsProps) {
-  const formatCurrency = (amount: number) => {
-    return `${currencySymbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
+export function SalesStatsCards({ stats, isLoading }: SalesStatsCardsProps) {
+  const { format: formatCurrency } = useCurrency()
 
   const cards = [
     {

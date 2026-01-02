@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import type { SpyInstance } from 'vitest'
 import { printReceipt, printReceiptWithFeedback } from '@/lib/receipt-printer'
 import type { Sale } from '@/types/api.types'
 
@@ -10,9 +12,9 @@ const mockElectronAPI = {
 }
 
 describe('printReceipt', () => {
-  let windowOpenSpy: ReturnType<typeof vi.spyOn>
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>
+  let windowOpenSpy: SpyInstance
+  let consoleWarnSpy: SpyInstance
+  let consoleErrorSpy: SpyInstance
 
   beforeEach(() => {
     // Reset mocks
@@ -51,7 +53,7 @@ describe('printReceipt', () => {
   describe('in Electron environment', () => {
     beforeEach(() => {
       // Mock Electron environment
-      ;(window as any).electronAPI = mockElectronAPI
+      (window as any).electronAPI = mockElectronAPI
     })
 
     it('should use Electron silent printing when available', async () => {
@@ -145,8 +147,8 @@ describe('printReceipt', () => {
 })
 
 describe('printReceiptWithFeedback', () => {
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>
-  let windowOpenSpy: ReturnType<typeof vi.spyOn>
+  let consoleWarnSpy: SpyInstance
+  let windowOpenSpy: SpyInstance
 
   beforeEach(() => {
     vi.clearAllMocks()

@@ -5,6 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
+import { useCurrency } from '@/hooks'
 import { CartItem, type CartItemDisplay } from './CartItem'
 import type { Party, PaymentType } from '@/types/api.types'
 
@@ -30,8 +31,6 @@ export interface CartSidebarProps {
   totals: CartTotals
   /** VAT percentage */
   vatPercentage: number
-  /** Currency symbol */
-  currencySymbol: string
   /** Number of held carts */
   heldCartsCount: number
   /** Invoice number */
@@ -73,16 +72,17 @@ const CartHeader = memo(function CartHeader({
   onSelectCustomer,
   onOpenHeldCarts,
 }: CartHeaderProps) {
+  const { format: formatCurrency } = useCurrency()
   return (
-    <CardHeader className="space-y-3 bg-gray-300 px-4 pb-3 pt-4">
+    <CardHeader className="space-y-3 bg-primary px-4 pb-3 pt-4">
       {/* Invoice Info */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Receipt className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <span className="text-sm font-medium">{invoiceNumber}</span>
+          <Receipt className="h-4 w-4 text-white" aria-hidden="true" />
+          <span className="text-sm font-medium text-white">{invoiceNumber}</span>
         </div>
         <div className="flex items-center gap-2">
-          <ShoppingCart className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <ShoppingCart className="h-4 w-4 text-white" aria-hidden="true" />
           <Badge variant="secondary">{itemCount}</Badge>
         </div>
       </div>
@@ -92,11 +92,18 @@ const CartHeader = memo(function CartHeader({
         <Button
           variant="outline"
           size="sm"
-          className="flex-1 justify-start gap-2"
+          className="h-auto flex-1 flex-col items-start justify-start gap-2 py-2"
           onClick={onSelectCustomer}
         >
-          <User className="h-4 w-4" aria-hidden="true" />
-          <span className="truncate">{customer?.name || 'Walk-in Customer'}</span>
+          <div className="flex w-full items-center gap-2">
+            <User className="h-4 w-4" aria-hidden="true" />
+            <span className="truncate">{customer?.name || 'Walk-in Customer'}</span>
+          </div>
+          {customer && customer.due > 0 && (
+            <span className="text-xs text-muted-foreground">
+              Due: {formatCurrency(customer.due)}
+            </span>
+          )}
         </Button>
         {heldCartsCount > 0 && (
           <Button variant="outline" size="sm" className="gap-2" onClick={onOpenHeldCarts}>
@@ -114,45 +121,40 @@ const CartHeader = memo(function CartHeader({
 interface CartTotalsSectionProps {
   totals: CartTotals
   vatPercentage: number
-  currencySymbol: string
 }
 
 const CartTotalsSection = memo(function CartTotalsSection({
   totals,
   vatPercentage,
-  currencySymbol,
 }: CartTotalsSectionProps) {
+  const { format: formatCurrency } = useCurrency()
   return (
-    <div className="space-y-2 px-4 py-3">
+    <div className="space-y-2 bg-gray-200 px-4 py-3">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Subtotal</span>
         <span>
-          {currencySymbol}
-          {totals.subtotal.toLocaleString()}
+          {formatCurrency(totals.subtotal)}
         </span>
       </div>
       {totals.discountAmount > 0 && (
         <div className="flex justify-between text-sm text-green-600">
           <span>Discount</span>
           <span>
-            -{currencySymbol}
-            {totals.discountAmount.toLocaleString()}
+            -{formatCurrency(totals.discountAmount)}
           </span>
         </div>
       )}
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">VAT ({vatPercentage}%)</span>
         <span>
-          {currencySymbol}
-          {totals.vatAmount.toLocaleString()}
+          {formatCurrency(totals.vatAmount)}
         </span>
       </div>
       <Separator />
       <div className="flex justify-between text-lg font-bold">
         <span>Total</span>
         <span className="text-primary">
-          {currencySymbol}
-          {totals.total.toLocaleString()}
+          {formatCurrency(totals.total)}
         </span>
       </div>
     </div>
@@ -190,7 +192,6 @@ function CartSidebarComponent({
   paymentType,
   totals,
   vatPercentage,
-  currencySymbol,
   heldCartsCount,
   invoiceNumber,
   onUpdateQuantity,
@@ -201,6 +202,7 @@ function CartSidebarComponent({
   onSelectCustomer,
   onPayment,
 }: CartSidebarProps) {
+  const { format: formatCurrency } = useCurrency()
   const itemCount = useMemo(() => items.reduce((acc, item) => acc + item.quantity, 0), [items])
 
   const isEmpty = items.length === 0
@@ -245,7 +247,6 @@ function CartSidebarComponent({
                 <CartItem
                   key={item.id}
                   item={item}
-                  currencySymbol={currencySymbol}
                   onUpdateQuantity={onUpdateQuantity}
                   onRemove={onRemoveItem}
                 />
@@ -262,12 +263,11 @@ function CartSidebarComponent({
           <CartTotalsSection
             totals={totals}
             vatPercentage={vatPercentage}
-            currencySymbol={currencySymbol}
           />
         </>
       )}
 
-      <CardFooter className="flex-col gap-2 px-4 pb-4 pt-2">
+      <CardFooter className="flex-col gap-2 bg-gray-200 px-4 pb-4 pt-2">
         {/* Action Buttons */}
         <div className="flex w-full gap-2">
           <Button
@@ -293,10 +293,15 @@ function CartSidebarComponent({
         </div>
 
         {/* Payment Button */}
-        <Button size="lg" className="w-full text-base" onClick={onPayment} disabled={isEmpty}>
+        <Button
+          size="lg"
+          variant={'success'}
+          className="w-full text-base"
+          onClick={onPayment}
+          disabled={isEmpty}
+        >
           <CreditCard className="mr-2 h-5 w-5" aria-hidden="true" />
-          Pay {currencySymbol}
-          {totals.total.toLocaleString()}
+          Pay {formatCurrency(totals.total)}
         </Button>
 
         {/* Payment Type Hint */}

@@ -91,6 +91,7 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
           return {
             ...p,
             stocks, // Use full stocks array, not just [p.stock]
+            variants: p.variants || [], // ✅ CRITICAL: Preserve variants array from cache!
             // Ensure stock values are available at top level for UI components
             stocks_sum_product_stock: stocks.reduce((sum, s) => sum + (s.productStock ?? 0), 0),
             productStock: stocks[0]?.productStock ?? 0,
@@ -100,6 +101,10 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
             category: categoryId ? categoryMap.get(categoryId) : undefined,
           }
         })
+
+        // ✅ Sort by ID descending to match API order (newest first)
+        convertedProducts.sort((a, b) => b.id - a.id)
+
         setProducts(convertedProducts)
       }
 

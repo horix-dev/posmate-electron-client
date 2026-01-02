@@ -17,7 +17,11 @@ import { ShelvesTable } from './components/shelves/ShelvesTable'
 import { RackDialog } from './components/racks/RackDialog'
 import { ShelfDialog } from './components/shelves/ShelfDialog'
 import { PrintLabelsPage } from './components/print-labels/PrintLabelsPage'
-import type { Category, Brand, ProductModel, Unit, Rack, Shelf } from '@/types/api.types'
+import { PaymentTypesTable } from './components/payment-types/PaymentTypesTable'
+import { PaymentTypeDialog } from './components/payment-types/PaymentTypeDialog'
+import { VatsTable } from './components/vats/VatsTable'
+import { VatDialog } from './components/vats/VatDialog'
+import type { Category, Brand, ProductModel, Unit, Rack, Shelf, PaymentType, Vat } from '@/types/api.types'
 
 export function ProductSettingsPage() {
   const [activeTab, setActiveTab] = useState('categories')
@@ -43,6 +47,12 @@ export function ProductSettingsPage() {
   const [isShelfOpen, setIsShelfOpen] = useState(false)
   const [editingShelf, setEditingShelf] = useState<Shelf | null>(null)
 
+  const [isVatOpen, setIsVatOpen] = useState(false)
+  const [editingVat, setEditingVat] = useState<Vat | null>(null)
+
+  const [isPaymentTypeOpen, setIsPaymentTypeOpen] = useState(false)
+  const [editingPaymentType, setEditingPaymentType] = useState<PaymentType | null>(null)
+
   const handleAdd = () => {
     if (activeTab === 'categories') {
       setEditingCategory(null)
@@ -62,6 +72,12 @@ export function ProductSettingsPage() {
     } else if (activeTab === 'shelfs') {
       setEditingShelf(null)
       setIsShelfOpen(true)
+    } else if (activeTab === 'tax-settings') {
+      setEditingVat(null)
+      setIsVatOpen(true)
+    } else if (activeTab === 'payment-types') {
+      setEditingPaymentType(null)
+      setIsPaymentTypeOpen(true)
     }
   }
 
@@ -78,9 +94,19 @@ export function ProductSettingsPage() {
           <Button onClick={handleAdd}>
             <Plus className="mr-2 h-4 w-4" />
             Add New{' '}
-            {activeTab === 'model'
-              ? 'Model'
-              : activeTab.slice(0, -1).charAt(0).toUpperCase() + activeTab.slice(0, -1).slice(1)}
+            {(
+              {
+                categories: 'Category',
+                brands: 'Brand',
+                model: 'Model',
+                units: 'Unit',
+                attributes: 'Attribute',
+                racks: 'Rack',
+                shelfs: 'Shelf',
+                'tax-settings': 'Tax',
+                'payment-types': 'Payment Type',
+              } as Record<string, string>
+            )[activeTab] || 'Item'}
           </Button>
         )}
       </div>
@@ -98,10 +124,12 @@ export function ProductSettingsPage() {
           <TabsTrigger value="attributes">Attributes</TabsTrigger>
           <TabsTrigger value="racks">Racks</TabsTrigger>
           <TabsTrigger value="shelfs">Shelves</TabsTrigger>
+          <TabsTrigger value="tax-settings">Tax Settings</TabsTrigger>
+          <TabsTrigger value="payment-types">Payment Types</TabsTrigger>
           <TabsTrigger value="print-labels">Print Labels</TabsTrigger>
         </ScrollableTabsList>
 
-        {activeTab !== 'print-labels' && (
+        {activeTab !== 'print-labels' && activeTab !== 'attributes' && (
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -195,6 +223,28 @@ export function ProductSettingsPage() {
             />
           </TabsContent>
 
+          <TabsContent value="tax-settings" className="mt-6 space-y-4">
+            <VatsTable
+              searchQuery={searchQuery}
+              refreshTrigger={refreshTrigger}
+              onEdit={(vat) => {
+                setEditingVat(vat)
+                setIsVatOpen(true)
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="payment-types" className="mt-6 space-y-4">
+            <PaymentTypesTable
+              searchQuery={searchQuery}
+              refreshTrigger={refreshTrigger}
+              onEdit={(paymentType) => {
+                setEditingPaymentType(paymentType)
+                setIsPaymentTypeOpen(true)
+              }}
+            />
+          </TabsContent>
+
           <TabsContent value="print-labels" className="mt-6 space-y-4">
             <PrintLabelsPage />
           </TabsContent>
@@ -249,6 +299,26 @@ export function ProductSettingsPage() {
           if (!open) setEditingShelf(null)
         }}
         editData={editingShelf}
+        onSuccess={refresh}
+      />
+
+      <VatDialog
+        open={isVatOpen}
+        onOpenChange={(open) => {
+          setIsVatOpen(open)
+          if (!open) setEditingVat(null)
+        }}
+        editData={editingVat}
+        onSuccess={refresh}
+      />
+
+      <PaymentTypeDialog
+        open={isPaymentTypeOpen}
+        onOpenChange={(open) => {
+          setIsPaymentTypeOpen(open)
+          if (!open) setEditingPaymentType(null)
+        }}
+        editData={editingPaymentType}
         onSuccess={refresh}
       />
     </div>

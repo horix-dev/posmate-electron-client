@@ -18,10 +18,13 @@ const POSPage = lazy(() => import('@/pages/pos/POSPage'))
 const ProductsPage = lazy(() => import('@/pages/products/ProductsPage'))
 const SalesPage = lazy(() => import('@/pages/sales/SalesPage'))
 const PurchasesPage = lazy(() => import('@/pages/purchases/PurchasesPage'))
-const PartiesPage = lazy(() => import('@/pages/parties/PartiesPage'))
-const ExpensesPage = lazy(() => import('@/pages/expenses/ExpensesPage'))
+const FinancePage = lazy(() => import('@/pages/finance/FinancePage'))
+const DuePage = lazy(() => import('@/pages/Due/DuePage'))
+const CustomersPage = lazy(() => import('@/pages/customers/CustomersPage'))
+const SuppliersPage = lazy(() => import('@/pages/suppliers/SuppliersPage'))
 const ProductSettingsPage = lazy(() => import('@/pages/product-settings/ProductSettingsPage'))
 const WarehousesPage = lazy(() => import('@/pages/warehouses/WarehousesPage'))
+const StockAdjustmentsPage = lazy(() => import('@/pages/inventory/StockAdjustmentsPage'))
 const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage'))
 const InvoicesPage = lazy(() => import('@/pages/invoices/InvoicesPage'))
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'))
@@ -42,7 +45,9 @@ function PageLoader() {
 
 // Router configuration
 // Use HashRouter for Electron (file:// protocol), BrowserRouter for web
-const isElectron = typeof window !== 'undefined' && ((window as unknown) as Record<string, unknown>).electronAPI !== undefined
+const isElectron =
+  typeof window !== 'undefined' &&
+  (window as unknown as Record<string, unknown>).electronAPI !== undefined
 const routerCreator = isElectron ? createHashRouter : createBrowserRouter
 
 const router = routerCreator([
@@ -126,18 +131,34 @@ const router = routerCreator([
         ),
       },
       {
-        path: 'parties',
+        path: 'customers',
         element: (
           <Suspense fallback={<PageLoader />}>
-            <PartiesPage />
+            <CustomersPage />
           </Suspense>
         ),
       },
       {
-        path: 'expenses',
+        path: 'suppliers',
         element: (
           <Suspense fallback={<PageLoader />}>
-            <ExpensesPage />
+            <SuppliersPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'finance',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <FinancePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'due',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <DuePage />
           </Suspense>
         ),
       },
@@ -154,6 +175,14 @@ const router = routerCreator([
         element: (
           <Suspense fallback={<PageLoader />}>
             <WarehousesPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'inventory/stock-adjustments',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <StockAdjustmentsPage />
           </Suspense>
         ),
       },

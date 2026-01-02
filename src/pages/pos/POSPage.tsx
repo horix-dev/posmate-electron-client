@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCartStore, getHeldCarts, deleteHeldCart } from '@/stores/cart.store'
 import type { HeldCart } from '@/stores/cart.store'
-import { useBusinessStore } from '@/stores/business.store'
 import { useUIStore } from '@/stores/ui.store'
 import { salesService } from '@/api/services/sales.service'
 import { offlineSalesService } from '@/api/services/offlineSales.service'
@@ -53,8 +52,6 @@ export function POSPage() {
   // ----------------------------------------
   // Store & Data
   // ----------------------------------------
-  const business = useBusinessStore((state) => state.business)
-  const currencySymbol = business?.business_currency?.symbol || '$'
   const autoPrintReceipt = useUIStore((state) => state.autoPrintReceipt)
 
   // Cart store
@@ -322,7 +319,7 @@ export function POSPage() {
 
         // Prepare sale data matching CreateSaleRequest
         const saleData = {
-          products: JSON.stringify(productsForApi),
+          products: productsForApi, // Send as array, not string
           invoiceNumber: invoiceNumber || undefined,
           party_id: customer?.id,
           payment_type_id: paymentType.id,
@@ -554,6 +551,9 @@ export function POSPage() {
         variantId: item.variantId ?? null,
         variantName: item.variantName ?? null,
         variantSku: item.variant?.sku ?? null,
+        // Batch information for display
+        batchNo: item.stock.batch_no ?? null,
+        expiryDate: item.stock.expire_date ?? null,
       })),
     [cartItems]
   )
@@ -570,7 +570,6 @@ export function POSPage() {
           categories={categories}
           selectedCategoryId={filters.categoryId}
           searchQuery={filters.search}
-          currencySymbol={currencySymbol}
           isLoading={isLoading}
           viewMode={viewMode}
           onCategoryChange={handleCategoryChange}
@@ -590,7 +589,6 @@ export function POSPage() {
             paymentType={paymentType}
             totals={cartTotals}
             vatPercentage={vatPercentage}
-            currencySymbol={currencySymbol}
             heldCartsCount={heldCarts.length}
             invoiceNumber={invoiceNumber || 'Loading...'}
             onUpdateQuantity={(productId, quantity) => {
@@ -634,9 +632,9 @@ export function POSPage() {
         open={dialogs.payment}
         onClose={() => closeDialog('payment')}
         totalAmount={totalAmount}
-        currencySymbol={currencySymbol}
         paymentTypes={paymentTypes}
         selectedPaymentType={paymentType}
+        customer={customer}
         isProcessing={isProcessing}
         onPaymentTypeChange={handlePaymentTypeChange}
         onProcessPayment={handleProcessPayment}
@@ -646,7 +644,6 @@ export function POSPage() {
         open={dialogs.heldCarts}
         onClose={() => closeDialog('heldCarts')}
         heldCarts={heldCarts}
-        currencySymbol={currencySymbol}
         onRecallCart={handleRecallCart}
         onDeleteCart={handleDeleteHeldCart}
       />
@@ -670,7 +667,6 @@ export function POSPage() {
             if (!open) setVariantDialogProduct(null)
           }}
           product={variantDialogProduct}
-          currencySymbol={currencySymbol}
           onSelectVariant={handleVariantSelected}
         />
       )}

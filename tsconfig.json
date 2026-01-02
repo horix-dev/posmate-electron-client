@@ -35,5 +35,9 @@
     }
   },
   "include": ["src", "electron"],
+  "exclude": [
+    "src/pages/finance/DuePage.tsx",
+    "src/pages/finance/components/DueTable.tsx"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
