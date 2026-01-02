@@ -132,7 +132,7 @@ const SaleRow = memo(function SaleRow({
   onView,
   onDelete,
 }: SaleRowProps) {
-  const { format: formatCurrency } = useCurrency()
+  const { format: formatCurrencyAmount } = useCurrency()
   const paymentBadge = getPaymentStatusBadge(sale)
   const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
   const itemsCount = getSaleItemsCount(sale)
@@ -146,10 +146,6 @@ const SaleRow = memo(function SaleRow({
   const collectionsTotal = sale.due_collections_total ?? (originalDue - remainingDue)
   const hasDueCollections = collectionsTotal > 0
   const collectionsCount = sale.due_collections_count ?? (hasDueCollections ? 1 : 0)
-
-  const formatCurrency = (amount: number) => {
-    return `${currencySymbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
 
   return (
     <TableRow className={!synced ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : undefined}>
@@ -191,14 +187,14 @@ const SaleRow = memo(function SaleRow({
 
       {/* Total */}
       <TableCell className="text-right font-medium">
-        {formatCurrency(sale.totalAmount ?? 0)}
+        {formatCurrencyAmount(sale.totalAmount ?? 0)}
       </TableCell>
 
       {/* Paid */}
       <TableCell className="text-right">
         <div className="flex flex-col items-end">
           <span className="text-green-600 dark:text-green-400 font-medium">
-            {formatCurrency(totalPaid)}
+            {formatCurrencyAmount(totalPaid)}
           </span>
           {hasDueCollections && (
             <TooltipProvider>
@@ -209,8 +205,8 @@ const SaleRow = memo(function SaleRow({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Initial: {formatCurrency(initialPaid)}</p>
-                  <p>Collections: {formatCurrency(collectionsTotal)}</p>
+                  <p>Initial: {formatCurrencyAmount(initialPaid)}</p>
+                  <p>Collections: {formatCurrencyAmount(collectionsTotal)}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -222,7 +218,7 @@ const SaleRow = memo(function SaleRow({
       <TableCell className="text-right">
         {remainingDue > 0 ? (
           <span className="text-orange-600 dark:text-orange-400">
-            {formatCurrency(remainingDue)}
+            {formatCurrencyAmount(remainingDue)}
           </span>
         ) : (
           <span className="text-muted-foreground">-</span>
@@ -231,7 +227,7 @@ const SaleRow = memo(function SaleRow({
 
       {/* Status */}
       <TableCell>
-        <Badge variant={paymentBadge.variant} className={paymentBadge.className}>
+        <Badge variant={paymentBadge.variant as 'default' | 'secondary' | 'destructive' | 'outline'} className={paymentBadge.className}>
           {paymentBadge.text}
         </Badge>
       </TableCell>

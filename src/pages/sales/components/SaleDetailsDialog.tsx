@@ -85,7 +85,7 @@ function SaleDetailsDialogComponent({
   open,
   onOpenChange,
 }: SaleDetailsDialogProps) {
-  const { format: formatCurrency } = useCurrency()
+  const { format: formatCurrencyAmount } = useCurrency()
 
   if (!sale) return null
 
@@ -93,10 +93,6 @@ function SaleDetailsDialogComponent({
   const paymentBreakdown = formatPaymentBreakdown(sale)
   const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
   const showPaymentBreakdown = hasNewPaymentFields(sale) && paymentBreakdown.dueCollections > 0
-
-  const formatCurrency = (amount: number) => {
-    return `${currencySymbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
 
   const handlePrintReceipt = async () => {
     if (!sale.invoice_url) {
@@ -122,7 +118,7 @@ function SaleDetailsDialogComponent({
               Sale Details
             </DialogTitle>
             <div className="flex items-center gap-2">
-              <Badge variant={paymentBadge.variant} className={paymentBadge.className}>
+              <Badge variant={paymentBadge.variant as 'default' | 'secondary' | 'destructive' | 'outline'} className={paymentBadge.className}>
                 {paymentBadge.text}
               </Badge>
               {synced ? (
@@ -183,9 +179,9 @@ function SaleDetailsDialogComponent({
                         {detail.product?.productName || 'Product'}
                       </TableCell>
                       <TableCell className="text-center">{detail.quantities}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(detail.price)}</TableCell>
+                      <TableCell className="text-right">{formatCurrencyAmount(detail.price)}</TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(detail.price * detail.quantities)}
+                        {formatCurrencyAmount(detail.price * detail.quantities)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -205,24 +201,24 @@ function SaleDetailsDialogComponent({
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Subtotal</span>
-            <span>{formatCurrency(sale.totalAmount ?? 0)}</span>
+            <span>{formatCurrencyAmount(sale.totalAmount ?? 0)}</span>
           </div>
           {(sale.discountAmount ?? 0) > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Discount</span>
-              <span className="text-red-500">-{formatCurrency(sale.discountAmount ?? 0)}</span>
+              <span className="text-red-500">-{formatCurrencyAmount(sale.discountAmount ?? 0)}</span>
             </div>
           )}
           {(sale.vat_amount ?? 0) > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">VAT ({sale.vat?.name || 'Tax'})</span>
-              <span>{formatCurrency(sale.vat_amount ?? 0)}</span>
+              <span>{formatCurrencyAmount(sale.vat_amount ?? 0)}</span>
             </div>
           )}
           <Separator />
           <div className="flex justify-between text-lg font-medium">
             <span>Total</span>
-            <span>{formatCurrency(sale.totalAmount ?? 0)}</span>
+            <span>{formatCurrencyAmount(sale.totalAmount ?? 0)}</span>
           </div>
           
           {/* Payment Breakdown Section */}
@@ -237,7 +233,7 @@ function SaleDetailsDialogComponent({
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Initial Payment</span>
-                    <span className="text-green-600">{formatCurrency(paymentBreakdown.initialPaid)}</span>
+                    <span className="text-green-600">{formatCurrencyAmount(paymentBreakdown.initialPaid)}</span>
                   </div>
                   
                   {paymentBreakdown.dueCollections > 0 && (
@@ -246,7 +242,7 @@ function SaleDetailsDialogComponent({
                         Due Collections ({paymentBreakdown.dueCollectionsCount})
                       </span>
                       <span className="text-green-600">
-                        +{formatCurrency(paymentBreakdown.dueCollections)}
+                        +{formatCurrencyAmount(paymentBreakdown.dueCollections)}
                       </span>
                     </div>
                   )}
@@ -255,13 +251,13 @@ function SaleDetailsDialogComponent({
                   
                   <div className="flex justify-between text-sm font-medium">
                     <span>Total Paid</span>
-                    <span className="text-green-600">{formatCurrency(paymentBreakdown.totalPaid)}</span>
+                    <span className="text-green-600">{formatCurrencyAmount(paymentBreakdown.totalPaid)}</span>
                   </div>
                   
                   {paymentBreakdown.remainingDue > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Remaining Due</span>
-                      <span className="text-orange-600">{formatCurrency(paymentBreakdown.remainingDue)}</span>
+                      <span className="text-orange-600">{formatCurrencyAmount(paymentBreakdown.remainingDue)}</span>
                     </div>
                   )}
                 </div>
@@ -286,12 +282,12 @@ function SaleDetailsDialogComponent({
               {/* Old payment display (backward compatibility) */}
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Paid Amount</span>
-                <span className="text-green-600">{formatCurrency(paymentBreakdown.totalPaid)}</span>
+                <span className="text-green-600">{formatCurrencyAmount(paymentBreakdown.totalPaid)}</span>
               </div>
               {paymentBreakdown.remainingDue > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Due Amount</span>
-                  <span className="text-orange-600">{formatCurrency(paymentBreakdown.remainingDue)}</span>
+                  <span className="text-orange-600">{formatCurrencyAmount(paymentBreakdown.remainingDue)}</span>
                 </div>
               )}
             </>
@@ -300,7 +296,7 @@ function SaleDetailsDialogComponent({
           {(sale.change_amount ?? 0) > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Change</span>
-              <span>{formatCurrency(sale.change_amount ?? 0)}</span>
+              <span>{formatCurrencyAmount(sale.change_amount ?? 0)}</span>
             </div>
           )}
         </div>
