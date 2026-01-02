@@ -7187,6 +7187,14 @@ Comprehensive reporting endpoints for sales, purchases, and returns with flexibl
 
 Get detailed sales transactions with filtering and summary totals.
 
+#### 27.1.1 Sales Report (Due Collections Aware)
+
+- **Endpoint:** `GET /api/v1/sales/report`
+- **Includes:** due collection totals per sale and in summary
+- **Filters:** `search`, `party_id`, `payment_type_id`, `date_from`, `date_to`, `isPaid`, `invoiceNumber`, `per_page`
+- **Key Fields:** `initial_paidAmount`, `initial_dueAmount`, `total_paid_amount`, `remaining_due_amount`, `is_fully_paid`, `due_collections_count`, `due_collections_total`
+- **Summary:** `total_sales_count`, `total_amount`, `initial_paid`, `due_collections`, `total_paid`, `remaining_due`, `counts` (fully_paid, partially_paid, unpaid)
+
 **Endpoint:** `GET /reports/sales`  
 **Auth Required:** Yes
 

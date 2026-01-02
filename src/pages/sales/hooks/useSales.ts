@@ -245,10 +245,18 @@ export function useSales(filters: SalesFilters): UseSalesReturn {
         const status = getPaymentStatus(sale).status
         const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
         
+        // Use new fields if available, fall back to old fields
+        const totalPaid = sale.total_paid_amount !== undefined 
+          ? sale.total_paid_amount 
+          : (sale.paidAmount ?? 0)
+        const remainingDue = sale.remaining_due_amount !== undefined
+          ? sale.remaining_due_amount
+          : (sale.dueAmount ?? 0)
+        
         acc.total += 1
         acc.totalAmount += sale.totalAmount ?? 0
-        acc.totalPaid += sale.paidAmount ?? 0
-        acc.totalDue += sale.dueAmount ?? 0
+        acc.totalPaid += totalPaid
+        acc.totalDue += remainingDue
         
         if (status === 'paid') acc.paidCount += 1
         else if (status === 'partial') acc.partialCount += 1

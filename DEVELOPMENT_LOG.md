@@ -92,6 +92,41 @@
 
 ---
 
+## 2025-01-XX — Frontend Due Collection Tracking Implementation
+
+**Problem**: Sales report and sales tables were not showing accurate paid amounts when due collections were made. The issue was that the backend `POST /dues` endpoint updates `dueAmount` but not `paidAmount`, so the UI showed outdated payment information.
+
+**Solution**: Implemented comprehensive frontend support for new API fields that track initial payments separately from due collections. The new structure includes:
+- `initial_paidAmount` - Payment at sale time
+- `initial_dueAmount` - Due at sale time  
+- `total_paid_amount` - Sum of initial payment + all due collections
+- `remaining_due_amount` - Actual outstanding balance
+- `is_fully_paid` - Accurate payment status
+- `due_collections_count` - Number of collection payments made
+- `due_collections_total` - Total amount from collections
+
+This enables accurate display of complete payment history including due collections made after the original sale.
+
+**Files Modified**:
+- `src/types/api.types.ts` — Added 7 new fields to Sale interface while maintaining backward compatibility with old fields
+- `src/lib/saleHelpers.ts` — Created comprehensive helper utilities:
+  - `getPaymentStatusBadge()` - Gets badge configuration for payment status
+  - `formatPaymentBreakdown()` - Formats complete payment details
+  - `calculateSalesStats()` - Calculates statistics with due collection support
+  - Helper functions for currency formatting and field detection
+- `src/pages/sales/components/SalesTable.tsx` — Updated to show total paid with due collection tooltips
+- `src/pages/sales/components/SaleDetailsDialog.tsx` — Added detailed payment breakdown section showing initial payment, collections, and progress bar
+- `src/pages/sales/hooks/useSales.ts` — Updated stats calculation to use new payment fields
+- `src/pages/reports/ReportsPage.tsx` — Updated interface and table to display due collections with annotations
+
+**Notes**: 
+- All changes maintain backward compatibility with old API responses
+- UI gracefully falls back to old fields when new fields aren't available
+- Backend implementation guide documented in `backend_docs/FRONTEND_SALES_REPORT_GUIDE.md`
+- Waiting for backend to implement new API structure before full testing
+
+---
+
 ## 2025-12-29 — Lint Cleanups (Typing)
 
 **Problem**: ESLint `no-explicit-any` findings across due, finance, reports, and product settings pages.

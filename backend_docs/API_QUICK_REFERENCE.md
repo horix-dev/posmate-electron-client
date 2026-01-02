@@ -430,6 +430,7 @@ Note: List and filter endpoints accept `per_page` and `page`.
 |--------|----------|------|-------------|
 | GET | `/summary` | ✅ | Get today's summary |
 | GET | `/dashboard` | ✅ | Get dashboard data |
+| GET | `/sales/report` | ✅ | Sales report with due collections (includes summary totals) |
 | GET | `/reports/variants/sales-summary` | ✅ | Variant sales analysis with grouping (by variant/product/day/month) |
 | GET | `/reports/variants/top-selling` | ✅ | Top selling variants by quantity/revenue/profit |
 | GET | `/reports/variants/slow-moving` | ✅ | Slow-moving inventory analysis with stock insights |

@@ -32,10 +32,22 @@ interface SalesReportRow {
   sale_date?: string
   totalAmount?: number
   total_amount?: number
+  
+  // Old fields (backward compatibility)
   paidAmount?: number
   paid_amount?: number
   dueAmount?: number
   due_amount?: number
+  
+  // New fields (due collection tracking)
+  total_paid_amount?: number
+  remaining_due_amount?: number
+  initial_paidAmount?: number
+  initial_dueAmount?: number
+  due_collections_total?: number
+  due_collections_count?: number
+  is_fully_paid?: boolean
+  
   paymentType?: string
   payment_type?: { name?: string }
   party?: { name?: string }
@@ -368,25 +380,60 @@ export function ReportsPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      salesRows.map((row) => (
-                        <TableRow key={row.id}>
-                          <TableCell className="font-medium">
-                            {row.invoiceNumber ?? row.invoice_number ?? '-'}
-                          </TableCell>
-                          <TableCell>{toDateOnly(row.saleDate ?? row.sale_date)}</TableCell>
-                          <TableCell>{row.party?.name ?? '-'}</TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(row.totalAmount ?? row.total_amount ?? 0)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(row.paidAmount ?? row.paid_amount ?? 0)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(row.dueAmount ?? row.due_amount ?? 0)}
-                          </TableCell>
-                          <TableCell>{row.payment_type?.name ?? row.paymentType ?? '-'}</TableCell>
-                        </TableRow>
-                      ))
+                      salesRows.map((row) => {
+                        // Calculate payment details with fallback logic
+                        const totalAmount = row.totalAmount ?? row.total_amount ?? 0
+                        const initialPaid = row.initial_paidAmount ?? row.paidAmount ?? row.paid_amount ?? 0
+                        const currentDue = row.dueAmount ?? row.due_amount ?? 0
+                        
+                        // Calculate collections: original due minus current due
+                        const originalDue = totalAmount - initialPaid
+                        const collectionsTotal = row.due_collections_total ?? (originalDue - currentDue)
+                        const hasDueCollections = collectionsTotal > 0
+                        const collectionsCount = row.due_collections_count ?? (hasDueCollections ? 1 : 0)
+                        
+                        // Calculate total paid: initial + collections
+                        const totalPaid = row.total_paid_amount ?? (initialPaid + collectionsTotal)
+                        const remainingDue = row.remaining_due_amount ?? currentDue
+                        
+                        return (
+                          <TableRow key={row.id}>
+                            <TableCell className="font-medium">
+                              {row.invoiceNumber ?? row.invoice_number ?? '-'}
+                            </TableCell>
+                            <TableCell>{toDateOnly(row.saleDate ?? row.sale_date)}</TableCell>
+                            <TableCell>{row.party?.name ?? '-'}</TableCell>
+                            <TableCell className="text-right">
+                              {(row.totalAmount ?? row.total_amount ?? 0).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex flex-col items-end gap-0.5">
+                                <span className="text-green-600 dark:text-green-400 font-semibold">
+                                  {totalPaid.toLocaleString()}
+                                </span>
+                                {hasDueCollections && (
+                                  <div className="flex flex-col items-end text-xs text-muted-foreground space-y-0.5 mt-1 pl-2 border-l-2 border-muted">
+                                    <span>Initial: {initialPaid.toLocaleString()}</span>
+                                    <span className="text-green-600 dark:text-green-400">
+                                      +Collections: {collectionsTotal.toLocaleString()} ({collectionsCount})
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {remainingDue > 0 ? (
+                                <span className="text-orange-600 dark:text-orange-400 font-medium">
+                                  {remainingDue.toLocaleString()}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>{row.payment_type?.name ?? row.paymentType ?? '-'}</TableCell>
+                          </TableRow>
+                        )
+                      })
                     )}
                   </TableBody>
                 </Table>

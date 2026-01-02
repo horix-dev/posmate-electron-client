@@ -26,7 +26,12 @@ import {
 } from '@/components/ui/tooltip'
 import { useCurrency } from '@/hooks'
 import type { Sale } from '@/types/api.types'
-import { getPaymentStatus, isSaleSynced, formatSaleDate, getSaleItemsCount } from '../hooks'
+import { isSaleSynced, formatSaleDate, getSaleItemsCount } from '../hooks'
+import { 
+  getPaymentStatusBadge, 
+  getTotalPaidAmount, 
+  getRemainingDueAmount 
+} from '@/lib/saleHelpers'
 
 // ============================================
 // Types
@@ -127,23 +132,20 @@ const SaleRow = memo(function SaleRow({
   onView,
   onDelete,
 }: SaleRowProps) {
-  const { format: formatCurrency } = useCurrency()
-  const paymentStatus = getPaymentStatus(sale)
+  const { format: formatCurrencyAmount } = useCurrency()
+  const paymentBadge = getPaymentStatusBadge(sale)
   const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
   const itemsCount = getSaleItemsCount(sale)
-
-  const getPaymentBadgeVariant = (): 'default' | 'destructive' | 'secondary' | 'outline' => {
-    switch (paymentStatus.status) {
-      case 'paid':
-        return 'default'
-      case 'partial':
-        return 'secondary'
-      case 'unpaid':
-        return 'destructive'
-      default:
-        return 'outline'
-    }
-  }
+  const totalPaid = getTotalPaidAmount(sale)
+  const remainingDue = getRemainingDueAmount(sale)
+  
+  // Calculate collections with fallback
+  const initialPaid = sale.initial_paidAmount ?? sale.paidAmount ?? 0
+  const totalAmount = sale.totalAmount ?? 0
+  const originalDue = totalAmount - initialPaid
+  const collectionsTotal = sale.due_collections_total ?? (originalDue - remainingDue)
+  const hasDueCollections = collectionsTotal > 0
+  const collectionsCount = sale.due_collections_count ?? (hasDueCollections ? 1 : 0)
 
   return (
     <TableRow className={!synced ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : undefined}>
@@ -185,19 +187,38 @@ const SaleRow = memo(function SaleRow({
 
       {/* Total */}
       <TableCell className="text-right font-medium">
-        {formatCurrency(sale.totalAmount ?? 0)}
+        {formatCurrencyAmount(sale.totalAmount ?? 0)}
       </TableCell>
 
       {/* Paid */}
-      <TableCell className="text-right text-green-600 dark:text-green-400">
-        {formatCurrency(sale.paidAmount ?? 0)}
+      <TableCell className="text-right">
+        <div className="flex flex-col items-end">
+          <span className="text-green-600 dark:text-green-400 font-medium">
+            {formatCurrencyAmount(totalPaid)}
+          </span>
+          {hasDueCollections && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-xs text-muted-foreground">
+                    (+{collectionsCount} collection{collectionsCount > 1 ? 's' : ''})
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Initial: {formatCurrencyAmount(initialPaid)}</p>
+                  <p>Collections: {formatCurrencyAmount(collectionsTotal)}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
       </TableCell>
 
       {/* Due */}
       <TableCell className="text-right">
-        {(sale.dueAmount ?? 0) > 0 ? (
+        {remainingDue > 0 ? (
           <span className="text-orange-600 dark:text-orange-400">
-            {formatCurrency(sale.dueAmount ?? 0)}
+            {formatCurrencyAmount(remainingDue)}
           </span>
         ) : (
           <span className="text-muted-foreground">-</span>
@@ -206,8 +227,8 @@ const SaleRow = memo(function SaleRow({
 
       {/* Status */}
       <TableCell>
-        <Badge variant={getPaymentBadgeVariant()}>
-          {paymentStatus.label}
+        <Badge variant={paymentBadge.variant as 'default' | 'secondary' | 'destructive' | 'outline'} className={paymentBadge.className}>
+          {paymentBadge.text}
         </Badge>
       </TableCell>
 

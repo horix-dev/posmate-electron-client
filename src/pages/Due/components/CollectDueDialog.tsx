@@ -132,7 +132,7 @@ export function CollectDueDialog({
   }, [open])
 
   const totalAmount = selectedInvoice?.totalAmount || 0
-  const dueAmount = Math.max(0, totalAmount - paidAmount)
+  const dueAmount = selectedInvoice?.dueAmount || 0
 
   const handleReset = () => {
     setSelectedInvoice(null)
@@ -189,7 +189,7 @@ export function CollectDueDialog({
               onValueChange={(value) => {
                 const invoice = invoices.find((inv) => inv.id.toString() === value)
                 setSelectedInvoice(invoice || null)
-                setPaidAmount(0)
+                setPaidAmount(invoice?.dueAmount || 0)
               }}
               disabled={isLoadingInvoices}
             >
@@ -289,22 +289,37 @@ export function CollectDueDialog({
             </div>
           </div>
 
-          {/* Paid Amount */}
-          <div className="grid gap-3">
-            <Label htmlFor="paid-amount" className="text-base font-semibold">
-              Paid Amount
-            </Label>
-            <Input
-              id="paid-amount"
-              type="number"
-              min="0"
-              step="0.01"
-              value={paidAmount}
-              onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-              placeholder="Enter amount paid"
-              className="h-10"
-              disabled={!selectedInvoice}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            {/* Paid Amount */}
+            <div className="grid gap-3">
+              <Label htmlFor="paid-amount" className="text-base font-semibold">
+                Paid Amount
+              </Label>
+              <Input
+                id="paid-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={paidAmount}
+                onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                placeholder="Enter amount paid"
+                className="h-10"
+                disabled={!selectedInvoice}
+              />
+            </div>
+
+            {/* Remaining Due */}
+            <div className="grid gap-3">
+              <Label htmlFor="remaining-due" className="text-base font-semibold">
+                Remaining Due
+              </Label>
+              <Input
+                id="remaining-due"
+                value={Math.max(0, dueAmount - paidAmount).toFixed(2)}
+                readOnly
+                className="h-10 bg-muted"
+              />
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -321,7 +336,7 @@ export function CollectDueDialog({
               size="lg"
               onClick={handleSave}
               disabled={isLoading}
-              className="bg-teal-700 hover:bg-teal-800 flex-1"
+              className="flex-1"
             >
               Save
             </Button>
