@@ -55,9 +55,12 @@ axiosRetry(api, {
   },
 })
 
-// Token management helpers
 let authToken: string | null = null
 let refreshPromise: Promise<string | null> | null = null
+
+// ETag cache for HTTP caching (bandwidth optimization)
+const etagCache = new Map<string, string>()
+const responseCache = new Map<string, unknown>()
 
 export const setAuthToken = (token: string | null) => {
   authToken = token
@@ -90,6 +93,15 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`
     }
 
+    // Add ETag for cache validation (GET requests only)
+    if (config.method === 'GET' && config.url) {
+      const cacheKey = `${config.baseURL}${config.url}`
+      const cachedETag = etagCache.get(cacheKey)
+      if (cachedETag) {
+        config.headers['If-None-Match'] = cachedETag
+      }
+    }
+
     // Add device ID for sync-related endpoints
     const isSyncEndpoint =
       config.url?.includes('/sync') ||
@@ -114,9 +126,35 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response interceptor - Handle errors, token refresh, and server timestamp
+// Response interceptor - Handle errors, token refresh, ETag caching, and server timestamp
 api.interceptors.response.use(
   (response) => {
+    // Handle 304 Not Modified - Return cached response
+    if (response.status === 304 && response.config.url) {
+      const cacheKey = `${response.config.baseURL}${response.config.url}`
+      const cachedData = responseCache.get(cacheKey)
+      if (cachedData) {
+        console.log(`[Cache] HIT - Using cached data for ${response.config.url}`)
+        return {
+          ...response,
+          data: cachedData,
+          status: 200, // Convert to 200 for consistent handling
+        }
+      }
+    }
+
+    // Store ETag and response for future cache validation (GET requests only)
+    if (response.config.method === 'GET' && response.config.url) {
+      const cacheKey = `${response.config.baseURL}${response.config.url}`
+      const etag = response.headers['etag']
+
+      if (etag) {
+        etagCache.set(cacheKey, etag)
+        responseCache.set(cacheKey, response.data)
+        console.log(`[Cache] MISS - Stored ETag ${etag} for ${response.config.url}`)
+      }
+    }
+
     // Capture server timestamp from headers or body
     const serverTimestamp =
       response.headers['x-server-timestamp'] || response.data?._server_timestamp

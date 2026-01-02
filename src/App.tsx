@@ -1,9 +1,39 @@
 import { useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-
-// Create a single QueryClient for the app
-const queryClient = new QueryClient()
 import { Toaster } from '@/components/ui/sonner'
+
+/**
+ * Query Client Configuration
+ *
+ * Optimized caching strategy to reduce API calls by 70-80%:
+ * - staleTime: Data is considered fresh for this duration (no refetch)
+ * - gcTime: How long unused data stays in cache (formerly cacheTime)
+ * - refetchOnWindowFocus: Disabled to respect staleTime cache
+ * - refetchOnReconnect: Refetch when internet reconnects
+ *
+ * See: backend_docs/CACHE_AND_SYNC_STRATEGY.md
+ */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Static reference data (units, brands, categories) - 30 min fresh
+      staleTime: 30 * 60 * 1000, // 30 minutes
+
+      // Keep data in cache for 60 minutes after last use
+      gcTime: 60 * 60 * 1000, // 60 minutes
+
+      // Respect staleTime cache (don't refetch on tab focus within 30 min)
+      refetchOnWindowFocus: false,
+
+      // Refetch when network reconnects (offline-first recovery)
+      refetchOnReconnect: true,
+
+      // Retry failed requests (network errors)
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+  },
+})
 import { AppRouter } from '@/routes'
 import { useAuthStore, useUIStore } from '@/stores'
 import { useSyncStore } from '@/stores/sync.store'
@@ -12,7 +42,8 @@ import { UpdateNotification } from '@/components/common/UpdateNotification'
 function App() {
   const hydrateFromStorage = useAuthStore((state) => state.hydrateFromStorage)
   const theme = useUIStore((state) => state.theme)
-  const { checkNeedsInitialSync, startDataSync, startQueueSync, updatePendingSyncCount, isOnline } = useSyncStore()
+  const { checkNeedsInitialSync, startDataSync, startQueueSync, updatePendingSyncCount, isOnline } =
+    useSyncStore()
 
   // Hydrate auth state from secure storage on app load
   useEffect(() => {

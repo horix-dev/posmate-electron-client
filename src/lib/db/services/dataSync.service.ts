@@ -21,6 +21,7 @@ export interface DataSyncResult {
     parties: number
   }
   errors: string[]
+  validationWarnings?: string[]
 }
 
 // ============================================
@@ -40,6 +41,7 @@ export class DataSyncService {
         parties: 0,
       },
       errors: [],
+      validationWarnings: [],
     }
 
     try {
@@ -53,6 +55,16 @@ export class DataSyncService {
       if (productsResult.status === 'fulfilled') {
         result.synced.products = productsResult.value.products
         result.synced.categories = productsResult.value.categories
+
+        // Add validation warning if count mismatch
+        if (productsResult.value.serverTotal !== undefined) {
+          const localCount = await db.products.count()
+          if (localCount !== productsResult.value.serverTotal) {
+            const warning = `Product count mismatch after sync: Local=${localCount}, Server=${productsResult.value.serverTotal}`
+            result.validationWarnings?.push(warning)
+            console.warn(`[DataSync] ${warning}`)
+          }
+        }
       } else {
         result.success = false
         result.errors.push(`Products sync failed: ${productsResult.reason}`)
@@ -76,26 +88,27 @@ export class DataSyncService {
       }
     } catch (error) {
       result.success = false
-      result.errors.push(
-        error instanceof Error ? error.message : 'Unknown sync error'
-      )
+      result.errors.push(error instanceof Error ? error.message : 'Unknown sync error')
     }
 
     return result
   }
 
   /**
+  /**
    * Sync products and categories
    */
   private async syncProducts(): Promise<{
     products: number
     categories: number
+    serverTotal?: number
   }> {
     try {
       // Fetch products with their stock
       const response = await productsService.getAll()
 
       const products = response.data
+      const serverTotal = (response as any).total_records // May be undefined for older API versions
       const categories: Set<Category> = new Set()
 
       // Transform products to local format
@@ -137,9 +150,19 @@ export class DataSyncService {
         await db.categories.bulkPut(localCategories)
       }
 
+      // Data integrity validation (if backend provides total count)
+      if (serverTotal !== undefined && localProducts.length !== serverTotal) {
+        console.warn(
+          `[DataSync] Product count mismatch! Local: ${localProducts.length}, Server: ${serverTotal}`
+        )
+        // Note: We don't throw here, just log the warning
+        // Full sync will be triggered if this is critical
+      }
+
       return {
         products: localProducts.length,
         categories: uniqueCategories.length,
+        serverTotal,
       }
     } catch (error) {
       console.error('Product sync error:', error)

@@ -74,7 +74,7 @@ const CartHeader = memo(function CartHeader({
 }: CartHeaderProps) {
   const { format: formatCurrency } = useCurrency()
   return (
-    <CardHeader className="space-y-3 bg-primary px-4 pb-3 pt-4">
+    <CardHeader className="space-y-3 bg-sidebar px-4 pb-3 pt-4">
       {/* Invoice Info */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -132,30 +132,22 @@ const CartTotalsSection = memo(function CartTotalsSection({
     <div className="space-y-2 bg-gray-200 px-4 py-3">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Subtotal</span>
-        <span>
-          {formatCurrency(totals.subtotal)}
-        </span>
+        <span>{formatCurrency(totals.subtotal)}</span>
       </div>
       {totals.discountAmount > 0 && (
         <div className="flex justify-between text-sm text-green-600">
           <span>Discount</span>
-          <span>
-            -{formatCurrency(totals.discountAmount)}
-          </span>
+          <span>-{formatCurrency(totals.discountAmount)}</span>
         </div>
       )}
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">VAT ({vatPercentage}%)</span>
-        <span>
-          {formatCurrency(totals.vatAmount)}
-        </span>
+        <span>{formatCurrency(totals.vatAmount)}</span>
       </div>
       <Separator />
       <div className="flex justify-between text-lg font-bold">
         <span>Total</span>
-        <span className="text-primary">
-          {formatCurrency(totals.total)}
-        </span>
+        <span className="text-primary">{formatCurrency(totals.total)}</span>
       </div>
     </div>
   )
@@ -260,10 +252,7 @@ function CartSidebarComponent({
       {!isEmpty && (
         <>
           <Separator />
-          <CartTotalsSection
-            totals={totals}
-            vatPercentage={vatPercentage}
-          />
+          <CartTotalsSection totals={totals} vatPercentage={vatPercentage} />
         </>
       )}
 
