@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { RefreshCw, Download, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useBusinessStore } from '@/stores'
 import { useDebounce } from '@/hooks'
 import type { Purchase } from '@/types/api.types'
 
@@ -63,12 +62,6 @@ export function PurchasesPage() {
     setPage,
     setPerPage,
   } = usePurchases(debouncedFilters)
-
-  // ============================================
-  // Business Store
-  // ============================================
-  const business = useBusinessStore((state) => state.business)
-  const currencySymbol = business?.business_currency?.symbol || '$'
 
   // ============================================
   // Dialog State
@@ -181,7 +174,7 @@ export function PurchasesPage() {
       )}
 
       {/* Stats Cards */}
-      <PurchasesStatsCards stats={stats} currencySymbol={currencySymbol} isLoading={isLoading} />
+      <PurchasesStatsCards stats={stats} isLoading={isLoading} />
 
       {/* Filters */}
       <PurchasesFiltersBar filters={filters} onFiltersChange={setFilters} />
@@ -190,7 +183,6 @@ export function PurchasesPage() {
       <PurchasesTable
         purchases={filteredPurchases}
         hasPurchases={hasPurchases}
-        currencySymbol={currencySymbol}
         isLoading={isLoading}
         onView={handleView}
         onDelete={handleDeleteClick}
@@ -208,7 +200,6 @@ export function PurchasesPage() {
         purchase={viewPurchase}
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
-        currencySymbol={currencySymbol}
       />
 
       {/* Delete Confirmation Dialog */}

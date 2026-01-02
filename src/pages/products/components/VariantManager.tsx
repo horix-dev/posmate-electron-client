@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/table'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
+import { useCurrency } from '@/hooks'
 import { toast } from 'sonner'
 import type { Attribute, AttributeValue } from '@/types/variant.types'
 import type { Product } from '@/types/api.types'
@@ -61,7 +62,6 @@ export interface VariantManagerProps {
   attributesLoading: boolean
   variants: VariantInputData[]
   onVariantsChange: (variants: VariantInputData[]) => void
-  currencySymbol?: string
 }
 
 interface AttributeSelectorProps {
@@ -161,7 +161,6 @@ const AttributeSelector = memo(function AttributeSelector({
 interface VariantTableProps {
   variants: VariantInputData[]
   attributes: Attribute[]
-  currencySymbol: string
   onUpdateVariant: (index: number, updates: Partial<VariantInputData>) => void
   onDeleteVariant: (index: number) => void
 }
@@ -169,10 +168,10 @@ interface VariantTableProps {
 const VariantTable = memo(function VariantTable({
   variants,
   attributes,
-  currencySymbol,
   onUpdateVariant,
   onDeleteVariant,
 }: VariantTableProps) {
+  const { symbol: currencySymbol } = useCurrency()
   const valueMap = useMemo(() => {
     const map = new Map<number, { value: string; attributeName: string; colorCode?: string }>()
     attributes.forEach((attr) => {
@@ -401,7 +400,6 @@ function VariantManagerComponent({
   attributesLoading,
   variants,
   onVariantsChange,
-  currencySymbol = '$',
 }: VariantManagerProps) {
   const [selectedValues, setSelectedValues] = useState<Map<number, Set<number>>>(new Map())
   const [loadedProductId, setLoadedProductId] = useState<number | null>(null)
@@ -652,7 +650,6 @@ function VariantManagerComponent({
         <VariantTable
           variants={variants}
           attributes={attributes}
-          currencySymbol={currencySymbol}
           onUpdateVariant={handleUpdateVariant}
           onDeleteVariant={handleDeleteVariant}
         />

@@ -23,7 +23,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { dashboardService } from '@/api/services'
-import { useBusinessStore, useSyncStore } from '@/stores'
+import { useSyncStore } from '@/stores'
+import { useCurrency } from '@/hooks'
 import { getCache, setCache, CacheKeys } from '@/lib/cache'
 import { cn } from '@/lib/utils'
 import { format, parseISO } from 'date-fns'
@@ -211,9 +212,8 @@ export function DashboardPage() {
   const [isOfflineData, setIsOfflineData] = useState(false)
   const [duration, setDuration] = useState<DashboardDuration>('last_thirty_days')
 
-  const business = useBusinessStore((state) => state.business)
   const isOnline = useSyncStore((state) => state.isOnline)
-  const currencySymbol = business?.business_currency?.symbol || '$'
+  const { format: formatCurrency } = useCurrency()
 
   const durationLabel = DASHBOARD_DURATION_LABELS[duration]
   const dashboardCacheKey = useMemo(() => getDashboardCacheKey(duration), [duration])
@@ -266,10 +266,6 @@ export function DashboardPage() {
 
     fetchDashboardData()
   }, [isOnline, duration, dashboardCacheKey])
-
-  const formatCurrency = (value: number) => {
-    return `${currencySymbol}${value.toLocaleString()}`
-  }
 
   const handleExport = () => {
     const payload = {

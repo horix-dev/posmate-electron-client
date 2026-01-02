@@ -17,6 +17,7 @@ import { useSalesReport } from './hooks/useSalesReport'
 import { usePurchasesReport } from './hooks/usePurchasesReport'
 import { useSaleReturnsReport } from './hooks/useSaleReturnsReport'
 import { usePurchaseReturnsReport } from './hooks/usePurchaseReturnsReport'
+import { useCurrency } from '@/hooks'
 import type { TransactionReportParams } from '@/api/services/reports.service'
 import type { ReportPeriod } from '@/types/api.types'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -144,6 +145,7 @@ function toDateOnly(value: unknown): string {
 }
 
 export function ReportsPage() {
+  const { format: formatCurrency } = useCurrency()
   const [period, setPeriod] = useState<ReportPeriod>('today')
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 400)
@@ -306,7 +308,7 @@ export function ReportsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-2xl font-semibold">
-                    {(salesQuery.data?.summary?.total_amount ?? 0).toLocaleString()}
+                    {formatCurrency(salesQuery.data?.summary?.total_amount ?? 0)}
                   </CardContent>
                 </Card>
                 <Card>
@@ -317,7 +319,7 @@ export function ReportsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-2xl font-semibold">
-                    {(salesQuery.data?.summary?.total_paid ?? 0).toLocaleString()}
+                    {formatCurrency(salesQuery.data?.summary?.total_paid ?? 0)}
                   </CardContent>
                 </Card>
                 <Card>
@@ -328,7 +330,7 @@ export function ReportsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-2xl font-semibold">
-                    {(salesQuery.data?.summary?.total_due ?? 0).toLocaleString()}
+                    {formatCurrency(salesQuery.data?.summary?.total_due ?? 0)}
                   </CardContent>
                 </Card>
               </div>
@@ -374,13 +376,13 @@ export function ReportsPage() {
                           <TableCell>{toDateOnly(row.saleDate ?? row.sale_date)}</TableCell>
                           <TableCell>{row.party?.name ?? '-'}</TableCell>
                           <TableCell className="text-right">
-                            {(row.totalAmount ?? row.total_amount ?? 0).toLocaleString()}
+                            {formatCurrency(row.totalAmount ?? row.total_amount ?? 0)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {(row.paidAmount ?? row.paid_amount ?? 0).toLocaleString()}
+                            {formatCurrency(row.paidAmount ?? row.paid_amount ?? 0)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {(row.dueAmount ?? row.due_amount ?? 0).toLocaleString()}
+                            {formatCurrency(row.dueAmount ?? row.due_amount ?? 0)}
                           </TableCell>
                           <TableCell>{row.payment_type?.name ?? row.paymentType ?? '-'}</TableCell>
                         </TableRow>
@@ -419,7 +421,7 @@ export function ReportsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-2xl font-semibold">
-                    {(purchasesQuery.data?.summary?.total_amount ?? 0).toLocaleString()}
+                    {formatCurrency(purchasesQuery.data?.summary?.total_amount ?? 0)}
                   </CardContent>
                 </Card>
                 <Card>
@@ -430,7 +432,7 @@ export function ReportsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-2xl font-semibold">
-                    {(purchasesQuery.data?.summary?.total_paid ?? 0).toLocaleString()}
+                    {formatCurrency(purchasesQuery.data?.summary?.total_paid ?? 0)}
                   </CardContent>
                 </Card>
                 <Card>
@@ -441,7 +443,7 @@ export function ReportsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-2xl font-semibold">
-                    {(purchasesQuery.data?.summary?.total_due ?? 0).toLocaleString()}
+                    {formatCurrency(purchasesQuery.data?.summary?.total_due ?? 0)}
                   </CardContent>
                 </Card>
               </div>
@@ -487,13 +489,13 @@ export function ReportsPage() {
                           <TableCell>{toDateOnly(row.purchaseDate ?? row.purchase_date)}</TableCell>
                           <TableCell>{row.party?.name ?? '-'}</TableCell>
                           <TableCell className="text-right">
-                            {(row.totalAmount ?? row.total_amount ?? 0).toLocaleString()}
+                            {formatCurrency(row.totalAmount ?? row.total_amount ?? 0)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {(row.paidAmount ?? row.paid_amount ?? 0).toLocaleString()}
+                            {formatCurrency(row.paidAmount ?? row.paid_amount ?? 0)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {(row.dueAmount ?? row.due_amount ?? 0).toLocaleString()}
+                            {formatCurrency(row.dueAmount ?? row.due_amount ?? 0)}
                           </TableCell>
                           <TableCell>{row.payment_type?.name ?? row.paymentType ?? '-'}</TableCell>
                         </TableRow>
@@ -532,7 +534,7 @@ export function ReportsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-2xl font-semibold">
-                    {(saleReturnsQuery.data?.summary?.total_return_amount ?? 0).toLocaleString()}
+                    {formatCurrency(saleReturnsQuery.data?.summary?.total_return_amount ?? 0)}
                   </CardContent>
                 </Card>
                 <Card>
@@ -600,7 +602,7 @@ export function ReportsPage() {
                           <TableCell>{row.party}</TableCell>
                           <TableCell className="text-right">{Number(row.returnQty ?? 0).toLocaleString()}</TableCell>
                           <TableCell className="text-right">
-                            {Number(row.returnAmount ?? 0).toLocaleString()}
+                            {formatCurrency(row.returnAmount ?? 0)}
                           </TableCell>
                         </TableRow>
                       ))
@@ -638,7 +640,7 @@ export function ReportsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-2xl font-semibold">
-                    {(purchaseReturnsQuery.data?.summary?.total_return_amount ?? 0).toLocaleString()}
+                    {formatCurrency(purchaseReturnsQuery.data?.summary?.total_return_amount ?? 0)}
                   </CardContent>
                 </Card>
                 <Card>
@@ -706,7 +708,7 @@ export function ReportsPage() {
                           <TableCell>{row.party}</TableCell>
                           <TableCell className="text-right">{Number(row.returnQty ?? 0).toLocaleString()}</TableCell>
                           <TableCell className="text-right">
-                            {Number(row.returnAmount ?? 0).toLocaleString()}
+                            {formatCurrency(row.returnAmount ?? 0)}
                           </TableCell>
                         </TableRow>
                       ))

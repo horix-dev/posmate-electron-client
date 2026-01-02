@@ -29,8 +29,6 @@ export interface ProductGridProps {
   selectedCategoryId: number | null
   /** Search query */
   searchQuery: string
-  /** Currency symbol */
-  currencySymbol: string
   /** Loading state */
   isLoading: boolean
   /** View mode - grid or list */
@@ -226,7 +224,6 @@ function ProductGridComponent({
   categories,
   selectedCategoryId,
   searchQuery,
-  currencySymbol,
   isLoading,
   viewMode,
   onCategoryChange,
@@ -277,7 +274,6 @@ function ProductGridComponent({
               <ProductCard
                 key={product.id}
                 product={product}
-                currencySymbol={currencySymbol}
                 onAddToCart={onAddToCart}
                 onSelectVariant={onSelectVariant}
                 viewMode={viewMode}

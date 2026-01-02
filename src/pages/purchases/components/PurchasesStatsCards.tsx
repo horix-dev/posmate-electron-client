@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { Package, DollarSign, CreditCard, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useCurrency } from '@/hooks'
 import type { PurchasesStats } from '../hooks'
 
 // ============================================
@@ -10,7 +11,6 @@ import type { PurchasesStats } from '../hooks'
 
 export interface PurchasesStatsCardsProps {
   stats: PurchasesStats
-  currencySymbol: string
   isLoading: boolean
 }
 
@@ -73,16 +73,10 @@ const StatCard = memo(function StatCard({
 
 export const PurchasesStatsCards = memo(function PurchasesStatsCards({
   stats,
-  currencySymbol,
   isLoading,
 }: PurchasesStatsCardsProps) {
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return `${currencySymbol}${amount.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`
-  }
+  // Use centralized currency formatting
+  const { format: formatCurrency } = useCurrency()
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

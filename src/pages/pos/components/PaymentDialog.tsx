@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
+import { useCurrency } from '@/hooks'
 import { isCreditPaymentType } from '@/constants/payment-types'
 import { toast } from 'sonner'
 import type { PaymentType, Party } from '@/types/api.types'
@@ -28,8 +29,6 @@ export interface PaymentDialogProps {
   onClose: () => void
   /** Total amount to pay */
   totalAmount: number
-  /** Currency symbol */
-  currencySymbol: string
   /** Available payment types */
   paymentTypes: PaymentType[]
   /** Selected payment type */
@@ -105,19 +104,17 @@ const PaymentTypeButton = memo(function PaymentTypeButton({
 
 interface QuickAmountButtonProps {
   amount: number
-  currencySymbol: string
   onClick: () => void
 }
 
 const QuickAmountButton = memo(function QuickAmountButton({
   amount,
-  currencySymbol,
   onClick,
 }: QuickAmountButtonProps) {
+  const { format: formatCurrency } = useCurrency()
   return (
     <Button variant="outline" size="sm" onClick={onClick} className="h-9">
-      {currencySymbol}
-      {amount.toLocaleString()}
+      {formatCurrency(amount)}
     </Button>
   )
 })
@@ -130,7 +127,6 @@ function PaymentDialogComponent({
   open,
   onClose,
   totalAmount,
-  currencySymbol,
   paymentTypes,
   selectedPaymentType,
   customer,
@@ -138,6 +134,7 @@ function PaymentDialogComponent({
   onPaymentTypeChange,
   onProcessPayment,
 }: PaymentDialogProps) {
+  const { format: formatCurrency, symbol: currencySymbol } = useCurrency()
   const [amountPaid, setAmountPaid] = useState<string>(String(totalAmount))
   const amountInputRef = useRef<HTMLInputElement>(null)
 
@@ -279,8 +276,7 @@ function PaymentDialogComponent({
             <div className="rounded-lg bg-muted p-4 text-center">
               <p className="text-sm text-muted-foreground">Amount Due</p>
               <p className="text-3xl font-bold text-primary">
-                {currencySymbol}
-                {totalAmount.toLocaleString()}
+                {formatCurrency(totalAmount)}
               </p>
             </div>
 
@@ -318,8 +314,7 @@ function PaymentDialogComponent({
                   <div className="flex justify-between">
                     <span className="text-blue-700 dark:text-blue-300">Current Due:</span>
                     <span className="font-semibold text-blue-900 dark:text-blue-100">
-                      {currencySymbol}
-                      {customer.due.toLocaleString()}
+                      {formatCurrency(customer.due)}
                     </span>
                   </div>
                   {customer.credit_limit != null && customer.credit_limit > 0 ? (
@@ -327,15 +322,13 @@ function PaymentDialogComponent({
                       <div className="flex justify-between">
                         <span className="text-blue-700 dark:text-blue-300">Credit Limit:</span>
                         <span className="font-semibold text-blue-900 dark:text-blue-100">
-                          {currencySymbol}
-                          {customer.credit_limit.toLocaleString()}
+                          {formatCurrency(customer.credit_limit)}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-blue-700 dark:text-blue-300">Available:</span>
                         <span className="font-semibold text-blue-900 dark:text-blue-100">
-                          {currencySymbol}
-                          {Math.max(0, customer.credit_limit - customer.due).toLocaleString()}
+                          {formatCurrency(Math.max(0, customer.credit_limit - customer.due))}
                         </span>
                       </div>
                     </>
@@ -379,7 +372,6 @@ function PaymentDialogComponent({
                   <QuickAmountButton
                     key={amount}
                     amount={amount}
-                    currencySymbol={currencySymbol}
                     onClick={() => handleQuickAmount(amount)}
                   />
                 ))}
@@ -396,15 +388,13 @@ function PaymentDialogComponent({
                   <div className="flex justify-between">
                     <span className="text-orange-700 dark:text-orange-300">Amount Paying:</span>
                     <span className="font-semibold text-orange-900 dark:text-orange-100">
-                      {currencySymbol}
-                      {numericAmount.toLocaleString()}
+                      {formatCurrency(numericAmount)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-orange-700 dark:text-orange-300">Remaining Due:</span>
                     <span className="font-bold text-orange-600 dark:text-orange-400">
-                      {currencySymbol}
-                      {dueAmount.toLocaleString()}
+                      {formatCurrency(dueAmount)}
                     </span>
                   </div>
                   {customer && (
@@ -413,8 +403,7 @@ function PaymentDialogComponent({
                         New Customer Due:
                       </span>
                       <span className="font-bold text-orange-900 dark:text-orange-100">
-                        {currencySymbol}
-                        {newCustomerDue.toLocaleString()}
+                        {formatCurrency(newCustomerDue)}
                       </span>
                     </div>
                   )}
@@ -435,29 +424,25 @@ function PaymentDialogComponent({
                   <div className="flex justify-between text-red-700 dark:text-red-300">
                     <span>Current Due:</span>
                     <span>
-                      {currencySymbol}
-                      {customer.due.toLocaleString()}
+                      {formatCurrency(customer.due)}
                     </span>
                   </div>
                   <div className="flex justify-between text-red-700 dark:text-red-300">
                     <span>New Due:</span>
                     <span>
-                      {currencySymbol}
-                      {dueAmount.toLocaleString()}
+                      {formatCurrency(dueAmount)}
                     </span>
                   </div>
                   <div className="flex justify-between border-t border-red-200 pt-1 font-semibold text-red-900 dark:border-red-800 dark:text-red-100">
                     <span>Total:</span>
                     <span>
-                      {currencySymbol}
-                      {newCustomerDue.toLocaleString()}
+                      {formatCurrency(newCustomerDue)}
                     </span>
                   </div>
                   <div className="flex justify-between text-red-700 dark:text-red-300">
                     <span>Credit Limit:</span>
                     <span>
-                      {currencySymbol}
-                      {customer.credit_limit.toLocaleString()}
+                      {formatCurrency(customer.credit_limit)}
                     </span>
                   </div>
                 </div>
@@ -469,8 +454,7 @@ function PaymentDialogComponent({
               <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center dark:border-green-800 dark:bg-green-950">
                 <p className="text-sm text-green-700 dark:text-green-300">Change</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {currencySymbol}
-                  {changeAmount.toLocaleString()}
+                  {formatCurrency(changeAmount)}
                 </p>
               </div>
             )}
@@ -479,8 +463,7 @@ function PaymentDialogComponent({
             {!isCreditPayment && numericAmount < totalAmount && numericAmount > 0 && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-center">
                 <p className="text-sm text-destructive">
-                  Insufficient amount. Need {currencySymbol}
-                  {(totalAmount - numericAmount).toLocaleString()} more.
+                  Insufficient amount. Need {formatCurrency(totalAmount - numericAmount)} more.
                 </p>
               </div>
             )}

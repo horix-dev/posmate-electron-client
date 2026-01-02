@@ -211,7 +211,9 @@ export const API_ENDPOINTS = {
   // Currencies
   CURRENCIES: {
     LIST: '/currencies',
+    ACTIVE: '/currencies/business/active',
     CHANGE: (id: number) => `/currencies/${id}`,
+    SET_DEFAULT: (id: number) => `/currencies/${id}/set-global-default`,
   },
 
   // Invoices
