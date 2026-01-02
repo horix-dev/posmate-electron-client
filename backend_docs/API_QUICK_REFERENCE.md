@@ -333,13 +333,28 @@ GET /purchase?returned-purchase=true
 | POST | `/vats/delete-all` | ✅ | Delete multiple VATs |
 | GET | `/payment-types` | ✅ | List payment types |
 | GET | `/payment-types/filter` | ✅ | Filter payment types |
-| POST | `/payment-types` | ✅ | Create payment type |
+| GET | `/payment-types` | ✅ | List payment types (includes `is_credit` flag) |
 | PATCH | `/payment-types/{id}/status` | ✅ | Update payment type status |
 | PUT | `/payment-types/{id}` | ✅ | Update payment type |
 | DELETE | `/payment-types/{id}` | ✅ | Delete payment type |
 | POST | `/payment-types/delete-all` | ✅ | Delete multiple payment types |
-| GET | `/currencies` | ✅ | List currencies |
-| GET | `/currencies/{id}` | ✅ | Change currency |
+
+### Currencies
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/currencies` | ✅ | List currencies (4 pagination modes: default, limit, offset, cursor) |
+| GET | `/currencies?limit=50` | ✅ | Get limited currencies for dropdown |
+| GET | `/currencies?page=1&per_page=20` | ✅ | Get paginated currencies for tables |
+| GET | `/currencies?cursor=0&per_page=500` | ✅ | Get currencies with cursor pagination for sync |
+| GET | `/currencies?status=1` | ✅ | Filter currencies by status |
+| GET | `/currencies?search=USD` | ✅ | Search currencies by name/code/country |
+| GET | `/currencies/business/active` | ✅ | Get active business currency (from user_currencies) |
+| GET | `/currencies/{id}` | ✅ | Change business currency (updates user_currencies) |
+| PUT | `/currencies/{id}/set-global-default` | ✅ | Set global default currency (updates currencies.is_default) |
+
+### Settings
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
 | GET | `/product-settings` | ✅ | Get product settings |
 | POST | `/product-settings` | ✅ | Update product settings |
 | GET | `/business-settings` | ✅ | Get business settings |
@@ -415,6 +430,7 @@ Note: List and filter endpoints accept `per_page` and `page`.
 |--------|----------|------|-------------|
 | GET | `/summary` | ✅ | Get today's summary |
 | GET | `/dashboard` | ✅ | Get dashboard data |
+| GET | `/sales/report` | ✅ | Sales report with due collections (includes summary totals) |
 | GET | `/reports/variants/sales-summary` | ✅ | Variant sales analysis with grouping (by variant/product/day/month) |
 | GET | `/reports/variants/top-selling` | ✅ | Top selling variants by quantity/revenue/profit |
 | GET | `/reports/variants/slow-moving` | ✅ | Slow-moving inventory analysis with stock insights |
@@ -510,6 +526,21 @@ curl -X POST http://localhost/api/v1/sales \
     "party_id": 1,
     "payment_type_id": 1
   }'
+```
+
+**⚠️ Payment Type Validation:**
+- Walk-in customers (no `party_id`) cannot use credit payment types
+- Payment types with `is_credit: true` require a valid `party_id`
+- Returns HTTP 400 with error: "You cannot sell on credit to a walk-in customer"
+
+**Payment Type Response:**
+```json
+{
+    "id": 5,
+    "name": "Due",
+    "is_credit": true,
+    "status": 1
+}
 ```
 
 ---

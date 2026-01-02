@@ -612,11 +612,23 @@ export interface Sale {
   saleDate: string
   totalAmount: number
   discountAmount?: number
-  paidAmount: number
-  dueAmount?: number
+  
+  // Old fields (kept for backward compatibility)
+  paidAmount: number            // ⚠️ Deprecated, use initial_paidAmount or total_paid_amount
+  dueAmount?: number            // ⚠️ Deprecated, use initial_dueAmount or remaining_due_amount
+  isPaid?: number               // ⚠️ Now calculated, use is_fully_paid
+  
+  // New fields - Due Collection Tracking
+  initial_paidAmount?: number   // Payment at sale time
+  initial_dueAmount?: number    // Due at sale time
+  total_paid_amount?: number    // Initial + due collections
+  remaining_due_amount?: number // Actual remaining due
+  is_fully_paid?: boolean       // Accurate payment status
+  due_collections_count?: number  // Number of collection payments
+  due_collections_total?: number  // Total from collections
+  
   change_amount?: number
   lossProfit?: number
-  isPaid?: number
   rounding_option?: RoundingOption
   vat_amount?: number
   note?: string

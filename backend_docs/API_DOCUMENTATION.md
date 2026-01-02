@@ -3314,6 +3314,13 @@ GET /sales?cursor=0&per_page=500
 - `invoiceNumber=S-00001` - Exact invoice number match
 - `search=keyword` - Search in invoice number, party name
 
+#### Response Fields
+
+All sale records include an `invoice_url` field that provides a web link to view/print the invoice:
+- Format: `https://your-domain.com/business/get-invoice/{sale_id}`
+- Use this URL to display invoices in web views or trigger browser printing
+- Authentication required to access the invoice page
+
 #### Response Examples
 
 **Default/Dropdown/Cursor Mode Response:**
@@ -3346,6 +3353,7 @@ GET /sales?cursor=0&per_page=500
       "final_amount": 1450.00,
       "created_at": "2024-01-15T10:00:00.000000Z",
       "updated_at": "2024-01-15T10:00:00.000000Z",
+      "invoice_url": "https://your-domain.com/business/get-invoice/1",
       "user": {
         "id": 1,
         "name": "Cashier",
@@ -5658,12 +5666,32 @@ Updates stock details.
 
 ## 26. Currencies
 
-### 24.1 List Currencies
+### 26.1 List Currencies
 
-Lists all available currencies.
+Lists all available currencies with flexible pagination support.
 
 **Endpoint:** `GET /currencies`  
 **Auth Required:** Yes
+
+**Query Parameters:**
+- **Filters:**
+  - `status`: Filter by status (0 or 1)
+  - `search`: Search by name, code, or country name (partial match)
+  - `is_default`: Filter by default currency (0 or 1)
+  - `country_name`: Filter by country name (partial match)
+- **Pagination (optional):**
+  - `limit`: Return up to `limit` items (max 1000) - returns flat array
+  - `cursor` + `per_page`: Cursor pagination (max per_page: 1000) - returns flat array with pagination metadata
+  - `page` + `per_page`: Page-based pagination (max per_page: 100) - returns paginated object
+
+**Pagination Modes:**
+
+#### Mode 1: Default (No Parameters)
+Returns all currencies with safety limit of 1000.
+
+```bash
+GET /api/v1/currencies
+```
 
 **Response:**
 ```json
@@ -5676,23 +5704,264 @@ Lists all available currencies.
       "code": "USD",
       "symbol": "$",
       "position": "before",
-      "rate": 1,
-      "is_default": 1,
-      "status": 1,
-      "country_name": "United States"
+      "rate": 1.00,
+      "is_default": true,
+      "status": true,
+      "country_name": "United States",
+      "created_at": "2025-12-01T00:00:00+00:00",
+      "updated_at": "2025-12-01T00:00:00+00:00"
     }
-  ]
+  ],
+  "_server_timestamp": "2025-12-31T10:00:00+00:00"
 }
+```
+
+#### Mode 2: Limit (Dropdown/Filter)
+Returns limited number of currencies. Best for dropdowns.
+
+```bash
+GET /api/v1/currencies?limit=50
+```
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [ /* up to 50 currencies */ ],
+  "_server_timestamp": "2025-12-31T10:00:00+00:00"
+}
+```
+
+#### Mode 3: Offset Pagination (Management Tables)
+Returns paginated currencies. Best for data tables with page numbers.
+
+```bash
+GET /api/v1/currencies?page=1&per_page=20
+```
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [ /* 20 currencies */ ],
+  "pagination": {
+    "total": 150,
+    "per_page": 20,
+    "current_page": 1,
+    "last_page": 8,
+    "from": 1,
+    "to": 20
+  },
+  "_server_timestamp": "2025-12-31T10:00:00+00:00"
+}
+```
+
+#### Mode 4: Cursor Pagination (Sync/Export)
+Returns currencies using cursor-based pagination. Best for sync operations and large exports.
+
+```bash
+GET /api/v1/currencies?cursor=0&per_page=500
+```
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [ /* up to 500 currencies */ ],
+  "pagination": {
+    "next_cursor": 500,
+    "has_more": true,
+    "per_page": 500
+  },
+  "_server_timestamp": "2025-12-31T10:00:00+00:00"
+}
+```
+
+**Filter Examples:**
+
+```bash
+# Search by name or code
+GET /api/v1/currencies?search=USD
+
+# Filter by status
+GET /api/v1/currencies?status=1
+
+# Get default currency
+GET /api/v1/currencies?is_default=1
+
+# Filter by country
+GET /api/v1/currencies?country_name=United
+
+# Combine filters with pagination
+GET /api/v1/currencies?status=1&page=1&per_page=20
 ```
 
 ---
 
-### 24.2 Change Currency
+### 26.2 Change Business Currency
 
-Changes the business currency.
+Changes the active currency for the authenticated user's business. This updates the `user_currencies` table for the business.
 
 **Endpoint:** `GET /currencies/{id}`  
 **Auth Required:** Yes
+
+**Path Parameters:**
+- `id` (integer, required) - Currency ID to set as business currency
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Currency changed successfully",
+  "data": {
+    "id": 2,
+    "name": "Euro",
+    "code": "EUR",
+    "symbol": "€",
+    "position": "after",
+    "rate": 0.85,
+    "is_default": false,
+    "status": true,
+    "country_name": "European Union",
+    "created_at": "2025-12-01T00:00:00+00:00",
+    "updated_at": "2025-12-01T00:00:00+00:00"
+  },
+  "_server_timestamp": "2025-12-31T10:00:00+00:00"
+}
+```
+
+**Response (Not Found):**
+```json
+{
+  "success": false,
+  "message": "Currency not found"
+}
+```
+
+**Response (No User Currency):**
+```json
+{
+  "success": false,
+  "message": "User currency not found for this business"
+}
+```
+
+**Notes:**
+- This endpoint updates the `user_currencies` table for the business
+- Clears the business currency cache
+- The currency must exist in the `currencies` table
+- The business must have a record in the `user_currencies` table
+
+---
+
+### 26.3 Set Global Default Currency
+
+Sets a currency as the global default in the system. This updates the `is_default` flag in the `currencies` table. Typically used by super admin.
+
+**Endpoint:** `PUT /currencies/{id}/set-global-default`  
+**Auth Required:** Yes
+
+**Path Parameters:**
+- `id` (integer, required) - Currency ID to set as global default
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Global default currency updated successfully",
+  "data": {
+    "id": 1,
+    "name": "US Dollar",
+    "code": "USD",
+    "symbol": "$",
+    "position": "before",
+    "rate": 1.00,
+    "is_default": true,
+    "status": true,
+    "country_name": "United States",
+    "created_at": "2025-12-01T00:00:00+00:00",
+    "updated_at": "2025-12-31T10:00:00+00:00"
+  },
+  "_server_timestamp": "2025-12-31T10:00:00+00:00"
+}
+```
+
+**Response (Not Found):**
+```json
+{
+  "success": false,
+  "message": "Currency not found"
+}
+```
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "message": "Database error message"
+}
+```
+
+**Notes:**
+- This endpoint updates the `currencies` table (system-wide default)
+- Only ONE currency can have `is_default = true` at a time
+- All other currencies will automatically have `is_default = false`
+- This is different from business currency selection (which uses `user_currencies` table)
+- Typically restricted to super admin role
+
+**Difference Between Endpoints:**
+- `GET /currencies/{id}` - Sets business-specific currency (updates `user_currencies`)
+- `PUT /currencies/{id}/set-global-default` - Sets system-wide default (updates `currencies.is_default`)
+
+---
+
+### 26.4 Get Business Currency
+
+Retrieves the active currency for the authenticated user's business from the `user_currencies` table.
+
+**Endpoint:** `GET /currencies/business/active`  
+**Auth Required:** Yes
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Business currency fetched successfully",
+  "data": {
+    "id": 2,
+    "name": "US Dollar",
+    "country_name": "United States",
+    "code": "USD",
+    "rate": 1.00,
+    "symbol": "$",
+    "position": "left",
+    "created_at": "2025-12-31T10:00:00+00:00",
+    "updated_at": "2025-12-31T10:00:00+00:00"
+  },
+  "_server_timestamp": "2025-12-31T12:00:00+00:00"
+}
+```
+
+**Response (Not Found):**
+```json
+{
+  "success": false,
+  "message": "No currency set for this business"
+}
+```
+
+**Notes:**
+- Returns the currency currently active for the business
+- Data comes from `user_currencies` table, not `currencies` table
+- Each business can have a different active currency
+- The `id` field refers to the `currency_id` in the `currencies` table
+- This is the currency used for all transactions and displays for this business
+
+**Use Cases:**
+- Display current currency in UI header/footer
+- Format prices in sales/purchase screens
+- Initialize POS system with correct currency
+- Validate currency before transactions
 
 ---
 
@@ -6918,6 +7187,14 @@ Comprehensive reporting endpoints for sales, purchases, and returns with flexibl
 
 Get detailed sales transactions with filtering and summary totals.
 
+#### 27.1.1 Sales Report (Due Collections Aware)
+
+- **Endpoint:** `GET /api/v1/sales/report`
+- **Includes:** due collection totals per sale and in summary
+- **Filters:** `search`, `party_id`, `payment_type_id`, `date_from`, `date_to`, `isPaid`, `invoiceNumber`, `per_page`
+- **Key Fields:** `initial_paidAmount`, `initial_dueAmount`, `total_paid_amount`, `remaining_due_amount`, `is_fully_paid`, `due_collections_count`, `due_collections_total`
+- **Summary:** `total_sales_count`, `total_amount`, `initial_paid`, `due_collections`, `total_paid`, `remaining_due`, `counts` (fully_paid, partially_paid, unpaid)
+
 **Endpoint:** `GET /reports/sales`  
 **Auth Required:** Yes
 
@@ -6931,6 +7208,13 @@ Get detailed sales transactions with filtering and summary totals.
 - `search` (optional): Search in invoice number, party name, payment type, or branch
 - `per_page` (optional): Results per page (default: 20, max: 100)
 - `page` (optional): Page number
+
+**Response Fields:**
+
+All sale records include an `invoice_url` field for viewing/printing invoices:
+- Format: `https://your-domain.com/business/get-invoice/{sale_id}`
+- Use for displaying invoices or triggering browser printing
+- Authentication required to access
 
 **Response:**
 ```json
@@ -6965,6 +7249,9 @@ Get detailed sales transactions with filtering and summary totals.
           "lossProfit": 1650.00,
           "isPaid": true,
           "paymentType": "Cash",
+          "created_at": "2025-12-24T10:00:00.000000Z",
+          "updated_at": "2025-12-24T10:00:00.000000Z",
+          "invoice_url": "https://your-domain.com/business/get-invoice/1234",
           "user": {
             "id": 1,
             "name": "John Doe"

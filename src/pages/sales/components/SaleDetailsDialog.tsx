@@ -8,6 +8,7 @@ import {
   CreditCard,
   Package,
   Printer,
+  DollarSign,
 } from 'lucide-react'
 import {
   Dialog,
@@ -30,7 +31,12 @@ import {
 import { toast } from 'sonner'
 import type { Sale } from '@/types/api.types'
 import { printReceipt } from '@/lib/receipt-printer'
-import { getPaymentStatus, isSaleSynced, formatSaleDate } from '../hooks'
+import { isSaleSynced, formatSaleDate } from '../hooks'
+import { 
+  getPaymentStatusBadge, 
+  formatPaymentBreakdown,
+  hasNewPaymentFields 
+} from '@/lib/saleHelpers'
 
 // ============================================
 // Types
@@ -83,24 +89,13 @@ function SaleDetailsDialogComponent({
 }: SaleDetailsDialogProps) {
   if (!sale) return null
 
-  const paymentStatus = getPaymentStatus(sale)
+  const paymentBadge = getPaymentStatusBadge(sale)
+  const paymentBreakdown = formatPaymentBreakdown(sale)
   const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
+  const showPaymentBreakdown = hasNewPaymentFields(sale) && paymentBreakdown.dueCollections > 0
 
   const formatCurrency = (amount: number) => {
     return `${currencySymbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
-
-  const getPaymentBadgeVariant = (): 'default' | 'destructive' | 'secondary' | 'outline' => {
-    switch (paymentStatus.status) {
-      case 'paid':
-        return 'default'
-      case 'partial':
-        return 'secondary'
-      case 'unpaid':
-        return 'destructive'
-      default:
-        return 'outline'
-    }
   }
 
   const handlePrintReceipt = async () => {
@@ -127,7 +122,9 @@ function SaleDetailsDialogComponent({
               Sale Details
             </DialogTitle>
             <div className="flex items-center gap-2">
-              <Badge variant={getPaymentBadgeVariant()}>{paymentStatus.label}</Badge>
+              <Badge variant={paymentBadge.variant} className={paymentBadge.className}>
+                {paymentBadge.text}
+              </Badge>
               {synced ? (
                 <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
                   <Cloud className="mr-1 h-3 w-3" />
@@ -227,16 +224,79 @@ function SaleDetailsDialogComponent({
             <span>Total</span>
             <span>{formatCurrency(sale.totalAmount ?? 0)}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Paid Amount</span>
-            <span className="text-green-600">{formatCurrency(sale.paidAmount ?? 0)}</span>
-          </div>
-          {(sale.dueAmount ?? 0) > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Due Amount</span>
-              <span className="text-orange-600">{formatCurrency(sale.dueAmount ?? 0)}</span>
-            </div>
+          
+          {/* Payment Breakdown Section */}
+          {showPaymentBreakdown ? (
+            <>
+              <div className="mt-4 rounded-lg bg-muted/50 p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <h5 className="font-medium text-sm">Payment Breakdown</h5>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Initial Payment</span>
+                    <span className="text-green-600">{formatCurrency(paymentBreakdown.initialPaid)}</span>
+                  </div>
+                  
+                  {paymentBreakdown.dueCollections > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Due Collections ({paymentBreakdown.dueCollectionsCount})
+                      </span>
+                      <span className="text-green-600">
+                        +{formatCurrency(paymentBreakdown.dueCollections)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <Separator />
+                  
+                  <div className="flex justify-between text-sm font-medium">
+                    <span>Total Paid</span>
+                    <span className="text-green-600">{formatCurrency(paymentBreakdown.totalPaid)}</span>
+                  </div>
+                  
+                  {paymentBreakdown.remainingDue > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Remaining Due</span>
+                      <span className="text-orange-600">{formatCurrency(paymentBreakdown.remainingDue)}</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Progress bar */}
+                <div className="mt-3">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>Payment Progress</span>
+                    <span>{paymentBreakdown.paymentPercentage.toFixed(0)}%</span>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-500 transition-all duration-300"
+                      style={{ width: `${paymentBreakdown.paymentPercentage}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Old payment display (backward compatibility) */}
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Paid Amount</span>
+                <span className="text-green-600">{formatCurrency(paymentBreakdown.totalPaid)}</span>
+              </div>
+              {paymentBreakdown.remainingDue > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Due Amount</span>
+                  <span className="text-orange-600">{formatCurrency(paymentBreakdown.remainingDue)}</span>
+                </div>
+              )}
+            </>
           )}
+          
           {(sale.change_amount ?? 0) > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Change</span>
