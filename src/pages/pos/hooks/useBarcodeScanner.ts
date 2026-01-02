@@ -60,9 +60,7 @@ export function useBarcodeScanner({
       // Ignore if focus is on an input element (unless it's specifically for barcode)
       const target = event.target as HTMLElement
       const isInputElement =
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
+        target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
 
       // Allow barcode scanning even in search input with data-barcode-scan attribute
       const allowBarcode = target.getAttribute('data-barcode-scan') === 'true'
@@ -82,6 +80,7 @@ export function useBarcodeScanner({
       if (event.key === 'Enter') {
         if (buffer.length >= minLength) {
           event.preventDefault()
+          event.stopPropagation() // Stop propagation to prevent triggering other Enter handlers
           onScan(buffer)
         }
         reset()
