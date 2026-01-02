@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { CachedImage } from '@/components/common/CachedImage'
 import { cn, getImageUrl } from '@/lib/utils'
+import { useCurrency } from '@/hooks'
 import type { Product } from '@/types/api.types'
 import { getStockStatus, getTotalStock, getSalePrice, getPurchasePrice } from '../hooks'
 
@@ -22,8 +23,6 @@ import { getStockStatus, getTotalStock, getSalePrice, getPurchasePrice } from '.
 export interface ProductRowProps {
   /** The product to display */
   product: Product
-  /** Currency symbol for price display */
-  currencySymbol: string
   /** Callback when view action is clicked */
   onView: (product: Product) => void
   /** Callback when edit action is clicked */
@@ -42,11 +41,11 @@ export interface ProductRowProps {
  */
 function ProductRowComponent({
   product,
-  currencySymbol,
   onView,
   onEdit,
   onDelete,
 }: ProductRowProps) {
+  const { format: formatCurrency } = useCurrency()
   const stockStatus = getStockStatus(product)
   const totalStock = getTotalStock(product)
   const salePrice = getSalePrice(product)
@@ -126,19 +125,16 @@ function ProductRowComponent({
             <>
               <p className="text-sm font-medium text-muted-foreground">Variable pricing</p>
               <p className="text-xs text-muted-foreground">
-                Base: {currencySymbol}
-                {salePrice.toLocaleString()}
+                Base: {formatCurrency(salePrice)}
               </p>
             </>
           ) : (
             <>
               <p className="font-medium">
-                {currencySymbol}
-                {salePrice.toLocaleString()}
+                {formatCurrency(salePrice)}
               </p>
               <p className="text-xs text-muted-foreground">
-                Cost: {currencySymbol}
-                {purchasePrice.toLocaleString()}
+                Cost: {formatCurrency(purchasePrice)}
               </p>
             </>
           )}
@@ -208,8 +204,7 @@ export const ProductRow = memo(ProductRowComponent, (prevProps, nextProps) => {
   return (
     prevProps.product.id === nextProps.product.id &&
     prevProps.product.productName === nextProps.product.productName &&
-    prevProps.product.stocks_sum_product_stock === nextProps.product.stocks_sum_product_stock &&
-    prevProps.currencySymbol === nextProps.currencySymbol
+    prevProps.product.stocks_sum_product_stock === nextProps.product.stocks_sum_product_stock
   )
 })
 

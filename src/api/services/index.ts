@@ -21,6 +21,9 @@ export { settingsService } from './settings.service'
 export { stocksService } from './stocks.service'
 export { warehousesService } from './warehouses.service'
 
+// Currency service
+export { currenciesService } from './currencies.service'
+
 // Sync services
 export { syncApiService } from './sync.service'
 export { offlineSalesService } from './offlineSales.service'

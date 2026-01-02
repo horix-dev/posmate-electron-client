@@ -338,8 +338,8 @@ export interface Currency {
   symbol: string
   position: 'before' | 'after'
   rate?: number
-  is_default?: number
-  status?: number
+  is_default?: number | boolean
+  status?: number | boolean
   country_name?: string
 }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { AlertCircle, Wallet, TrendingDown, Filter } from 'lucide-react'
 import { toast } from 'sonner'
+import { useCurrency } from '@/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,6 +25,7 @@ const isRecord = (value: unknown): value is UnknownRecord =>
   typeof value === 'object' && value !== null
 
 export function DuePage() {
+  const { format: formatCurrency } = useCurrency()
   const [activeTab, setActiveTab] = useState<'all' | 'supplier' | 'customer'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'outstanding' | 'cleared' | 'all'>('outstanding')
@@ -168,10 +170,7 @@ export function DuePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              ${grandTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatCurrency(grandTotal)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {allParties.length} party records
@@ -187,10 +186,7 @@ export function DuePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              ${supplierTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatCurrency(supplierTotal)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {supplierParties.length} supplier records
@@ -206,10 +202,7 @@ export function DuePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              ${customerTotal.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatCurrency(customerTotal)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {customerParties.length} customer records

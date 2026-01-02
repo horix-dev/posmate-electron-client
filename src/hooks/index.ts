@@ -1,3 +1,5 @@
 export { useDebounce, useDebouncedCallback } from './useDebounce'
 export { useSyncQueue } from './useSyncQueue'
 export type { SyncQueueStats, SyncQueueGrouped } from './useSyncQueue'
+export { useCurrency, formatCurrency, getCurrencySymbol, refreshActiveCurrency } from './useCurrency'
+export type { CurrencyConfig, UseCurrencyReturn } from './useCurrency'

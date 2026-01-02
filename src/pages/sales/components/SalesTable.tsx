@@ -24,6 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useCurrency } from '@/hooks'
 import type { Sale } from '@/types/api.types'
 import { isSaleSynced, formatSaleDate, getSaleItemsCount } from '../hooks'
 import { 
@@ -41,8 +42,6 @@ export interface SalesTableProps {
   sales: Sale[]
   /** Whether there are any sales at all (before filtering) */
   hasSales: boolean
-  /** Currency symbol for price display */
-  currencySymbol: string
   /** Whether data is loading */
   isLoading: boolean
   /** Callback when view action is clicked */
@@ -124,17 +123,16 @@ const NoResultsState = memo(function NoResultsState({ onClearFilters }: NoResult
 
 interface SaleRowProps {
   sale: Sale
-  currencySymbol: string
   onView: (sale: Sale) => void
   onDelete: (sale: Sale) => void
 }
 
 const SaleRow = memo(function SaleRow({
   sale,
-  currencySymbol,
   onView,
   onDelete,
 }: SaleRowProps) {
+  const { format: formatCurrency } = useCurrency()
   const paymentBadge = getPaymentStatusBadge(sale)
   const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
   const itemsCount = getSaleItemsCount(sale)
@@ -318,7 +316,6 @@ const SalesTableHeader = memo(function SalesTableHeader() {
 function SalesTableComponent({
   sales,
   hasSales,
-  currencySymbol,
   isLoading,
   onView,
   onDelete,
@@ -369,7 +366,6 @@ function SalesTableComponent({
                 <SaleRow
                   key={sale.id}
                   sale={sale}
-                  currencySymbol={currencySymbol}
                   onView={onView}
                   onDelete={onDelete}
                 />

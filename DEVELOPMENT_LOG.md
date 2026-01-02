@@ -1,3 +1,97 @@
+## 2026-01-01 — Active Currency API Integration
+
+**Requirement**: Fetch active currency from dedicated API endpoint `GET /currencies/business/active` instead of relying solely on business store.
+
+**Solution**: Created a dedicated currency store that fetches from the new API endpoint with caching (5 min TTL). The `useCurrency` hook now prioritizes the dedicated API response over the business store currency.
+
+**Files Created**:
+- `src/stores/currency.store.ts` — Zustand store for active currency with API fetching and caching
+
+**Files Modified**:
+- `src/api/endpoints.ts` — Added `CURRENCIES.ACTIVE` endpoint
+- `src/api/services/currencies.service.ts` — Added `getActive()` method
+- `src/stores/index.ts` — Exported `useCurrencyStore`
+- `src/hooks/useCurrency.ts` — Updated to use currency store with fallback to business store
+- `src/hooks/index.ts` — Exported `refreshActiveCurrency` utility
+- `src/pages/settings/components/CurrencySettings.tsx` — Refresh currency store on currency change
+
+**How It Works**:
+1. On app load, `useCurrency` hook triggers `fetchActiveCurrency()` 
+2. Active currency is fetched from `GET /currencies/business/active`
+3. Result is cached in the currency store (5 min TTL)
+4. When user changes currency in Settings, `setActiveCurrency()` updates store immediately
+5. Fallback chain: Currency Store → Business Store → Default ($)
+
+---
+
+## 2025-12-31 — Dynamic Currency System Implementation
+
+**Requirement**: Make currency formatting dynamic across the entire frontend application. Currency symbol and position should come from `user_currencies` table data, not hardcoded.
+
+**Solution**: Created a centralized `useCurrency` hook that reads from the business store's `business_currency` and provides consistent currency formatting across all components. Removed all hardcoded `currencySymbol` props and replaced with hook usage.
+
+**Files Created**:
+- `src/hooks/useCurrency.ts` — Centralized currency hook with `format()`, `symbol`, `position`, and `code`
+
+**Files Modified**:
+- `src/hooks/index.ts` — Exported `useCurrency` hook
+- Sales components:
+  - `src/pages/sales/SalesPage.tsx`
+  - `src/pages/sales/components/SalesStatsCards.tsx`
+  - `src/pages/sales/components/SalesTable.tsx`
+  - `src/pages/sales/components/SaleDetailsDialog.tsx`
+- Purchases components:
+  - `src/pages/purchases/PurchasesPage.tsx`
+  - `src/pages/purchases/components/PurchasesStatsCards.tsx`
+  - `src/pages/purchases/components/PurchasesTable.tsx`
+  - `src/pages/purchases/components/PurchaseDetailsDialog.tsx`
+  - `src/pages/purchases/components/NewPurchaseDialog.tsx`
+- Products components:
+  - `src/pages/products/ProductsPage.tsx`
+  - `src/pages/products/components/ProductStatsCards.tsx`
+  - `src/pages/products/components/ProductTable.tsx`
+  - `src/pages/products/components/ProductRow.tsx`
+  - `src/pages/products/components/ProductDetailsDialog.tsx`
+  - `src/pages/products/components/ProductFormDialog.tsx`
+  - `src/pages/products/components/VariantManager.tsx`
+- POS components:
+  - `src/pages/pos/POSPage.tsx`
+  - `src/pages/pos/components/ProductCard.tsx`
+  - `src/pages/pos/components/ProductGrid.tsx`
+  - `src/pages/pos/components/CartItem.tsx`
+  - `src/pages/pos/components/CartSidebar.tsx`
+  - `src/pages/pos/components/PaymentDialog.tsx`
+  - `src/pages/pos/components/HeldCartsDialog.tsx`
+  - `src/pages/pos/components/VariantSelectionDialog.tsx`
+- Dashboard:
+  - `src/pages/dashboard/DashboardPage.tsx`
+
+**Key Changes**:
+1. All `currencySymbol: string` props removed from component interfaces
+2. All `useBusinessStore` imports for currency removed (components now use hook)
+3. `useCurrency()` hook returns `{ format, symbol, position, code }`
+4. `format(amount)` handles both `before` and `after` position formatting
+5. Utility function `getCurrencySymbol()` available for non-component contexts
+
+---
+
+## 2025-12-31 — Currency Settings Tab in Settings Page
+
+**Requirement**: Add a Currency tab to the Settings page to view available currencies and change business currency.
+
+**Solution**: Created a Currency Settings component with a searchable, paginated table of currencies. Users can view all available currencies, filter by status/search, and change the active business currency.
+
+**Files Created**:
+- `src/api/services/currencies.service.ts` — Service for Currency API endpoints (`/currencies`, `/currencies/{id}`)
+- `src/pages/settings/components/CurrencySettings.tsx` — Currency settings component with table, search, filters, and change currency functionality
+
+**Files Modified**:
+- `src/api/services/index.ts` — Exported `currenciesService`
+- `src/pages/settings/components/index.ts` — Exported `CurrencySettings`
+- `src/pages/settings/SettingsPage.tsx` — Added Currency tab with DollarSign icon
+
+---
+
 ## 2025-01-XX — Frontend Due Collection Tracking Implementation
 
 **Problem**: Sales report and sales tables were not showing accurate paid amounts when due collections were made. The issue was that the backend `POST /dues` endpoint updates `dueAmount` but not `paidAmount`, so the UI showed outdated payment information.

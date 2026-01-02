@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
+import { useCurrency } from '@/hooks'
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,7 @@ export function CollectDueDialog({
   onSubmit,
   isLoading,
 }: CollectDueDialogProps) {
+  const { symbol: currencySymbol } = useCurrency()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([])
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
@@ -197,7 +199,7 @@ export function CollectDueDialog({
               <SelectContent>
                 {invoices.map((invoice) => (
                   <SelectItem key={invoice.id} value={invoice.id.toString()}>
-                    {invoice.invoiceNumber} - Due: ${invoice.dueAmount.toFixed(2)}
+                    {invoice.invoiceNumber} - Due: {currencySymbol}{invoice.dueAmount.toFixed(2)}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CachedImage } from '@/components/common/CachedImage'
 import { cn, getImageUrl } from '@/lib/utils'
+import { useCurrency } from '@/hooks'
 
 // ============================================
 // Types
@@ -31,8 +32,6 @@ export interface CartItemDisplay {
 export interface CartItemProps {
   /** Cart item data */
   item: CartItemDisplay
-  /** Currency symbol */
-  currencySymbol: string
   /** Whether item is being edited */
   isEditing?: boolean
   /** Callback to update quantity */
@@ -47,11 +46,11 @@ export interface CartItemProps {
 
 function CartItemComponent({
   item,
-  currencySymbol,
   isEditing = false,
   onUpdateQuantity,
   onRemove,
 }: CartItemProps) {
+  const { format: formatCurrency } = useCurrency()
   const { productId, productName, productCode, productImage, quantity, salePrice, maxStock } = item
   const lineTotal = quantity * salePrice
   const imageUrl = getImageUrl(productImage)
@@ -89,7 +88,7 @@ function CartItemComponent({
         isEditing && 'border-primary bg-primary/5'
       )}
       role="listitem"
-      aria-label={`${productName}, quantity ${quantity}, ${currencySymbol}${lineTotal.toLocaleString()}`}
+      aria-label={`${productName}, quantity ${quantity}, ${formatCurrency(lineTotal)}`}
     >
       {/* Product Image */}
       <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
@@ -125,8 +124,7 @@ function CartItemComponent({
         )}
         <p className="text-xs text-muted-foreground">{item.variantSku || productCode}</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          {currencySymbol}
-          {salePrice.toLocaleString()} × {quantity}
+          {formatCurrency(salePrice)} × {quantity}
         </p>
       </div>
 
@@ -166,8 +164,7 @@ function CartItemComponent({
       {/* Line Total & Delete */}
       <div className="flex flex-col items-end gap-1">
         <span className="font-semibold">
-          {currencySymbol}
-          {lineTotal.toLocaleString()}
+          {formatCurrency(lineTotal)}
         </span>
         <Button
           variant="ghost"

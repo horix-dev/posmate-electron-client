@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CachedImage } from '@/components/common/CachedImage'
 import { cn, getImageUrl } from '@/lib/utils'
+import { useCurrency } from '@/hooks'
 import type { Product, Stock } from '@/types/api.types'
 
 // ============================================
@@ -14,8 +15,6 @@ import type { Product, Stock } from '@/types/api.types'
 export interface ProductCardProps {
   /** Product data */
   product: Product
-  /** Currency symbol */
-  currencySymbol: string
   /** View mode - affects layout */
   viewMode?: 'grid' | 'list'
   /** Callback when simple product is clicked to add to cart */
@@ -114,11 +113,11 @@ function getStockInfo(product: Product) {
 
 function ProductCardComponent({
   product,
-  currencySymbol,
   viewMode = 'grid',
   onAddToCart,
   onSelectVariant,
 }: ProductCardProps) {
+  const { format: formatCurrency } = useCurrency()
   const {
     stock,
     totalStock,
@@ -319,8 +318,7 @@ function ProductCardComponent({
           <div className="flex items-center justify-between">
             <span className="text-base font-bold text-primary">
               {hasPriceRange && 'From '}
-              {currencySymbol}
-              {salePrice.toLocaleString()}
+              {formatCurrency(salePrice)}
             </span>
             <span className="text-xs text-muted-foreground">Stock: {totalStock}</span>
           </div>
