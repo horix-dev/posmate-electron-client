@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { CachedImage } from '@/components/common/CachedImage'
 import { cn, getImageUrl } from '@/lib/utils'
+import { useCurrency } from '@/hooks'
 import type { Product, Stock } from '@/types/api.types'
 import type { ProductVariant, Attribute, AttributeValue } from '@/types/variant.types'
 
@@ -34,8 +35,6 @@ export interface VariantSelectionDialogProps {
   onOpenChange: (open: boolean) => void
   /** Variable product to select variant from */
   product: Product
-  /** Currency symbol for price display */
-  currencySymbol: string
   /** Callback when variant is selected and added to cart */
   onSelectVariant: (product: Product, stock: Stock, variant: ProductVariant) => void
 }
@@ -340,9 +339,9 @@ function VariantSelectionDialogComponent({
   open,
   onOpenChange,
   product,
-  currencySymbol,
   onSelectVariant,
 }: VariantSelectionDialogProps) {
+  const { format: formatCurrency } = useCurrency()
   // Selected attribute values: { attributeId: attributeValueId }
   const [selectedValues, setSelectedValues] = useState<Record<number, number>>({})
 
@@ -485,8 +484,7 @@ function VariantSelectionDialogComponent({
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Price</span>
                   <span className="text-lg font-bold text-primary">
-                    {currencySymbol}
-                    {variantPrice.toLocaleString()}
+                    {formatCurrency(variantPrice)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -519,7 +517,7 @@ function VariantSelectionDialogComponent({
             Cancel
           </Button>
           <Button onClick={handleAddToCart} disabled={!matchedVariant || isOutOfStock}>
-            {`Add to Cart - ${currencySymbol}${variantPrice.toLocaleString()}`}
+            {`Add to Cart - ${formatCurrency(variantPrice)}`}
           </Button>
         </DialogFooter>
       </DialogContent>

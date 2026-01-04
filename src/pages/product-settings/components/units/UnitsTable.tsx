@@ -1,14 +1,19 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useState, useEffect } from 'react'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
-import { unitsService } from '@/api/services/units.service'
 import type { Unit } from '@/types/api.types'
-import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -17,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'
 import { BulkDeleteConfirmDialog } from '@/components/common/BulkDeleteConfirmDialog'
+import { useUnits } from '../../hooks/useUnits'
 
 interface UnitsTableProps {
   searchQuery: string
@@ -25,148 +31,103 @@ interface UnitsTableProps {
 }
 
 export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTableProps) {
-  const [data, setData] = useState<Unit[]>([])
-  const [isLoading, setIsLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
-
   const [currentPage, setCurrentPage] = useState(1)
-  const [lastPage, setLastPage] = useState(1)
-  const [total, setTotal] = useState(0)
   const [perPage, setPerPage] = useState(10)
 
   // Dialog state
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: number | null; name: string }>({ open: false, id: null, name: '' })
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean
+    id: number | null
+    name: string
+  }>({ open: false, id: null, name: '' })
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      let result
-      if (searchQuery) {
-        result = await unitsService.filter({ search: searchQuery, page: currentPage, per_page: perPage })
-      } else {
-        result = await unitsService.getAll({ page: currentPage, per_page: perPage })
-      }
+  // Use React Query hook
+  const {
+    units: data,
+    total,
+    lastPage,
+    isLoading,
+    deleteUnit,
+    bulkDeleteUnits,
+    toggleStatus,
+    refetch,
+  } = useUnits({
+    page: currentPage,
+    perPage,
+    search: searchQuery,
+  })
 
-      let items: Unit[] = []
-      let responseTotal = 0
-      let responseLastPage = 1
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery])
 
-      const normalizePaginated = <T,>(resp: unknown, pageSize: number) => {
-        if (!resp || typeof resp !== 'object') {
-          return { items: [] as T[], total: 0, lastPage: 1 }
-        }
-        if ('data' in (resp as Record<string, unknown>)) {
-          const outer = resp as { data: unknown } & { total?: unknown; last_page?: unknown }
-          const d = outer.data
-          if (d && typeof d === 'object' && 'data' in (d as Record<string, unknown>)) {
-            const inner = d as { data: unknown; total?: unknown; last_page?: unknown }
-            const items = Array.isArray(inner.data) ? (inner.data as T[]) : []
-            const totalVal = inner.total
-            const lastVal = inner.last_page
-            const total = typeof totalVal === 'number' ? totalVal : Number(totalVal) || items.length
-            const lastPage = typeof lastVal === 'number' ? lastVal : Number(lastVal) || Math.ceil(total / pageSize)
-            return { items, total, lastPage }
-          }
-          if (Array.isArray(d)) {
-            const items = d as T[]
-            const totalVal = (outer as { total?: unknown }).total
-            const lastVal = (outer as { last_page?: unknown }).last_page
-            const total = typeof totalVal === 'number' ? totalVal : Number(totalVal) || items.length
-            const lastPage = typeof lastVal === 'number' ? lastVal : Number(lastVal) || Math.ceil(total / pageSize)
-            return { items, total, lastPage }
-          }
-        }
-        return { items: [] as T[], total: 0, lastPage: 1 }
-      }
+  // Refetch when refreshTrigger changes
+  useEffect(() => {
+    refetch()
+  }, [refreshTrigger, refetch])
 
-      const normalized = normalizePaginated<Unit>(result, perPage)
-      items = normalized.items
-      responseTotal = normalized.total
-      responseLastPage = normalized.lastPage
-
-      setData(items)
-
-      if (responseTotal > 0) {
-        setTotal(responseTotal)
-        setLastPage(responseLastPage || Math.ceil(responseTotal / perPage))
-      } else {
-        setTotal(items.length)
-        setLastPage(Math.ceil(items.length / perPage))
-      }
-    } catch (error) {
-      console.error(error)
-      toast.error('Failed to load units')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [searchQuery, currentPage, perPage])
-
-  useEffect(() => { fetchData() }, [fetchData, refreshTrigger])
-  useEffect(() => { setCurrentPage(1) }, [searchQuery])
-
-  const handleDeleteClick = (id: number, name: string) => { setDeleteDialog({ open: true, id, name }) }
+  const handleDeleteClick = (id: number, name: string) => {
+    setDeleteDialog({ open: true, id, name })
+  }
   const confirmDelete = async () => {
     if (!deleteDialog.id) return
     try {
-      await unitsService.delete(deleteDialog.id)
-      toast.success('Unit deleted')
+      await deleteUnit(deleteDialog.id)
       setDeleteDialog({ open: false, id: null, name: '' })
-      fetchData()
     } catch (error) {
-      toast.error('Failed to delete unit')
+      console.error('Delete error:', error)
     }
   }
 
   const handleStatusToggle = async (unit: Unit) => {
     try {
-      const newStatus = (unit.status ?? 1) === 1 ? false : true
-      setData(prev => prev.map(u => u.id === unit.id ? { ...u, status: newStatus ? 1 : 0 } : u))
-      await unitsService.updateStatus(unit.id, newStatus)
-      toast.success('Status updated')
+      const newStatus = (unit.status ?? 1) === 1 ? 0 : 1
+      await toggleStatus({ id: unit.id, status: newStatus === 1 })
     } catch (error) {
-      toast.error('Failed to update status')
-      fetchData()
+      console.error('Status toggle error:', error)
     }
   }
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const visibleItems = Array.isArray(data) && data.length > perPage
-        ? data.slice((currentPage - 1) * perPage, currentPage * perPage)
-        : (Array.isArray(data) ? data : [])
-      setSelectedIds(visibleItems.map(item => item.id))
+      setSelectedIds(data.map((item: Unit) => item.id))
     } else {
       setSelectedIds([])
     }
   }
 
   const handleSelectOne = (checked: boolean, id: number) => {
-    if (checked) setSelectedIds(prev => [...prev, id])
-    else setSelectedIds(prev => prev.filter(i => i !== id))
+    if (checked) setSelectedIds((prev) => [...prev, id])
+    else setSelectedIds((prev) => prev.filter((i) => i !== id))
   }
 
-  const handleBulkDeleteClick = () => { setBulkDeleteOpen(true) }
+  const handleBulkDeleteClick = () => {
+    setBulkDeleteOpen(true)
+  }
   const confirmBulkDelete = async () => {
     try {
-      await unitsService.deleteMultiple(selectedIds)
-      toast.success('Units deleted')
+      await bulkDeleteUnits(selectedIds)
       setSelectedIds([])
       setBulkDeleteOpen(false)
-      fetchData()
     } catch (error) {
-      console.error(error)
-      toast.error('Failed to delete units')
+      console.error('Bulk delete error:', error)
     }
   }
 
   if (isLoading) {
-    return <div className="flex h-48 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+    return (
+      <div className="flex h-48 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
-  const startEntry = (currentPage - 1) * perPage + 1
+  const startEntry = total > 0 ? (currentPage - 1) * perPage + 1 : 0
   const endEntry = Math.min(currentPage * perPage, total)
-  const displayData = Array.isArray(data) ? data : []
+  const displayData = data
 
   return (
     <div className="space-y-4">
@@ -174,8 +135,14 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Show</span>
-          <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setCurrentPage(1) }}>
-            <SelectTrigger className="w-[70px] h-8">
+          <Select
+            value={String(perPage)}
+            onValueChange={(v) => {
+              setPerPage(Number(v))
+              setCurrentPage(1)
+            }}
+          >
+            <SelectTrigger className="h-8 w-[70px]">
               <SelectValue placeholder={perPage} />
             </SelectTrigger>
             <SelectContent>
@@ -202,7 +169,10 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
           <TableHeader>
             <TableRow>
               <TableHead className="w-[50px]">
-                <Checkbox checked={selectedIds.length > 0 && selectedIds.length === displayData.length} onCheckedChange={handleSelectAll} />
+                <Checkbox
+                  checked={selectedIds.length > 0 && selectedIds.length === displayData.length}
+                  onCheckedChange={handleSelectAll}
+                />
               </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Status</TableHead>
@@ -212,24 +182,37 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
           <TableBody>
             {displayData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">No units found</TableCell>
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  No units found
+                </TableCell>
               </TableRow>
             ) : (
-              displayData.map((unit) => (
+              displayData.map((unit: Unit) => (
                 <TableRow key={unit.id}>
                   <TableCell className="w-[50px]">
-                    <Checkbox checked={selectedIds.includes(unit.id)} onCheckedChange={(checked: boolean) => handleSelectOne(checked, unit.id)} />
+                    <Checkbox
+                      checked={selectedIds.includes(unit.id)}
+                      onCheckedChange={(checked: boolean) => handleSelectOne(checked, unit.id)}
+                    />
                   </TableCell>
                   <TableCell>{unit.unitName}</TableCell>
                   <TableCell>
-                    <Switch checked={(unit.status ?? 1) === 1} onCheckedChange={() => handleStatusToggle(unit)} />
+                    <Switch
+                      checked={(unit.status ?? 1) === 1}
+                      onCheckedChange={() => handleStatusToggle(unit)}
+                    />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button variant="ghost" size="icon" onClick={() => onEdit(unit)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteClick(unit.id, unit.unitName)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive"
+                        onClick={() => handleDeleteClick(unit.id, unit.unitName)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -243,9 +226,16 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
 
       {/* Pagination */}
       <div className="flex items-center justify-between py-2">
-        <div className="text-sm text-muted-foreground">Showing {startEntry} to {endEntry} of {total} entries</div>
+        <div className="text-sm text-muted-foreground">
+          Showing {startEntry} to {endEntry} of {total} entries
+        </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+          >
             <ChevronLeft className="h-4 w-4" />
             Previous
           </Button>
@@ -258,14 +248,25 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
               else if (currentPage >= lastPage - 2) pageNum = lastPage - 4 + i
               else pageNum = currentPage - 2 + i
               return (
-                <Button key={pageNum} variant={currentPage === pageNum ? 'default' : 'outline'} size="sm" className="w-8 h-8 p-0" onClick={() => setCurrentPage(pageNum)}>
+                <Button
+                  key={pageNum}
+                  variant={currentPage === pageNum ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setCurrentPage(pageNum)}
+                >
                   {pageNum}
                 </Button>
               )
             })}
           </div>
 
-          <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(lastPage, prev + 1))} disabled={currentPage === lastPage}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.min(lastPage, prev + 1))}
+            disabled={currentPage === lastPage}
+          >
             Next
             <ChevronRight className="h-4 w-4" />
           </Button>

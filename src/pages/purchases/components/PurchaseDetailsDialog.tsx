@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { useCurrency } from '@/hooks'
 import { purchasesService } from '@/api/services'
 import type { Purchase, PurchaseDetail } from '@/types/api.types'
 import { getPaymentStatus, formatPurchaseDate } from '../hooks'
@@ -23,7 +24,6 @@ export interface PurchaseDetailsDialogProps {
   purchase: Purchase | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  currencySymbol: string
 }
 
 // ============================================
@@ -54,11 +54,11 @@ const InfoRow = memo(function InfoRow({ icon, label, value }: InfoRowProps) {
 
 interface ProductRowProps {
   detail: PurchaseDetail
-  currencySymbol: string
   index: number
 }
 
-const ProductRow = memo(function ProductRow({ detail, currencySymbol, index }: ProductRowProps) {
+const ProductRow = memo(function ProductRow({ detail, index }: ProductRowProps) {
+  const { format: formatCurrency } = useCurrency()
   const subtotal = detail.quantities * detail.productPurchasePrice
 
   return (
@@ -81,25 +81,13 @@ const ProductRow = memo(function ProductRow({ detail, currencySymbol, index }: P
       </TableCell>
       <TableCell className="text-center">{detail.quantities}</TableCell>
       <TableCell className="text-right">
-        {currencySymbol}
-        {detail.productPurchasePrice.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
+        {formatCurrency(detail.productPurchasePrice)}
       </TableCell>
       <TableCell className="text-right">
-        {currencySymbol}
-        {detail.productSalePrice.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
+        {formatCurrency(detail.productSalePrice)}
       </TableCell>
       <TableCell className="text-right font-medium">
-        {currencySymbol}
-        {subtotal.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
+        {formatCurrency(subtotal)}
       </TableCell>
     </TableRow>
   )
@@ -113,8 +101,8 @@ export const PurchaseDetailsDialog = memo(function PurchaseDetailsDialog({
   purchase,
   open,
   onOpenChange,
-  currencySymbol,
 }: PurchaseDetailsDialogProps) {
+  const { format: formatCurrency } = useCurrency()
   const [fullPurchase, setFullPurchase] = useState<Purchase | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -231,7 +219,6 @@ export const PurchaseDetailsDialog = memo(function PurchaseDetailsDialog({
                         <ProductRow
                           key={detail.id}
                           detail={detail}
-                          currencySymbol={currencySymbol}
                           index={index}
                         />
                       ))}
@@ -253,22 +240,14 @@ export const PurchaseDetailsDialog = memo(function PurchaseDetailsDialog({
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>
-                    {currencySymbol}
-                    {(displayPurchase.totalAmount ?? 0).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                    {formatCurrency(displayPurchase.totalAmount ?? 0)}
                   </span>
                 </div>
                 {(displayPurchase.discountAmount ?? 0) > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Discount</span>
                     <span className="text-green-600">
-                      -{currencySymbol}
-                      {(displayPurchase.discountAmount ?? 0).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      -{formatCurrency(displayPurchase.discountAmount ?? 0)}
                     </span>
                   </div>
                 )}
@@ -276,32 +255,20 @@ export const PurchaseDetailsDialog = memo(function PurchaseDetailsDialog({
                 <div className="flex justify-between font-semibold">
                   <span>Total</span>
                   <span>
-                    {currencySymbol}
-                    {(displayPurchase.totalAmount ?? 0).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                    {formatCurrency(displayPurchase.totalAmount ?? 0)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Paid</span>
                   <span className="text-green-600">
-                    {currencySymbol}
-                    {(displayPurchase.paidAmount ?? 0).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                    {formatCurrency(displayPurchase.paidAmount ?? 0)}
                   </span>
                 </div>
                 {(displayPurchase.dueAmount ?? 0) > 0 && (
                   <div className="flex justify-between text-sm font-medium">
                     <span className="text-destructive">Due</span>
                     <span className="text-destructive">
-                      {currencySymbol}
-                      {(displayPurchase.dueAmount ?? 0).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      {formatCurrency(displayPurchase.dueAmount ?? 0)}
                     </span>
                   </div>
                 )}

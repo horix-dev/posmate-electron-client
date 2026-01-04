@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo } from 'react'
 import { RefreshCw, Download } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { useBusinessStore } from '@/stores'
 import { useDebounce } from '@/hooks'
 import type { Sale } from '@/types/api.types'
 
@@ -58,12 +57,6 @@ export function SalesPage() {
     refetch,
     deleteSale,
   } = useSales(debouncedFilters)
-
-  // ============================================
-  // Business Store
-  // ============================================
-  const business = useBusinessStore((state) => state.business)
-  const currencySymbol = business?.business_currency?.symbol || '$'
 
   // ============================================
   // Dialog State
@@ -166,7 +159,7 @@ export function SalesPage() {
       )}
 
       {/* Stats Cards */}
-      <SalesStatsCards stats={stats} currencySymbol={currencySymbol} isLoading={isLoading} />
+      <SalesStatsCards stats={stats} isLoading={isLoading} />
 
       {/* Filters */}
       <SalesFiltersBar filters={filters} onFiltersChange={setFilters} />
@@ -175,7 +168,6 @@ export function SalesPage() {
       <SalesTable
         sales={filteredSales}
         hasSales={hasSales}
-        currencySymbol={currencySymbol}
         isLoading={isLoading}
         onView={handleView}
         onDelete={handleDeleteClick}
@@ -187,7 +179,6 @@ export function SalesPage() {
         sale={viewSale}
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
-        currencySymbol={currencySymbol}
       />
 
       {/* Delete Confirmation Dialog */}

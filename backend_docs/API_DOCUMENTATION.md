@@ -1,17 +1,64 @@
 # Horix POS Pro - REST API Documentation
 
 **Version:** 1.0  
-**Last Updated:** December 21, 2025  
+**Last Updated:** December 27, 2025  
 **Base URL:** `/api/v1`  
 **Authentication:** Bearer Token (Laravel Sanctum)
 
 ---
+-  - `search`: Search by VAT name (partial match)
+-  - Pagination (optional):
+    - `limit`: Return up to `limit` items (max 1000)
+    - `cursor` + `per_page`: Cursor pagination
+    - `page` + `per_page`: Page-based pagination
 
-## 🎉 Recent Updates (December 2025)
+## 🎉 Recent Updates (December 27, 2025)
+
+### Due Collection API - Complete CRUD Implementation ✅
+    "data": [],
+    "pagination": null
+- ✅ **Atomic Transactions**: All table updates (due_collects, sales/purchases, parties, branches) in single transaction
+- ✅ **Smart Payment Handling**: Correctly tracks payment amount changes with automatic balance adjustments
+
+### 20.1.1 Filter VATs
+- **Endpoint:** `GET /api/v1/vats/filter`
+- **Notes:** Same as List VATs (supports the same query parameters).
+
+### 20.1.2 Update VAT Status
+- **Endpoint:** `PATCH /api/v1/vats/{id}/status`
+- **Request Body:**
+  ```json
+  {
+    "status": true
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "message": "Status updated successfully.",
+    "data": {}
+  }
+  ```
+
+### 20.1.3 Bulk Delete VATs
+- **Endpoint:** `POST /api/v1/vats/delete-all`
+- **Request Body:**
+  ```json
+  {
+    "ids": [1, 2, 3]
+  }
+  ```
+- **Notes:** Single VATs that are part of a VAT group cannot be deleted.
+- ✅ **Invoice Management**: Support for both invoice-specific payments and opening due payments
+- ✅ **Flexible Pagination**: 4 modes - default, limit, offset, cursor
+- ✅ **Advanced Filtering**: party_id, payment_type_id, user_id, branch_id, date ranges, search
+- ✅ **Due Invoices Endpoint**: Fetch all due invoices for a specific party (for dropdown population)
+- ✅ **Batch Operations**: Delete multiple records with validation
 
 ### Test Coverage Achievement
-- ✅ **140 tests passing** (1,012 assertions)
-- ✅ **100% API endpoint coverage** for core features
+    "rate": 5,
+    "vat_ids": [1, 2],
+    "status": true
 - ✅ Comprehensive pagination testing (4 modes: default, limit, offset, cursor)
 - ✅ Batch/lot management validation testing
 - ✅ Expired stock prevention testing
@@ -24,12 +71,16 @@
 - ✅ **Route Model Binding**: Fixed for attribute values using `{attributeValue}` parameter
 - ✅ **Response Structure**: Standardized to use `data` key across all endpoints
 
-### Bug Fixes
+    "rate": 10,
+    "status": true
 - ✅ Fixed AttributeController route model binding
 - ✅ Fixed ProductVariantController response structure consistency
 - ✅ Fixed BatchMovementService user ID tracking
 - ✅ Fixed batch quantity tracking (quantity_before/after now accurate)
 - ✅ Fixed variant batches query using correct column name
+- ✅ Fixed Due Collection update method to properly handle payment differences across all tables
+- ✅ Fixed balance calculations for payment increases and decreases
+  - Single VAT cannot be deleted if it is part of a VAT group.
 
 ---
 
@@ -3980,9 +4031,18 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 ### 15.1 List Due Collections
 
 **Endpoint:** `GET /dues`  
-**Auth Required:** Yes
+**Auth Required:** Yes  
+**Description:** List all due collections with flexible pagination modes and filters.
 
-**Response:**
+Supports flexible pagination modes and filters via query parameters:
+
+- Default (no params): returns up to 1000 items
+- Limit (`?limit=N`): first N items (max 1000)
+- Offset (`?page=X&per_page=Y`): standard pagination (max 100/page)
+- Cursor (`?cursor=X&per_page=Y`): cursor pagination with `next_cursor`
+- Filters: `party_id`, `payment_type_id`, `user_id`, `branch_id`, `date_from`, `date_to`, `search` (searches party name and invoice number)
+
+**Response (Success):**
 ```json
 {
   "message": "Data fetched successfully.",
@@ -3990,46 +4050,320 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
     {
       "id": 1,
       "party_id": 1,
+      "user_id": 1,
+      "payment_type_id": 1,
+      "branch_id": null,
+      "sale_id": 1,
+      "purchase_id": null,
       "payDueAmount": 500.00,
       "totalDue": 1500.00,
       "dueAmountAfterPay": 1000.00,
       "paymentDate": "2024-01-15",
       "invoiceNumber": "S-00001",
+      "user": {
+        "id": 1,
+        "name": "User Name",
+        "role": "admin"
+      },
       "party": {
         "id": 1,
-        "name": "Customer Name"
+        "name": "Customer Name",
+        "email": "customer@example.com",
+        "phone": "+1234567890",
+        "type": "Customer"
       },
       "payment_type": {
         "id": 1,
         "name": "Cash"
-      }
+      },
+      "branch": null
     }
-  ]
+  ],
+  "pagination": null
 }
 ```
 
 ---
 
-### 13.2 Collect Due
+### 15.2 Get Due Invoices for Party
+
+**Endpoint:** `GET /dues/invoices`  
+**Auth Required:** Yes  
+**Description:** Get all invoices with due amounts for a specific customer or supplier.
+
+**Query Parameters:**
+- `party_id`: ID of the party (customer or supplier) - **Required**
+
+**Response (Success - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "party": {
+      "id": 1,
+      "name": "Customer Name",
+      "type": "Customer",
+      "total_due": 1500.00
+    },
+    "invoices": [
+      {
+        "id": 1,
+        "invoiceNumber": "S-00001",
+        "totalAmount": 2000.00,
+        "dueAmount": 1000.00,
+        "date": "2024-01-15"
+      },
+      {
+        "id": 2,
+        "invoiceNumber": "S-00002",
+        "totalAmount": 1000.00,
+        "dueAmount": 500.00,
+        "date": "2024-01-14"
+      }
+    ],
+    "party_opening_due": 0.00
+  }
+}
+```
+
+**Response (Error - HTTP 404):**
+```json
+{
+  "message": "Party not found."
+}
+```
+
+**Notes:**
+- For suppliers, returns purchases with `dueAmount > 0`
+- For customers, returns sales with `dueAmount > 0`
+- `party_opening_due` = total party due minus sum of invoice dues
+- Invoices are ordered by date (most recent first)
+
+---
+
+### 15.3 Filter Due Collections
+
+**Endpoint:** `GET /dues/filter`  
+**Auth Required:** Yes  
+**Description:** Search and filter due collections with optional parameters.
+
+**Query Parameters:**
+- `search`: Search by party name or invoice number
+- `party_id`: Filter by specific party
+- `payment_type_id`: Filter by payment type
+- `user_id`: Filter by user who collected the due
+- `branch_id`: Filter by branch
+- `date_from`: Filter from date (format: YYYY-MM-DD)
+- `date_to`: Filter to date (format: YYYY-MM-DD)
+- `page` & `per_page`: For pagination (default max 100/page)
+
+**Response:** Same as List Due Collections
+
+---
+
+### 15.4 Create Due Collection
 
 **Endpoint:** `POST /dues`  
-**Auth Required:** Yes
+**Auth Required:** Yes  
+**Description:** Record a due collection payment from a customer or to a supplier.
 
 **Request Body:**
 ```json
 {
-  "party_id": "integer (required, exists)",
-  "payment_type_id": "integer (required, exists)",
-  "paymentDate": "string (required)",
-  "payDueAmount": "numeric (required)",
-  "invoiceNumber": "string (optional, exists in sales/purchases)"
+  "party_id": "integer (required, exists in parties)",
+  "payment_type_id": "integer (required, exists in payment_types)",
+  "paymentDate": "string (required, format: YYYY-MM-DD)",
+  "payDueAmount": "numeric (required, must be > 0)",
+  "invoiceNumber": "string (optional, must exist in sales/purchases)"
 }
 ```
 
-**Note:** 
-- If party is Supplier, collects from purchases due
-- Otherwise, collects from sales due
-- When logged into a branch, invoice selection is required
+**Validation Rules:**
+- Party must exist
+- Payment type must exist
+- If logged into a branch and invoiceNumber is empty, returns 400 error
+- Invoice due amount cannot be less than payDueAmount
+- When no invoice is selected, total payment cannot exceed party's total due
+
+**Response (Success - HTTP 200):**
+```json
+{
+  "message": "Due collected successfully.",
+  "data": {
+    "id": 1,
+    "party_id": 1,
+    "user_id": 1,
+    "payment_type_id": 1,
+    "branch_id": null,
+    "sale_id": 1,
+    "purchase_id": null,
+    "payDueAmount": 500.00,
+    "totalDue": 1500.00,
+    "dueAmountAfterPay": 1000.00,
+    "paymentDate": "2024-01-15",
+    "invoiceNumber": "S-00001",
+    "user": { "id": 1, "name": "User Name", "role": "admin" },
+    "party": { "id": 1, "name": "Customer Name", "email": "customer@example.com", "phone": "+1234567890", "type": "Customer" },
+    "payment_type": { "id": 1, "name": "Cash" },
+    "branch": null
+  }
+}
+```
+
+**Response (Error - HTTP 400):**
+```json
+{
+  "message": "You must select an invoice when login any branch."
+}
+```
+
+---
+
+### 15.5 Get Single Due Collection
+
+**Endpoint:** `GET /dues/{id}`  
+**Auth Required:** Yes  
+**Description:** Retrieve details of a specific due collection.
+
+**Response (Success - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "id": 1,
+    "party_id": 1,
+    "user_id": 1,
+    "payment_type_id": 1,
+    "branch_id": null,
+    "sale_id": 1,
+    "purchase_id": null,
+    "payDueAmount": 500.00,
+    "totalDue": 1500.00,
+    "dueAmountAfterPay": 1000.00,
+    "paymentDate": "2024-01-15",
+    "invoiceNumber": "S-00001",
+    "user": { "id": 1, "name": "User Name", "role": "admin" },
+    "party": { "id": 1, "name": "Customer Name", "email": "customer@example.com", "phone": "+1234567890", "type": "Customer" },
+    "payment_type": { "id": 1, "name": "Cash" },
+    "branch": null
+  }
+}
+```
+
+**Response (Unauthorized - HTTP 403):**
+```json
+{
+  "message": "Unauthorized."
+}
+```
+
+---
+
+### 15.6 Update Due Collection
+
+**Endpoint:** `PUT /dues/{id}`  
+**Auth Required:** Yes  
+**Description:** Update an existing due collection record.
+
+**Request Body:**
+```json
+{
+  "payment_type_id": "integer (required, exists in payment_types)",
+  "paymentDate": "string (required, format: YYYY-MM-DD)",
+  "payDueAmount": "numeric (required, must be > 0)",
+  "invoiceNumber": "string (optional, must exist in sales/purchases)"
+}
+```
+
+**Response (Success - HTTP 200):**
+```json
+{
+  "message": "Due collection updated successfully.",
+  "data": {
+    "id": 1,
+    "party_id": 1,
+    "user_id": 1,
+    "payment_type_id": 2,
+    "branch_id": null,
+    "sale_id": 1,
+    "purchase_id": null,
+    "payDueAmount": 750.00,
+    "totalDue": 1500.00,
+    "dueAmountAfterPay": 750.00,
+    "paymentDate": "2024-01-16",
+    "invoiceNumber": "S-00001",
+    "user": { "id": 1, "name": "User Name", "role": "admin" },
+    "party": { "id": 1, "name": "Customer Name", "email": "customer@example.com", "phone": "+1234567890", "type": "Customer" },
+    "payment_type": { "id": 2, "name": "Cheque" },
+    "branch": null
+  }
+}
+```
+
+**Response (Unauthorized - HTTP 403):**
+```json
+{
+  "message": "Unauthorized."
+}
+```
+
+---
+
+### 15.7 Delete Single Due Collection
+
+**Endpoint:** `DELETE /dues/{id}`  
+**Auth Required:** Yes  
+**Description:** Delete a due collection record. This reverses the balance update and restores the party and invoice dues.
+
+**Response (Success - HTTP 200):**
+```json
+{
+  "message": "Due collection deleted successfully"
+}
+```
+
+**Response (Unauthorized - HTTP 403):**
+```json
+{
+  "message": "Unauthorized."
+}
+```
+
+**Response (Error - HTTP 404):**
+```json
+{
+  "message": "Something went wrong!"
+}
+```
+
+---
+
+### 15.8 Delete Multiple Due Collections
+
+**Endpoint:** `POST /dues/delete-all`  
+**Auth Required:** Yes  
+**Description:** Delete multiple due collection records in a single request.
+
+**Request Body:**
+```json
+{
+  "ids": [1, 2, 3]
+}
+```
+
+**Response (Success - HTTP 200):**
+```json
+{
+  "message": "Selected items deleted successfully."
+}
+```
+
+**Response (Error - HTTP 404):**
+```json
+{
+  "message": "Something went wrong!"
+}
+```
 
 ---
 
@@ -4040,6 +4374,14 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 **Endpoint:** `GET /expenses`  
 **Auth Required:** Yes
 **Description:** List all expenses with categories, payment types, and branches for the authenticated user's business.
+
+Supports flexible pagination modes and filters via query parameters:
+
+- Default (no params): returns up to 1000 items
+- Limit (`?limit=N`): first N items (max 1000)
+- Offset (`?page=X&per_page=Y`): standard pagination (max 100/page)
+- Cursor (`?cursor=X&per_page=Y`): cursor pagination with `next_cursor`
+- Filters: `branch_id`, `payment_type_id`, `expense_category_id`, `date_from`, `date_to`, `search`
 
 **Response (Success):**
 ```json
@@ -4058,6 +4400,7 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
       "note": "string",
       "category": { "id": 1, "categoryName": "Office Expenses" },
       "payment_type": { "id": 1, "name": "Cash" },
+```
       "branch": { "id": 1, "name": "Main Branch" }
     }
   ],
@@ -4074,6 +4417,8 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 **Endpoint:** `GET /expenses/filter`  
 **Auth Required:** Yes
 **Description:** Search and filter expenses by branch and/or search term.
+
+Supports the same pagination modes and filters as the list endpoint.
 
 **Query Parameters:**
 ```json
@@ -4237,6 +4582,14 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 **Auth Required:** Yes
 **Description:** List all incomes with categories, payment types, and branches for the authenticated user's business.
 
+Supports flexible pagination modes and filters via query parameters:
+
+- Default (no params): returns up to 1000 items
+- Limit (`?limit=N`): first N items (max 1000)
+- Offset (`?page=X&per_page=Y`): standard pagination (max 100/page)
+- Cursor (`?cursor=X&per_page=Y`): cursor pagination with `next_cursor`
+- Filters: `branch_id`, `payment_type_id`, `income_category_id`, `date_from`, `date_to`, `search`
+
 **Response (Success):**
 ```json
 {
@@ -4270,6 +4623,8 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 **Endpoint:** `GET /incomes/filter`  
 **Auth Required:** Yes
 **Description:** Search and filter incomes by branch and/or search term.
+
+Supports the same pagination modes and filters as the list endpoint.
 
 **Query Parameters:**
 ```json
@@ -4432,6 +4787,14 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 **Endpoint:** `GET /expense-categories`  
 **Auth Required:** Yes
 
+Supports flexible pagination modes and filtering:
+
+- Default (no params): returns up to 1000 items
+- Limit (`?limit=N`): first N items (max 1000)
+- Offset (`?page=X&per_page=Y`): standard pagination (max 100/page)
+- Cursor (`?cursor=X&per_page=Y`): cursor pagination with `next_cursor`
+- Filters: `status` (1/0/true/false), `search` (by `categoryName`), `date_from`, `date_to`
+
 ---
 
 ### 18.2 Create Expense Category
@@ -4454,12 +4817,46 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 **Endpoint:** `PUT /expense-categories/{id}`  
 **Auth Required:** Yes
 
+Returns the updated category resource.
+
 ---
 
 ### 18.4 Delete Expense Category
 
 **Endpoint:** `DELETE /expense-categories/{id}`  
 **Auth Required:** Yes
+
+Deletes a single category.
+
+---
+
+### 18.5 Filter Expense Categories
+
+**Endpoint:** `GET /expense-categories/filter`  
+**Auth Required:** Yes
+
+Accepts the same filters and pagination modes as the list endpoint.
+
+---
+
+### 18.6 Bulk Delete Expense Categories
+
+**Endpoint:** `POST /expense-categories/delete-all`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{ "ids": [1, 2, 3] }
+```
+
+---
+
+### 18.7 Toggle Expense Category Status
+
+**Endpoint:** `PATCH /expense-categories/{id}/status`  
+**Auth Required:** Yes
+
+Toggles `status` between active/inactive for the specified category.
 
 ---
 
@@ -4469,6 +4866,14 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 
 **Endpoint:** `GET /income-categories`  
 **Auth Required:** Yes
+
+Supports flexible pagination modes and filtering:
+
+- Default (no params): returns up to 1000 items
+- Limit (`?limit=N`): first N items (max 1000)
+- Offset (`?page=X&per_page=Y`): standard pagination (max 100/page)
+- Cursor (`?cursor=X&per_page=Y`): cursor pagination with `next_cursor`
+- Filters: `status` (1/0/true/false), `search` (by `categoryName`), `date_from`, `date_to`
 
 ---
 
@@ -4492,12 +4897,46 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 **Endpoint:** `PUT /income-categories/{id}`  
 **Auth Required:** Yes
 
+Returns the updated category resource.
+
 ---
 
 ### 19.4 Delete Income Category
 
 **Endpoint:** `DELETE /income-categories/{id}`  
 **Auth Required:** Yes
+
+Deletes a single category.
+
+---
+
+### 19.5 Filter Income Categories
+
+**Endpoint:** `GET /income-categories/filter`  
+**Auth Required:** Yes
+
+Accepts the same filters and pagination modes as the list endpoint.
+
+---
+
+### 19.6 Bulk Delete Income Categories
+
+**Endpoint:** `POST /income-categories/delete-all`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{ "ids": [1, 2, 3] }
+```
+
+---
+
+### 19.7 Toggle Income Category Status
+
+**Endpoint:** `PATCH /income-categories/{id}/status`  
+**Auth Required:** Yes
+
+Toggles `status` between active/inactive for the specified category.
 
 ---
 
@@ -4588,6 +5027,11 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 **Endpoint:** `GET /payment-types`  
 **Auth Required:** Yes
 
+**Query Params (optional):**
+- `search` (string)
+- `status` (boolean)
+- Pagination (same system-wide conventions): `limit`, `cursor`, `per_page`, `page`
+
 **Response:**
 ```json
 {
@@ -4607,7 +5051,7 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 
 ---
 
-### 19.2 Create Payment Type
+### 21.2 Create Payment Type
 
 **Endpoint:** `POST /payment-types`  
 **Auth Required:** Yes
@@ -4615,8 +5059,48 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 **Request Body:**
 ```json
 {
-  "name": "string (required, unique per business)"
+  "name": "string (required, unique per business)",
+  "status": "boolean (optional)"
 }
+
+```
+
+---
+
+### 21.2.1 Filter Payment Types
+
+**Endpoint:** `GET /payment-types/filter`
+**Auth Required:** Yes
+
+**Notes:** Same as list endpoint; provided for UI consistency.
+
+---
+
+### 21.2.2 Update Payment Type Status
+
+**Endpoint:** `PATCH /payment-types/{id}/status`
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "status": true
+}
+```
+
+---
+
+### 21.2.3 Delete Multiple Payment Types
+
+**Endpoint:** `POST /payment-types/delete-all`
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "ids": [1, 2, 3]
+}
+```
 ```
 
 ---
@@ -5182,12 +5666,32 @@ Updates stock details.
 
 ## 26. Currencies
 
-### 24.1 List Currencies
+### 26.1 List Currencies
 
-Lists all available currencies.
+Lists all available currencies with flexible pagination support.
 
 **Endpoint:** `GET /currencies`  
 **Auth Required:** Yes
+
+**Query Parameters:**
+- **Filters:**
+  - `status`: Filter by status (0 or 1)
+  - `search`: Search by name, code, or country name (partial match)
+  - `is_default`: Filter by default currency (0 or 1)
+  - `country_name`: Filter by country name (partial match)
+- **Pagination (optional):**
+  - `limit`: Return up to `limit` items (max 1000) - returns flat array
+  - `cursor` + `per_page`: Cursor pagination (max per_page: 1000) - returns flat array with pagination metadata
+  - `page` + `per_page`: Page-based pagination (max per_page: 100) - returns paginated object
+
+**Pagination Modes:**
+
+#### Mode 1: Default (No Parameters)
+Returns all currencies with safety limit of 1000.
+
+```bash
+GET /api/v1/currencies
+```
 
 **Response:**
 ```json
@@ -5200,23 +5704,264 @@ Lists all available currencies.
       "code": "USD",
       "symbol": "$",
       "position": "before",
-      "rate": 1,
-      "is_default": 1,
-      "status": 1,
-      "country_name": "United States"
+      "rate": 1.00,
+      "is_default": true,
+      "status": true,
+      "country_name": "United States",
+      "created_at": "2025-12-01T00:00:00+00:00",
+      "updated_at": "2025-12-01T00:00:00+00:00"
     }
-  ]
+  ],
+  "_server_timestamp": "2025-12-31T10:00:00+00:00"
 }
+```
+
+#### Mode 2: Limit (Dropdown/Filter)
+Returns limited number of currencies. Best for dropdowns.
+
+```bash
+GET /api/v1/currencies?limit=50
+```
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [ /* up to 50 currencies */ ],
+  "_server_timestamp": "2025-12-31T10:00:00+00:00"
+}
+```
+
+#### Mode 3: Offset Pagination (Management Tables)
+Returns paginated currencies. Best for data tables with page numbers.
+
+```bash
+GET /api/v1/currencies?page=1&per_page=20
+```
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [ /* 20 currencies */ ],
+  "pagination": {
+    "total": 150,
+    "per_page": 20,
+    "current_page": 1,
+    "last_page": 8,
+    "from": 1,
+    "to": 20
+  },
+  "_server_timestamp": "2025-12-31T10:00:00+00:00"
+}
+```
+
+#### Mode 4: Cursor Pagination (Sync/Export)
+Returns currencies using cursor-based pagination. Best for sync operations and large exports.
+
+```bash
+GET /api/v1/currencies?cursor=0&per_page=500
+```
+
+**Response:**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [ /* up to 500 currencies */ ],
+  "pagination": {
+    "next_cursor": 500,
+    "has_more": true,
+    "per_page": 500
+  },
+  "_server_timestamp": "2025-12-31T10:00:00+00:00"
+}
+```
+
+**Filter Examples:**
+
+```bash
+# Search by name or code
+GET /api/v1/currencies?search=USD
+
+# Filter by status
+GET /api/v1/currencies?status=1
+
+# Get default currency
+GET /api/v1/currencies?is_default=1
+
+# Filter by country
+GET /api/v1/currencies?country_name=United
+
+# Combine filters with pagination
+GET /api/v1/currencies?status=1&page=1&per_page=20
 ```
 
 ---
 
-### 24.2 Change Currency
+### 26.2 Change Business Currency
 
-Changes the business currency.
+Changes the active currency for the authenticated user's business. This updates the `user_currencies` table for the business.
 
 **Endpoint:** `GET /currencies/{id}`  
 **Auth Required:** Yes
+
+**Path Parameters:**
+- `id` (integer, required) - Currency ID to set as business currency
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Currency changed successfully",
+  "data": {
+    "id": 2,
+    "name": "Euro",
+    "code": "EUR",
+    "symbol": "€",
+    "position": "after",
+    "rate": 0.85,
+    "is_default": false,
+    "status": true,
+    "country_name": "European Union",
+    "created_at": "2025-12-01T00:00:00+00:00",
+    "updated_at": "2025-12-01T00:00:00+00:00"
+  },
+  "_server_timestamp": "2025-12-31T10:00:00+00:00"
+}
+```
+
+**Response (Not Found):**
+```json
+{
+  "success": false,
+  "message": "Currency not found"
+}
+```
+
+**Response (No User Currency):**
+```json
+{
+  "success": false,
+  "message": "User currency not found for this business"
+}
+```
+
+**Notes:**
+- This endpoint updates the `user_currencies` table for the business
+- Clears the business currency cache
+- The currency must exist in the `currencies` table
+- The business must have a record in the `user_currencies` table
+
+---
+
+### 26.3 Set Global Default Currency
+
+Sets a currency as the global default in the system. This updates the `is_default` flag in the `currencies` table. Typically used by super admin.
+
+**Endpoint:** `PUT /currencies/{id}/set-global-default`  
+**Auth Required:** Yes
+
+**Path Parameters:**
+- `id` (integer, required) - Currency ID to set as global default
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Global default currency updated successfully",
+  "data": {
+    "id": 1,
+    "name": "US Dollar",
+    "code": "USD",
+    "symbol": "$",
+    "position": "before",
+    "rate": 1.00,
+    "is_default": true,
+    "status": true,
+    "country_name": "United States",
+    "created_at": "2025-12-01T00:00:00+00:00",
+    "updated_at": "2025-12-31T10:00:00+00:00"
+  },
+  "_server_timestamp": "2025-12-31T10:00:00+00:00"
+}
+```
+
+**Response (Not Found):**
+```json
+{
+  "success": false,
+  "message": "Currency not found"
+}
+```
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "message": "Database error message"
+}
+```
+
+**Notes:**
+- This endpoint updates the `currencies` table (system-wide default)
+- Only ONE currency can have `is_default = true` at a time
+- All other currencies will automatically have `is_default = false`
+- This is different from business currency selection (which uses `user_currencies` table)
+- Typically restricted to super admin role
+
+**Difference Between Endpoints:**
+- `GET /currencies/{id}` - Sets business-specific currency (updates `user_currencies`)
+- `PUT /currencies/{id}/set-global-default` - Sets system-wide default (updates `currencies.is_default`)
+
+---
+
+### 26.4 Get Business Currency
+
+Retrieves the active currency for the authenticated user's business from the `user_currencies` table.
+
+**Endpoint:** `GET /currencies/business/active`  
+**Auth Required:** Yes
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Business currency fetched successfully",
+  "data": {
+    "id": 2,
+    "name": "US Dollar",
+    "country_name": "United States",
+    "code": "USD",
+    "rate": 1.00,
+    "symbol": "$",
+    "position": "left",
+    "created_at": "2025-12-31T10:00:00+00:00",
+    "updated_at": "2025-12-31T10:00:00+00:00"
+  },
+  "_server_timestamp": "2025-12-31T12:00:00+00:00"
+}
+```
+
+**Response (Not Found):**
+```json
+{
+  "success": false,
+  "message": "No currency set for this business"
+}
+```
+
+**Notes:**
+- Returns the currency currently active for the business
+- Data comes from `user_currencies` table, not `currencies` table
+- Each business can have a different active currency
+- The `id` field refers to the `currency_id` in the `currencies` table
+- This is the currency used for all transactions and displays for this business
+
+**Use Cases:**
+- Display current currency in UI header/footer
+- Format prices in sales/purchase screens
+- Initialize POS system with correct currency
+- Validate currency before transactions
 
 ---
 
@@ -6442,6 +7187,14 @@ Comprehensive reporting endpoints for sales, purchases, and returns with flexibl
 
 Get detailed sales transactions with filtering and summary totals.
 
+#### 27.1.1 Sales Report (Due Collections Aware)
+
+- **Endpoint:** `GET /api/v1/sales/report`
+- **Includes:** due collection totals per sale and in summary
+- **Filters:** `search`, `party_id`, `payment_type_id`, `date_from`, `date_to`, `isPaid`, `invoiceNumber`, `per_page`
+- **Key Fields:** `initial_paidAmount`, `initial_dueAmount`, `total_paid_amount`, `remaining_due_amount`, `is_fully_paid`, `due_collections_count`, `due_collections_total`
+- **Summary:** `total_sales_count`, `total_amount`, `initial_paid`, `due_collections`, `total_paid`, `remaining_due`, `counts` (fully_paid, partially_paid, unpaid)
+
 **Endpoint:** `GET /reports/sales`  
 **Auth Required:** Yes
 
@@ -7150,3 +7903,62 @@ No specific rate limits are enforced, but consider:
 - Multi-branch support
 - Warehouse addon support
 - Thermal printer addon support
+
+---
+
+## Print Labels
+
+Comprehensive API for label templates and runtime barcode generation aligned with the Business module.
+
+### Endpoints
+
+```
+GET    /print-labels                        - List all print labels (flexible pagination)
+GET    /print-labels/filter                 - Search & filter
+POST   /print-labels                        - Create new label
+GET    /print-labels/{id}                   - Get single label
+PUT    /print-labels/{id}                   - Update label
+DELETE /print-labels/{id}                   - Delete label
+PATCH  /print-labels/{id}/status            - Toggle status
+POST   /print-labels/delete-all             - Bulk delete
+GET    /print-labels/config                 - List barcode types + label formats (+ printer presets)
+GET    /print-labels/products               - Quick product search (for label generation)
+POST   /print-labels/generate               - Generate printable labels payload
+GET    /barcodes/config                     - Barcode types + printer presets (global)
+```
+
+### Supported Values
+
+- Barcode types: `C39E+`, `C93`, `S25`, `S25+`, `I25`, `I25+`, `C128`, `C128A`, `C128B`, `C128C`, `EAN2`, `EAN5`, `EAN8`, `EAN13`
+- Label formats: `2x1`, `1.5x1`, `2x1.25`
+- Printer presets: `1`, `2`, `3`
+
+### Generate Request Example
+
+```json
+{
+  "barcode_setting": "1",
+  "barcode_type": "C128",
+  "stock_ids": [101, 102],
+  "qty": [2, 1],
+  "preview_date": ["2025-12-20", null],
+  "vat_type": "inclusive",
+  "business_name": true,
+  "business_name_size": 15,
+  "product_name": true,
+  "product_name_size": 15,
+  "product_price": true,
+  "product_price_size": 14,
+  "product_code": true,
+  "product_code_size": 14,
+  "pack_date": true,
+  "pack_date_size": 12
+}
+```
+
+### Notes
+
+- Arrays `stock_ids[]`, `qty[]`, `preview_date[]` must be parallel
+- Font sizes must be 8–48
+- `vat_type` determines price calculation (inclusive/exclusive)
+- Response includes barcode image payload suitable for preview rendering

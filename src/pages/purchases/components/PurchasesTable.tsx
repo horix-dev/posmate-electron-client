@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useCurrency } from '@/hooks'
 import type { Purchase } from '@/types/api.types'
 import { getPaymentStatus, formatPurchaseDate, getPurchaseItemsCount } from '../hooks'
 
@@ -38,8 +39,6 @@ export interface PurchasesTableProps {
   purchases: Purchase[]
   /** Whether there are any purchases at all (before filtering) */
   hasPurchases: boolean
-  /** Currency symbol for price display */
-  currencySymbol: string
   /** Whether data is loading */
   isLoading: boolean
   /** Callback when view action is clicked */
@@ -202,7 +201,6 @@ const Pagination = memo(function Pagination({
 
 interface PurchaseRowProps {
   purchase: Purchase
-  currencySymbol: string
   onView: (purchase: Purchase) => void
   onEdit?: (purchase: Purchase) => void
   onDelete: (purchase: Purchase) => void
@@ -210,11 +208,11 @@ interface PurchaseRowProps {
 
 const PurchaseRow = memo(function PurchaseRow({
   purchase,
-  currencySymbol,
   onView,
   onEdit,
   onDelete,
 }: PurchaseRowProps) {
+  const { format: formatCurrency } = useCurrency()
   const paymentStatus = getPaymentStatus(purchase)
   const itemsCount = getPurchaseItemsCount(purchase)
 
@@ -236,31 +234,19 @@ const PurchaseRow = memo(function PurchaseRow({
 
       {/* Total */}
       <TableCell className="text-right font-medium">
-        {currencySymbol}
-        {(purchase.totalAmount ?? 0).toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
+        {formatCurrency(purchase.totalAmount ?? 0)}
       </TableCell>
 
       {/* Paid */}
       <TableCell className="text-right">
-        {currencySymbol}
-        {(purchase.paidAmount ?? 0).toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
+        {formatCurrency(purchase.paidAmount ?? 0)}
       </TableCell>
 
       {/* Due */}
       <TableCell className="text-right">
         {(purchase.dueAmount ?? 0) > 0 ? (
           <span className="font-medium text-destructive">
-            {currencySymbol}
-            {(purchase.dueAmount ?? 0).toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+            {formatCurrency(purchase.dueAmount ?? 0)}
           </span>
         ) : (
           <span className="text-muted-foreground">-</span>
@@ -330,7 +316,6 @@ const PurchaseRow = memo(function PurchaseRow({
 export const PurchasesTable = memo(function PurchasesTable({
   purchases,
   hasPurchases,
-  currencySymbol,
   isLoading,
   onView,
   onEdit,
@@ -392,7 +377,6 @@ export const PurchasesTable = memo(function PurchasesTable({
               <PurchaseRow
                 key={purchase.id}
                 purchase={purchase}
-                currencySymbol={currencySymbol}
                 onView={onView}
                 onEdit={onEdit}
                 onDelete={onDelete}

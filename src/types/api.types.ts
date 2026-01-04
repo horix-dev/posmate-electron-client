@@ -17,6 +17,223 @@ export interface PaginatedResponse<T> extends ApiResponse<T> {
 }
 
 // ============================================
+// Reporting Types (Transaction Reports)
+// ============================================
+
+export type ReportPeriod =
+  | 'today'
+  | 'yesterday'
+  | 'last_7_days'
+  | 'last_30_days'
+  | 'current_month'
+  | 'last_month'
+  | 'current_year'
+
+export interface ReportPeriodRange {
+  from: string
+  to: string
+}
+
+export interface ReportPagination<T> {
+  current_page: number
+  data: T[]
+  per_page: number
+  total: number
+  last_page: number
+}
+
+export interface SalesReportSummary {
+  total_sales: number
+  total_amount: number
+  total_paid: number
+  total_due: number
+  total_discount: number
+  total_vat: number
+  total_profit: number
+  period: ReportPeriodRange
+}
+
+export interface SalesReportUser {
+  id: number
+  name: string
+}
+
+export interface SalesReportParty {
+  id: number
+  name: string
+  email?: string
+  phone?: string
+  type?: string
+}
+
+export interface SalesReportBranch {
+  id: number
+  name: string
+}
+
+export interface SalesReportPaymentType {
+  id: number
+  name: string
+}
+
+export interface SalesReportItem {
+  id: number
+  invoiceNumber: string
+  saleDate: string
+  totalAmount: number
+  discountAmount: number
+  paidAmount: number
+  dueAmount: number
+  vat_amount?: number
+  lossProfit?: number
+  isPaid: boolean
+  paymentType?: string
+  user?: SalesReportUser
+  party?: SalesReportParty
+  branch?: SalesReportBranch
+  payment_type?: SalesReportPaymentType
+}
+
+export interface SalesReportData {
+  summary: SalesReportSummary
+  sales: ReportPagination<SalesReportItem>
+}
+
+export interface SalesSummaryData {
+  total_sales: number
+  total_amount: number
+  total_paid: number
+  total_due: number
+  total_discount: number
+  total_vat: number
+  total_profit: number
+  average_sale_amount: number
+  fully_paid_count: number
+  partially_paid_count: number
+  period: ReportPeriodRange
+}
+
+export interface PurchasesReportSummary {
+  total_purchases: number
+  total_amount: number
+  total_paid: number
+  total_due: number
+  total_discount: number
+  total_vat: number
+  period: ReportPeriodRange
+}
+
+export interface PurchasesReportItem {
+  id: number
+  invoiceNumber: string
+  purchaseDate: string
+  totalAmount: number
+  discountAmount: number
+  paidAmount: number
+  dueAmount: number
+  vat_amount?: number
+  isPaid: boolean
+  paymentType?: string
+  user?: SalesReportUser
+  party?: SalesReportParty
+  branch?: SalesReportBranch
+  payment_type?: SalesReportPaymentType
+}
+
+export interface PurchasesReportData {
+  summary: PurchasesReportSummary
+  purchases: ReportPagination<PurchasesReportItem>
+}
+
+export interface PurchasesSummaryData {
+  total_purchases: number
+  total_amount: number
+  total_paid: number
+  total_due: number
+  total_discount: number
+  total_vat: number
+  average_purchase_amount: number
+  fully_paid_count: number
+  partially_paid_count: number
+  period: ReportPeriodRange
+}
+
+export interface ReturnsReportSummary {
+  total_returns: number
+  total_return_amount: number
+  total_return_quantity: number
+  period: ReportPeriodRange
+}
+
+export interface ReturnsSummaryData extends ReturnsReportSummary {
+  average_return_amount: number
+}
+
+export interface ReturnDetailProduct {
+  id: number
+  productName?: string
+  product_name?: string
+}
+
+export interface ReturnDetail {
+  product?: ReturnDetailProduct
+  return_qty: number
+  return_amount: number
+}
+
+export interface SaleReturnItem {
+  id: number
+  return_date: string
+  total_return_amount: number
+  branch?: SalesReportBranch
+  details?: ReturnDetail[]
+}
+
+export interface SaleReturnsReportSaleItem {
+  id: number
+  invoiceNumber: string
+  saleDate: string
+  totalAmount: number
+  user?: SalesReportUser
+  party?: SalesReportParty
+  branch?: SalesReportBranch
+  saleReturns: SaleReturnItem[]
+}
+
+export interface SaleReturnsReportData {
+  summary: ReturnsReportSummary
+  sales: ReportPagination<SaleReturnsReportSaleItem>
+}
+
+export type SaleReturnsSummaryData = ReturnsSummaryData
+
+export interface PurchaseReturnItem {
+  id: number
+  return_date: string
+  total_return_amount: number
+  branch?: SalesReportBranch
+  details?: ReturnDetail[]
+}
+
+export interface PurchaseReturnsReportPurchaseItem {
+  id: number
+  invoiceNumber: string
+  purchaseDate: string
+  totalAmount: number
+  user?: SalesReportUser
+  party?: SalesReportParty
+  branch?: SalesReportBranch
+  purchaseReturns: PurchaseReturnItem[]
+}
+
+export interface PurchaseReturnsReportData {
+  summary: ReturnsReportSummary
+  purchases: ReportPagination<PurchaseReturnsReportPurchaseItem>
+}
+
+export type PurchaseReturnsSummaryData = ReturnsSummaryData
+
+// ============================================
 // Auth Types
 // ============================================
 
@@ -121,8 +338,8 @@ export interface Currency {
   symbol: string
   position: 'before' | 'after'
   rate?: number
-  is_default?: number
-  status?: number
+  is_default?: number | boolean
+  status?: number | boolean
   country_name?: string
 }
 
@@ -395,11 +612,23 @@ export interface Sale {
   saleDate: string
   totalAmount: number
   discountAmount?: number
-  paidAmount: number
-  dueAmount?: number
+  
+  // Old fields (kept for backward compatibility)
+  paidAmount: number            // ⚠️ Deprecated, use initial_paidAmount or total_paid_amount
+  dueAmount?: number            // ⚠️ Deprecated, use initial_dueAmount or remaining_due_amount
+  isPaid?: number               // ⚠️ Now calculated, use is_fully_paid
+  
+  // New fields - Due Collection Tracking
+  initial_paidAmount?: number   // Payment at sale time
+  initial_dueAmount?: number    // Due at sale time
+  total_paid_amount?: number    // Initial + due collections
+  remaining_due_amount?: number // Actual remaining due
+  is_fully_paid?: boolean       // Accurate payment status
+  due_collections_count?: number  // Number of collection payments
+  due_collections_total?: number  // Total from collections
+  
   change_amount?: number
   lossProfit?: number
-  isPaid?: number
   rounding_option?: RoundingOption
   vat_amount?: number
   note?: string

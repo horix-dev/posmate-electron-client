@@ -18,9 +18,10 @@ const POSPage = lazy(() => import('@/pages/pos/POSPage'))
 const ProductsPage = lazy(() => import('@/pages/products/ProductsPage'))
 const SalesPage = lazy(() => import('@/pages/sales/SalesPage'))
 const PurchasesPage = lazy(() => import('@/pages/purchases/PurchasesPage'))
+const FinancePage = lazy(() => import('@/pages/finance/FinancePage'))
+const DuePage = lazy(() => import('@/pages/Due/DuePage'))
 const CustomersPage = lazy(() => import('@/pages/customers/CustomersPage'))
 const SuppliersPage = lazy(() => import('@/pages/suppliers/SuppliersPage'))
-const ExpensesPage = lazy(() => import('@/pages/expenses/ExpensesPage'))
 const ProductSettingsPage = lazy(() => import('@/pages/product-settings/ProductSettingsPage'))
 const WarehousesPage = lazy(() => import('@/pages/warehouses/WarehousesPage'))
 const StockAdjustmentsPage = lazy(() => import('@/pages/inventory/StockAdjustmentsPage'))
@@ -146,10 +147,18 @@ const router = routerCreator([
         ),
       },
       {
-        path: 'expenses',
+        path: 'finance',
         element: (
           <Suspense fallback={<PageLoader />}>
-            <ExpensesPage />
+            <FinancePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'due',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <DuePage />
           </Suspense>
         ),
       },

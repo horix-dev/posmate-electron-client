@@ -13,16 +13,22 @@ import type {
 
 export const expensesService = {
   /**
-   * Get all expenses with optional filters
+   * Get all expenses with optional filters and flexible pagination
    */
   getAll: async (params?: {
     page?: number
+    per_page?: number
+    limit?: number
+    cursor?: number
     start_date?: string
     end_date?: string
     category_id?: number
+    branch_id?: number
+    payment_type_id?: number
+    search?: string
   }): Promise<PaginatedApiResponse<Expense[]>> => {
     const { data } = await api.get<PaginatedApiResponse<Expense[]>>(API_ENDPOINTS.EXPENSES.LIST, {
-      params,
+      params: params || { limit: 100 },
     })
     return data
   },
@@ -62,11 +68,19 @@ export const expensesService = {
   // ============================================
 
   /**
-   * Get all expense categories
+   * Get all expense categories with flexible pagination
    */
-  getCategories: async (): Promise<ApiResponse<ExpenseCategory[]>> => {
+  getCategories: async (params?: {
+    limit?: number
+    page?: number
+    per_page?: number
+    cursor?: number
+    search?: string
+    status?: boolean | number
+  }): Promise<ApiResponse<ExpenseCategory[]>> => {
     const { data } = await api.get<ApiResponse<ExpenseCategory[]>>(
-      API_ENDPOINTS.EXPENSE_CATEGORIES.LIST
+      API_ENDPOINTS.EXPENSE_CATEGORIES.LIST,
+      { params: params || { limit: 1000 } }
     )
     return data
   },
@@ -115,16 +129,22 @@ export const expensesService = {
 
 export const incomesService = {
   /**
-   * Get all incomes with optional filters
+   * Get all incomes with optional filters and flexible pagination
    */
   getAll: async (params?: {
     page?: number
+    per_page?: number
+    limit?: number
+    cursor?: number
     start_date?: string
     end_date?: string
     category_id?: number
+    branch_id?: number
+    payment_type_id?: number
+    search?: string
   }): Promise<PaginatedApiResponse<Income[]>> => {
     const { data } = await api.get<PaginatedApiResponse<Income[]>>(API_ENDPOINTS.INCOMES.LIST, {
-      params,
+      params: params || { limit: 100 },
     })
     return data
   },
@@ -164,11 +184,19 @@ export const incomesService = {
   // ============================================
 
   /**
-   * Get all income categories
+   * Get all income categories with flexible pagination
    */
-  getCategories: async (): Promise<ApiResponse<IncomeCategory[]>> => {
+  getCategories: async (params?: {
+    limit?: number
+    page?: number
+    per_page?: number
+    cursor?: number
+    search?: string
+    status?: boolean | number
+  }): Promise<ApiResponse<IncomeCategory[]>> => {
     const { data } = await api.get<ApiResponse<IncomeCategory[]>>(
-      API_ENDPOINTS.INCOME_CATEGORIES.LIST
+      API_ENDPOINTS.INCOME_CATEGORIES.LIST,
+      { params: params || { limit: 1000 } }
     )
     return data
   },

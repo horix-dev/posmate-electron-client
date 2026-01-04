@@ -128,6 +128,7 @@ export const API_ENDPOINTS = {
   DUES: {
     LIST: '/dues',
     CREATE: '/dues',
+    INVOICES: '/dues/invoices',
   },
 
   // Expenses
@@ -210,7 +211,9 @@ export const API_ENDPOINTS = {
   // Currencies
   CURRENCIES: {
     LIST: '/currencies',
+    ACTIVE: '/currencies/business/active',
     CHANGE: (id: number) => `/currencies/${id}`,
+    SET_DEFAULT: (id: number) => `/currencies/${id}/set-global-default`,
   },
 
   // Invoices
@@ -223,6 +226,18 @@ export const API_ENDPOINTS = {
   DASHBOARD: {
     SUMMARY: '/summary',
     STATS: '/dashboard',
+  },
+
+  // Transaction Reports
+  REPORTS: {
+    SALES: '/reports/sales',
+    SALES_SUMMARY: '/reports/sales/summary',
+    PURCHASES: '/reports/purchases',
+    PURCHASES_SUMMARY: '/reports/purchases/summary',
+    SALE_RETURNS: '/reports/sale-returns',
+    SALE_RETURNS_SUMMARY: '/reports/sale-returns/summary',
+    PURCHASE_RETURNS: '/reports/purchase-returns',
+    PURCHASE_RETURNS_SUMMARY: '/reports/purchase-returns/summary',
   },
 
   // Users
