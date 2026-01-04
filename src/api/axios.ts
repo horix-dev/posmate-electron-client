@@ -62,6 +62,28 @@ let refreshPromise: Promise<string | null> | null = null
 const etagCache = new Map<string, string>()
 const responseCache = new Map<string, unknown>()
 
+/**
+ * Clear all ETag and response caches
+ * Use this when you need to force a fresh fetch from the server
+ */
+export const clearETagCache = () => {
+  etagCache.clear()
+  responseCache.clear()
+  console.log('[ETag] Cleared all ETag and response caches')
+}
+
+/**
+ * Clear ETag cache for a specific URL
+ * @param url The URL to clear cache for (e.g., '/units?limit=1000')
+ */
+export const clearETagCacheForUrl = (url: string) => {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://api.posmate.app'
+  const cacheKey = `${baseURL}/api/v1${url}`
+  etagCache.delete(cacheKey)
+  responseCache.delete(cacheKey)
+  console.log(`[ETag] Cleared cache for ${url}`)
+}
+
 export const setAuthToken = (token: string | null) => {
   authToken = token
   if (token && window.electronAPI?.secureStore?.set) {
@@ -98,7 +120,10 @@ api.interceptors.request.use(
       const cacheKey = `${config.baseURL}${config.url}`
       const cachedETag = etagCache.get(cacheKey)
       if (cachedETag) {
-        config.headers['If-None-Match'] = cachedETag
+        // config.headers['If-None-Match'] = cachedETag
+        console.log(`[ETag] Sending If-None-Match: ${cachedETag} for ${config.url}`)
+      } else {
+        console.log(`[ETag] No cached ETag for ${config.url}`)
       }
     }
 
@@ -134,7 +159,11 @@ api.interceptors.response.use(
       const cacheKey = `${response.config.baseURL}${response.config.url}`
       const cachedData = responseCache.get(cacheKey)
       if (cachedData) {
-        console.log(`[Cache] HIT - Using cached data for ${response.config.url}`)
+        console.log(
+          `[ETag] 🎯 304 Not Modified received! Using cached data for ${response.config.url}`,
+          `\n  → Bandwidth saved: ~${JSON.stringify(cachedData).length} bytes`,
+          `\n  → ETag: ${response.headers['etag']}`
+        )
         return {
           ...response,
           data: cachedData,
@@ -151,7 +180,9 @@ api.interceptors.response.use(
       if (etag) {
         etagCache.set(cacheKey, etag)
         responseCache.set(cacheKey, response.data)
-        console.log(`[Cache] MISS - Stored ETag ${etag} for ${response.config.url}`)
+        console.log(`[ETag] Stored ETag "${etag}" for ${response.config.url}`)
+      } else {
+        console.log(`[ETag] No ETag header in response from ${response.config.url}`)
       }
     }
 
