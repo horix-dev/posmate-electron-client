@@ -39,6 +39,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { purchasesService, productsService, partiesService } from '@/api/services'
 import { useCurrency } from '@/hooks'
+import { calculatePurchaseTotals, buildCreatePurchaseRequest } from '../utils/purchaseCalculations'
 import type { Product, Party } from '@/types/api.types'
 
 // ============================================
@@ -221,15 +222,10 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
 
   // Update form values for submission (but display uses computed values)
   useEffect(() => {
-    const subtotal = watchProducts.reduce(
-      (sum, p) => sum + (p.quantities || 0) * (p.productPurchasePrice || 0),
-      0
-    )
-    const total = Math.max(0, subtotal - watchDiscount)
-    const due = Math.max(0, total - watchPaid)
+    const totals = calculatePurchaseTotals(watchProducts, watchDiscount, watchPaid)
 
-    form.setValue('totalAmount', total, { shouldValidate: false, shouldDirty: false })
-    form.setValue('dueAmount', due, { shouldValidate: false, shouldDirty: false })
+    form.setValue('totalAmount', totals.totalAmount, { shouldValidate: false, shouldDirty: false })
+    form.setValue('dueAmount', totals.dueAmount, { shouldValidate: false, shouldDirty: false })
   }, [watchProducts, watchDiscount, watchPaid, form])
 
   // Fetch initial data
@@ -312,29 +308,7 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
   const onSubmit = async (values: PurchaseFormValues) => {
     setIsSubmitting(true)
     try {
-      await purchasesService.create({
-        party_id: values.party_id,
-        invoiceNumber: values.invoiceNumber,
-        purchaseDate: values.purchaseDate,
-        payment_type_id: values.payment_type_id,
-        totalAmount: values.totalAmount,
-        discountAmount: values.discountAmount,
-        paidAmount: values.paidAmount,
-        dueAmount: values.dueAmount,
-        products: values.products.map((p) => ({
-          product_id: p.product_id,
-          variant_id: p.variant_id,
-          batch_no: p.batch_no || undefined,
-          quantities: p.quantities,
-          productPurchasePrice: p.productPurchasePrice,
-          productSalePrice: p.productSalePrice,
-          productDealerPrice: p.productDealerPrice,
-          productWholeSalePrice: p.productWholeSalePrice,
-          profit_percent: p.profit_percent,
-          mfg_date: p.mfg_date || undefined,
-          expire_date: p.expire_date || undefined,
-        })),
-      })
+      await purchasesService.create(buildCreatePurchaseRequest(values))
 
       toast.success('Purchase created successfully')
       onSuccess()
@@ -351,12 +325,11 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
   const excludeProductIds = fields.map((f) => f.product_id)
 
   // Calculate totals directly from watched values for real-time updates
-  const subtotal = watchProducts.reduce(
-    (sum, p) => sum + (p.quantities || 0) * (p.productPurchasePrice || 0),
-    0
+  const { totalAmount, dueAmount } = calculatePurchaseTotals(
+    watchProducts,
+    watchDiscount,
+    watchPaid
   )
-  const totalAmount = Math.max(0, subtotal - watchDiscount)
-  const dueAmount = Math.max(0, totalAmount - watchPaid)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

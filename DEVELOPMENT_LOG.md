@@ -1137,6 +1137,100 @@ UI automatically updates via React Query invalidation
 
 ---
 
+## 2025-12-31 — Comprehensive Test Coverage for Critical Modules
+
+**Problem**: Project lacked test coverage for critical modules, especially authentication, business logic, and offline functionality, making it difficult to ensure system reliability.
+
+**Solution**: Implemented extensive test suites for critical business logic following industry best practices with Vitest and React Testing Library.
+
+**Critical Test Coverage Added**:
+
+**1. Utility Functions** (`src/__tests__/lib/`):
+- ✅ **utils.test.ts**: Tests for `cn()` className utility and `getImageUrl()` helper
+- ✅ **receipt-printer.test.ts**: Complete tests for Electron and browser printing, including error scenarios
+- ✅ **errors/index.test.ts**: 36 tests covering all custom error classes, type guards, and error factory
+- ✅ **cache/index.test.ts**: 17 tests for localStorage cache utilities with TTL, versioning, and prefix clearing
+
+**2. Custom Hooks** (`src/__tests__/hooks/`):
+- ✅ **useDebounce.test.ts**: 12 tests for value and callback debouncing with timer mocking
+- ✅ **useOnlineStatus.test.ts**: 15 tests for online/offline detection, event listeners, and callbacks
+
+**3. Zustand Stores** (`src/__tests__/stores/`):
+- ✅ **ui.store.test.ts**: 22 tests for theme, sidebar, modals, notifications, and POS settings
+- ✅ **business.store.test.ts**: 13 tests for business entity CRUD operations, error handling, and persistence
+
+**4. Services** (`src/__tests__/services/`):
+- ✅ **offlineSales.service.test.ts**: 14 tests for offline-first sales operations
+- ✅ **sales.service.test.ts**: 8 tests for sales API integration
+- ✅ **purchases.service.test.ts**: 6 tests for purchases API integration
+- ✅ **sync.service.test.ts**: 16 tests for sync queue processing with retry logic
+
+**5. Test Infrastructure** (`src/__tests__/setup.ts`):
+- ✅ Proper localStorage mock with real implementation (fixes Object.keys() issues)
+- ✅ window.matchMedia mock for theme detection tests
+- ✅ fake-indexeddb for database tests
+- ✅ Automatic mock cleanup in beforeEach
+
+**Test Results**:
+```
+Test Files: 17 passed (17)
+Tests: 260 passed (260)
+Coverage: ~43% overall
+Duration: 10.32s
+```
+
+**Coverage by Module**:
+- **lib/**: 100% (utils, receipt-printer, errors)
+- **lib/cache/**: 85.4% (index.ts fully tested)
+- **hooks/**: useDebounce (100%), useOnlineStatus (95.52%)
+- **stores/**: ui.store (99.28%), cart.store (74.51%), business.store (tested)
+- **api/services/**: offlineSales (100%), sales (97.64%), purchases (75.18%)
+- **lib/db/services/**: sync.service (96.21%)
+
+**Testing Patterns Established**:
+1. **Mocking Strategy**: Proper mocks for browser APIs (localStorage, window.matchMedia, electronAPI)
+2. **Timer Testing**: Fake timers for debounce and timeout tests
+3. **Store Testing**: Zustand store state management with act() wrapper
+4. **Hook Testing**: renderHook from @testing-library/react for custom hooks
+5. **Error Scenarios**: Comprehensive error handling and edge case coverage
+
+**Key Accomplishments**:
+- ✅ All 260 tests passing with no failures
+- ✅ Business store tests cover CRUD operations and offline scenarios
+- ✅ Comprehensive offline sales service testing
+- ✅ Sync service tests with retry logic and error handling
+- ✅ Clean test isolation with proper setup/teardown
+
+**Files Created/Modified**:
+
+- `src/__tests__/lib/utils.test.ts`
+- `src/__tests__/lib/receipt-printer.test.ts`
+- `src/__tests__/lib/errors/index.test.ts`
+- `src/__tests__/lib/cache/index.test.ts`
+- `src/__tests__/hooks/useDebounce.test.ts`
+- `src/__tests__/hooks/useOnlineStatus.test.ts`
+- `src/__tests__/stores/ui.store.test.ts`
+
+**Files Modified**:
+- `src/__tests__/setup.ts` - Enhanced with proper mocks for testing environment
+
+**Best Practices Followed**:
+- Industry-standard test structure (describe/it blocks)
+- Clear test descriptions following "should..." pattern
+- Proper beforeEach/afterEach for test isolation
+- Mock restoration to prevent test pollution
+- Testing both success and failure paths
+- Edge case coverage (null, undefined, empty values)
+
+**Future Test Opportunities**:
+- Component tests for React components
+- Integration tests for API flows
+- E2E tests for critical user journeys
+- Additional hook tests (useImageCache, useSyncQueue)
+- Additional store tests (auth.store, business.store, sync.store)
+
+---
+
 ## 2025-12-25 — Receipt Printing Feature (Electron Silent Printing)
 
 **Problem**: After completing a sale, users need to print receipts. The initial implementation opened invoice_url in browser, but users wanted silent printing within the Electron app without consent dialogs.
@@ -1336,6 +1430,53 @@ UI automatically updates via React Query invalidation
 ---
 
 ## 2025-12-21 — Sales Filters Enhanced UI (Calendar Date Pickers)
+
+---
+
+## 2025-12-22 — Purchases Tests (Totals + Service Params)
+
+**Problem**: Purchases logic (totals math and request payload mapping) lived inside the dialog component, making it hard to unit test; purchases API service behavior had no direct coverage.
+
+**Solution**:
+- Extracted pure helper functions for purchases totals and create-purchase request payload building.
+- Added Vitest unit tests for the helper logic (totals, normalization of optional fields) and for `purchasesService` endpoint/params.
+
+**Files Added**:
+- `src/pages/purchases/utils/purchaseCalculations.ts`
+- `src/__tests__/pages/purchases/purchaseCalculations.test.ts`
+- `src/__tests__/pages/purchases/usePurchases.utils.test.ts`
+- `src/__tests__/services/purchases.service.test.ts`
+
+**Files Modified**:
+- `src/pages/purchases/components/NewPurchaseDialog.tsx` (uses shared helpers; no UX change)
+- `src/pages/purchases/hooks/usePurchases.ts` (extracted and reused pure helpers for params + stats)
+
+**Verification**:
+- `npx vitest --run --watch=false` (all tests passing)
+- `npx vitest --coverage --run --watch=false` → All files coverage improved to **35.79%**
+
+---
+
+## 2025-12-22 — Sales Tests (Filtering + Stats + Service)
+
+**Problem**: Sales filtering and stats logic lived inline inside the hook memo blocks and had no unit coverage; date filtering could behave inconsistently across timezones when the sale date included a time component.
+
+**Solution**:
+- Extracted pure helper functions in the sales hook for filtering and stats calculation.
+- Added unit tests for filtering (search/date/customer/payment/sync) and stats aggregation.
+- Added API service tests for `salesService` request shape, including `returned-sales` flag and invoice number generation.
+- Made date filtering timezone-safe by comparing `YYYY-MM-DD` keys when available.
+
+**Files Added**:
+- `src/__tests__/pages/sales/useSales.utils.test.ts`
+- `src/__tests__/services/sales.service.test.ts`
+
+**Files Modified**:
+- `src/pages/sales/hooks/useSales.ts` (exported helpers: `filterSales`, `calculateSalesStats`; improved date comparisons)
+
+**Verification**:
+- `npx vitest --run --watch=false` (all tests passing)
+- `npx vitest --coverage --run --watch=false` → All files coverage improved to **37.62%**
 
 **Problem**: Sales page had basic date input filters while purchases page had enhanced Calendar component date pickers with better UX.
 
