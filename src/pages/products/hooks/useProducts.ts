@@ -3,11 +3,13 @@ import { toast } from 'sonner'
 import { productsService, categoriesService, brandsService, unitsService } from '@/api/services'
 import { storage } from '@/lib/storage'
 import type { LocalProduct, LocalCategory } from '@/lib/db/schema'
-import { setCache, getCache, CacheKeys } from '@/lib/cache'
+import { setCache, getCache, removeCache, CacheKeys } from '@/lib/cache'
+import { imageCache } from '@/lib/cache/imageCache'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { NoDataAvailableError, createAppError } from '@/lib/errors'
 import type { Product, Category, Brand, Unit, Stock } from '@/types/api.types'
 import type { VariableProductPayload } from '../schemas'
+import { getImageUrl } from '@/lib/utils'
 
 // ============================================
 // Types
@@ -563,11 +565,36 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
     [hydrateAndUpsert]
   )
 
-  const deleteProduct = useCallback(async (id: number): Promise<void> => {
-    await productsService.delete(id)
-    setProducts((prev) => prev.filter((p) => p.id !== id))
-    toast.success('Product deleted successfully')
-  }, [])
+  const deleteProduct = useCallback(
+    async (id: number): Promise<void> => {
+      await productsService.delete(id)
+      setProducts((prev) => prev.filter((p) => p.id !== id))
+
+      // Clean up all cache layers for the deleted product
+      // 1. Remove from IndexedDB/SQLite persistent storage
+      await storage.products.delete(id)
+
+      // 2. Clear product variants cache
+      removeCache(CacheKeys.PRODUCT_VARIANTS(id))
+
+      // 3. Clear product image cache (if available)
+      const deletedProduct = [...products].find((p) => p.id === id)
+      if (deletedProduct?.productPicture) {
+        try {
+          const imageUrl = getImageUrl(deletedProduct.productPicture)
+          if (imageUrl) {
+            await imageCache.delete(imageUrl)
+          }
+        } catch (error) {
+          // Non-fatal: image cache cleanup failure shouldn't prevent product deletion
+          console.warn('[useProducts] Failed to delete cached image:', error)
+        }
+      }
+
+      toast.success('Product deleted successfully')
+    },
+    [products]
+  )
 
   // Local state updates (for optimistic updates if needed)
   const addProductToList = useCallback((product: Product) => {

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { User, Business, Currency } from '@/types/api.types'
 import { authService } from '@/api/services'
-import { setAuthToken, clearAuthToken } from '@/api/axios'
+import { setAuthToken, clearAuthToken, clearETagCache } from '@/api/axios'
 import { setCache, getCache, removeCache, CacheKeys } from '@/lib/cache'
 
 interface AuthState {
@@ -175,6 +175,7 @@ export const useAuthStore = create<AuthState>()(
           // Ignore errors, we're logging out anyway
         } finally {
           clearAuthToken()
+          clearETagCache() // Clear HTTP cache on logout
           clearCachedAuthData()
           set({
             user: null,

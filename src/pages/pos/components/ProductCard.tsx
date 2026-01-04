@@ -315,12 +315,17 @@ function ProductCardComponent({
             </div>
           )}
 
-          <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs text-muted-foreground">
+              Stock: <span className="font-bold">{totalStock}</span>
+            </div>
+          </div>
+
+          <div className="pt-2">
             <span className="text-base font-bold text-primary">
               {hasPriceRange && 'From '}
               {formatCurrency(salePrice)}
             </span>
-            <span className="text-xs text-muted-foreground">Stock: {totalStock}</span>
           </div>
         </div>
 

@@ -117,7 +117,7 @@ export function productToFormData(product: {
   brand_id?: number | null
   unit_id?: number | null
   alert_qty?: number | null
-  product_type: 'simple' | 'variable' | 'variant'
+  product_type: 'simple' | 'variable' | 'variant' | 'single'
   description?: string | null
   stocks?: Array<{
     productPurchasePrice: number
@@ -139,6 +139,13 @@ export function productToFormData(product: {
   }>
 }): ProductFormData & { variants: VariantInputData[] } {
   const stock = product.stocks?.[0]
+
+  // Backend may send legacy/alias types (e.g. 'single'). Normalize to form schema values.
+  const normalizedProductType: 'simple' | 'variable' =
+    product.product_type === 'variable'
+      ? 'variable'
+      : // Treat everything else as simple in this form
+        'simple'
 
   // Convert existing variants to form format
   const variants: VariantInputData[] =
@@ -165,7 +172,7 @@ export function productToFormData(product: {
     brand_id: product.brand_id?.toString() || '',
     unit_id: product.unit_id?.toString() || '',
     alert_qty: product.alert_qty?.toString() || '',
-    product_type: product.product_type === 'variant' ? 'variable' : product.product_type,
+    product_type: normalizedProductType,
     productPurchasePrice: stock?.productPurchasePrice?.toString() || '',
     productSalePrice: stock?.productSalePrice?.toString() || '',
     productStock: stock?.productStock?.toString() || '',
@@ -176,8 +183,15 @@ export function productToFormData(product: {
 
 /**
  * Convert form data to FormData for API submission (simple products)
+ * @param data - Form data from the product form
+ * @param imageFile - Optional image file
+ * @param isEdit - If true, excludes productStock field (stock adjustments use separate API)
  */
-export function formDataToFormData(data: ProductFormData, imageFile?: File | null): FormData {
+export function formDataToFormData(
+  data: ProductFormData,
+  imageFile?: File | null,
+  isEdit = false
+): FormData {
   const formData = new FormData()
 
   formData.append('productName', data.productName)
@@ -206,7 +220,8 @@ export function formDataToFormData(data: ProductFormData, imageFile?: File | nul
   if (data.productSalePrice) {
     formData.append('productSalePrice', data.productSalePrice)
   }
-  if (data.productStock) {
+  // Only include productStock on create (not on edit)
+  if (!isEdit && data.productStock) {
     formData.append('productStock', data.productStock)
   }
   if (imageFile) {
