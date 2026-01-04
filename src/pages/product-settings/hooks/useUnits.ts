@@ -138,8 +138,8 @@ export function useUnits(options: UseUnitsOptions = {}) {
   })
 
   return {
-    // Query data
-    units: unitsQuery.data?.data ?? [],
+    // Query data - Handle flexible response structures
+    units: Array.isArray(unitsQuery.data?.data) ? unitsQuery.data.data : Array.isArray(unitsQuery.data) ? unitsQuery.data : [],
     total: unitsQuery.data?.total ?? 0,
     lastPage: unitsQuery.data?.last_page ?? 1,
     currentPage: page,

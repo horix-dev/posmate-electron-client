@@ -340,6 +340,7 @@ export interface Currency {
   rate?: number
   is_default?: number | boolean
   status?: number | boolean
+  active?: number | boolean
   country_name?: string
 }
 

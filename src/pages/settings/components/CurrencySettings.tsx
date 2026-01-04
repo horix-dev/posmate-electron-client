@@ -35,7 +35,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { currenciesService } from '@/api/services'
-import { useBusinessStore, useCurrencyStore } from '@/stores'
+import { useBusinessStore } from '@/stores'
 import type { Currency } from '@/types/api.types'
 
 // ============================================
@@ -61,14 +61,16 @@ interface CurrencyRowProps {
   currency: Currency
   isChanging: boolean
   onChangeCurrency: (currency: Currency) => void
+  currentCurrencyId?: number
 }
 
 const CurrencyRow = memo(function CurrencyRow({
   currency,
   isChanging,
   onChangeCurrency,
+  currentCurrencyId,
 }: CurrencyRowProps) {
-  const isActive = currency.is_default === 1 || currency.is_default === true
+  const isActive = currentCurrencyId === currency.id || currency.active === 1 || currency.active === true
 
   return (
     <TableRow className={isActive ? 'bg-primary/5' : ''}>
@@ -162,7 +164,7 @@ function CurrencySettingsComponent({ onCurrencyChange }: CurrencySettingsProps) 
       }
 
       if (statusFilter !== 'all') {
-        params.is_default = statusFilter === 'active' ? 1 : 0
+        params.active = statusFilter === 'active' ? 1 : 0
       }
 
       const response = await currenciesService.getAll(params)
@@ -229,17 +231,17 @@ function CurrencySettingsComponent({ onCurrencyChange }: CurrencySettingsProps) 
     }))
   }
 
-  // Handle set default currency (updates both currencies and user_currencies tables)
+  // Handle set active currency (updates active status)
   const handleChangeCurrency = async (currency: Currency) => {
     setIsChanging(currency.id)
     try {
-      // Update is_default in currencies table
+      // Update active status in currencies table
       const response = await currenciesService.setDefault(currency.id)
       
       // Also update user_currencies table for business-specific currency
       await currenciesService.changeCurrency(currency.id)
       
-      toast.success(`${currency.name} set as default currency`)
+      toast.success(`${currency.name} set as active currency`)
 
       // Update business store with new currency
       if (business && response.data) {
@@ -249,25 +251,22 @@ function CurrencySettingsComponent({ onCurrencyChange }: CurrencySettingsProps) 
         })
       }
 
-      // Refresh the currency store to use the new active currency
-      useCurrencyStore.getState().setActiveCurrency(response.data)
-
       // Notify parent component if callback provided
       if (onCurrencyChange && response.data) {
         onCurrencyChange(response.data)
       }
 
-      // Optimistically update is_default in local state
-      // Set the selected currency as default and reset others
+      // Optimistically update active status in local state
+      // Set the selected currency as active and reset others
       setCurrencies((prev) =>
         prev.map((c) => ({
           ...c,
-          is_default: c.id === currency.id ? 1 : 0,
+          active: c.id === currency.id ? 1 : 0,
         }))
       )
     } catch (error) {
-      console.error('Failed to set default currency:', error)
-      toast.error('Failed to set default currency')
+      console.error('Failed to set active currency:', error)
+      toast.error('Failed to set active currency')
       // Refresh to revert on error
       await fetchCurrencies()
     } finally {
@@ -369,6 +368,7 @@ function CurrencySettingsComponent({ onCurrencyChange }: CurrencySettingsProps) 
                       currency={currency}
                       isChanging={isChanging === currency.id}
                       onChangeCurrency={handleChangeCurrency}
+                      currentCurrencyId={business?.business_currency?.id}
                     />
                   ))}
                 </TableBody>
