@@ -216,17 +216,6 @@ export function DashboardPage() {
   const currencyData = useCurrency()
   const { format: formatCurrency } = currencyData
 
-  // Debug: Log currency data
-  useEffect(() => {
-    console.log('[Dashboard] Currency Hook Data:', {
-      currency: currencyData.currency,
-      symbol: currencyData.symbol,
-      code: currencyData.code,
-      isLoading: currencyData.isLoading,
-      formatted: formatCurrency(1234.56),
-    })
-  }, [currencyData, formatCurrency])
-
   const durationLabel = DASHBOARD_DURATION_LABELS[duration]
   const dashboardCacheKey = useMemo(() => getDashboardCacheKey(duration), [duration])
 
