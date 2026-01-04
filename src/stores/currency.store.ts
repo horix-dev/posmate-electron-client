@@ -46,6 +46,7 @@ export const useCurrencyStore = create<CurrencyState>()(
           state.lastFetched &&
           Date.now() - state.lastFetched < CACHE_DURATION
         ) {
+          console.log('[CurrencyStore] Using cached currency (cache still valid)')
           return
         }
 

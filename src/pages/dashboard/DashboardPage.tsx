@@ -213,7 +213,19 @@ export function DashboardPage() {
   const [duration, setDuration] = useState<DashboardDuration>('last_thirty_days')
 
   const isOnline = useSyncStore((state) => state.isOnline)
-  const { format: formatCurrency } = useCurrency()
+  const currencyData = useCurrency()
+  const { format: formatCurrency } = currencyData
+
+  // Debug: Log currency data
+  useEffect(() => {
+    console.log('[Dashboard] Currency Hook Data:', {
+      currency: currencyData.currency,
+      symbol: currencyData.symbol,
+      code: currencyData.code,
+      isLoading: currencyData.isLoading,
+      formatted: formatCurrency(1234.56),
+    })
+  }, [currencyData, formatCurrency])
 
   const durationLabel = DASHBOARD_DURATION_LABELS[duration]
   const dashboardCacheKey = useMemo(() => getDashboardCacheKey(duration), [duration])
