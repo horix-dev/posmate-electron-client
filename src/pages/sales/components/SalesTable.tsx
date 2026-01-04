@@ -18,20 +18,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCurrency } from '@/hooks'
 import type { Sale } from '@/types/api.types'
 import { isSaleSynced, formatSaleDate, getSaleItemsCount } from '../hooks'
-import { 
-  getPaymentStatusBadge, 
-  getTotalPaidAmount, 
-  getRemainingDueAmount 
-} from '@/lib/saleHelpers'
+import { getPaymentStatusBadge, getTotalPaidAmount, getRemainingDueAmount } from '../helpers'
 
 // ============================================
 // Types
@@ -58,7 +49,7 @@ export interface SalesTableProps {
 
 const TableSkeleton = memo(function TableSkeleton() {
   return (
-    <div className="p-4 space-y-4">
+    <div className="space-y-4 p-4">
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="flex items-center gap-4">
           <Skeleton className="h-4 w-24" />
@@ -67,7 +58,7 @@ const TableSkeleton = memo(function TableSkeleton() {
           <Skeleton className="h-4 w-20" />
           <Skeleton className="h-4 w-16" />
           <Skeleton className="h-6 w-16" />
-          <Skeleton className="h-8 w-8 ml-auto" />
+          <Skeleton className="ml-auto h-8 w-8" />
         </div>
       ))}
     </div>
@@ -80,12 +71,12 @@ const TableSkeleton = memo(function TableSkeleton() {
 
 const EmptyState = memo(function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <div className="rounded-full bg-muted p-4 mb-4">
+    <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
+      <div className="mb-4 rounded-full bg-muted p-4">
         <CloudOff className="h-8 w-8 text-muted-foreground" />
       </div>
-      <h3 className="text-lg font-semibold mb-2">No sales yet</h3>
-      <p className="text-muted-foreground max-w-sm">
+      <h3 className="mb-2 text-lg font-semibold">No sales yet</h3>
+      <p className="max-w-sm text-muted-foreground">
         Sales will appear here once you make your first transaction from the POS screen.
       </p>
     </div>
@@ -102,12 +93,12 @@ interface NoResultsStateProps {
 
 const NoResultsState = memo(function NoResultsState({ onClearFilters }: NoResultsStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <div className="rounded-full bg-muted p-4 mb-4">
+    <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
+      <div className="mb-4 rounded-full bg-muted p-4">
         <CloudOff className="h-8 w-8 text-muted-foreground" />
       </div>
-      <h3 className="text-lg font-semibold mb-2">No matching sales</h3>
-      <p className="text-muted-foreground max-w-sm mb-4">
+      <h3 className="mb-2 text-lg font-semibold">No matching sales</h3>
+      <p className="mb-4 max-w-sm text-muted-foreground">
         Try adjusting your search or filter criteria.
       </p>
       <Button variant="outline" onClick={onClearFilters}>
@@ -127,23 +118,19 @@ interface SaleRowProps {
   onDelete: (sale: Sale) => void
 }
 
-const SaleRow = memo(function SaleRow({
-  sale,
-  onView,
-  onDelete,
-}: SaleRowProps) {
+const SaleRow = memo(function SaleRow({ sale, onView, onDelete }: SaleRowProps) {
   const { format: formatCurrencyAmount } = useCurrency()
   const paymentBadge = getPaymentStatusBadge(sale)
   const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
   const itemsCount = getSaleItemsCount(sale)
   const totalPaid = getTotalPaidAmount(sale)
   const remainingDue = getRemainingDueAmount(sale)
-  
+
   // Calculate collections with fallback
   const initialPaid = sale.initial_paidAmount ?? sale.paidAmount ?? 0
   const totalAmount = sale.totalAmount ?? 0
   const originalDue = totalAmount - initialPaid
-  const collectionsTotal = sale.due_collections_total ?? (originalDue - remainingDue)
+  const collectionsTotal = sale.due_collections_total ?? originalDue - remainingDue
   const hasDueCollections = collectionsTotal > 0
   const collectionsCount = sale.due_collections_count ?? (hasDueCollections ? 1 : 0)
 
@@ -169,21 +156,15 @@ const SaleRow = memo(function SaleRow({
       </TableCell>
 
       {/* Date */}
-      <TableCell className="text-muted-foreground">
-        {formatSaleDate(sale.saleDate)}
-      </TableCell>
+      <TableCell className="text-muted-foreground">{formatSaleDate(sale.saleDate)}</TableCell>
 
       {/* Customer */}
       <TableCell>
-        {sale.party?.name || (
-          <span className="text-muted-foreground italic">Walk-in</span>
-        )}
+        {sale.party?.name || <span className="italic text-muted-foreground">Walk-in</span>}
       </TableCell>
 
       {/* Items */}
-      <TableCell className="text-center">
-        {itemsCount}
-      </TableCell>
+      <TableCell className="text-center">{itemsCount}</TableCell>
 
       {/* Total */}
       <TableCell className="text-right font-medium">
@@ -193,7 +174,7 @@ const SaleRow = memo(function SaleRow({
       {/* Paid */}
       <TableCell className="text-right">
         <div className="flex flex-col items-end">
-          <span className="text-green-600 dark:text-green-400 font-medium">
+          <span className="font-medium text-green-600 dark:text-green-400">
             {formatCurrencyAmount(totalPaid)}
           </span>
           {hasDueCollections && (
@@ -227,7 +208,17 @@ const SaleRow = memo(function SaleRow({
 
       {/* Status */}
       <TableCell>
-        <Badge variant={paymentBadge.variant as 'default' | 'secondary' | 'destructive' | 'outline'} className={paymentBadge.className}>
+        <Badge
+          variant={
+            paymentBadge.variant as
+              | 'default'
+              | 'secondary'
+              | 'destructive'
+              | 'success'
+              | 'warning'
+              | 'outline'
+          }
+        >
           {paymentBadge.text}
         </Badge>
       </TableCell>
@@ -359,12 +350,7 @@ function SalesTableComponent({
             <SalesTableHeader />
             <TableBody>
               {sales.map((sale) => (
-                <SaleRow
-                  key={sale.id}
-                  sale={sale}
-                  onView={onView}
-                  onDelete={onDelete}
-                />
+                <SaleRow key={sale.id} sale={sale} onView={onView} onDelete={onDelete} />
               ))}
             </TableBody>
           </Table>

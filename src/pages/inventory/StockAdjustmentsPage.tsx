@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useStockAdjustment } from '@/hooks/useStockAdjustment'
 import { useProducts } from '@/pages/products/hooks/useProducts'
@@ -51,11 +51,17 @@ export default function StockAdjustmentsPage() {
   const {
     data: adjustments = [],
     isLoading: isLoadingAdjustments,
+    error,
     refetch,
   } = useAdjustments(filters)
 
   // Query summary statistics
   const { data: summary, isLoading: isLoadingSummary } = useSummary(filters)
+
+  // Handle refresh
+  const handleRefresh = useCallback(() => {
+    refetch()
+  }, [refetch])
 
   // Handle creating new adjustment
   const handleSaveAdjustment = useCallback(
@@ -132,27 +138,50 @@ export default function StockAdjustmentsPage() {
   )
 
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold">Stock Adjustments</h1>
-          <p className="text-sm text-muted-foreground">
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Stock Adjustments</h1>
+          <p className="text-muted-foreground">
             Manage inventory adjustments for damaged goods, returns, transfers, and corrections
+            {adjustments.length > 0 && ` (${adjustments.length} adjustments)`}
           </p>
         </div>
-        <div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleRefresh}
+            aria-label="Refresh adjustments"
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          </Button>
           <Button
             onClick={() => {
               setFormDialogOpen(true)
               void refetchProducts()
             }}
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
             New Adjustment
           </Button>
         </div>
-      </div>
+      </header>
+
+      {/* Error Banner */}
+      {error && (
+        <div
+          role="alert"
+          className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive"
+        >
+          <p className="font-medium">Failed to load adjustments</p>
+          <p className="text-sm">{error.message}</p>
+          <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>
+            Try again
+          </Button>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <StockAdjustmentStatsCards summary={summary ?? undefined} isLoading={isLoadingSummary} />

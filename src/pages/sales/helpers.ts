@@ -2,7 +2,7 @@ import { Sale } from '@/types/api.types'
 
 /**
  * Sale Helper Utilities
- * 
+ *
  * Provides utility functions for working with sales data including
  * payment status, calculations, and formatting.
  */
@@ -27,59 +27,52 @@ export function getPaymentStatusBadge(sale: Sale): PaymentStatusBadge {
       return {
         variant: 'success',
         text: 'Paid',
-        className: 'bg-green-500/10 text-green-700 dark:text-green-400'
       }
     }
-    
+
     const totalPaid = sale.total_paid_amount || 0
-    
+
     if (totalPaid === 0) {
       return {
         variant: 'destructive',
         text: 'Unpaid',
-        className: 'bg-red-500/10 text-red-700 dark:text-red-400'
       }
     }
-    
+
     return {
       variant: 'warning',
       text: 'Partial',
-      className: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400'
     }
   }
-  
+
   // Fallback to old fields
   if (sale.isPaid === 1) {
     return {
       variant: 'success',
       text: 'Paid',
-      className: 'bg-green-500/10 text-green-700 dark:text-green-400'
     }
   }
-  
+
   const paidAmount = sale.paidAmount || 0
   const totalAmount = sale.totalAmount || 0
-  
+
   if (paidAmount === 0) {
     return {
       variant: 'destructive',
       text: 'Unpaid',
-      className: 'bg-red-500/10 text-red-700 dark:text-red-400'
     }
   }
-  
+
   if (paidAmount < totalAmount) {
     return {
       variant: 'warning',
       text: 'Partial',
-      className: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400'
     }
   }
-  
+
   return {
     variant: 'success',
     text: 'Paid',
-    className: 'bg-green-500/10 text-green-700 dark:text-green-400'
   }
 }
 
@@ -90,12 +83,11 @@ export function getPaymentStatusBadge(sale: Sale): PaymentStatusBadge {
 export function getPaymentPercentage(sale: Sale): number {
   const totalAmount = sale.totalAmount || 0
   if (totalAmount === 0) return 0
-  
+
   // Use new field if available
-  const totalPaid = sale.total_paid_amount !== undefined 
-    ? sale.total_paid_amount 
-    : (sale.paidAmount || 0)
-  
+  const totalPaid =
+    sale.total_paid_amount !== undefined ? sale.total_paid_amount : sale.paidAmount || 0
+
   const percentage = (totalPaid / totalAmount) * 100
   return Math.min(100, Math.max(0, percentage))
 }
@@ -128,7 +120,7 @@ export function formatPaymentBreakdown(sale: Sale): PaymentBreakdown {
     const remainingDue = sale.remaining_due_amount || 0
     const isFullyPaid = sale.is_fully_paid || false
     const dueCollectionsCount = sale.due_collections_count || 0
-    
+
     return {
       totalAmount,
       initialPaid,
@@ -137,16 +129,16 @@ export function formatPaymentBreakdown(sale: Sale): PaymentBreakdown {
       remainingDue,
       isFullyPaid,
       dueCollectionsCount,
-      paymentPercentage: getPaymentPercentage(sale)
+      paymentPercentage: getPaymentPercentage(sale),
     }
   }
-  
+
   // Fallback to old fields
   const totalAmount = sale.totalAmount || 0
   const paidAmount = sale.paidAmount || 0
   const dueAmount = sale.dueAmount || 0
   const isFullyPaid = sale.isPaid === 1
-  
+
   return {
     totalAmount,
     initialPaid: paidAmount,
@@ -155,7 +147,7 @@ export function formatPaymentBreakdown(sale: Sale): PaymentBreakdown {
     remainingDue: dueAmount,
     isFullyPaid,
     dueCollectionsCount: 0,
-    paymentPercentage: getPaymentPercentage(sale)
+    paymentPercentage: getPaymentPercentage(sale),
   }
 }
 
@@ -193,10 +185,10 @@ export function calculateSalesStats(sales: Sale[]): SalesStats {
       dueCollectionsTotal: 0,
       dueCollectionsCount: 0,
       averageSaleAmount: 0,
-      averagePaymentPercentage: 0
+      averagePaymentPercentage: 0,
     }
   }
-  
+
   let totalAmount = 0
   let totalPaidAmount = 0
   let totalDueAmount = 0
@@ -206,17 +198,17 @@ export function calculateSalesStats(sales: Sale[]): SalesStats {
   let dueCollectionsTotal = 0
   let dueCollectionsCount = 0
   let totalPaymentPercentage = 0
-  
-  sales.forEach(sale => {
+
+  sales.forEach((sale) => {
     const breakdown = formatPaymentBreakdown(sale)
-    
+
     totalAmount += breakdown.totalAmount
     totalPaidAmount += breakdown.totalPaid
     totalDueAmount += breakdown.remainingDue
     dueCollectionsTotal += breakdown.dueCollections
     dueCollectionsCount += breakdown.dueCollectionsCount
     totalPaymentPercentage += breakdown.paymentPercentage
-    
+
     if (breakdown.isFullyPaid) {
       fullyPaidCount++
     } else if (breakdown.totalPaid > 0) {
@@ -225,7 +217,7 @@ export function calculateSalesStats(sales: Sale[]): SalesStats {
       unpaidCount++
     }
   })
-  
+
   return {
     totalSales: sales.length,
     totalAmount,
@@ -237,7 +229,7 @@ export function calculateSalesStats(sales: Sale[]): SalesStats {
     dueCollectionsTotal,
     dueCollectionsCount,
     averageSaleAmount: totalAmount / sales.length,
-    averagePaymentPercentage: totalPaymentPercentage / sales.length
+    averagePaymentPercentage: totalPaymentPercentage / sales.length,
   }
 }
 
@@ -248,7 +240,7 @@ export function formatCurrency(amount: number, currency: string = 'BDT'): string
   return new Intl.NumberFormat('en-BD', {
     style: 'currency',
     currency: currency,
-    minimumFractionDigits: 2
+    minimumFractionDigits: 2,
   }).format(amount)
 }
 
@@ -256,9 +248,11 @@ export function formatCurrency(amount: number, currency: string = 'BDT'): string
  * Checks if sale has new API fields
  */
 export function hasNewPaymentFields(sale: Sale): boolean {
-  return sale.total_paid_amount !== undefined || 
-         sale.initial_paidAmount !== undefined ||
-         sale.is_fully_paid !== undefined
+  return (
+    sale.total_paid_amount !== undefined ||
+    sale.initial_paidAmount !== undefined ||
+    sale.is_fully_paid !== undefined
+  )
 }
 
 /**
