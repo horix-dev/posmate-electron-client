@@ -213,7 +213,8 @@ export function DashboardPage() {
   const [duration, setDuration] = useState<DashboardDuration>('last_thirty_days')
 
   const isOnline = useSyncStore((state) => state.isOnline)
-  const { format: formatCurrency } = useCurrency()
+  const currencyData = useCurrency()
+  const { format: formatCurrency } = currencyData
 
   const durationLabel = DASHBOARD_DURATION_LABELS[duration]
   const dashboardCacheKey = useMemo(() => getDashboardCacheKey(duration), [duration])

@@ -35,20 +35,22 @@ const queryClient = new QueryClient({
   },
 })
 import { AppRouter } from '@/routes'
-import { useAuthStore, useUIStore } from '@/stores'
+import { useAuthStore, useUIStore, useCurrencyStore } from '@/stores'
 import { useSyncStore } from '@/stores/sync.store'
 import { UpdateNotification } from '@/components/common/UpdateNotification'
 
 function App() {
   const hydrateFromStorage = useAuthStore((state) => state.hydrateFromStorage)
+  const fetchActiveCurrency = useCurrencyStore((state) => state.fetchActiveCurrency)
   const theme = useUIStore((state) => state.theme)
   const { checkNeedsInitialSync, startDataSync, startQueueSync, updatePendingSyncCount, isOnline } =
     useSyncStore()
 
-  // Hydrate auth state from secure storage on app load
+  // Hydrate auth state and fetch currency on app load
   useEffect(() => {
     hydrateFromStorage()
-  }, [hydrateFromStorage])
+    fetchActiveCurrency()
+  }, [hydrateFromStorage, fetchActiveCurrency])
 
   // Initialize offline support (non-blocking background sync)
   useEffect(() => {
