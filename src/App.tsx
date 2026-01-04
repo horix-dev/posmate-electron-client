@@ -111,7 +111,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <div className="h-screen w-screen overflow-hidden">
         <AppRouter />
-        <Toaster position="top-right" richColors closeButton />
+        <Toaster position="top-center" richColors closeButton />
         <UpdateNotification />
       </div>
     </QueryClientProvider>
