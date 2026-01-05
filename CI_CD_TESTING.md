@@ -83,7 +83,7 @@ If the app has a "Check for Updates" button in settings:
 
 ### Manual Trigger via GitHub
 
-1. Go to: https://github.com/horix-organization/posmate-frontend/actions
+1. Go to: https://github.com/horix-dev/posmate-electron-client/actions
 2. Click "Workflows" → "Build Dev Release"
 3. Click "Run workflow"
 4. Select branch: `develop`
@@ -104,7 +104,7 @@ This automatically triggers the workflow.
 
 ### Monitor Workflow Execution
 
-1. Go to: https://github.com/horix-organization/posmate-frontend/actions
+1. Go to: https://github.com/horix-dev/posmate-electron-client/actions
 2. Click the latest "Build Dev Release" run
 3. View real-time logs for:
    - Type checking

@@ -72,7 +72,7 @@ git push origin develop
 # - Auto-download and install
 
 # Option 2: Manual from GitHub
-# - Go to: https://github.com/horix-dev/posmate-frontend/releases
+# - Go to: https://github.com/horix-dev/posmate-electron-client/releases
 # - Find latest "dev-{number}" pre-release
 # - Download installer
 # - Install/Update
@@ -159,7 +159,7 @@ You don't need to set these manually—they're configured in `.env.development` 
 
 ### Workflow Doesn't Run
 1. Did you push to `develop` branch?
-2. Check: [GitHub Actions](https://github.com/horix-dev/posmate-frontend/actions)
+2. Check: [GitHub Actions](https://github.com/horix-dev/posmate-electron-client/actions)
 3. See: [CI_CD_TESTING.md#troubleshooting](CI_CD_TESTING.md)
 
 ## 📖 Learning Paths

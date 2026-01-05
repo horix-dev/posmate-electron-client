@@ -189,7 +189,7 @@ npm run build:linux            # Linux only
 ### For Testers: Getting Latest Builds
 
 1. **Install from GitHub Release**:
-   - Visit: https://github.com/horix-organization/posmate-frontend/releases
+   - Visit: https://github.com/horix-dev/posmate-electron-client/releases
    - Find the latest pre-release with `dev-` tag
    - Download installer for your OS
    - Install/Update the application
@@ -220,7 +220,7 @@ npm run build:linux            # Linux only
 ## Monitoring & Troubleshooting
 
 ### Check Workflow Status
-1. Go to: https://github.com/horix-organization/posmate-frontend/actions
+1. Go to: https://github.com/horix-dev/posmate-electron-client/actions
 2. Filter by: `release-dev` workflow
 3. View logs for any step
 

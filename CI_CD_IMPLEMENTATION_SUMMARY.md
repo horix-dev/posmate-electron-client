@@ -125,7 +125,7 @@ git push origin develop
 
 ```bash
 # 1. Download latest pre-release
-# https://github.com/horix-dev/posmate-frontend/releases
+# https://github.com/horix-dev/posmate-electron-client/releases
 # Look for: "dev-{number}" tag
 
 # 2. Install the application
