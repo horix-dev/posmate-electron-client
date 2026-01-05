@@ -3,8 +3,6 @@ import {
   Minus,
   Square,
   X,
-  Maximize2,
-  Maximize,
   Bell,
   Search,
   Moon,
@@ -15,6 +13,9 @@ import {
   Wifi,
   WifiOff,
   Cloud,
+  Expand,
+  Minimize,
+  Shrink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore, useAuthStore, useSyncStore } from '@/stores'
@@ -292,7 +293,7 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="relative h-8 w-8 rounded-full text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    className="relative h-8 w-8 rounded-full text-foreground hover:bg-sidebar-accent hover:text-foreground/70"
                   >
                     <Avatar className="h-7 w-7">
                       <AvatarImage src={user?.image} alt={user?.name} />
@@ -328,65 +329,71 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
         )}
 
         {/* Window Controls */}
-        <div className="flex h-full">
-          {/* Minimize */}
-          <button
-            onClick={handleMinimize}
-            className={cn(
-              'flex h-full w-11 items-center justify-center',
-              'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-              'transition-colors duration-150'
-            )}
-            title="Minimize"
-            aria-label="Minimize window"
-          >
-            <Minus className="h-4 w-4" />
-          </button>
-
-          {/* Maximize / Restore */}
-          <button
-            onClick={handleMaximize}
-            className={cn(
-              'flex h-full w-11 items-center justify-center',
-              'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-              'transition-colors duration-150'
-            )}
-            title={isMaximized ? 'Restore' : 'Maximize'}
-            aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
-          >
-            {isMaximized ? (
-              <Maximize2 className="h-3.5 w-3.5" />
-            ) : (
-              <Square className="h-3.5 w-3.5" />
-            )}
-          </button>
-
+        <div className="flex h-full items-center gap-2 px-3">
           {/* Fullscreen */}
           <button
             onClick={handleFullscreen}
             className={cn(
-              'flex h-full w-11 items-center justify-center',
-              'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-              'transition-colors duration-150'
+              'group flex h-7 w-7 items-center justify-center rounded-full',
+              'bg-gray-500/20 backdrop-blur-sm hover:bg-gray-500/30',
+              'transition-all duration-200 hover:scale-105'
             )}
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
             aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
           >
-            <Maximize className="h-3.5 w-3.5" />
+            {isFullscreen ? (
+              <Shrink className="h-3 w-3 text-white" />
+            ) : (
+              <Expand className="h-3 w-3 text-white" />
+            )}
           </button>
+
+          {/* Minimize */}
+          <button
+            onClick={handleMinimize}
+            className={cn(
+              'group flex h-7 w-7 items-center justify-center rounded-full',
+              'bg-gray-500/20 backdrop-blur-sm hover:bg-gray-500/30',
+              'transition-all duration-200 hover:scale-105'
+            )}
+            title="Minimize"
+            aria-label="Minimize window"
+          >
+            <Minus className="h-3 w-3 text-white" />
+          </button>
+
+          {/* Maximize / Restore - Hidden in fullscreen */}
+          {!isFullscreen && (
+            <button
+              onClick={handleMaximize}
+              className={cn(
+                'group flex h-7 w-7 items-center justify-center rounded-full',
+                'bg-gray-500/20 backdrop-blur-sm hover:bg-gray-500/30',
+                'transition-all duration-200 hover:scale-105'
+              )}
+              title={isMaximized ? 'Restore' : 'Maximize'}
+              aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
+            >
+              {isMaximized ? (
+                <Minimize className="h-3 w-3 text-white" />
+              ) : (
+                <Square className="h-3 w-3 text-white" />
+              )}
+            </button>
+          )}
 
           {/* Close */}
           <button
             onClick={handleClose}
             className={cn(
-              'flex h-full w-11 items-center justify-center',
-              'text-sidebar-foreground/70 hover:bg-red-600 hover:text-white',
-              'transition-colors duration-150'
+              'group flex h-7 w-7 items-center justify-center rounded-full',
+              'bg-rose-500/30 backdrop-blur-sm hover:bg-rose-500/50',
+              'transition-all duration-200 hover:scale-105'
             )}
             title="Close"
             aria-label="Close window"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3 w-3 text-white" />
           </button>
         </div>
       </div>
