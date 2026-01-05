@@ -37,8 +37,18 @@ function loadEnvFile(envFile: string) {
 }
 
 // Configure update channel based on environment
-// Priority: UPDATE_CHANNEL env var > .env file > default based on NODE_ENV
-loadEnvFile(process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development')
+// Priority: UPDATE_CHANNEL env var > .env.local > .env.development > .env.production > default
+// .env.local - for local development on developer machines
+// .env.development - for QA/testers (built dev releases from CI/CD)
+// .env.production - for production releases
+
+// Try .env.local first (local development override)
+loadEnvFile('.env.local')
+
+// If not found, try environment-specific file
+if (!process.env.UPDATE_CHANNEL) {
+  loadEnvFile(process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development')
+}
 
 if (!process.env.UPDATE_CHANNEL) {
   // Fallback: set default based on build type

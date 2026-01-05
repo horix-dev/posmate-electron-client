@@ -109,19 +109,29 @@ git push origin develop
 
 ## Environment Variables Used
 
-### .env.development
+### .env.local (Local Development - Not Committed)
+```env
+VITE_APP_NAME=POSMATE LOCAL
+VITE_ENV_MODE=local
+UPDATE_CHANNEL=latest
+```
+**Use this for:** Testing locally on your machine
+
+### .env.development (QA/Testers)
 ```env
 VITE_APP_NAME=POSMATE DEV
 VITE_ENV_MODE=development
 UPDATE_CHANNEL=beta
 ```
+**Use this for:** CI/CD dev builds for QA and testers
 
-### .env.production
+### .env.production (Production)
 ```env
 VITE_APP_NAME=POSMATE
 VITE_ENV_MODE=production
 UPDATE_CHANNEL=latest
 ```
+**Use this for:** Production releases
 
 ## Before Building
 
