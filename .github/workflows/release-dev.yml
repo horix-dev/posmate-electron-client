@@ -121,4 +121,8 @@ jobs:
             4. Report any issues to the development team
 
             **Auto-update**: Enabled on beta channel (checks every startup)
-          files: release-artifacts/**/*
+          files: |
+            release-artifacts/**/POS Mate-*.exe
+            release-artifacts/**/POS Mate-*.dmg
+            release-artifacts/**/POS Mate-*.AppImage
+            release-artifacts/**/*.yml
