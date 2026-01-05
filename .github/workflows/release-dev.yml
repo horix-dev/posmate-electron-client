@@ -127,4 +127,3 @@ jobs:
             release-artifacts/**/POS Mate-*.AppImage
             release-artifacts/**/latest.yml
             release-artifacts/**/latest-*.yml
-            release-artifacts/**/app-update.yml
