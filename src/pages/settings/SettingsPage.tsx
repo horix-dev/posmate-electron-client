@@ -128,10 +128,10 @@ export function SettingsPage() {
             <Tag className="mr-1 h-3 w-3" />
             Attributes
           </TabsTrigger>
-          <TabsTrigger value="currency">
+          {/* <TabsTrigger value="currency">
             <DollarSign className="mr-1 h-3 w-3" />
             Currency
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger value="invoice">Invoice</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>

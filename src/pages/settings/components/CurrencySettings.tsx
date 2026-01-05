@@ -170,7 +170,7 @@ function CurrencySettingsComponent({ onCurrencyChange }: CurrencySettingsProps) 
       }
 
       // Don't send is_default filter to API - we'll filter client-side based on current_currency
-      const response = await currenciesService.filter(params as any)
+      const response = await currenciesService.filter(params)
       const fetchedData = response.data || []
 
       // Update active currency ID from response if present

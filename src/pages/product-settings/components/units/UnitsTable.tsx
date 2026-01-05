@@ -106,8 +106,12 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const params = { page: currentPage, per_page: perPage, search: searchQuery?.trim() }
-      const r = await unitsService.getAll(params as any)
+      const params: { page?: number; per_page?: number; search?: string | undefined } = { 
+        page: currentPage, 
+        per_page: perPage, 
+        search: searchQuery?.trim() 
+      }
+      const r = await unitsService.getAll(params)
 
       const { items, total, lastPage } = normalizePaginated<Unit>(r, perPage)
       console.log('[UnitsTable] Received data:', items.slice(0, 2))
