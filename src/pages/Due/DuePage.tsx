@@ -4,7 +4,8 @@ import { toast } from 'sonner'
 import { useCurrency } from '@/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { StatCard } from '@/components/common/StatCard'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
@@ -53,8 +54,8 @@ export function DuePage() {
       }
 
       setAllParties(parties)
-      setSupplierParties(parties.filter(p => p.type === 'Supplier'))
-      setCustomerParties(parties.filter(p => p.type !== 'Supplier'))
+      setSupplierParties(parties.filter((p) => p.type === 'Supplier'))
+      setCustomerParties(parties.filter((p) => p.type !== 'Supplier'))
     } catch (error) {
       console.error(error)
       toast.error('Failed to load party data')
@@ -130,7 +131,8 @@ export function DuePage() {
         'response' in error &&
         isRecord((error as { response?: unknown }).response) &&
         isRecord((error as { response?: { data?: unknown } }).response?.data) &&
-        typeof (error as { response?: { data?: { message?: unknown } } }).response?.data?.message === 'string'
+        typeof (error as { response?: { data?: { message?: unknown } } }).response?.data
+          ?.message === 'string'
           ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
           : undefined
       const errorMsg = errorMessage || 'Failed to collect due'
@@ -146,7 +148,7 @@ export function DuePage() {
   }
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
+    <div className="flex h-full flex-col space-y-6">
       {/* Header Section */}
       <div className="flex items-center justify-between">
         <div>
@@ -159,61 +161,36 @@ export function DuePage() {
           </Button>
         </div>
       </div>
-
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        {/* Total Due Card */}
-        <Card className="bg-gradient-to-br from-background to-muted/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Due</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(grandTotal)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {allParties.length} party records
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Supplier Due Card */}
-        <Card className="bg-gradient-to-br from-background to-muted/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Supplier Due</CardTitle>
-            <TrendingDown className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {formatCurrency(supplierTotal)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {supplierParties.length} supplier records
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Customer Due Card */}
-        <Card className="bg-gradient-to-br from-background to-muted/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Customer Due</CardTitle>
-            <AlertCircle className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {formatCurrency(customerTotal)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {customerParties.length} customer records
-            </p>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Total Due"
+          value={formatCurrency(grandTotal)}
+          description={`${allParties.length} party records`}
+          icon={Wallet}
+          iconClassName="text-red-500"
+          loading={isLoading}
+        />
+        <StatCard
+          title="Supplier Due"
+          value={formatCurrency(supplierTotal)}
+          description={`${supplierParties.length} supplier records`}
+          icon={TrendingDown}
+          iconClassName="text-blue-500"
+          loading={isLoading}
+        />
+        <StatCard
+          title="Customer Due"
+          value={formatCurrency(customerTotal)}
+          description={`${customerParties.length} customer records`}
+          icon={AlertCircle}
+          iconClassName="text-orange-500"
+          loading={isLoading}
+        />
       </div>
-
       {/* Overdue Alert */}
       {overdueCount > 0 && (
-        <Card className="bg-red-50 border-red-200">
+        <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <AlertCircle className="h-5 w-5 text-red-600" />
@@ -227,20 +204,19 @@ export function DuePage() {
           </CardContent>
         </Card>
       )}
-
       {/* Main Content Area */}
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as 'all' | 'supplier' | 'customer')}
-        className="space-y-4 flex-1 flex flex-col"
+        className="flex flex-1 flex-col space-y-4"
       >
         {/* Controls Section */}
         <div className="flex items-center justify-between gap-4 px-1">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="relative flex-1 max-w-md">
+          <div className="flex flex-1 items-center gap-3">
+            <div className="relative max-w-md flex-1">
               <Input
                 placeholder="Search by party name..."
-                className="pl-3 h-10 bg-background border border-input"
+                className="h-10 border border-input bg-background pl-3"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -249,8 +225,8 @@ export function DuePage() {
               value={statusFilter}
               onValueChange={(v) => setStatusFilter(v as 'outstanding' | 'cleared' | 'all')}
             >
-              <SelectTrigger className="w-[160px] h-10 bg-background border border-input">
-                <Filter className="w-4 h-4 mr-2" />
+              <SelectTrigger className="h-10 w-[160px] border border-input bg-background">
+                <Filter className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -261,22 +237,22 @@ export function DuePage() {
             </Select>
           </div>
 
-          <TabsList className="grid w-[320px] grid-cols-3 h-10 p-1 bg-muted/50 rounded-lg">
+          <TabsList className="grid h-10 w-[320px] grid-cols-3 rounded-lg bg-muted/50 p-1">
             <TabsTrigger
               value="all"
-              className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-200 rounded-md text-sm font-medium"
+              className="rounded-md text-sm font-medium transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
             >
               All
             </TabsTrigger>
             <TabsTrigger
               value="supplier"
-              className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-200 rounded-md text-sm font-medium"
+              className="rounded-md text-sm font-medium transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
             >
               Supplier
             </TabsTrigger>
             <TabsTrigger
               value="customer"
-              className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all duration-200 rounded-md text-sm font-medium"
+              className="rounded-md text-sm font-medium transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
             >
               Customer
             </TabsTrigger>
@@ -284,8 +260,11 @@ export function DuePage() {
         </div>
 
         {/* All Tab */}
-        <TabsContent value="all" className="flex-1 flex flex-col mt-0 border-none p-0 data-[state=active]:flex">
-          <div className="bg-background rounded-lg border p-6 flex-1 flex flex-col">
+        <TabsContent
+          value="all"
+          className="mt-0 flex flex-1 flex-col border-none p-0 data-[state=active]:flex"
+        >
+          <div className="flex flex-1 flex-col rounded-lg border bg-background p-6">
             <DueTable
               data={filteredData}
               isLoading={isLoading}
@@ -297,8 +276,11 @@ export function DuePage() {
         </TabsContent>
 
         {/* Supplier Tab */}
-        <TabsContent value="supplier" className="flex-1 flex flex-col mt-0 border-none p-0 data-[state=active]:flex">
-          <div className="bg-background rounded-lg border p-6 flex-1 flex flex-col">
+        <TabsContent
+          value="supplier"
+          className="mt-0 flex flex-1 flex-col border-none p-0 data-[state=active]:flex"
+        >
+          <div className="flex flex-1 flex-col rounded-lg border bg-background p-6">
             <DueTable
               data={filteredData}
               isLoading={isLoading}
@@ -310,8 +292,11 @@ export function DuePage() {
         </TabsContent>
 
         {/* Customer Tab */}
-        <TabsContent value="customer" className="flex-1 flex flex-col mt-0 border-none p-0 data-[state=active]:flex">
-          <div className="bg-background rounded-lg border p-6 flex-1 flex flex-col">
+        <TabsContent
+          value="customer"
+          className="mt-0 flex flex-1 flex-col border-none p-0 data-[state=active]:flex"
+        >
+          <div className="flex flex-1 flex-col rounded-lg border bg-background p-6">
             <DueTable
               data={filteredData}
               isLoading={isLoading}
@@ -322,7 +307,6 @@ export function DuePage() {
           </div>
         </TabsContent>
       </Tabs>
-
       {/* Collect Due Dialog */}
       <CollectDueDialog
         open={collectDueOpen}
@@ -330,7 +314,8 @@ export function DuePage() {
         party={selectedParty}
         onSubmit={handleCollectDueSubmit}
         isLoading={isSubmittingDue}
-      />    </div>
+      />{' '}
+    </div>
   )
 }
 
