@@ -219,6 +219,7 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
                     size="icon"
                     className={cn(
                       'relative h-8 w-8 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                      isOnline && 'text-green-500',
                       !isOnline && 'text-destructive',
                       syncStatus === 'syncing' && 'animate-pulse',
                       syncStatus === 'error' && 'text-yellow-500'
