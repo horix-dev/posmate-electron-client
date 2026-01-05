@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import fs from 'fs'
 import Store from 'electron-store'
 import { sqliteService } from './sqlite.service'
 import { initAutoUpdater, getAutoUpdater } from './autoUpdater'
@@ -13,11 +14,35 @@ const store = new Store({
   encryptionKey: 'horix-pos-secure-key-2024',
 })
 
+// Load environment variables from .env files at runtime
+// This ensures locally built apps get the correct channel
+function loadEnvFile(envFile: string) {
+  try {
+    const envPath = path.join(process.env.APP_ROOT || '', envFile)
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf-8')
+      content.split('\n').forEach((line) => {
+        const [key, ...valueParts] = line.trim().split('=')
+        if (key && !key.startsWith('#')) {
+          const value = valueParts.join('=').trim()
+          if (value && !process.env[key]) {
+            process.env[key] = value
+          }
+        }
+      })
+    }
+  } catch (error) {
+    // Silently fail if .env file doesn't exist
+  }
+}
+
 // Configure update channel based on environment
-// This is set during CI/CD builds: UPDATE_CHANNEL=beta for dev builds
-if (!process.env.UPDATE_CHANNEL && process.env.NODE_ENV === 'development') {
-  // In development, you can manually set the channel
-  process.env.UPDATE_CHANNEL = 'latest'
+// Priority: UPDATE_CHANNEL env var > .env file > default based on NODE_ENV
+loadEnvFile(process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development')
+
+if (!process.env.UPDATE_CHANNEL) {
+  // Fallback: set default based on build type
+  process.env.UPDATE_CHANNEL = process.env.NODE_ENV === 'production' ? 'latest' : 'beta'
 }
 
 // The built directory structure
