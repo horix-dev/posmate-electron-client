@@ -6,14 +6,18 @@ import log from 'electron-log'
 autoUpdater.logger = log
 log.transports.file.level = 'info'
 
-// Configure update channel based on environment
-const updateChannel = process.env.UPDATE_CHANNEL || 'latest'
-if (process.env.UPDATE_CHANNEL) {
-  log.info(`Setting update channel to: ${updateChannel}`)
+function configureUpdateChannel() {
+  const updateChannel = process.env.UPDATE_CHANNEL || 'latest'
   autoUpdater.channel = updateChannel
-}
 
-log.info(`Auto-updater initialized with channel: ${autoUpdater.channel || 'latest'}`)
+  // If you're using a non-latest channel (e.g. beta), GitHub releases are often marked as pre-release.
+  // Allow those to be considered during update checks.
+  autoUpdater.allowPrerelease = updateChannel !== 'latest'
+
+  log.info(
+    `Auto-updater initialized with channel: ${autoUpdater.channel || 'latest'} (allowPrerelease=${autoUpdater.allowPrerelease})`
+  )
+}
 
 
 export class AutoUpdateManager {
@@ -22,6 +26,9 @@ export class AutoUpdateManager {
 
   constructor(mainWindow: BrowserWindow | null) {
     this.mainWindow = mainWindow
+
+    // Configure update channel AFTER environment files are loaded in main process
+    configureUpdateChannel()
 
     // Configure auto-updater
     autoUpdater.autoDownload = false // Don't download automatically

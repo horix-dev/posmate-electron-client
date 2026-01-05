@@ -25,6 +25,12 @@ import { useAppUpdater } from '@/hooks/useAppUpdater'
 import { AttributesSettings, CurrencySettings } from './components'
 import type { Attribute } from '@/types/variant.types'
 
+type AppInfo = {
+  name: string
+  version: string
+  platform: string
+}
+
 export function SettingsPage() {
   const { theme, setTheme, soundEnabled, setSoundEnabled, autoPrintReceipt, setAutoPrintReceipt } =
     useUIStore()
@@ -47,6 +53,7 @@ export function SettingsPage() {
 
   const [manualUpdateCheckRequested, setManualUpdateCheckRequested] = useState(false)
   const supportsUpdater = Boolean(window.electronAPI?.updater?.checkForUpdates)
+  const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
 
   // Attributes state
   const [attributes, setAttributes] = useState<Attribute[]>([])
@@ -67,6 +74,25 @@ export function SettingsPage() {
 
   useEffect(() => {
     fetchAttributes()
+  }, [])
+
+  useEffect(() => {
+    const loadAppInfo = async () => {
+      try {
+        const info = await window.electronAPI?.getAppInfo?.()
+        if (info) {
+          setAppInfo({
+            name: info.name,
+            version: info.version,
+            platform: info.platform,
+          })
+        }
+      } catch (error) {
+        console.error('Failed to load app info', error)
+      }
+    }
+
+    loadAppInfo()
   }, [])
 
   useEffect(() => {
@@ -279,17 +305,17 @@ export function SettingsPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b pb-2">
                   <Label className="text-base">Application Name</Label>
-                  <span className="font-medium">Horix POS Pro</span>
+                  <span className="font-medium">{appInfo?.name || 'Horix POS Pro'}</span>
                 </div>
                 <div className="flex items-center justify-between border-b pb-2">
                   <Label className="text-base">Current Version</Label>
-                  <span className="font-mono">{updateInfo?.version || 'Unknown'}</span>
+                  <span className="font-mono">
+                    {updateInfo?.version || appInfo?.version || 'Unknown'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between border-b pb-2">
                   <Label className="text-base">Platform</Label>
-                  <span className="font-medium capitalize">
-                    {supportsUpdater ? 'Desktop' : 'Web'}
-                  </span>
+                  <span className="font-medium capitalize">{appInfo?.platform || 'Unknown'}</span>
                 </div>
               </div>
             </CardContent>

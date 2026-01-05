@@ -52,6 +52,9 @@ jobs:
       - name: Run linter
         run: npm run lint
 
+      - name: Set dev version
+        run: node scripts/set-dev-version.mjs --run ${{ github.run_number }} --preid beta
+
       - name: Build app (Dev)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -91,14 +94,20 @@ jobs:
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
+      - name: Compute release version
+        id: version
+        run: |
+          version=$(node scripts/set-dev-version.mjs --run ${{ github.run_number }} --preid beta --print-only)
+          echo "version=$version" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: dev-${{ github.run_number }}
+          tag_name: v${{ steps.version.outputs.version }}
           prerelease: true
           draft: false
-          name: Dev Build #${{ github.run_number }} - ${{ steps.commit.outputs.short_sha }}
+          name: Dev Build v${{ steps.version.outputs.version }} - ${{ steps.commit.outputs.short_sha }}
           body: |
             ## Development Build
 

@@ -97,6 +97,23 @@ UPDATE_CHANNEL=latest
 7. App checks for updates on 'beta' channel
 8. Auto-downloads and installs beta releases
 
+---
+
+## 2026-01-05 — Fix Beta Auto-Update Versioning (SemVer Pre-Release Tags) ✅
+
+**Problem**:
+- Dev/beta GitHub releases were tagged like `dev-9`, which is **not valid semver**.
+- `electron-updater` (GitHub provider) expects semver tags (e.g. `v1.0.0-beta.9`). Non-semver tags can cause update checks to fail and fall back to trying `.../releases/latest`.
+- Dev builds were also built with a stable app version (e.g. `1.0.0`), which prevents updating to prerelease versions (because `1.0.0` is greater than `1.0.0-beta.x`).
+
+**Solution Implemented**:
+- Updated `.github/workflows/release-dev.yml` to publish dev releases with semver prerelease tags: `v<packageVersion>-beta.<run_number>`.
+- Added `scripts/set-dev-version.mjs` to temporarily set the app version during CI builds so the packaged app version matches the release tag.
+
+**Impact**:
+- ✅ Beta builds can compare versions correctly and discover prereleases.
+- ✅ GitHub release tags become compatible with `electron-updater` version parsing.
+
 **Testing the Workflow**:
 ```bash
 # Manual trigger via GitHub UI, or
