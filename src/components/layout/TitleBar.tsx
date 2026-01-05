@@ -184,7 +184,7 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
       )}
     >
       {/* Left: Search Bar (only when authenticated) */}
-      <div className="app-no-drag flex items-center">
+      <div className="app-no-drag flex flex-1 items-center">
         {isAuthenticated && (
           <div className="relative w-full pl-4">
             <Search className="absolute left-7 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/70" />
