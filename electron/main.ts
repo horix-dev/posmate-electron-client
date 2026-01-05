@@ -13,6 +13,13 @@ const store = new Store({
   encryptionKey: 'horix-pos-secure-key-2024',
 })
 
+// Configure update channel based on environment
+// This is set during CI/CD builds: UPDATE_CHANNEL=beta for dev builds
+if (!process.env.UPDATE_CHANNEL && process.env.NODE_ENV === 'development') {
+  // In development, you can manually set the channel
+  process.env.UPDATE_CHANNEL = 'latest'
+}
+
 // The built directory structure
 //
 // ├─┬─┬ dist

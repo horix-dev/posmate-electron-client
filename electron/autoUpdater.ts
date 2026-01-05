@@ -5,7 +5,16 @@ import log from 'electron-log'
 // Configure logging
 autoUpdater.logger = log
 log.transports.file.level = 'info'
-log.info('Auto-updater initialized')
+
+// Configure update channel based on environment
+const updateChannel = process.env.UPDATE_CHANNEL || 'latest'
+if (process.env.UPDATE_CHANNEL) {
+  log.info(`Setting update channel to: ${updateChannel}`)
+  autoUpdater.channel = updateChannel
+}
+
+log.info(`Auto-updater initialized with channel: ${autoUpdater.channel || 'latest'}`)
+
 
 export class AutoUpdateManager {
   private mainWindow: BrowserWindow | null
