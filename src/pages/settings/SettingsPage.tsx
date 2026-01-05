@@ -10,7 +10,7 @@ import {
   Tag,
   RefreshCw,
   Download,
-  DollarSign,
+  // DollarSign,
   Info,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
