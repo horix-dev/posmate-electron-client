@@ -20,6 +20,7 @@ export interface CurrencyListParams {
 export interface CurrencyPaginatedResponse {
   message: string
   data: Currency[]
+  current_currency?: Currency
   pagination?: {
     total?: number
     per_page?: number
@@ -69,16 +70,16 @@ export const currenciesService = {
   },
 
   /**
-   * Search/filter currencies
+   * Search/filter currencies using dedicated filter endpoint
    */
   filter: async (params: {
     search?: string
-    status?: number
+    is_default?: number
     country_name?: string
     page?: number
     per_page?: number
   }): Promise<CurrencyPaginatedResponse> => {
-    const { data } = await api.get<CurrencyPaginatedResponse>(API_ENDPOINTS.CURRENCIES.LIST, {
+    const { data } = await api.get<CurrencyPaginatedResponse>(API_ENDPOINTS.CURRENCIES.FILTER, {
       params,
     })
     return data
