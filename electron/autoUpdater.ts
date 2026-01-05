@@ -5,7 +5,20 @@ import log from 'electron-log'
 // Configure logging
 autoUpdater.logger = log
 log.transports.file.level = 'info'
-log.info('Auto-updater initialized')
+
+function configureUpdateChannel() {
+  const updateChannel = process.env.UPDATE_CHANNEL || 'latest'
+  autoUpdater.channel = updateChannel
+
+  // If you're using a non-latest channel (e.g. beta), GitHub releases are often marked as pre-release.
+  // Allow those to be considered during update checks.
+  autoUpdater.allowPrerelease = updateChannel !== 'latest'
+
+  log.info(
+    `Auto-updater initialized with channel: ${autoUpdater.channel || 'latest'} (allowPrerelease=${autoUpdater.allowPrerelease})`
+  )
+}
+
 
 export class AutoUpdateManager {
   private mainWindow: BrowserWindow | null
@@ -13,6 +26,9 @@ export class AutoUpdateManager {
 
   constructor(mainWindow: BrowserWindow | null) {
     this.mainWindow = mainWindow
+
+    // Configure update channel AFTER environment files are loaded in main process
+    configureUpdateChannel()
 
     // Configure auto-updater
     autoUpdater.autoDownload = false // Don't download automatically
@@ -23,8 +39,8 @@ export class AutoUpdateManager {
   }
 
   private startUpdateChecks() {
-    // Wait 5 seconds after app starts before first check
-    setTimeout(() => this.checkForUpdates(), 5000)
+    // Wait 30 seconds after app starts before first check (give app time to initialize)
+    setTimeout(() => this.checkForUpdates(), 30000)
 
     // Check every 4 hours
     this.updateCheckInterval = setInterval(() => {
@@ -71,8 +87,38 @@ export class AutoUpdateManager {
 
     // Update error
     autoUpdater.on('error', (err: Error) => {
-      log.error('Update error:', err)
-      this.sendStatusToWindow('update-error', { message: err.message })
+      log.error('Update error:', err.message)
+      
+      // Handle common error cases gracefully
+      const errorMessage = err.message.toLowerCase()
+      
+      // No published versions on channel (common for beta/new releases)
+      if (errorMessage.includes('no published versions')) {
+        log.info('No releases available on current channel yet. This is normal for new builds.')
+        this.sendStatusToWindow('update-not-available', { 
+          version: app.getVersion(),
+          message: 'No updates available yet on this channel'
+        })
+      } 
+      // GitHub API 406 error or other API issues (no production release exists)
+      else if (errorMessage.includes('406') || errorMessage.includes('unable to find latest version')) {
+        log.info('No releases found on GitHub for this channel. App will continue to work offline.')
+        this.sendStatusToWindow('update-not-available', { 
+          version: app.getVersion(),
+          message: 'Update server not yet available'
+        })
+      }
+      // Network errors (offline, firewall, etc)
+      else if (errorMessage.includes('enotfound') || errorMessage.includes('econnrefused')) {
+        log.info('Network error checking for updates. Will retry later.')
+        // Don't send error to window for network issues - user will see offline indicator
+      }
+      // Other errors - log but don't show to user unless they manually check
+      else {
+        log.error('Update check failed:', err.message)
+        // Only send to window if user manually triggered the check
+        // Automatic checks will just log silently
+      }
     })
 
     // Download progress
@@ -144,14 +190,25 @@ export class AutoUpdateManager {
           })
         }
       }
-    }).catch((err) => {
-      log.error('Error checking for updates:', err)
+    }).catch((err: Error) => {
+      log.error('Manual update check failed:', err.message)
+      
+      // Show user-friendly error messages for manual checks
+      const errorMessage = err.message.toLowerCase()
+      let userMessage = 'Please check your internet connection and try again.'
+      
+      if (errorMessage.includes('406') || errorMessage.includes('unable to find latest version')) {
+        userMessage = 'No release versions are available yet. Please try again later.'
+      } else if (errorMessage.includes('enotfound') || errorMessage.includes('econnrefused')) {
+        userMessage = 'Could not reach update server. Please check your internet connection.'
+      }
+      
       if (this.mainWindow) {
         dialog.showMessageBox(this.mainWindow, {
-          type: 'error',
-          title: 'Update Check Failed',
-          message: 'Could not check for updates.',
-          detail: 'Please check your internet connection and try again.',
+          type: 'info',
+          title: 'Unable to Check for Updates',
+          message: 'Could not check for updates right now.',
+          detail: userMessage,
           buttons: ['OK'],
         })
       }

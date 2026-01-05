@@ -184,7 +184,7 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
       )}
     >
       {/* Left: Search Bar (only when authenticated) */}
-      <div className="app-no-drag flex items-center">
+      <div className="app-no-drag flex flex-1 items-center">
         {isAuthenticated && (
           <div className="relative w-full pl-4">
             <Search className="absolute left-7 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/70" />
@@ -219,6 +219,7 @@ export function TitleBar({ onNavigate }: TitleBarProps) {
                     size="icon"
                     className={cn(
                       'relative h-8 w-8 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                      isOnline && 'text-green-500',
                       !isOnline && 'text-destructive',
                       syncStatus === 'syncing' && 'animate-pulse',
                       syncStatus === 'error' && 'text-yellow-500'
