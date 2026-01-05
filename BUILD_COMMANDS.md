@@ -57,6 +57,12 @@ npm run build:dev:win
 # Install and run it like any other application
 ```
 
+**⚠️ Important**: If you get "No published versions on GitHub" error:
+- This is **normal** if no beta releases exist yet on GitHub
+- The app will work fine offline; it just can't find updates
+- Push to develop branch to trigger the first beta release
+- After the first release, auto-updates will work
+
 ### 2. Building Before Pushing to Develop
 
 ```bash

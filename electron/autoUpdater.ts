@@ -32,8 +32,8 @@ export class AutoUpdateManager {
   }
 
   private startUpdateChecks() {
-    // Wait 5 seconds after app starts before first check
-    setTimeout(() => this.checkForUpdates(), 5000)
+    // Wait 30 seconds after app starts before first check (give app time to initialize)
+    setTimeout(() => this.checkForUpdates(), 30000)
 
     // Check every 4 hours
     this.updateCheckInterval = setInterval(() => {
@@ -81,7 +81,17 @@ export class AutoUpdateManager {
     // Update error
     autoUpdater.on('error', (err: Error) => {
       log.error('Update error:', err)
-      this.sendStatusToWindow('update-error', { message: err.message })
+      
+      // Handle "no published versions" error gracefully (common for beta channel)
+      if (err.message.includes('No published versions')) {
+        log.info('No releases available on current channel yet. This is normal for new beta builds.')
+        this.sendStatusToWindow('update-not-available', { 
+          version: app.getVersion(),
+          message: 'No updates available yet on this channel'
+        })
+      } else {
+        this.sendStatusToWindow('update-error', { message: err.message })
+      }
     })
 
     // Download progress
