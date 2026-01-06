@@ -1,3 +1,130 @@
+## 2026-01-05 — Automated Dev/Testing Build Pipeline with CI/CD ✅
+
+**Context**: Implemented a complete GitHub Actions workflow to automatically build and release development/testing versions from the `develop` branch, enabling continuous testing and beta updates.
+
+**Problem**:
+- Manual dev builds required local setup and commands
+- No automated testing builds from develop branch
+- Testers couldn't receive automatic updates
+- Multiple build commands for different platforms
+
+**Solution Implemented**:
+
+### 1. GitHub Actions Workflow
+**File**: `.github/workflows/release-dev.yml`
+
+**Features**:
+- Triggers on: Push to `develop` branch OR manual `workflow_dispatch`
+- Matrix builds for: Windows, macOS, Linux (parallel execution)
+- Steps:
+  1. Type checking (`npm run typecheck`)
+  2. ESLint validation (`npm run lint`)
+  3. Build with `UPDATE_CHANNEL=beta` environment variable
+  4. Upload artifacts with 30-day retention
+  5. Create GitHub pre-release with `dev-beta` tag
+  6. Includes auto-update instructions in release notes
+
+### 2. Auto-Updater Channel Configuration
+**File**: `electron/autoUpdater.ts`
+
+**Changes**:
+```typescript
+const updateChannel = process.env.UPDATE_CHANNEL || 'latest'
+if (process.env.UPDATE_CHANNEL) {
+  autoUpdater.channel = updateChannel
+}
+```
+- Reads `UPDATE_CHANNEL` environment variable
+- Sets electron-updater to use beta channel when building dev releases
+- Defaults to 'latest' channel for production builds
+
+### 3. Electron Main Process Update
+**File**: `electron/main.ts`
+
+**Changes**:
+- Added UPDATE_CHANNEL environment variable configuration
+- Sets channel based on NODE_ENV during development
+- CI/CD workflow passes `UPDATE_CHANNEL=beta` during build
+
+### 4. Environment Configuration
+**Files Updated**:
+
+#### `.env.development`:
+```env
+VITE_APP_NAME=POSMATE DEV
+VITE_ENV_MODE=development
+UPDATE_CHANNEL=beta
+```
+
+#### `.env.production`:
+```env
+VITE_APP_NAME=POSMATE
+VITE_ENV_MODE=production
+UPDATE_CHANNEL=latest
+```
+
+### 5. Build Scripts
+**File**: `package.json`
+
+**New Commands**:
+```json
+"build:dev": "cross-env UPDATE_CHANNEL=beta npm run build",
+"build:dev:win": "cross-env UPDATE_CHANNEL=beta npm run build:win",
+"build:dev:mac": "cross-env UPDATE_CHANNEL=beta npm run build:mac",
+"build:dev:linux": "cross-env UPDATE_CHANNEL=beta npm run build:linux"
+```
+
+**New Dependency**:
+- Added `cross-env@7.0.3` for cross-platform environment variables
+
+**Impact**:
+- ✅ Fully automated dev builds from develop branch
+- ✅ Beta channel auto-updates for testers
+- ✅ Parallel matrix builds for all platforms
+- ✅ Validation steps (type check, lint) before build
+- ✅ Artifact retention for 30 days
+- ✅ Pre-release tags for easy identification
+- ✅ Local dev build commands available for manual testing
+- ✅ Seamless channel separation (latest vs beta)
+
+**How It Works**:
+1. Developer pushes to `develop` branch
+2. GitHub Actions automatically triggers
+3. Workflow builds for Windows, macOS, Linux in parallel
+4. Each build includes `UPDATE_CHANNEL=beta`
+5. Artifacts uploaded, pre-release created
+6. Testers download and run beta version
+7. App checks for updates on 'beta' channel
+8. Auto-downloads and installs beta releases
+
+---
+
+## 2026-01-05 — Fix Beta Auto-Update Versioning (SemVer Pre-Release Tags) ✅
+
+**Problem**:
+- Dev/beta GitHub releases were tagged like `dev-9`, which is **not valid semver**.
+- `electron-updater` (GitHub provider) expects semver tags (e.g. `v1.0.0-beta.9`). Non-semver tags can cause update checks to fail and fall back to trying `.../releases/latest`.
+- Dev builds were also built with a stable app version (e.g. `1.0.0`), which prevents updating to prerelease versions (because `1.0.0` is greater than `1.0.0-beta.x`).
+
+**Solution Implemented**:
+- Updated `.github/workflows/release-dev.yml` to publish dev releases with semver prerelease tags: `v<packageVersion>-beta.<run_number>`.
+- Added `scripts/set-dev-version.mjs` to temporarily set the app version during CI builds so the packaged app version matches the release tag.
+
+**Impact**:
+- ✅ Beta builds can compare versions correctly and discover prereleases.
+- ✅ GitHub release tags become compatible with `electron-updater` version parsing.
+
+**Testing the Workflow**:
+```bash
+# Manual trigger via GitHub UI, or
+# Push to develop branch to auto-trigger
+
+# Check workflow status in: .github/workflows/release-dev.yml
+# Download artifacts and test locally
+```
+
+---
+
 ## 2026-01-03 — Convert Product Type to Checkbox UI ✅
 
 **Context**: Simplified product type selection by converting from dropdown to checkbox for better UX and clearer visual hierarchy.

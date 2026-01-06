@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { CachedImage } from '@/components/common/CachedImage'
-import { cn, getImageUrl } from '@/lib/utils'
+import { getImageUrl } from '@/lib/utils'
 import { useCurrency } from '@/hooks'
 import type { Product } from '@/types/api.types'
 import { getStockStatus, getTotalStock, getSalePrice, getPurchasePrice } from '../hooks'
@@ -39,12 +39,7 @@ export interface ProductRowProps {
  * ProductRow component displays a single product in the table.
  * Memoized to prevent unnecessary re-renders when other products change.
  */
-function ProductRowComponent({
-  product,
-  onView,
-  onEdit,
-  onDelete,
-}: ProductRowProps) {
+function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowProps) {
   const { format: formatCurrency } = useCurrency()
   const stockStatus = getStockStatus(product)
   const totalStock = getTotalStock(product)
@@ -124,18 +119,12 @@ function ProductRowComponent({
           {isVariable && variantCount > 0 ? (
             <>
               <p className="text-sm font-medium text-muted-foreground">Variable pricing</p>
-              <p className="text-xs text-muted-foreground">
-                Base: {formatCurrency(salePrice)}
-              </p>
+              <p className="text-xs text-muted-foreground">Base: {formatCurrency(salePrice)}</p>
             </>
           ) : (
             <>
-              <p className="font-medium">
-                {formatCurrency(salePrice)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Cost: {formatCurrency(purchasePrice)}
-              </p>
+              <p className="font-medium">{formatCurrency(salePrice)}</p>
+              <p className="text-xs text-muted-foreground">Cost: {formatCurrency(purchasePrice)}</p>
             </>
           )}
         </div>
@@ -153,10 +142,7 @@ function ProductRowComponent({
 
       {/* Status */}
       <TableCell>
-        <Badge
-          variant={stockStatus.variant === 'warning' ? 'outline' : stockStatus.variant}
-          className={cn(stockStatus.variant === 'warning' && 'border-yellow-500 text-yellow-600')}
-        >
+        <Badge variant={stockStatus.variant === 'warning' ? 'success' : stockStatus.variant}>
           {stockStatus.status === 'low' && (
             <AlertTriangle className="mr-1 h-3 w-3" aria-hidden="true" />
           )}

@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { toast } from 'sonner'
+import { unitsService } from '@/api/services/units.service'
 import {
   Table,
   TableBody,
@@ -22,7 +24,6 @@ import {
 } from '@/components/ui/select'
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'
 import { BulkDeleteConfirmDialog } from '@/components/common/BulkDeleteConfirmDialog'
-import { useUnits } from '../../hooks/useUnits'
 
 interface UnitsTableProps {
   searchQuery: string
@@ -31,7 +32,13 @@ interface UnitsTableProps {
 }
 
 export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTableProps) {
+  const [data, setData] = useState<Unit[]>([])
+  const [total, setTotal] = useState(0)
+  const [lastPage, setLastPage] = useState(1)
+  const [isLoading, setIsLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
+
+  // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const [perPage, setPerPage] = useState(10)
 
@@ -43,51 +50,127 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
   }>({ open: false, id: null, name: '' })
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
 
-  // Use React Query hook
-  const {
-    units: data,
-    total,
-    lastPage,
-    isLoading,
-    deleteUnit,
-    bulkDeleteUnits,
-    toggleStatus,
-    refetch,
-  } = useUnits({
-    page: currentPage,
-    perPage,
-    search: searchQuery,
-  })
+  // Normalize paginated response
+  const normalizePaginated = useCallback(<T,>(resp: unknown, pageSize: number) => {
+    const getNum = (v: unknown, fallback: number) =>
+      (typeof v === 'number' ? v : Number(v)) || fallback
+    let items: T[] = []
+    let total = 0
+    let lastPage = 1
 
-  // Reset to page 1 when search changes
+    if (!resp || typeof resp !== 'object') return { items, total, lastPage }
+
+    const outer: Record<string, unknown> = resp as Record<string, unknown>
+    // If this is an AxiosResponse, payload is in outer.data; if already payload, also in .data
+    const payload = (outer && 'data' in outer ? outer.data : outer) as Record<string, unknown>
+
+    if (payload && typeof payload === 'object') {
+      // Case A: payload.data is an object with data array (Laravel paginator)
+      if ('data' in payload && payload.data && typeof payload.data === 'object') {
+        const inner = payload.data as Record<string, unknown>
+        if ('data' in inner && Array.isArray(inner.data)) {
+          items = inner.data as T[]
+          total = getNum(typeof inner.total === 'number' ? inner.total : undefined, items.length)
+          lastPage = getNum(
+            typeof inner.last_page === 'number' ? inner.last_page : undefined,
+            Math.ceil(total / pageSize)
+          )
+          return { items, total, lastPage }
+        }
+      }
+
+      // Case B: payload.data is directly the array
+      if ('data' in payload && Array.isArray(payload.data)) {
+        items = payload.data as T[]
+        total = getNum(payload.total as unknown, items.length)
+        lastPage = getNum(payload.last_page as unknown, Math.ceil(total / pageSize))
+        return { items, total, lastPage }
+      }
+
+      // Case C: payload is directly the array
+      if (Array.isArray(payload)) {
+        items = payload as T[]
+        total = items.length
+        lastPage = Math.ceil(total / pageSize)
+        return { items, total, lastPage }
+      }
+    }
+
+    return { items, total, lastPage }
+  }, [])
+
+  // Fetch data
+  const fetchData = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const params: { page?: number; per_page?: number; search?: string | undefined } = {
+        page: currentPage,
+        per_page: perPage,
+        search: searchQuery?.trim(),
+      }
+      const r = await unitsService.getAll(params)
+
+      const { items, total, lastPage } = normalizePaginated<Unit>(r, perPage)
+      console.log('[UnitsTable] Received data:', items.slice(0, 2))
+      setData(items)
+      setTotal(total)
+      setLastPage(lastPage)
+
+      // Show offline indicator if data came from cache
+      if (
+        r &&
+        typeof r === 'object' &&
+        'message' in r &&
+        (r as { message?: unknown }).message === 'Data loaded from cache'
+      ) {
+        toast.info('Working offline with cached data', { duration: 3000 })
+      }
+    } catch (e) {
+      console.error('[UnitsTable] fetch error', e)
+      toast.error('Failed to load units. Please check your connection.')
+      // Keep existing data if available, don't clear it
+      setData((prev) => (prev.length === 0 ? [] : prev))
+      setTotal((prev) => (prev === 0 ? 0 : prev))
+      setLastPage((prev) => (prev === 1 ? 1 : prev))
+    } finally {
+      setIsLoading(false)
+    }
+  }, [currentPage, perPage, searchQuery, normalizePaginated])
+
   useEffect(() => {
+    // reset to first page on search/perPage change
     setCurrentPage(1)
-  }, [searchQuery])
+  }, [searchQuery, perPage])
 
-  // Refetch when refreshTrigger changes
   useEffect(() => {
-    refetch()
-  }, [refreshTrigger, refetch])
+    fetchData()
+  }, [fetchData, refreshTrigger])
 
   const handleDeleteClick = (id: number, name: string) => {
     setDeleteDialog({ open: true, id, name })
   }
+
   const confirmDelete = async () => {
     if (!deleteDialog.id) return
     try {
-      await deleteUnit(deleteDialog.id)
+      await unitsService.delete(deleteDialog.id)
+      toast.success('Unit deleted successfully')
       setDeleteDialog({ open: false, id: null, name: '' })
     } catch (error) {
       console.error('Delete error:', error)
+      toast.error('Failed to delete unit')
     }
   }
 
   const handleStatusToggle = async (unit: Unit) => {
     try {
       const newStatus = (unit.status ?? 1) === 1 ? 0 : 1
-      await toggleStatus({ id: unit.id, status: newStatus === 1 })
+      await unitsService.updateStatus(unit.id, newStatus === 1)
+      toast.success('Status updated successfully')
+      fetchData()
     } catch (error) {
       console.error('Status toggle error:', error)
+      toast.error('Failed to update status')
     }
   }
 
@@ -107,13 +190,16 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
   const handleBulkDeleteClick = () => {
     setBulkDeleteOpen(true)
   }
+
   const confirmBulkDelete = async () => {
     try {
-      await bulkDeleteUnits(selectedIds)
+      await unitsService.deleteMultiple(selectedIds)
+      toast.success('Units deleted successfully')
       setSelectedIds([])
       setBulkDeleteOpen(false)
     } catch (error) {
       console.error('Bulk delete error:', error)
+      toast.error('Failed to delete units')
     }
   }
 

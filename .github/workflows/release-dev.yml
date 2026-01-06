@@ -1,0 +1,138 @@
+name: Build Dev Release
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch: # Allow manual triggers
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            build-name: Windows
+          - os: macos-latest
+            build-name: macOS
+          - os: ubuntu-latest
+            build-name: Linux
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libusb-1.0-0-dev
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run type check
+        run: npm run typecheck
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Set dev version
+        run: node scripts/set-dev-version.mjs --run ${{ github.run_number }} --preid beta
+
+      - name: Build app (Dev)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_API_BASE_URL: http://localhost:8700
+          UPDATE_CHANNEL: beta
+        run: npm run build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: posmate-${{ matrix.build-name }}-dev
+          path: release/
+          retention-days: 30
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: success()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Get commit info
+        id: commit
+        run: |
+          echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          {
+            echo "message<<EOF"
+            git log -1 --pretty=%B
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Compute release version
+        id: version
+        run: |
+          version=$(node scripts/set-dev-version.mjs --run ${{ github.run_number }} --preid beta --print-only)
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: v${{ steps.version.outputs.version }}
+          prerelease: true
+          draft: false
+          name: Dev Build v${{ steps.version.outputs.version }} - ${{ steps.commit.outputs.short_sha }}
+          body: |
+            ## Development Build
+
+            **Branch**: develop  
+            **Commit**: ${{ steps.commit.outputs.short_sha }}  
+            **Update Channel**: beta
+
+            ### Release Notes
+            ${{ steps.commit.outputs.message }}
+
+            ---
+
+            ### ℹ️ Testing Instructions
+
+            This is a **beta/development** build. It auto-updates from the develop branch.
+
+            1. Download the appropriate installer for your OS
+            2. Install/Update the application
+            3. The app will check for updates on the beta channel
+            4. Report any issues to the development team
+
+            **Auto-update**: Enabled on beta channel (checks every startup)
+          files: |
+            release-artifacts/**/POS Mate-*.exe
+            release-artifacts/**/POS Mate-*.dmg
+            release-artifacts/**/POS Mate-*.AppImage
+            release-artifacts/**/latest.yml
+            release-artifacts/**/latest-*.yml

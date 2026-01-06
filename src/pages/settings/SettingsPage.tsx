@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { Store, Receipt, Bell, Palette, Lock, Users, Tag, RefreshCw, Download, DollarSign } from 'lucide-react'
+import {
+  Store,
+  Receipt,
+  Bell,
+  Palette,
+  Lock,
+  Users,
+  Tag,
+  RefreshCw,
+  Download,
+  // DollarSign,
+  Info,
+} from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
@@ -12,6 +24,12 @@ import { attributesService } from '@/api/services'
 import { useAppUpdater } from '@/hooks/useAppUpdater'
 import { AttributesSettings, CurrencySettings } from './components'
 import type { Attribute } from '@/types/variant.types'
+
+type AppInfo = {
+  name: string
+  version: string
+  platform: string
+}
 
 export function SettingsPage() {
   const { theme, setTheme, soundEnabled, setSoundEnabled, autoPrintReceipt, setAutoPrintReceipt } =
@@ -35,6 +53,7 @@ export function SettingsPage() {
 
   const [manualUpdateCheckRequested, setManualUpdateCheckRequested] = useState(false)
   const supportsUpdater = Boolean(window.electronAPI?.updater?.checkForUpdates)
+  const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
 
   // Attributes state
   const [attributes, setAttributes] = useState<Attribute[]>([])
@@ -55,6 +74,25 @@ export function SettingsPage() {
 
   useEffect(() => {
     fetchAttributes()
+  }, [])
+
+  useEffect(() => {
+    const loadAppInfo = async () => {
+      try {
+        const info = await window.electronAPI?.getAppInfo?.()
+        if (info) {
+          setAppInfo({
+            name: info.name,
+            version: info.version,
+            platform: info.platform,
+          })
+        }
+      } catch (error) {
+        console.error('Failed to load app info', error)
+      }
+    }
+
+    loadAppInfo()
   }, [])
 
   useEffect(() => {
@@ -128,9 +166,13 @@ export function SettingsPage() {
             <Tag className="mr-1 h-3 w-3" />
             Attributes
           </TabsTrigger>
-          <TabsTrigger value="currency">
+          {/* <TabsTrigger value="currency">
             <DollarSign className="mr-1 h-3 w-3" />
             Currency
+          </TabsTrigger> */}
+          <TabsTrigger value="about">
+            <Info className="mr-1 h-3 w-3" />
+            About
           </TabsTrigger>
           <TabsTrigger value="invoice">Invoice</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
@@ -207,57 +249,6 @@ export function SettingsPage() {
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <RefreshCw className="h-5 w-5" />
-                Application Updates
-              </CardTitle>
-              <CardDescription>Manually check for new versions and install updates</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <Label>Update Status</Label>
-                  <p className="truncate text-sm text-muted-foreground">{getUpdateStatusText()}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCheckForUpdates}
-                  disabled={!supportsUpdater || isChecking || isDownloading}
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Check for updates
-                </Button>
-              </div>
-
-              {isUpdateAvailable && (
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-sm text-muted-foreground">
-                    Download the update to begin installation.
-                  </p>
-                  <Button size="sm" onClick={downloadUpdate}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download
-                  </Button>
-                </div>
-              )}
-
-              {isUpdateReady && (
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-sm text-muted-foreground">Restart to complete installation.</p>
-                  <Button size="sm" onClick={quitAndInstall}>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Restart now
-                  </Button>
-                </div>
-              )}
-
-              {hasError && updateError && <p className="text-sm text-destructive">{updateError}</p>}
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="business" className="space-y-4">
@@ -299,6 +290,142 @@ export function SettingsPage() {
 
         <TabsContent value="currency" className="space-y-4">
           <CurrencySettings />
+        </TabsContent>
+
+        <TabsContent value="about" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5" />
+                Application Information
+              </CardTitle>
+              <CardDescription>Version and build details</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <Label className="text-base">Application Name</Label>
+                  <span className="font-medium">{appInfo?.name || 'Horix POS Pro'}</span>
+                </div>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <Label className="text-base">Current Version</Label>
+                  <span className="font-mono">
+                    {updateInfo?.version || appInfo?.version || 'Unknown'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <Label className="text-base">Platform</Label>
+                  <span className="font-medium capitalize">{appInfo?.platform || 'Unknown'}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                Updates
+              </CardTitle>
+              <CardDescription>Check for and install application updates</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <Label className="text-base">Update Status</Label>
+                    <p className="mt-1 truncate text-sm text-muted-foreground">
+                      {getUpdateStatusText()}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleCheckForUpdates}
+                    disabled={!supportsUpdater || isChecking || isDownloading}
+                    className="ml-4"
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Check for updates
+                  </Button>
+                </div>
+
+                {isUpdateAvailable && (
+                  <div className="rounded-md border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-medium text-blue-900 dark:text-blue-100">
+                          New version available: v{updateInfo?.version}
+                        </p>
+                        <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                          Download the update to begin installation.
+                        </p>
+                      </div>
+                      <Button size="sm" onClick={downloadUpdate}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {isDownloading && downloadProgress && (
+                  <div className="rounded-md border p-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Downloading update...</span>
+                        <span className="font-mono">{Math.round(downloadProgress.percent)}%</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                        <div
+                          className="h-full bg-primary transition-all duration-300"
+                          style={{ width: `${downloadProgress.percent}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {(downloadProgress.transferred / 1024 / 1024).toFixed(2)} MB of{' '}
+                        {(downloadProgress.total / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {isUpdateReady && (
+                  <div className="rounded-md border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-medium text-green-900 dark:text-green-100">
+                          Update ready to install
+                        </p>
+                        <p className="mt-1 text-sm text-green-700 dark:text-green-300">
+                          Restart the application to complete the installation.
+                        </p>
+                      </div>
+                      <Button size="sm" onClick={quitAndInstall}>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Restart now
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {hasError && updateError && (
+                  <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4">
+                    <p className="text-sm text-destructive">
+                      <strong>Error:</strong> {updateError}
+                    </p>
+                  </div>
+                )}
+
+                {!supportsUpdater && (
+                  <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-950">
+                    <p className="text-sm text-yellow-900 dark:text-yellow-100">
+                      Automatic updates are only available in the desktop application.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="invoice" className="space-y-4">

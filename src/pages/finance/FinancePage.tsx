@@ -16,19 +16,6 @@ import { normalizeTransaction, type NormalizedTransaction } from './utils/normal
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'
 import { BulkDeleteConfirmDialog } from '@/components/common/BulkDeleteConfirmDialog'
 
-type UnknownRecord = Record<string, unknown>
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-  typeof value === 'object' && value !== null
-
-const unwrapItems = <T,>(payload: unknown): T[] => {
-  if (Array.isArray(payload)) return payload as T[]
-  if (isRecord(payload) && Array.isArray(payload.data)) {
-    return payload.data as T[]
-  }
-  return []
-}
-
 export function FinancePage() {
   const { format: formatCurrency } = useCurrency()
   const [activeTab, setActiveTab] = useState<'expenses' | 'income'>('expenses')
@@ -51,8 +38,8 @@ export function FinancePage() {
     try {
       if (activeTab === 'expenses') {
         const response = await expensesService.getAll({ limit: 1000 })
-        // Handle flexible pagination response format
-        const list = unwrapItems<Expense>(response?.data)
+        // Response.data is already the array of expenses
+        const list = response?.data || []
 
         const normalized = (Array.isArray(list) ? list : []).map((item: Expense) =>
           normalizeTransaction(item, 'expense')
@@ -60,8 +47,8 @@ export function FinancePage() {
         setExpenses(normalized)
       } else {
         const response = await incomesService.getAll({ limit: 1000 })
-        // Handle flexible pagination response format
-        const list = unwrapItems<Income>(response?.data)
+        // Response.data is already the array of incomes
+        const list = response?.data || []
 
         const normalized = (Array.isArray(list) ? list : []).map((item: Income) =>
           normalizeTransaction(item, 'income')

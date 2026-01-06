@@ -25,7 +25,7 @@ export interface ProductFilters {
 export interface StockStatus {
   status: 'in' | 'low' | 'out'
   label: string
-  variant: 'default' | 'destructive' | 'warning'
+  variant: 'default' | 'destructive' | 'warning' | 'success'
 }
 
 export interface ProductStats {
@@ -87,7 +87,7 @@ export function getStockStatus(product: Product): StockStatus {
   if (totalStock <= alertQty) {
     return { status: 'low', label: 'Low Stock', variant: 'warning' }
   }
-  return { status: 'in', label: 'In Stock', variant: 'default' }
+  return { status: 'in', label: 'In Stock', variant: 'success' }
 }
 
 /**

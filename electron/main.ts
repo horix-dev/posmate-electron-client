@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import fs from 'fs'
 import Store from 'electron-store'
 import { sqliteService } from './sqlite.service'
 import { initAutoUpdater, getAutoUpdater } from './autoUpdater'
@@ -13,6 +14,62 @@ const store = new Store({
   encryptionKey: 'horix-pos-secure-key-2024',
 })
 
+// Load environment variables from .env files at runtime
+// This ensures locally built apps get the correct channel
+function loadEnvFile(envFile: string, options?: { overrideExisting?: boolean }) {
+  try {
+    const overrideExisting = options?.overrideExisting ?? false
+
+    // Resolve from APP_ROOT if provided; otherwise fall back to project root next to dist-electron
+    const baseDir = process.env.APP_ROOT || path.join(__dirname, '..')
+    const candidates = [path.join(baseDir, envFile), path.join(process.cwd(), envFile)]
+
+    const envPath = candidates.find((candidate) => fs.existsSync(candidate))
+    if (!envPath) return
+
+    const content = fs.readFileSync(envPath, 'utf-8')
+    content.split('\n').forEach((line) => {
+      const [key, ...valueParts] = line.trim().split('=')
+      if (key && !key.startsWith('#')) {
+        const value = valueParts.join('=').trim()
+        if (!value) return
+
+        if (overrideExisting || !process.env[key]) {
+          process.env[key] = value
+        }
+      }
+    })
+  } catch (error) {
+    // Silently fail if .env file doesn't exist
+  }
+}
+
+// Establish APP_ROOT early so env loading resolves correctly
+process.env.APP_ROOT = path.join(__dirname, '..')
+
+// Configure update channel based on environment
+// Priority: UPDATE_CHANNEL env var > .env.local > .env.development > .env.production > default
+// .env.local - for local development on developer machines
+// .env.development - for QA/testers (built dev releases from CI/CD)
+// .env.production - for production releases
+
+// Try .env.local first (local development override)
+// NOTE: `.env.local` should override anything set earlier in dev runs.
+loadEnvFile('.env.local', { overrideExisting: true })
+
+// If not found, try environment-specific file
+if (!process.env.UPDATE_CHANNEL) {
+  loadEnvFile(process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development')
+}
+
+if (!process.env.UPDATE_CHANNEL) {
+  // Fallback: set default based on build type
+  process.env.UPDATE_CHANNEL = process.env.NODE_ENV === 'production' ? 'latest' : 'beta'
+}
+
+// Helpful startup log to confirm which channel is resolved at runtime
+console.log(`[Main] Resolved UPDATE_CHANNEL=${process.env.UPDATE_CHANNEL || 'latest'} (isPackaged=${app.isPackaged})`)
+
 // The built directory structure
 //
 // ├─┬─┬ dist
@@ -22,8 +79,6 @@ const store = new Store({
 // │ │ ├── main.js
 // │ │ └── preload.mjs
 // │
-process.env.APP_ROOT = path.join(__dirname, '..')
-
 // 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')

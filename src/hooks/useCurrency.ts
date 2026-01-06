@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useBusinessStore, useCurrencyStore } from '@/stores'
 
 // ============================================
@@ -52,7 +52,7 @@ const DEFAULT_CURRENCY: CurrencyConfig = {
 
 /**
  * Hook for accessing currency formatting in React components.
- * Fetches active currency from API endpoint and falls back to business store currency.
+ * Uses active currency from Zustand store (pre-fetched on app load) and falls back to business store currency.
  *
  * @example
  * ```tsx
@@ -65,16 +65,10 @@ const DEFAULT_CURRENCY: CurrencyConfig = {
 export function useCurrency(): UseCurrencyReturn {
   // Primary source: dedicated currency store (from /currencies/business/active API)
   const activeCurrency = useCurrencyStore((state) => state.activeCurrency)
-  const fetchActiveCurrency = useCurrencyStore((state) => state.fetchActiveCurrency)
   const currencyLoading = useCurrencyStore((state) => state.isLoading)
 
   // Fallback source: business store currency
   const businessCurrency = useBusinessStore((state) => state.business?.business_currency)
-
-  // Fetch active currency on mount if not already loaded
-  useEffect(() => {
-    fetchActiveCurrency()
-  }, [fetchActiveCurrency])
 
   const currency = useMemo<CurrencyConfig>(() => {
     // Priority 1: Active currency from dedicated API
@@ -199,17 +193,13 @@ export function formatCurrency(
   }
 
   if (amount === undefined || amount === null || amount === '') {
-    return config.position === 'before'
-      ? `${config.symbol} 0.00`
-      : `0.00 ${config.symbol}`
+    return config.position === 'before' ? `${config.symbol} 0.00` : `0.00 ${config.symbol}`
   }
 
   const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount
 
   if (isNaN(numericAmount)) {
-    return config.position === 'before'
-      ? `${config.symbol} 0.00`
-      : `0.00 ${config.symbol}`
+    return config.position === 'before' ? `${config.symbol} 0.00` : `0.00 ${config.symbol}`
   }
 
   const formatted = numericAmount.toLocaleString('en-US', {
