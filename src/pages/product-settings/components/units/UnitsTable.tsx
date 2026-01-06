@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select'
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'
 import { BulkDeleteConfirmDialog } from '@/components/common/BulkDeleteConfirmDialog'
+import { useUnits } from '../../hooks/useUnits'
 
 interface UnitsTableProps {
   searchQuery: string
@@ -32,14 +33,10 @@ interface UnitsTableProps {
 }
 
 export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTableProps) {
-  const [data, setData] = useState<Unit[]>([])
-  const [isLoading, setIsLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
-  const [lastPage, setLastPage] = useState(1)
-  const [total, setTotal] = useState(0)
   const [perPage, setPerPage] = useState(10)
 
   // Dialog state
@@ -156,7 +153,6 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
       await unitsService.delete(deleteDialog.id)
       toast.success('Unit deleted successfully')
       setDeleteDialog({ open: false, id: null, name: '' })
-      fetchData()
     } catch (error) {
       console.error('Delete error:', error)
       toast.error('Failed to delete unit')
@@ -198,7 +194,6 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
       toast.success('Units deleted successfully')
       setSelectedIds([])
       setBulkDeleteOpen(false)
-      fetchData()
     } catch (error) {
       console.error('Bulk delete error:', error)
       toast.error('Failed to delete units')
