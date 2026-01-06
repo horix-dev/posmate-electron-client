@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Globe,
+  RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,7 +36,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { currenciesService } from '@/api/services'
-import { useBusinessStore, useCurrencyStore } from '@/stores'
+import { useBusinessStore } from '@/stores'
 import type { Currency } from '@/types/api.types'
 
 // ============================================
@@ -61,14 +62,17 @@ interface CurrencyRowProps {
   currency: Currency
   isChanging: boolean
   onChangeCurrency: (currency: Currency) => void
+  currentCurrencyId?: number
 }
 
 const CurrencyRow = memo(function CurrencyRow({
   currency,
   isChanging,
   onChangeCurrency,
+  currentCurrencyId,
 }: CurrencyRowProps) {
-  const isActive = currency.is_default === 1 || currency.is_default === true
+  // Consider a currency active only if it matches the current active currency from the store
+  const isActive = currentCurrencyId === currency.id
 
   return (
     <TableRow className={isActive ? 'bg-primary/5' : ''}>
@@ -94,11 +98,11 @@ const CurrencyRow = memo(function CurrencyRow({
       </TableCell>
       <TableCell>
         {isActive ? (
-          <Badge variant="outline" className="border-green-500 text-green-600">
+          <Badge variant="default" className="bg-green-600 hover:bg-green-700">
             Active
           </Badge>
         ) : (
-          <Badge variant="outline" className="border-gray-400 text-gray-500">
+          <Badge variant="secondary">
             Inactive
           </Badge>
         )}
@@ -138,6 +142,7 @@ function CurrencySettingsComponent({ onCurrencyChange }: CurrencySettingsProps) 
   const [isChanging, setIsChanging] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [currentActiveCurrencyId, setCurrentActiveCurrencyId] = useState<number | undefined>(undefined)
   const [pagination, setPagination] = useState<PaginationState>({
     currentPage: 1,
     perPage: 10,
@@ -153,23 +158,43 @@ function CurrencySettingsComponent({ onCurrencyChange }: CurrencySettingsProps) 
     setIsLoading(true)
     try {
       const params: Record<string, unknown> = {
-        page: pagination.currentPage,
         per_page: pagination.perPage,
+      }
+
+      if (pagination.currentPage > 1) {
+        params.page = pagination.currentPage
       }
 
       if (searchQuery.trim()) {
         params.search = searchQuery.trim()
       }
 
-      if (statusFilter !== 'all') {
-        params.is_default = statusFilter === 'active' ? 1 : 0
+      // Don't send is_default filter to API - we'll filter client-side based on current_currency
+      const response = await currenciesService.filter(params)
+      const fetchedData = response.data || []
+
+      // Update active currency ID from response if present
+      if (response.current_currency) {
+        setCurrentActiveCurrencyId(response.current_currency.id)
       }
 
-      const response = await currenciesService.getAll(params)
-      setCurrencies(response.data || [])
+      // Apply client-side filtering based on current_currency from response
+      const filtered =
+        statusFilter === 'active'
+          ? fetchedData.filter((currency) => response.current_currency?.id === currency.id)
+          : fetchedData
+
+      setCurrencies(filtered)
 
       // Update pagination from response
-      if (response.pagination) {
+      if (statusFilter === 'active') {
+        // When filtering for active currency, update pagination to reflect filtered results
+        setPagination((prev) => ({
+          ...prev,
+          total: filtered.length,
+          lastPage: 1,
+        }))
+      } else if (response.pagination) {
         setPagination((prev) => ({
           ...prev,
           total: response.pagination?.total || 0,
@@ -200,19 +225,23 @@ function CurrencySettingsComponent({ onCurrencyChange }: CurrencySettingsProps) 
     fetchCurrencies()
   }, [fetchCurrencies])
 
-  // Handle search with debounce
+  // Handle search and filter changes with debounce
   useEffect(() => {
     const timer = setTimeout(() => {
       setPagination((prev) => ({ ...prev, currentPage: 1 }))
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [searchQuery])
+  }, [searchQuery, statusFilter])
 
   // Handle status filter change
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value)
-    setPagination((prev) => ({ ...prev, currentPage: 1 }))
+  }
+
+  // Handle refresh
+  const handleRefresh = () => {
+    fetchCurrencies()
   }
 
   // Handle page change
@@ -229,17 +258,20 @@ function CurrencySettingsComponent({ onCurrencyChange }: CurrencySettingsProps) 
     }))
   }
 
-  // Handle set default currency (updates both currencies and user_currencies tables)
+  // Handle set active currency (updates active status)
   const handleChangeCurrency = async (currency: Currency) => {
     setIsChanging(currency.id)
     try {
-      // Update is_default in currencies table
+      // Update active status in currencies table
       const response = await currenciesService.setDefault(currency.id)
       
       // Also update user_currencies table for business-specific currency
       await currenciesService.changeCurrency(currency.id)
       
-      toast.success(`${currency.name} set as default currency`)
+      toast.success(`${currency.name} set as active currency`)
+
+      // Update local active currency ID immediately
+      setCurrentActiveCurrencyId(currency.id)
 
       // Update business store with new currency
       if (business && response.data) {
@@ -249,25 +281,16 @@ function CurrencySettingsComponent({ onCurrencyChange }: CurrencySettingsProps) 
         })
       }
 
-      // Refresh the currency store to use the new active currency
-      useCurrencyStore.getState().setActiveCurrency(response.data)
-
       // Notify parent component if callback provided
       if (onCurrencyChange && response.data) {
         onCurrencyChange(response.data)
       }
 
-      // Optimistically update is_default in local state
-      // Set the selected currency as default and reset others
-      setCurrencies((prev) =>
-        prev.map((c) => ({
-          ...c,
-          is_default: c.id === currency.id ? 1 : 0,
-        }))
-      )
+      // Refresh currencies to get updated data from endpoint
+      await fetchCurrencies()
     } catch (error) {
-      console.error('Failed to set default currency:', error)
-      toast.error('Failed to set default currency')
+      console.error('Failed to set active currency:', error)
+      toast.error('Failed to set active currency')
       // Refresh to revert on error
       await fetchCurrencies()
     } finally {
@@ -325,9 +348,17 @@ function CurrencySettingsComponent({ onCurrencyChange }: CurrencySettingsProps) 
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleRefresh}
+              disabled={isLoading}
+              title="Refresh currencies"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -369,6 +400,7 @@ function CurrencySettingsComponent({ onCurrencyChange }: CurrencySettingsProps) 
                       currency={currency}
                       isChanging={isChanging === currency.id}
                       onChangeCurrency={handleChangeCurrency}
+                      currentCurrencyId={currentActiveCurrencyId}
                     />
                   ))}
                 </TableBody>
