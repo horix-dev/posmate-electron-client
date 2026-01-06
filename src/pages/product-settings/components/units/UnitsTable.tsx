@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/select'
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'
 import { BulkDeleteConfirmDialog } from '@/components/common/BulkDeleteConfirmDialog'
-import { useUnits } from '../../hooks/useUnits'
 
 interface UnitsTableProps {
   searchQuery: string
@@ -33,6 +32,10 @@ interface UnitsTableProps {
 }
 
 export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTableProps) {
+  const [data, setData] = useState<Unit[]>([])
+  const [total, setTotal] = useState(0)
+  const [lastPage, setLastPage] = useState(1)
+  const [isLoading, setIsLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
 
   // Pagination state
@@ -80,10 +83,7 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
       if ('data' in payload && Array.isArray(payload.data)) {
         items = payload.data as T[]
         total = getNum(payload.total as unknown, items.length)
-        lastPage = getNum(
-          payload.last_page as unknown,
-          Math.ceil(total / pageSize)
-        )
+        lastPage = getNum(payload.last_page as unknown, Math.ceil(total / pageSize))
         return { items, total, lastPage }
       }
 
@@ -103,10 +103,10 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const params: { page?: number; per_page?: number; search?: string | undefined } = { 
-        page: currentPage, 
-        per_page: perPage, 
-        search: searchQuery?.trim() 
+      const params: { page?: number; per_page?: number; search?: string | undefined } = {
+        page: currentPage,
+        per_page: perPage,
+        search: searchQuery?.trim(),
       }
       const r = await unitsService.getAll(params)
 
@@ -117,22 +117,25 @@ export function UnitsTable({ searchQuery, refreshTrigger, onEdit }: UnitsTablePr
       setLastPage(lastPage)
 
       // Show offline indicator if data came from cache
-      if (r.message === 'Data loaded from cache') {
+      if (
+        r &&
+        typeof r === 'object' &&
+        'message' in r &&
+        (r as { message?: unknown }).message === 'Data loaded from cache'
+      ) {
         toast.info('Working offline with cached data', { duration: 3000 })
       }
     } catch (e) {
       console.error('[UnitsTable] fetch error', e)
       toast.error('Failed to load units. Please check your connection.')
       // Keep existing data if available, don't clear it
-      if (data.length === 0) {
-        setData([])
-        setTotal(0)
-        setLastPage(1)
-      }
+      setData((prev) => (prev.length === 0 ? [] : prev))
+      setTotal((prev) => (prev === 0 ? 0 : prev))
+      setLastPage((prev) => (prev === 1 ? 1 : prev))
     } finally {
       setIsLoading(false)
     }
-  }, [currentPage, perPage, searchQuery, normalizePaginated, data.length])
+  }, [currentPage, perPage, searchQuery, normalizePaginated])
 
   useEffect(() => {
     // reset to first page on search/perPage change
