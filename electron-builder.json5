@@ -16,8 +16,9 @@
     {
       "provider": "github",
       "owner": "horix-dev",
-      "repo": "posmate-electron-client",
-      "releaseType": "release"
+      "repo": "posmate-electron-client"
+      // Note: releaseType is omitted to allow both release and prerelease
+      // Runtime channel configuration in autoUpdater.ts determines which to check
     }
   ],
   "mac": {
