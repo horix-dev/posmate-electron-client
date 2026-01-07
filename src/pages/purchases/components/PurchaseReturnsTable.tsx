@@ -1,13 +1,16 @@
-import { useState, useMemo, useEffect } from 'react'
-import { Eye, Search } from 'lucide-react'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { Eye, Search, CalendarIcon } from 'lucide-react'
+import { format } from 'date-fns'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
 import { useCurrency } from '@/hooks'
-import { format } from 'date-fns'
 import { usePurchaseReturns, DEFAULT_RETURN_FILTERS } from '../hooks/usePurchaseReturns'
 import type { PurchaseReturnsFilters } from '../hooks/usePurchaseReturns'
 import type { PurchaseReturn } from '@/types/api.types'
@@ -51,14 +54,24 @@ export function PurchaseReturnsTable({ refreshKey }: { refreshKey?: number }) {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   const { purchaseReturns, isLoading, currentPage, totalPages, totalItems, perPage, stats, setPage, setPerPage, refetch } = usePurchaseReturns(filters)
+  const searchTimeoutRef = useRef<NodeJS.Timeout>()
 
   useEffect(() => {
     if (refreshKey !== undefined) {
       refetch()
     }
-  }, [refreshKey, refetch])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey])
 
-  const handleSearch = () => setFilters((prev) => ({ ...prev, search: searchInput }))
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value)
+    // Clear existing timeout
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+    // Set new timeout for debounced search
+    searchTimeoutRef.current = setTimeout(() => {
+      setFilters((prev) => ({ ...prev, search: value }))
+    }, 300)
+  }
   const handleClearFilters = () => { setFilters(DEFAULT_RETURN_FILTERS); setSearchInput('') }
   const handleViewDetails = (returnItem: PurchaseReturn) => { setSelectedReturn(returnItem); setIsDetailsOpen(true) }
   const hasFilters = useMemo(() => filters.search !== '' || filters.dateFrom !== '' || filters.dateTo !== '', [filters])
@@ -111,14 +124,62 @@ export function PurchaseReturnsTable({ refreshKey }: { refreshKey?: number }) {
 
           <div className="mb-4 flex flex-wrap gap-2">
             <div className="flex flex-1 gap-2">
-              <div className="flex-1">
-                <Input placeholder="Search by invoice or supplier..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
+              <div className="flex-1 relative">
+                <Input placeholder="Search by invoice or supplier..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} />
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               </div>
-              <Button onClick={handleSearch} variant="outline"><Search className="h-4 w-4" /></Button>
             </div>
             <div className="flex gap-2">
-              <Input type="date" placeholder="From date" value={filters.dateFrom} onChange={(e) => setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))} className="w-40" />
-              <Input type="date" placeholder="To date" value={filters.dateTo} onChange={(e) => setFilters((prev) => ({ ...prev, dateTo: e.target.value }))} className="w-40" />
+              {/* Date From */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'w-[140px] justify-start text-left font-normal',
+                      !filters.dateFrom && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.dateFrom ? format(new Date(filters.dateFrom), 'MMM d, yyyy') : 'From'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={filters.dateFrom ? new Date(filters.dateFrom) : undefined}
+                    onSelect={(date: Date | undefined) =>
+                      setFilters((prev) => ({ ...prev, dateFrom: date ? format(date, 'yyyy-MM-dd') : '' }))
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              {/* Date To */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'w-[140px] justify-start text-left font-normal',
+                      !filters.dateTo && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.dateTo ? format(new Date(filters.dateTo), 'MMM d, yyyy') : 'To'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={filters.dateTo ? new Date(filters.dateTo) : undefined}
+                    onSelect={(date: Date | undefined) =>
+                      setFilters((prev) => ({ ...prev, dateTo: date ? format(date, 'yyyy-MM-dd') : '' }))
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             {hasFilters && <Button variant="ghost" onClick={handleClearFilters}>Clear</Button>}
           </div>
