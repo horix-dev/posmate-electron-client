@@ -6,3 +6,5 @@ export {
   getPurchaseItemsCount,
   getPurchaseTotalQuantity,
 } from './usePurchases'
+export { usePurchaseReturns, DEFAULT_RETURN_FILTERS } from './usePurchaseReturns'
+export type { PurchaseReturnsFilters } from './usePurchaseReturns'

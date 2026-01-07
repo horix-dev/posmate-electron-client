@@ -3989,11 +3989,137 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 ### 14.1 List Purchase Returns
 
 **Endpoint:** `GET /purchase-returns`  
-**Auth Required:** Yes
+**Auth Required:** Yes  
+**Description:** List all purchase returns with flexible pagination modes and filters.
+
+Supports **4 pagination modes** via query parameters:
+
+1. **Default Mode** (no pagination params): Returns all purchase returns with safety limit (1000)
+2. **Limit Mode** (`?limit=N`): Returns first N records (max 1000) - for dropdowns
+3. **Offset Mode** (`?page=X&per_page=Y`): Page-based pagination (max 100/page) - for management tables
+4. **Cursor Mode** (`?cursor=X&per_page=Y`): Cursor-based pagination (max 1000/page) - for sync/export
 
 **Query Parameters:**
-- `start_date` - Filter start date
-- `end_date` - Filter end date
+
+**Filters:**
+- `purchase_id`: Filter by purchase ID
+- `date_from`: Start date (YYYY-MM-DD)
+- `date_to`: End date (YYYY-MM-DD)
+- `start_date`: Alias for date_from (backward compatibility)
+- `end_date`: Alias for date_to (backward compatibility)
+- `invoice_no`: Filter by return invoice number (partial match)
+- `search`: Search by return invoice number or party name
+
+**Pagination:**
+- `limit`: Number of items (Mode 2)
+- `page` + `per_page`: Offset pagination (Mode 3)
+- `cursor` + `per_page`: Cursor pagination (Mode 4)
+
+**Example Requests:**
+
+```bash
+# Mode 1: Default - All returns
+GET /api/v1/purchase-returns
+
+# Mode 2: Limit - First 50 returns
+GET /api/v1/purchase-returns?limit=50
+
+# Mode 3: Offset - Page 2 with 20 per page
+GET /api/v1/purchase-returns?page=2&per_page=20
+
+# Mode 4: Cursor - For sync/export
+GET /api/v1/purchase-returns?cursor=0&per_page=500
+
+# With filters
+GET /api/v1/purchase-returns?date_from=2025-01-01&date_to=2025-01-31&purchase_id=5
+GET /api/v1/purchase-returns?search=John&limit=100
+```
+
+**Response (Default/Limit Mode - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [
+    {
+      "id": 1,
+      "business_id": 1,
+      "branch_id": 1,
+      "purchase_id": 5,
+      "invoice_no": "PR01",
+      "return_date": "2025-01-05",
+      "created_at": "2025-01-05T10:00:00+00:00",
+      "updated_at": "2025-01-05T10:00:00+00:00",
+      "purchase": {
+        "id": 5,
+        "invoiceNumber": "PUR-00005",
+        "totalAmount": 5000.00,
+        "paidAmount": 3000.00,
+        "dueAmount": 2000.00,
+        "isPaid": 0,
+        "party": {
+          "id": 10,
+          "name": "ABC Suppliers",
+          "email": "abc@example.com",
+          "phone": "+1234567890",
+          "type": "Supplier"
+        }
+      },
+      "branch": {
+        "id": 1,
+        "name": "Main Branch"
+      },
+      "details": [
+        {
+          "id": 1,
+          "purchase_detail_id": 15,
+          "return_qty": 5,
+          "return_amount": 500.00,
+          "product": {
+            "id": 20,
+            "productName": "Laptop XYZ",
+            "productCode": "LAP-001"
+          },
+          "batch_no": "BATCH-2025-001"
+        }
+      ],
+      "total_return_amount": 500.00,
+      "total_return_qty": 5
+    }
+  ],
+  "_server_timestamp": "2025-01-07T10:00:00+00:00"
+}
+```
+
+**Response (Offset Mode - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [...],
+  "pagination": {
+    "total": 150,
+    "per_page": 20,
+    "current_page": 2,
+    "last_page": 8,
+    "from": 21,
+    "to": 40
+  },
+  "_server_timestamp": "2025-01-07T10:00:00+00:00"
+}
+```
+
+**Response (Cursor Mode - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [...],
+  "pagination": {
+    "next_cursor": 500,
+    "has_more": true,
+    "per_page": 500
+  },
+  "_server_timestamp": "2025-01-07T10:00:00+00:00"
+}
+```
 
 ---
 
@@ -4005,17 +4131,59 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 **Request Body:**
 ```json
 {
-  "purchase_id": "integer (required, exists)",
-  "return_date": "date (required)",
-  "purchase_detail_id": ["array of purchase detail IDs"],
-  "return_qty": ["array of quantities"],
-  "return_amount": ["array of amounts"],
-  "totalAmount": "numeric",
-  "paidAmount": "numeric",
-  "dueAmount": "numeric",
-  "discountAmount": "numeric"
+  "purchase_id": 5,
+  "return_date": "2025-01-05",
+  "purchase_detail_id": [15, 16],
+  "return_qty": [5, 3],
+  "return_amount": [500.00, 300.00],
+  "totalAmount": 4200.00,
+  "paidAmount": 2200.00,
+  "dueAmount": 2000.00,
+  "discountAmount": 0
 }
 ```
+
+**Validation Rules:**
+- `purchase_id`: required, must exist in purchases table
+- `return_date`: required, valid date
+- `purchase_detail_id`: required, array of purchase detail IDs
+- `return_qty`: required, array of quantities matching detail IDs
+- `return_amount`: required, array of amounts matching detail IDs
+
+**Response (Success - HTTP 200):**
+```json
+{
+  "message": "Data saved successfully.",
+  "data": {
+    "id": 1,
+    "business_id": 1,
+    "branch_id": 1,
+    "purchase_id": 5,
+    "invoice_no": "PR01",
+    "return_date": "2025-01-05",
+    "created_at": "2025-01-05T10:00:00+00:00",
+    "updated_at": "2025-01-05T10:00:00+00:00"
+  }
+}
+```
+
+**Response (Error - HTTP 422):**
+```json
+{
+  "message": "Validation failed",
+  "errors": {
+    "purchase_id": ["The purchase id field is required."],
+    "return_date": ["The return date field is required."]
+  }
+}
+```
+
+**Business Logic:**
+- Reduces stock quantity for returned items
+- Reduces purchase detail quantities
+- Updates party's due amount (decreases by return amount)
+- Updates purchase totals (totalAmount, paidAmount, dueAmount)
+- Creates entries in purchase_return_details table
 
 ---
 
@@ -4023,6 +4191,79 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 
 **Endpoint:** `GET /purchase-returns/{id}`  
 **Auth Required:** Yes
+
+**Response (Success - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "id": 1,
+    "business_id": 1,
+    "branch_id": 1,
+    "purchase_id": 5,
+    "invoice_no": "PR01",
+    "return_date": "2025-01-05",
+    "created_at": "2025-01-05T10:00:00+00:00",
+    "updated_at": "2025-01-05T10:00:00+00:00",
+    "purchase": {
+      "id": 5,
+      "invoiceNumber": "PUR-00005",
+      "totalAmount": 4200.00,
+      "paidAmount": 2200.00,
+      "dueAmount": 2000.00,
+      "isPaid": 0,
+      "party": {
+        "id": 10,
+        "name": "ABC Suppliers",
+        "email": "abc@example.com",
+        "phone": "+1234567890",
+        "type": "Supplier"
+      }
+    },
+    "branch": {
+      "id": 1,
+      "name": "Main Branch"
+    },
+    "details": [
+      {
+        "id": 1,
+        "purchase_detail_id": 15,
+        "return_qty": 5,
+        "return_amount": 500.00,
+        "product": {
+          "id": 20,
+          "productName": "Laptop XYZ",
+          "productCode": "LAP-001"
+        },
+        "batch_no": "BATCH-2025-001"
+      },
+      {
+        "id": 2,
+        "purchase_detail_id": 16,
+        "return_qty": 3,
+        "return_amount": 300.00,
+        "product": {
+          "id": 21,
+          "productName": "Mouse ABC",
+          "productCode": "MOU-001"
+        },
+        "batch_no": "BATCH-2025-002"
+      }
+    ],
+    "total_return_amount": 800.00,
+    "total_return_qty": 8
+  },
+  "_server_timestamp": "2025-01-07T10:00:00+00:00"
+}
+```
+
+**Response (Not Found - HTTP 404):**
+```json
+{
+  "success": false,
+  "message": "Purchase return not found"
+}
+```
 
 ---
 

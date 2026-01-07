@@ -116,15 +116,14 @@ export const purchasesService = {
 
   /**
    * Create a purchase return
+   * API expects parallel arrays: purchase_detail_id[], return_qty[], return_amount[]
    */
   createReturn: async (returnData: {
     purchase_id: number
     return_date: string
-    products: Array<{
-      purchase_detail_id: number
-      return_qty: number
-      return_amount: number
-    }>
+    purchase_detail_id: number[]
+    return_qty: number[]
+    return_amount: number[]
   }): Promise<ApiResponse<PurchaseReturn>> => {
     const { data } = await api.post<ApiResponse<PurchaseReturn>>(
       API_ENDPOINTS.PURCHASE_RETURNS.CREATE,

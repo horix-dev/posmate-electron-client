@@ -43,6 +43,8 @@ export interface PurchasesTableProps {
   isLoading: boolean
   /** Callback when view action is clicked */
   onView: (purchase: Purchase) => void
+  /** Callback when return action is clicked */
+  onReturn: (purchase: Purchase) => void
   /** Callback when edit action is clicked */
   onEdit?: (purchase: Purchase) => void
   /** Callback when delete action is clicked */
@@ -202,6 +204,7 @@ const Pagination = memo(function Pagination({
 interface PurchaseRowProps {
   purchase: Purchase
   onView: (purchase: Purchase) => void
+  onReturn: (purchase: Purchase) => void
   onEdit?: (purchase: Purchase) => void
   onDelete: (purchase: Purchase) => void
 }
@@ -209,6 +212,7 @@ interface PurchaseRowProps {
 const PurchaseRow = memo(function PurchaseRow({
   purchase,
   onView,
+  onReturn,
   onEdit,
   onDelete,
 }: PurchaseRowProps) {
@@ -289,6 +293,10 @@ const PurchaseRow = memo(function PurchaseRow({
               <Eye className="mr-2 h-4 w-4" />
               View Details
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onReturn(purchase)}>
+              <Package className="mr-2 h-4 w-4" />
+              Return
+            </DropdownMenuItem>
             {onEdit && (
               <DropdownMenuItem onClick={() => onEdit(purchase)}>
                 <Pencil className="mr-2 h-4 w-4" />
@@ -318,6 +326,7 @@ export const PurchasesTable = memo(function PurchasesTable({
   hasPurchases,
   isLoading,
   onView,
+  onReturn,
   onEdit,
   onDelete,
   onClearFilters,
@@ -378,6 +387,7 @@ export const PurchasesTable = memo(function PurchasesTable({
                 key={purchase.id}
                 purchase={purchase}
                 onView={onView}
+                onReturn={onReturn}
                 onEdit={onEdit}
                 onDelete={onDelete}
               />

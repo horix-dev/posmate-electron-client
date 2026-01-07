@@ -119,9 +119,9 @@ export const API_ENDPOINTS = {
 
   // Purchase Returns
   PURCHASE_RETURNS: {
-    LIST: '/purchase-returns',
-    GET: (id: number) => `/purchase-returns/${id}`,
-    CREATE: '/purchase-returns',
+    LIST: '/purchases-return',
+    GET: (id: number) => `/purchases-return/${id}`,
+    CREATE: '/purchases-return',
   },
 
   // Due Collection

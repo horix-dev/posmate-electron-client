@@ -716,6 +716,13 @@ export interface PurchaseDetail {
   profit_percent?: number
   mfg_date?: string
   expire_date?: string
+  product?: {
+    id: number
+    productName: string
+    productCode?: string
+    productPicture?: string
+    image?: string
+  }
 }
 
 export interface CreatePurchaseRequest {
@@ -767,10 +774,21 @@ export interface SaleReturnDetail {
 
 export interface PurchaseReturn {
   id: number
+  business_id?: number
+  branch_id?: number
   purchase_id: number
+  invoice_no?: string
   return_date: string
+  created_at?: string
+  updated_at?: string
   purchase?: Purchase
+  branch?: {
+    id: number
+    name: string
+  }
   details?: PurchaseReturnDetail[]
+  total_return_amount?: number
+  total_return_qty?: number
 }
 
 export interface PurchaseReturnDetail {
@@ -778,6 +796,12 @@ export interface PurchaseReturnDetail {
   purchase_detail_id: number
   return_qty: number
   return_amount: number
+  product?: {
+    id: number
+    productName: string
+    productCode?: string
+  }
+  batch_no?: string
 }
 
 // ============================================

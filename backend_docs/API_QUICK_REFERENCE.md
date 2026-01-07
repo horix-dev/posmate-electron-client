@@ -266,9 +266,15 @@ GET /purchase?returned-purchase=true
 | GET | `/sales-return` | ✅ | List sale returns |
 | POST | `/sales-return` | ✅ | Create sale return |
 | GET | `/sales-return/{id}` | ✅ | Get sale return |
-| GET | `/purchases-return` | ✅ | List purchase returns |
+| GET | `/purchases-return` | ✅ | **Flexible pagination** - List purchase returns (4 modes: default, limit, offset, cursor) |
+| GET | `/purchases-return?limit=100` | ✅ | Limit mode - flat array (max 1000) |
+| GET | `/purchases-return?page=1&per_page=20` | ✅ | Offset pagination - paginated object (max 100/page) |
+| GET | `/purchases-return?cursor=0&per_page=500` | ✅ | Cursor pagination - flat array + cursor (max 1000/batch) |
+| GET | `/purchases-return?date_from=2025-01-01&date_to=2025-01-31` | ✅ | Filter by date range |
+| GET | `/purchases-return?purchase_id=5` | ✅ | Filter by purchase ID |
+| GET | `/purchases-return?search=John` | ✅ | Search by invoice or party name |
 | POST | `/purchases-return` | ✅ | Create purchase return |
-| GET | `/purchases-return/{id}` | ✅ | Get purchase return |
+| GET | `/purchases-return/{id}` | ✅ | Get purchase return details |
 
 ## Financial
 
