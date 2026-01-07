@@ -650,8 +650,17 @@ export interface SaleDetail {
   variant_name?: string | null
   quantities: number
   price: number
+  subTotal?: number
   lossProfit?: number
-  product?: Product
+  mfg_date?: string
+  expire_date?: string
+  // product?: Product
+  product?: {
+    id: number
+    productName: string
+    productCode?: string
+    productPicture?: string
+  }
   stock?: Stock
   variant?: ProductVariant
 }
@@ -759,10 +768,20 @@ export interface PurchaseProductItem {
 
 export interface SaleReturn {
   id: number
+  business_id?: number
   sale_id: number
+  invoice_no?: string
   return_date: string
+  created_at?: string
+  updated_at?: string
   sale?: Sale
+  branch?: {
+    id: number
+    name: string
+  }
   details?: SaleReturnDetail[]
+  total_return_amount?: number
+  total_return_qty?: number
 }
 
 export interface SaleReturnDetail {
@@ -770,6 +789,14 @@ export interface SaleReturnDetail {
   sale_detail_id: number
   return_qty: number
   return_amount: number
+  product?: {
+    id: number
+    productName: string
+    productCode?: string
+    image?: string
+    productPicture?: string
+  }
+  batch_no?: string
 }
 
 export interface PurchaseReturn {

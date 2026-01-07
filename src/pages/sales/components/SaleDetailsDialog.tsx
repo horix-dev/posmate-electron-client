@@ -172,23 +172,53 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
                     <TableHead className="text-center">Qty</TableHead>
                     <TableHead className="text-right">Price</TableHead>
                     <TableHead className="text-right">Subtotal</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sale.details.map((detail, index) => (
-                    <TableRow key={detail.id || index}>
-                      <TableCell className="font-medium">
-                        {detail.product?.productName || 'Product'}
-                      </TableCell>
-                      <TableCell className="text-center">{detail.quantities}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrencyAmount(detail.price)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrencyAmount(detail.price * detail.quantities)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {sale.details.map((detail, index) => {
+                    // Check if this detail has been returned
+                    const returnedQty = sale.saleReturns?.reduce((sum, ret) => {
+                      const detailReturn = ret.details?.find(d => d.sale_detail_id === detail.id)
+                      return sum + (detailReturn?.return_qty || 0)
+                    }, 0) || 0
+
+                    const isFullyReturned = returnedQty >= detail.quantities
+                    const isPartiallyReturned = returnedQty > 0 && !isFullyReturned
+
+                    return (
+                      <TableRow 
+                        key={detail.id || index}
+                        className={`
+                          ${isFullyReturned ? 'bg-red-50 dark:bg-red-950/20' : ''}
+                          ${isPartiallyReturned ? 'bg-yellow-50 dark:bg-yellow-950/20' : ''}
+                        `}
+                      >
+                        <TableCell className="font-medium">
+                          {detail.product?.productName || 'Product'}
+                        </TableCell>
+                        <TableCell className="text-center">{detail.quantities}</TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrencyAmount(detail.price)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrencyAmount(detail.price * detail.quantities)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isFullyReturned && (
+                            <Badge variant="destructive" className="text-xs">
+                              Returned ({returnedQty})
+                            </Badge>
+                          )}
+                          {isPartiallyReturned && (
+                            <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                              Partial Return ({returnedQty})
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>

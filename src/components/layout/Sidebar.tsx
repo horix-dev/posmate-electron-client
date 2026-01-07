@@ -49,7 +49,15 @@ const mainNavItems: NavItem[] = [
   { title: 'Dashboard', href: '/', icon: Home },
   { title: 'POS', href: '/pos', icon: ShoppingCart },
   { title: 'Products', href: '/products', icon: Package },
-  { title: 'Sales', href: '/sales', icon: Receipt },
+  {
+    title: 'Sales',
+    href: '/sales',
+    icon: Receipt,
+    children: [
+      { title: 'New Sales', href: '/sales?tab=sales', icon: Receipt },
+      { title: 'Sales Returns', href: '/sales?tab=returns', icon: PackageMinus },
+    ],
+  },
   {
     title: 'Purchases',
     href: '/purchases',

@@ -263,9 +263,15 @@ GET /purchase?returned-purchase=true
 ### Returns
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/sales-return` | ✅ | List sale returns |
+| GET | `/sales-return` | ✅ | **Flexible pagination** - List sale returns (4 modes: default, limit, offset, cursor) |
+| GET | `/sales-return?limit=100` | ✅ | Limit mode - flat array (max 1000) |
+| GET | `/sales-return?page=1&per_page=20` | ✅ | Offset pagination - paginated object (max 100/page) |
+| GET | `/sales-return?cursor=0&per_page=500` | ✅ | Cursor pagination - flat array + cursor (max 1000/batch) |
+| GET | `/sales-return?date_from=2025-01-01&date_to=2025-01-31` | ✅ | Filter by date range |
+| GET | `/sales-return?sale_id=5` | ✅ | Filter by sale ID |
+| GET | `/sales-return?search=John` | ✅ | Search by invoice or party name |
 | POST | `/sales-return` | ✅ | Create sale return |
-| GET | `/sales-return/{id}` | ✅ | Get sale return |
+| GET | `/sales-return/{id}` | ✅ | Get sale return details |
 | GET | `/purchases-return` | ✅ | **Flexible pagination** - List purchase returns (4 modes: default, limit, offset, cursor) |
 | GET | `/purchases-return?limit=100` | ✅ | Limit mode - flat array (max 1000) |
 | GET | `/purchases-return?page=1&per_page=20` | ✅ | Offset pagination - paginated object (max 100/page) |

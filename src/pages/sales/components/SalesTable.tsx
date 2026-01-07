@@ -37,6 +37,8 @@ export interface SalesTableProps {
   isLoading: boolean
   /** Callback when view action is clicked */
   onView: (sale: Sale) => void
+  /** Callback when return action is clicked */
+  onReturn: (sale: Sale) => void
   /** Callback when delete action is clicked */
   onDelete: (sale: Sale) => void
   /** Callback when clear filters button is clicked (for no results state) */
@@ -115,10 +117,11 @@ const NoResultsState = memo(function NoResultsState({ onClearFilters }: NoResult
 interface SaleRowProps {
   sale: Sale
   onView: (sale: Sale) => void
+  onReturn: (sale: Sale) => void
   onDelete: (sale: Sale) => void
 }
 
-const SaleRow = memo(function SaleRow({ sale, onView, onDelete }: SaleRowProps) {
+const SaleRow = memo(function SaleRow({ sale, onView, onReturn, onDelete }: SaleRowProps) {
   const { format: formatCurrencyAmount } = useCurrency()
   const paymentBadge = getPaymentStatusBadge(sale)
   const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
@@ -257,6 +260,12 @@ const SaleRow = memo(function SaleRow({ sale, onView, onDelete }: SaleRowProps) 
               <Eye className="mr-2 h-4 w-4" />
               View Details
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onReturn(sale)}>
+              <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              Return
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => onDelete(sale)}
               className="text-destructive focus:text-destructive"
@@ -306,6 +315,7 @@ function SalesTableComponent({
   isLoading,
   onView,
   onDelete,
+  onReturn,
   onClearFilters,
 }: SalesTableProps) {
   // Loading state
@@ -350,7 +360,7 @@ function SalesTableComponent({
             <SalesTableHeader />
             <TableBody>
               {sales.map((sale) => (
-                <SaleRow key={sale.id} sale={sale} onView={onView} onDelete={onDelete} />
+                <SaleRow key={sale.id} sale={sale} onView={onView} onDelete={onDelete} onReturn={onReturn} />
               ))}
             </TableBody>
           </Table>

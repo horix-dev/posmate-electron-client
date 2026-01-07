@@ -3915,48 +3915,140 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 
 ### 13.1 List Sale Returns
 
-**Endpoint:** `GET /sale-returns`  
-**Auth Required:** Yes
+**Endpoint:** `GET /sales-return`  
+**Auth Required:** Yes  
+**Description:** List all sale returns with flexible pagination modes and filters.
+
+Supports **4 pagination modes** via query parameters:
+
+1. **Default Mode** (no pagination params): Returns all sale returns with safety limit (1000)
+2. **Limit Mode** (`?limit=N`): Returns first N records (max 1000) - for dropdowns
+3. **Offset Mode** (`?page=X&per_page=Y`): Page-based pagination (max 100/page) - for management tables
+4. **Cursor Mode** (`?cursor=X&per_page=Y`): Cursor-based pagination (max 1000/page) - for sync/export
 
 **Query Parameters:**
-- `start_date` - Filter start date
-- `end_date` - Filter end date
 
-**Response:**
+**Filters:**
+- `sale_id`: Filter by sale ID
+- `date_from`: Start date (YYYY-MM-DD)
+- `date_to`: End date (YYYY-MM-DD)
+- `start_date`: Alias for date_from (backward compatibility)
+- `end_date`: Alias for date_to (backward compatibility)
+- `invoice_no`: Filter by return invoice number (partial match)
+- `search`: Search by return invoice number or party name
+
+**Pagination:**
+- `limit`: Number of items (Mode 2)
+- `page` + `per_page`: Offset pagination (Mode 3)
+- `cursor` + `per_page`: Cursor pagination (Mode 4)
+
+**Example Requests:**
+
+```bash
+# Mode 1: Default - All returns
+GET /api/v1/sales-return
+
+# Mode 2: Limit - First 50 returns
+GET /api/v1/sales-return?limit=50
+
+# Mode 3: Offset - Page 2 with 20 per page
+GET /api/v1/sales-return?page=2&per_page=20
+
+# Mode 4: Cursor - For sync/export
+GET /api/v1/sales-return?cursor=0&per_page=500
+
+# With filters
+GET /api/v1/sales-return?date_from=2025-01-01&date_to=2025-01-31&sale_id=5
+GET /api/v1/sales-return?search=John&limit=100
+```
+
+**Response (Default/Limit Mode - HTTP 200):**
 ```json
 {
   "message": "Data fetched successfully.",
   "data": [
     {
       "id": 1,
-      "sale_id": 1,
-      "return_date": "2024-01-20",
+      "business_id": 1,
+      "sale_id": 5,
+      "invoice_no": "SR01",
+      "return_date": "2025-01-05",
       "sale": {
-        "id": 1,
-        "invoiceNumber": "S-00001",
+        "id": 5,
+        "invoiceNumber": "INV-0005",
+        "totalAmount": 500.00,
+        "isPaid": 1,
         "party": {
           "id": 1,
-          "name": "Customer"
+          "name": "Customer Name",
+          "phone": "1234567890",
+          "email": "customer@example.com"
         }
+      },
+      "branch": {
+        "id": 1,
+        "name": "Main Branch"
       },
       "details": [
         {
           "id": 1,
-          "sale_detail_id": 1,
-          "return_qty": 1,
-          "return_amount": 750.00
+          "return_qty": 2,
+          "return_amount": 100.00,
+          "product": {
+            "id": 5,
+            "productName": "Product Name",
+            "productCode": "PRD005",
+            "image": "/storage/products/image.jpg",
+            "batch_no": "BATCH001"
+          }
         }
-      ]
+      ],
+      "total_return_amount": 100.00,
+      "total_return_qty": 2,
+      "created_at": "2025-01-05T10:00:00+00:00",
+      "updated_at": "2025-01-05T10:00:00+00:00"
     }
-  ]
+  ],
+  "_server_timestamp": "2025-01-05T10:00:00Z"
+}
+```
+
+**Response (Offset Mode - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [...],
+  "pagination": {
+    "total": 245,
+    "per_page": 20,
+    "current_page": 1,
+    "last_page": 13,
+    "from": 1,
+    "to": 20
+  },
+  "_server_timestamp": "2025-01-05T10:00:00Z"
+}
+```
+
+**Response (Cursor Mode - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [...],
+  "pagination": {
+    "next_cursor": 100,
+    "has_more": true,
+    "per_page": 50
+  },
+  "_server_timestamp": "2025-01-05T10:00:00Z"
 }
 ```
 
 ---
 
-### 11.2 Create Sale Return
+### 13.2 Create Sale Return
 
-**Endpoint:** `POST /sale-returns`  
+**Endpoint:** `POST /sales-return`  
 **Auth Required:** Yes
 
 **Request Body:**
@@ -3967,20 +4059,131 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
   "sale_detail_id": ["array of sale detail IDs"],
   "return_qty": ["array of quantities"],
   "return_amount": ["array of amounts"],
-  "lossProfit": ["array of profit adjustments"],
-  "totalAmount": "numeric",
-  "paidAmount": "numeric",
-  "dueAmount": "numeric",
-  "discountAmount": "numeric"
+  "lossProfit": ["array of profit adjustments (optional)"]
 }
 ```
+
+**Validation:**
+- `sale_id` - Required, must exist in sales table
+- `return_date` - Required, must be valid date
+- `sale_detail_id` - Required array of existing sale_detail IDs
+- `return_qty` - Required array of numeric values ≥ 0
+- `return_amount` - Required array of numeric values ≥ 0
+- `lossProfit` - Optional array of numeric adjustments
+
+**Response (HTTP 201):**
+```json
+{
+  "success": true,
+  "message": "Data saved successfully.",
+  "data": {
+    "id": 50,
+    "business_id": 1,
+    "sale_id": 5,
+    "invoice_no": "SR50",
+    "return_date": "2025-01-05",
+    "sale": {
+      "id": 5,
+      "invoiceNumber": "INV-0005",
+      "party": {
+        "id": 1,
+        "name": "Customer Name",
+        "phone": "1234567890",
+        "email": "customer@example.com"
+      }
+    },
+    "details": [
+      {
+        "id": 1,
+        "return_qty": 2,
+        "return_amount": 100.00,
+        "product": {
+          "id": 5,
+          "productName": "Product Name",
+          "productCode": "PRD005",
+          "image": "/storage/products/image.jpg"
+        }
+      }
+    ],
+    "total_return_amount": 100.00,
+    "total_return_qty": 2
+  },
+  "_server_timestamp": "2025-01-05T10:00:00Z"
+}
+```
+
+**Business Logic:**
+- ✅ Updates party due amount (decreases by return amount)
+- ✅ Returns stock to inventory
+- ✅ Creates SaleReturnDetails records for tracking
+- ✅ Uses transaction for consistency
+- ✅ Returns proper error messages on validation failure
 
 ---
 
 ### 13.3 Get Sale Return Details
 
-**Endpoint:** `GET /sale-returns/{id}`  
+**Endpoint:** `GET /sales-return/{id}`  
 **Auth Required:** Yes
+
+**Response (HTTP 200):**
+```json
+{
+  "success": true,
+  "message": "Data fetched successfully.",
+  "data": {
+    "id": 1,
+    "business_id": 1,
+    "sale_id": 5,
+    "invoice_no": "SR01",
+    "return_date": "2025-01-05",
+    "sale": {
+      "id": 5,
+      "invoiceNumber": "INV-0005",
+      "totalAmount": 500.00,
+      "isPaid": 1,
+      "party": {
+        "id": 1,
+        "name": "Customer Name",
+        "phone": "1234567890",
+        "email": "customer@example.com"
+      }
+    },
+    "branch": {
+      "id": 1,
+      "name": "Main Branch"
+    },
+    "details": [
+      {
+        "id": 1,
+        "return_qty": 2,
+        "return_amount": 100.00,
+        "product": {
+          "id": 5,
+          "productName": "Product Name",
+          "productCode": "PRD005",
+          "image": "/storage/products/image.jpg",
+          "batch_no": "BATCH001"
+        }
+      }
+    ],
+    "total_return_amount": 100.00,
+    "total_return_qty": 2,
+    "created_at": "2025-01-05T10:00:00+00:00",
+    "updated_at": "2025-01-05T10:00:00+00:00"
+  },
+  "_server_timestamp": "2025-01-05T10:00:00Z"
+}
+```
+
+**Error Response (HTTP 404):**
+```json
+{
+  "success": false,
+  "message": "Sale return not found",
+  "_server_timestamp": "2025-01-05T10:00:00Z"
+}
+```
 
 ---
 
