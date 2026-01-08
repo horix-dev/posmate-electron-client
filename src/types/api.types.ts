@@ -711,6 +711,7 @@ export interface Purchase {
   details?: PurchaseDetail[]
   vat?: Vat
   payment_type?: PaymentType
+  purchaseReturns?: PurchaseReturn[]
 }
 
 export interface PurchaseDetail {

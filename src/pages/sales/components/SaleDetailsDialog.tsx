@@ -302,6 +302,46 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
                       </span>
                     </div>
                   )}
+
+                  {/* Net Total after Returns */}
+                  {(() => {
+                    const returnAmount = sale.saleReturns?.reduce((sum, ret) => {
+                      // Try snake_case first (preferred format)
+                      if (ret.total_return_amount != null) return sum + ret.total_return_amount
+                      // Try camelCase (backend sometimes sends this)
+                      if ((ret as unknown as { returnAmount?: number }).returnAmount != null) return sum + (ret as unknown as { returnAmount: number }).returnAmount
+                      // Fallback: calculate from details array
+                      if (ret.details && Array.isArray(ret.details)) {
+                        const detailsSum = ret.details.reduce((detailSum, detail) => {
+                          return detailSum + (detail.return_amount || 0)
+                        }, 0)
+                        return sum + detailsSum
+                      }
+                      return sum
+                    }, 0) || 0
+
+                    if (returnAmount > 0) {
+                      const netTotal = (sale.totalAmount ?? 0) - returnAmount
+                      return (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Return Amount</span>
+                            <span className="text-red-600">
+                              -{formatCurrencyAmount(returnAmount)}
+                            </span>
+                          </div>
+                          <Separator />
+                          <div className="flex justify-between text-sm font-medium">
+                            <span>Net Total</span>
+                            <span className="text-blue-600">
+                              {formatCurrencyAmount(netTotal)}
+                            </span>
+                          </div>
+                        </>
+                      )
+                    }
+                    return null
+                  })()}
                 </div>
 
                 {/* Progress bar */}
@@ -336,6 +376,46 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
                   </span>
                 </div>
               )}
+
+              {/* Net Total after Returns */}
+              {(() => {
+                const returnAmount = sale.saleReturns?.reduce((sum, ret) => {
+                  // Try snake_case first (preferred format)
+                  if (ret.total_return_amount != null) return sum + ret.total_return_amount
+                  // Try camelCase (backend sometimes sends this)
+                  if ((ret as unknown as { returnAmount?: number }).returnAmount != null) return sum + (ret as unknown as { returnAmount: number }).returnAmount
+                  // Fallback: calculate from details array
+                  if (ret.details && Array.isArray(ret.details)) {
+                    const detailsSum = ret.details.reduce((detailSum, detail) => {
+                      return detailSum + (detail.return_amount || 0)
+                    }, 0)
+                    return sum + detailsSum
+                  }
+                  return sum
+                }, 0) || 0
+
+                if (returnAmount > 0) {
+                  const netTotal = (sale.totalAmount ?? 0) - returnAmount
+                  return (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Return Amount</span>
+                        <span className="text-red-600">
+                          -{formatCurrencyAmount(returnAmount)}
+                        </span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between text-sm font-medium">
+                        <span>Net Total</span>
+                        <span className="text-blue-600">
+                          {formatCurrencyAmount(netTotal)}
+                        </span>
+                      </div>
+                    </>
+                  )
+                }
+                return null
+              })()}
             </>
           )}
 

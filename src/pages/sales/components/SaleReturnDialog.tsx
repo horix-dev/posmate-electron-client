@@ -57,6 +57,21 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
 
   const details = useMemo<SaleDetail[]>(() => fullSale?.details ?? sale?.details ?? [], [fullSale?.details, sale?.details])
 
+  // Calculate already returned quantities per detail
+  const alreadyReturned = useMemo(() => {
+    const returned: Record<number, number> = {}
+    if (fullSale?.saleReturns || sale?.saleReturns) {
+      const returns = fullSale?.saleReturns || sale?.saleReturns || []
+      returns.forEach((saleReturn) => {
+        saleReturn.details?.forEach((returnDetail) => {
+          const detailId = returnDetail.sale_detail_id
+          returned[detailId] = (returned[detailId] || 0) + (returnDetail.return_qty || 0)
+        })
+      })
+    }
+    return returned
+  }, [fullSale?.saleReturns, sale?.saleReturns])
+
   const totals = useMemo(() => {
     const totalAmount = details.reduce((sum, detail) => {
       const qty = returnQuantities[detail.id] ?? 0
@@ -166,11 +181,18 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
                     </TableRow>
                   ) : (
                     details.map((detail, idx) => {
-                      const maxQty = detail.quantities
+                      const soldQty = detail.quantities
+                      const returnedQty = alreadyReturned[detail.id] || 0
+                      const remainingQty = soldQty - returnedQty
+                      const isFullyReturned = remainingQty <= 0
+                      const maxQty = remainingQty
                       const qty = returnQuantities[detail.id] ?? 0
                       const returnAmount = qty * detail.price
                       return (
-                        <TableRow key={detail.id}>
+                        <TableRow 
+                          key={detail.id}
+                          className={isFullyReturned ? 'bg-muted/50 opacity-60' : ''}
+                        >
                           <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                           <TableCell>
                             <div className="flex items-start gap-3">
@@ -198,11 +220,23 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
                                 {detail.expire_date && (
                                   <span className="text-xs text-muted-foreground">Exp: {formatSaleDate(detail.expire_date)}</span>
                                 )}
+                                {isFullyReturned && (
+                                  <Badge variant="secondary" className="mt-1 w-fit text-xs">
+                                    Fully Returned
+                                  </Badge>
+                                )}
                               </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
-                            <Badge variant="outline">{maxQty}</Badge>
+                            <div className="flex flex-col items-center gap-1">
+                              <Badge variant="outline">{soldQty}</Badge>
+                              {returnedQty > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  (Available: {remainingQty})
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-center">
                             <Input
@@ -212,6 +246,7 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
                               value={qty}
                               onChange={(e) => handleQtyChange(detail.id, maxQty, e.target.value)}
                               className="h-9 w-24"
+                              disabled={isFullyReturned}
                             />
                           </TableCell>
                           <TableCell className="text-right">{formatCurrency(detail.price)}</TableCell>

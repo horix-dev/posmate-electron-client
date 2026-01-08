@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
-import api, { PaginatedApiResponse } from '@/api/axios'
+import api from '@/api/axios'
 import { API_ENDPOINTS } from '@/api/endpoints'
 import { createAppError } from '@/lib/errors'
 import type { SaleReturn } from '@/types/api.types'
@@ -18,13 +18,11 @@ export const DEFAULT_RETURN_FILTERS: SaleReturnsFilters = {
 }
 
 export function useSaleReturns(filters: SaleReturnsFilters = DEFAULT_RETURN_FILTERS) {
-  const [saleReturns, setSaleReturns] = useState<SaleReturn[]>([])
+  const [allSaleReturns, setAllSaleReturns] = useState<SaleReturn[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [perPage, setPerPage] = useState(10)
-  const [totalPages, setTotalPages] = useState(0)
-  const [totalItems, setTotalItems] = useState(0)
 
   const fetchSaleReturns = useCallback(async () => {
     setIsLoading(true)
@@ -32,22 +30,21 @@ export function useSaleReturns(filters: SaleReturnsFilters = DEFAULT_RETURN_FILT
 
     try {
       const params: Record<string, string | number> = {
-        page: currentPage,
-        per_page: perPage,
+        limit: 1000,
       }
 
       if (filters.search) params.search = filters.search
       if (filters.dateFrom) params.date_from = filters.dateFrom
       if (filters.dateTo) params.date_to = filters.dateTo
 
-      const { data } = await api.get<PaginatedApiResponse<SaleReturn[]>>(
+      const { data } = await api.get<unknown>(
         API_ENDPOINTS.SALE_RETURNS.LIST,
         { params }
       )
 
-      setSaleReturns(data.data || [])
-      setTotalPages(data.last_page || 0)
-      setTotalItems(data.total || 0)
+      // Handle flexible response format - can be direct array or wrapped in data
+      const returns = Array.isArray(data) ? data : ((data as { data?: SaleReturn[] })?.data || [])
+      setAllSaleReturns(returns)
     } catch (err) {
       const appError = createAppError(err, 'Failed to load sale returns')
       setError(appError)
@@ -55,7 +52,7 @@ export function useSaleReturns(filters: SaleReturnsFilters = DEFAULT_RETURN_FILT
     } finally {
       setIsLoading(false)
     }
-  }, [currentPage, perPage, filters.search, filters.dateFrom, filters.dateTo])
+  }, [filters.search, filters.dateFrom, filters.dateTo])
 
   useEffect(() => {
     fetchSaleReturns()
@@ -65,22 +62,51 @@ export function useSaleReturns(filters: SaleReturnsFilters = DEFAULT_RETURN_FILT
     setCurrentPage(1)
   }, [filters.search, filters.dateFrom, filters.dateTo])
 
+  // Client-side pagination
+  const totalItems = allSaleReturns.length
+  const totalPages = Math.ceil(totalItems / perPage)
+  const startIndex = (currentPage - 1) * perPage
+  const paginatedReturns = allSaleReturns.slice(startIndex, startIndex + perPage)
+
   const stats = useMemo(() => {
     let totalAmount = 0
     let totalQty = 0
     
-    saleReturns.forEach((returnItem) => {
-      returnItem.details?.forEach((detail) => {
-        totalAmount += detail.return_amount || 0
-        totalQty += detail.return_qty || 0
-      })
+    allSaleReturns.forEach((returnItem) => {
+      // Try to use pre-calculated totals from backend (snake_case)
+      if (returnItem.total_return_amount != null) {
+        totalAmount += returnItem.total_return_amount
+      } 
+      // Try camelCase (backend sometimes sends this)
+      else if ((returnItem as unknown as { returnAmount?: number }).returnAmount != null) {
+        totalAmount += (returnItem as unknown as { returnAmount: number }).returnAmount
+      }
+      // Fallback: calculate from details array
+      else if (returnItem.details && Array.isArray(returnItem.details)) {
+        returnItem.details.forEach((detail) => {
+          totalAmount += detail.return_amount || 0
+        })
+      }
+
+      // Same logic for quantity
+      if (returnItem.total_return_qty != null) {
+        totalQty += returnItem.total_return_qty
+      }
+      else if ((returnItem as unknown as { returnQty?: number }).returnQty != null) {
+        totalQty += (returnItem as unknown as { returnQty: number }).returnQty
+      }
+      else if (returnItem.details && Array.isArray(returnItem.details)) {
+        returnItem.details.forEach((detail) => {
+          totalQty += detail.return_qty || 0
+        })
+      }
     })
 
     return { total: totalItems, totalAmount, totalQty }
-  }, [saleReturns, totalItems])
+  }, [allSaleReturns, totalItems])
 
   return {
-    saleReturns,
+    saleReturns: paginatedReturns,
     isLoading,
     error,
     currentPage,

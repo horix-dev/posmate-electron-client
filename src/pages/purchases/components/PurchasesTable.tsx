@@ -198,6 +198,37 @@ const Pagination = memo(function Pagination({
 })
 
 // ============================================
+// Helper Functions
+// ============================================
+
+/**
+ * Calculate total return amount from purchase returns
+ * Handles both backend formats and calculates from details if needed
+ */
+function calculateReturnAmount(purchase: Purchase): number {
+  if (!purchase.purchaseReturns || purchase.purchaseReturns.length === 0) return 0
+
+  return purchase.purchaseReturns.reduce((sum: number, ret) => {
+    // Try snake_case first (preferred format)
+    if (ret.total_return_amount != null) {
+      return sum + ret.total_return_amount
+    }
+    // Try camelCase (backend sometimes sends this)
+    if ((ret as unknown as { returnAmount?: number }).returnAmount != null) {
+      return sum + (ret as unknown as { returnAmount: number }).returnAmount
+    }
+    // Fallback: calculate from details array
+    if (ret.details && Array.isArray(ret.details)) {
+      const detailsSum = ret.details.reduce((detailSum: number, detail) => {
+        return detailSum + (detail.return_amount || 0)
+      }, 0)
+      return sum + detailsSum
+    }
+    return sum
+  }, 0)
+}
+
+// ============================================
 // Table Row Component
 // ============================================
 
@@ -255,6 +286,33 @@ const PurchaseRow = memo(function PurchaseRow({
         ) : (
           <span className="text-muted-foreground">-</span>
         )}
+      </TableCell>
+
+      {/* Return Amount */}
+      <TableCell className="text-right">
+        {(() => {
+          const returnAmount = calculateReturnAmount(purchase)
+          return returnAmount > 0 ? (
+            <span className="text-red-600 dark:text-red-400">
+              {formatCurrency(returnAmount)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )
+        })()}
+      </TableCell>
+
+      {/* Net Total (Total - Returns) */}
+      <TableCell className="text-right font-medium">
+        {(() => {
+          const returnAmount = calculateReturnAmount(purchase)
+          const netTotal = (purchase.totalAmount ?? 0) - returnAmount
+          return (
+            <span className={returnAmount > 0 ? 'text-blue-600 dark:text-blue-400' : ''}>
+              {formatCurrency(netTotal)}
+            </span>
+          )
+        })()}
       </TableCell>
 
       {/* Status */}
@@ -377,6 +435,8 @@ export const PurchasesTable = memo(function PurchasesTable({
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-right">Paid</TableHead>
               <TableHead className="text-right">Due</TableHead>
+              <TableHead className="text-right">Return Amount</TableHead>
+              <TableHead className="text-right">Net Total</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-12 text-right"></TableHead>
             </TableRow>

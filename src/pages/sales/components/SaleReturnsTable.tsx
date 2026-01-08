@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { Eye, Search, CalendarIcon } from 'lucide-react'
+import { Eye, Search, CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react'
 import { format } from 'date-fns'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
@@ -122,8 +122,23 @@ export function SaleReturnsTable({ refreshKey }: { refreshKey?: number }) {
             </div>
           </div>
 
-          <div className="mb-4 flex flex-wrap gap-2">
-            <div className="flex flex-1 gap-2">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Show</span>
+              <Select value={String(perPage)} onValueChange={(value) => setPerPage(Number(value))}>
+                <SelectTrigger className="h-9 w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-sm text-muted-foreground">entries</span>
+            </div>
+            <div className="flex flex-1 max-w-md gap-2">
               <div className="flex-1 relative">
                 <Input placeholder="Search by invoice or customer..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} />
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -216,23 +231,54 @@ export function SaleReturnsTable({ refreshKey }: { refreshKey?: number }) {
               </div>
 
               <div className="mt-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Showing {(currentPage - 1) * perPage + 1} to {Math.min(currentPage * perPage, totalItems)} of {totalItems} returns</span>
+                <div className="text-sm text-muted-foreground">
+                  Showing {saleReturns.length > 0 ? (currentPage - 1) * perPage + 1 : 0} to {saleReturns.length > 0 ? Math.min((currentPage - 1) * perPage + saleReturns.length, totalItems || saleReturns.length) : 0} of {totalItems || saleReturns.length} entries
                 </div>
                 <div className="flex items-center gap-2">
-                  <Select value={String(perPage)} onValueChange={(value) => setPerPage(Number(value))}>
-                    <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <div className="flex gap-1">
-                    <Button variant="outline" size="sm" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 1}>Previous</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPage(currentPage + 1)} disabled={currentPage === totalPages}>Next</Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+
+                  <div className="flex items-center gap-1">
+                    {totalPages > 0 && Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum
+                      if (totalPages <= 5) {
+                        pageNum = i + 1
+                      } else {
+                        if (currentPage <= 3) pageNum = i + 1
+                        else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i
+                        else pageNum = currentPage - 2 + i
+                      }
+
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setPage(pageNum)}
+                        >
+                          {pageNum}
+                        </Button>
+                      )
+                    })}
                   </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                  >
+                    Next
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </>

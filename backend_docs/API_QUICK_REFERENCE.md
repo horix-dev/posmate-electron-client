@@ -392,21 +392,46 @@ GET /purchase?returned-purchase=true
 ## Inventory
 
 ### Stocks & Warehouses
+
+**Stocks (Full CRUD with 4 Pagination Modes)**
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/stocks` | ✅ | Add stock |
-| PUT | `/stocks/{id}` | ✅ | Update stock |
-| DELETE | `/stocks/{id}` | ✅ | Delete stock |
+| GET | `/stocks` | ✅ | **List all stocks** - default mode (all, limit 1000) |
+| GET | `/stocks?limit=100` | ✅ | Limit mode - flat array (max 1000) |
+| GET | `/stocks?page=1&per_page=20` | ✅ | Offset pagination - paginated object (max 100/page) |
+| GET | `/stocks?cursor=0&per_page=500` | ✅ | Cursor pagination - flat array + cursor (max 1000/batch) |
+| GET | `/stocks?product_id=5` | ✅ | Filter by product |
+| GET | `/stocks?variant_id=10` | ✅ | Filter by variant |
+| GET | `/stocks?warehouse_id=1` | ✅ | Filter by warehouse |
+| GET | `/stocks?branch_id=1` | ✅ | Filter by branch |
+| GET | `/stocks?batch_no=BATCH001` | ✅ | Filter by batch number (partial match) |
+| GET | `/stocks?stock_status=out_of_stock` | ✅ | Filter by stock level (in_stock/out_of_stock/low_stock) |
+| GET | `/stocks?expiry_status=expired` | ✅ | Filter by expiration status (expired/expiring_soon) |
+| GET | `/stocks?expiry_status=expiring_soon&days=7` | ✅ | Filter expiring within N days (default: 30) |
+| GET | `/stocks?search=Nike` | ✅ | Search by product name, code, or batch number |
+| GET | `/stocks/{id}` | ✅ | Get single stock record with full details |
+| POST | `/stocks` | ✅ | Add stock (Mode A: increment existing, Mode B: create new) |
+| PUT | `/stocks/{id}` | ✅ | Update stock (pricing, dates, quantity) |
+| DELETE | `/stocks/{id}` | ✅ | Soft delete stock record |
+
+**Warehouses**
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
 | GET | `/warehouses` | ✅ | List warehouses |
 | POST | `/warehouses` | ✅ | Create warehouse |
 | PUT | `/warehouses/{id}` | ✅ | Update warehouse |
 | DELETE | `/warehouses/{id}` | ✅ | Delete warehouse |
 
-Notes:
-- `inventory_tracking_mode` (product field) can be `simple` (default) or `batch`.
-- `POST /stocks` supports two modes:
-  - Increment existing stock: `{ "stock_id": 123, "productStock": 5 }`
-  - Create new stock/batch entry: `{ "product_id": 10, "variant_id": 156, "batch_no": "B-001", "productStock": 50 }`
+**Stock API Notes:**
+- **Mode A (Increment)**: `{ "stock_id": 123, "productStock": 5 }` - Adds to existing stock
+- **Mode B (Create)**: `{ "product_id": 10, "variant_id": 156, "batch_no": "B-001", "productStock": 50, ... }` - Creates new stock record
+- **Computed Fields**: `is_expired` (boolean), `days_until_expiry` (integer)
+- **Stock Status**: `in_stock` (qty > 0), `out_of_stock` (qty = 0), `low_stock` (qty ≤ alert_quantity)
+- **Expiry Status**: `expired` (date < today), `expiring_soon` (within N days, default 30)
+- **Pricing Hierarchy**: Stock price → Variant price → Product price
+- **Batch Tracking**: Products with `inventory_tracking_mode: 'batch'` require `batch_no` field
+- **Multi-Warehouse**: Each stock record can be assigned to specific warehouse and branch
+
 
 ### Racks
 | Method | Endpoint | Auth | Description |

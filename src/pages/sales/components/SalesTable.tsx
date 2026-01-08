@@ -46,6 +46,37 @@ export interface SalesTableProps {
 }
 
 // ============================================
+// Helper Functions
+// ============================================
+
+/**
+ * Calculate total return amount from sale returns
+ * Handles both backend formats and calculates from details if needed
+ */
+function calculateReturnAmount(sale: Sale): number {
+  if (!sale.saleReturns || sale.saleReturns.length === 0) return 0
+
+  return sale.saleReturns.reduce((sum, ret) => {
+    // Try snake_case first (preferred format)
+    if (ret.total_return_amount != null) {
+      return sum + ret.total_return_amount
+    }
+    // Try camelCase (backend sometimes sends this)
+    if ((ret as unknown as { returnAmount?: number }).returnAmount != null) {
+      return sum + (ret as unknown as { returnAmount: number }).returnAmount
+    }
+    // Fallback: calculate from details array
+    if (ret.details && Array.isArray(ret.details)) {
+      const detailsSum = ret.details.reduce((detailSum, detail) => {
+        return detailSum + (detail.return_amount || 0)
+      }, 0)
+      return sum + detailsSum
+    }
+    return sum
+  }, 0)
+}
+
+// ============================================
 // Loading Skeleton
 // ============================================
 
@@ -209,6 +240,33 @@ const SaleRow = memo(function SaleRow({ sale, onView, onReturn, onDelete }: Sale
         )}
       </TableCell>
 
+      {/* Return Amount */}
+      <TableCell className="text-right">
+        {(() => {
+          const returnAmount = calculateReturnAmount(sale)
+          return returnAmount > 0 ? (
+            <span className="text-red-600 dark:text-red-400">
+              {formatCurrencyAmount(returnAmount)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )
+        })()}
+      </TableCell>
+
+      {/* Net Total (Total - Returns) */}
+      <TableCell className="text-right font-medium">
+        {(() => {
+          const returnAmount = calculateReturnAmount(sale)
+          const netTotal = (sale.totalAmount ?? 0) - returnAmount
+          return (
+            <span className={returnAmount > 0 ? 'text-blue-600 dark:text-blue-400' : ''}>
+              {formatCurrencyAmount(netTotal)}
+            </span>
+          )
+        })()}
+      </TableCell>
+
       {/* Status */}
       <TableCell>
         <Badge
@@ -295,6 +353,8 @@ const SalesTableHeader = memo(function SalesTableHeader() {
         <TableHead className="text-right">Total</TableHead>
         <TableHead className="text-right">Paid</TableHead>
         <TableHead className="text-right">Due</TableHead>
+        <TableHead className="text-right">Return Amount</TableHead>
+        <TableHead className="text-right">Net Total</TableHead>
         <TableHead>Status</TableHead>
         <TableHead className="text-center">Sync</TableHead>
         <TableHead className="w-12">
