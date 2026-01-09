@@ -195,6 +195,7 @@ export const API_ENDPOINTS = {
 
   // Stocks
   STOCKS: {
+    LIST: '/stocks',
     ADD: '/stocks',
     UPDATE: (id: number) => `/stocks/${id}`,
     DELETE: (id: number) => `/stocks/${id}`,
@@ -211,6 +212,7 @@ export const API_ENDPOINTS = {
   // Currencies
   CURRENCIES: {
     LIST: '/currencies',
+    FILTER: '/currencies/filter',
     ACTIVE: '/currencies/business/active',
     CHANGE: (id: number) => `/currencies/${id}`,
     SET_DEFAULT: (id: number) => `/currencies/${id}/set-global-default`,

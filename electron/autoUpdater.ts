@@ -92,8 +92,16 @@ export class AutoUpdateManager {
       // Handle common error cases gracefully
       const errorMessage = err.message.toLowerCase()
       
+      // 404 errors - release doesn't exist yet
+      if (errorMessage.includes('404') || errorMessage.includes('cannot download')) {
+        log.info('Release files not found on GitHub. This is normal for development builds.')
+        this.sendStatusToWindow('update-not-available', { 
+          version: app.getVersion(),
+          message: 'No updates available - release not published'
+        })
+      }
       // No published versions on channel (common for beta/new releases)
-      if (errorMessage.includes('no published versions')) {
+      else if (errorMessage.includes('no published versions')) {
         log.info('No releases available on current channel yet. This is normal for new builds.')
         this.sendStatusToWindow('update-not-available', { 
           version: app.getVersion(),
@@ -197,7 +205,9 @@ export class AutoUpdateManager {
       const errorMessage = err.message.toLowerCase()
       let userMessage = 'Please check your internet connection and try again.'
       
-      if (errorMessage.includes('406') || errorMessage.includes('unable to find latest version')) {
+      if (errorMessage.includes('404') || errorMessage.includes('cannot download')) {
+        userMessage = 'The update files are not available yet. This version may be in development. Please contact support or check back later.'
+      } else if (errorMessage.includes('406') || errorMessage.includes('unable to find latest version')) {
         userMessage = 'No release versions are available yet. Please try again later.'
       } else if (errorMessage.includes('enotfound') || errorMessage.includes('econnrefused')) {
         userMessage = 'Could not reach update server. Please check your internet connection.'

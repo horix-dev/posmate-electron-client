@@ -131,8 +131,9 @@ jobs:
 
             **Auto-update**: Enabled on beta channel (checks every startup)
           files: |
-            release-artifacts/**/POS Mate-*.exe
-            release-artifacts/**/POS Mate-*.dmg
-            release-artifacts/**/POS Mate-*.AppImage
+            release-artifacts/**/POS-Mate-*.exe
+            release-artifacts/**/POS-Mate-*.exe.blockmap
+            release-artifacts/**/POS-Mate-*.dmg
+            release-artifacts/**/POS-Mate-*.AppImage
             release-artifacts/**/latest.yml
             release-artifacts/**/latest-*.yml

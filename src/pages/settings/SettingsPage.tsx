@@ -10,7 +10,7 @@ import {
   Tag,
   RefreshCw,
   Download,
-  DollarSign,
+  // DollarSign,
   Info,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -166,10 +166,10 @@ export function SettingsPage() {
             <Tag className="mr-1 h-3 w-3" />
             Attributes
           </TabsTrigger>
-          <TabsTrigger value="currency">
+          {/* <TabsTrigger value="currency">
             <DollarSign className="mr-1 h-3 w-3" />
             Currency
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger value="about">
             <Info className="mr-1 h-3 w-3" />
             About

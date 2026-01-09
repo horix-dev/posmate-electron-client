@@ -340,6 +340,7 @@ export interface Currency {
   rate?: number
   is_default?: number | boolean
   status?: number | boolean
+  active?: number | boolean
   country_name?: string
 }
 
@@ -396,6 +397,15 @@ export interface Stock {
   expire_date?: string
   warehouse_id?: number
   branch_id?: number
+  // Relations
+  product?: Product
+  variant?: ProductVariant
+  category?: Category
+  // Flattened fields possibly returned by API
+  product_name?: string
+  product_code?: string
+  category_name?: string
+  variant_name?: string
 }
 
 export interface CreateProductRequest {
@@ -612,12 +622,12 @@ export interface Sale {
   saleDate: string
   totalAmount: number
   discountAmount?: number
-  
+
   // Old fields (kept for backward compatibility)
   paidAmount: number            // ⚠️ Deprecated, use initial_paidAmount or total_paid_amount
   dueAmount?: number            // ⚠️ Deprecated, use initial_dueAmount or remaining_due_amount
   isPaid?: number               // ⚠️ Now calculated, use is_fully_paid
-  
+
   // New fields - Due Collection Tracking
   initial_paidAmount?: number   // Payment at sale time
   initial_dueAmount?: number    // Due at sale time
@@ -626,7 +636,7 @@ export interface Sale {
   is_fully_paid?: boolean       // Accurate payment status
   due_collections_count?: number  // Number of collection payments
   due_collections_total?: number  // Total from collections
-  
+
   change_amount?: number
   lossProfit?: number
   rounding_option?: RoundingOption
