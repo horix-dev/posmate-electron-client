@@ -1,6 +1,6 @@
-import api, { ApiResponse } from '../axios'
+import api, { ApiResponse, PaginatedApiResponse } from '../axios'
 import { API_ENDPOINTS } from '../endpoints'
-import type { Sale, CreateSaleRequest } from '@/types/api.types'
+import type { Sale, CreateSaleRequest, SaleReturn } from '@/types/api.types'
 
 export const salesService = {
   /**
@@ -59,6 +59,55 @@ export const salesService = {
     const { data } = await api.get<string>(API_ENDPOINTS.INVOICES.NEW_INVOICE_NUMBER, {
       params: { platform: 'sales' },
     })
+    return data
+  },
+
+  // ============================================
+  // Sale Returns
+  // ============================================
+
+  /**
+   * Get all sale returns
+   */
+  getReturns: async (params?: {
+    page?: number
+    per_page?: number
+    start_date?: string
+    end_date?: string
+    search?: string
+  }): Promise<PaginatedApiResponse<SaleReturn[]>> => {
+    const { data } = await api.get<PaginatedApiResponse<SaleReturn[]>>(
+      API_ENDPOINTS.SALE_RETURNS.LIST,
+      { params }
+    )
+    return data
+  },
+
+  /**
+   * Get a sale return by ID
+   */
+  getReturnById: async (id: number): Promise<ApiResponse<SaleReturn>> => {
+    const { data } = await api.get<ApiResponse<SaleReturn>>(
+      API_ENDPOINTS.SALE_RETURNS.GET(id)
+    )
+    return data
+  },
+
+  /**
+   * Create a sale return
+   * API expects parallel arrays: sale_detail_id[], return_qty[], return_amount[]
+   */
+  createReturn: async (returnData: {
+    sale_id: number
+    return_date: string
+    sale_detail_id: number[]
+    return_qty: number[]
+    return_amount: number[]
+  }): Promise<ApiResponse<SaleReturn>> => {
+    const { data } = await api.post<ApiResponse<SaleReturn>>(
+      API_ENDPOINTS.SALE_RETURNS.CREATE,
+      returnData
+    )
     return data
   },
 }

@@ -1,6 +1,8 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { RefreshCw, Download, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { useDebounce } from '@/hooks'
 import type { Purchase } from '@/types/api.types'
 
@@ -12,6 +14,8 @@ import {
   PurchaseDetailsDialog,
   DeletePurchaseDialog,
   NewPurchaseDialog,
+  PurchaseReturnsTable,
+  PurchaseReturnDialog,
 } from './components'
 import { usePurchases, DEFAULT_FILTERS } from './hooks'
 import type { PurchasesFilters } from './hooks'
@@ -27,6 +31,23 @@ const SEARCH_DEBOUNCE_MS = 300
 // ============================================
 
 export function PurchasesPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState<'purchases' | 'returns'>('purchases')
+
+  // Read tab from URL on mount
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'purchases' || tab === 'returns') {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: 'purchases' | 'returns') => {
+    setActiveTab(tab)
+    setSearchParams({ tab })
+  }
+
   // ============================================
   // Filter State
   // ============================================
@@ -71,6 +92,9 @@ export function PurchasesPage() {
   const [deletePurchaseState, setDeletePurchaseState] = useState<Purchase | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isNewPurchaseOpen, setIsNewPurchaseOpen] = useState(false)
+  const [returnPurchase, setReturnPurchase] = useState<Purchase | null>(null)
+  const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false)
+  const [returnsRefreshKey, setReturnsRefreshKey] = useState(0)
 
   // ============================================
   // Derived State
@@ -87,6 +111,12 @@ export function PurchasesPage() {
   const handleView = useCallback((purchase: Purchase) => {
     setViewPurchase(purchase)
     setIsViewDialogOpen(true)
+  }, [])
+
+  // Open return dialog
+  const handleReturn = useCallback((purchase: Purchase) => {
+    setReturnPurchase(purchase)
+    setIsReturnDialogOpen(true)
   }, [])
 
   // Open delete confirmation dialog
@@ -124,6 +154,11 @@ export function PurchasesPage() {
     refetch()
   }, [refetch])
 
+  const handleReturnSuccess = useCallback(() => {
+    refetch()
+    setReturnsRefreshKey((prev) => prev + 1)
+  }, [refetch])
+
   // ============================================
   // Render
   // ============================================
@@ -133,10 +168,14 @@ export function PurchasesPage() {
       {/* Page Header */}
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Purchases</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {activeTab === 'purchases' ? 'Purchases' : 'Purchase Returns'}
+          </h1>
           <p className="text-muted-foreground">
-            Manage your purchase orders and inventory
-            {stats.total > 0 && ` (${stats.total} purchases)`}
+            {activeTab === 'purchases' 
+              ? `Manage your purchase orders and returns${stats.total > 0 ? ` (${stats.total} purchases)` : ''}`
+              : 'View and manage all purchase returns'
+            }
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -152,10 +191,12 @@ export function PurchasesPage() {
             <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             Export
           </Button>
-          <Button onClick={() => setIsNewPurchaseOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-            New Purchase
-          </Button>
+          {activeTab === 'purchases' && (
+            <Button onClick={() => setIsNewPurchaseOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              New Purchase
+            </Button>
+          )}
         </div>
       </header>
 
@@ -173,27 +214,39 @@ export function PurchasesPage() {
         </div>
       )}
 
-      {/* Stats Cards */}
-      <PurchasesStatsCards stats={stats} isLoading={isLoading} />
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(value) => handleTabChange(value as 'purchases' | 'returns')}>
+        
 
-      {/* Filters */}
-      <PurchasesFiltersBar filters={filters} onFiltersChange={setFilters} />
+        <TabsContent value="purchases" className="space-y-4">
+          {/* Stats Cards */}
+          <PurchasesStatsCards stats={stats} isLoading={isLoading} />
 
-      {/* Purchases Table */}
-      <PurchasesTable
-        purchases={filteredPurchases}
-        hasPurchases={hasPurchases}
-        isLoading={isLoading}
-        onView={handleView}
-        onDelete={handleDeleteClick}
-        onClearFilters={handleClearFilters}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalItems={totalItems}
-        perPage={perPage}
-        onPageChange={setPage}
-        onPerPageChange={setPerPage}
-      />
+          {/* Filters */}
+          <PurchasesFiltersBar filters={filters} onFiltersChange={setFilters} />
+
+          {/* Purchases Table */}
+          <PurchasesTable
+            purchases={filteredPurchases}
+            hasPurchases={hasPurchases}
+            isLoading={isLoading}
+            onView={handleView}
+            onReturn={handleReturn}
+            onDelete={handleDeleteClick}
+            onClearFilters={handleClearFilters}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            perPage={perPage}
+            onPageChange={setPage}
+            onPerPageChange={setPerPage}
+          />
+        </TabsContent>
+
+        <TabsContent value="returns" className="space-y-4">
+          <PurchaseReturnsTable refreshKey={returnsRefreshKey} />
+        </TabsContent>
+      </Tabs>
 
       {/* View Purchase Dialog */}
       <PurchaseDetailsDialog
@@ -215,6 +268,14 @@ export function PurchasesPage() {
         open={isNewPurchaseOpen}
         onOpenChange={setIsNewPurchaseOpen}
         onSuccess={handleNewPurchaseSuccess}
+      />
+
+      {/* Purchase Return Dialog */}
+      <PurchaseReturnDialog
+        purchase={returnPurchase}
+        open={isReturnDialogOpen}
+        onOpenChange={setIsReturnDialogOpen}
+        onSuccess={handleReturnSuccess}
       />
     </div>
   )

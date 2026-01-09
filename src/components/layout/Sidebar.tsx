@@ -19,6 +19,8 @@ import {
   UserCheck,
   Building2,
   ClipboardList,
+  PackagePlus,
+  PackageMinus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -47,8 +49,24 @@ const mainNavItems: NavItem[] = [
   { title: 'Dashboard', href: '/', icon: Home },
   { title: 'POS', href: '/pos', icon: ShoppingCart },
   { title: 'Products', href: '/products', icon: Package },
-  { title: 'Sales', href: '/sales', icon: Receipt },
-  { title: 'Purchases', href: '/purchases', icon: Truck },
+  {
+    title: 'Sales',
+    href: '/sales',
+    icon: Receipt,
+    children: [
+      { title: 'New Sales', href: '/sales?tab=sales', icon: Receipt },
+      { title: 'Sales Returns', href: '/sales?tab=returns', icon: PackageMinus },
+    ],
+  },
+  {
+    title: 'Purchases',
+    href: '/purchases',
+    icon: Truck,
+    children: [
+      { title: 'New Purchases', href: '/purchases?tab=purchases', icon: PackagePlus },
+      { title: 'Purchase Returns', href: '/purchases?tab=returns', icon: PackageMinus },
+    ],
+  },
   { title: 'Due', href: '/due', icon: Wallet },
   {
     title: 'Parties',

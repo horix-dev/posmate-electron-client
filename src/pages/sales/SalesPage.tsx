@@ -1,7 +1,9 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { RefreshCw, Download } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { useDebounce } from '@/hooks'
 import type { Sale } from '@/types/api.types'
 
@@ -12,6 +14,8 @@ import {
   SalesTable,
   SaleDetailsDialog,
   DeleteSaleDialog,
+  SaleReturnsTable,
+  SaleReturnDialog,
 } from './components'
 import { useSales, DEFAULT_FILTERS } from './hooks'
 import type { SalesFilters } from './hooks'
@@ -27,6 +31,23 @@ const SEARCH_DEBOUNCE_MS = 300
 // ============================================
 
 export function SalesPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState<'sales' | 'returns'>('sales')
+
+  // Read tab from URL on mount
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'sales' || tab === 'returns') {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: 'sales' | 'returns') => {
+    setActiveTab(tab)
+    setSearchParams({ tab })
+  }
+
   // ============================================
   // Filter State
   // ============================================
@@ -65,6 +86,9 @@ export function SalesPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [deleteSaleState, setDeleteSaleState] = useState<Sale | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [returnSale, setReturnSale] = useState<Sale | null>(null)
+  const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false)
+  const [returnsRefreshKey, setReturnsRefreshKey] = useState(0)
 
   // ============================================
   // Derived State
@@ -81,6 +105,12 @@ export function SalesPage() {
   const handleView = useCallback((sale: Sale) => {
     setViewSale(sale)
     setIsViewDialogOpen(true)
+  }, [])
+
+  // Open return dialog
+  const handleReturn = useCallback((sale: Sale) => {
+    setReturnSale(sale)
+    setIsReturnDialogOpen(true)
   }, [])
 
   // Open delete confirmation dialog
@@ -113,6 +143,11 @@ export function SalesPage() {
     console.log('Export sales')
   }, [])
 
+  const handleReturnSuccess = useCallback(() => {
+    refetch()
+    setReturnsRefreshKey((prev) => prev + 1)
+  }, [refetch])
+
   // ============================================
   // Render
   // ============================================
@@ -122,10 +157,14 @@ export function SalesPage() {
       {/* Page Header */}
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sales History</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {activeTab === 'sales' ? 'Sales History' : 'Sale Returns'}
+          </h1>
           <p className="text-muted-foreground">
-            View and manage your sales records
-            {stats.total > 0 && ` (${stats.total} sales)`}
+            {activeTab === 'sales'
+              ? `View and manage your sales records${stats.total > 0 ? ` (${stats.total} sales)` : ''}`
+              : 'View and manage all sale returns'
+            }
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -136,11 +175,13 @@ export function SalesPage() {
             <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             Export
           </Button>
-          <Button asChild>
-            <Link to="/pos">
-              Go to POS
-            </Link>
-          </Button>
+          {activeTab === 'sales' && (
+            <Button asChild>
+              <Link to="/pos">
+                Go to POS
+              </Link>
+            </Button>
+          )}
         </div>
       </header>
 
@@ -158,21 +199,31 @@ export function SalesPage() {
         </div>
       )}
 
-      {/* Stats Cards */}
-      <SalesStatsCards stats={stats} isLoading={isLoading} />
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(value) => handleTabChange(value as 'sales' | 'returns')}>
+        <TabsContent value="sales" className="space-y-4">
+          {/* Stats Cards */}
+          <SalesStatsCards stats={stats} isLoading={isLoading} />
 
-      {/* Filters */}
-      <SalesFiltersBar filters={filters} onFiltersChange={setFilters} />
+          {/* Filters */}
+          <SalesFiltersBar filters={filters} onFiltersChange={setFilters} />
 
-      {/* Sales Table */}
-      <SalesTable
-        sales={filteredSales}
-        hasSales={hasSales}
-        isLoading={isLoading}
-        onView={handleView}
-        onDelete={handleDeleteClick}
-        onClearFilters={handleClearFilters}
-      />
+          {/* Sales Table */}
+          <SalesTable
+            sales={filteredSales}
+            hasSales={hasSales}
+            isLoading={isLoading}
+            onView={handleView}
+            onReturn={handleReturn}
+            onDelete={handleDeleteClick}
+            onClearFilters={handleClearFilters}
+          />
+        </TabsContent>
+
+        <TabsContent value="returns" className="space-y-4">
+          <SaleReturnsTable refreshKey={returnsRefreshKey} />
+        </TabsContent>
+      </Tabs>
 
       {/* View Sale Dialog */}
       <SaleDetailsDialog
@@ -187,6 +238,14 @@ export function SalesPage() {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
+      />
+
+      {/* Sale Return Dialog */}
+      <SaleReturnDialog
+        sale={returnSale}
+        open={isReturnDialogOpen}
+        onOpenChange={setIsReturnDialogOpen}
+        onSuccess={handleReturnSuccess}
       />
     </div>
   )
