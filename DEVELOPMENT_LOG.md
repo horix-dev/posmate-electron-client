@@ -289,7 +289,6 @@ UPDATE_CHANNEL=latest
 - Simple product updates now send `POST /products/{id}` with `FormData` and append `_method=PUT`
 - Keeps `Content-Type: multipart/form-data`
 
-
 **Impact**:
 - ✅ Product updates work reliably with file uploads
 - ✅ No backend changes required
