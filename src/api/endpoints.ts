@@ -195,6 +195,7 @@ export const API_ENDPOINTS = {
 
   // Stocks
   STOCKS: {
+    LIST: '/stocks',
     ADD: '/stocks',
     UPDATE: (id: number) => `/stocks/${id}`,
     DELETE: (id: number) => `/stocks/${id}`,
