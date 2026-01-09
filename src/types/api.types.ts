@@ -397,6 +397,15 @@ export interface Stock {
   expire_date?: string
   warehouse_id?: number
   branch_id?: number
+  // Relations
+  product?: Product
+  variant?: ProductVariant
+  category?: Category
+  // Flattened fields possibly returned by API
+  product_name?: string
+  product_code?: string
+  category_name?: string
+  variant_name?: string
 }
 
 export interface CreateProductRequest {
@@ -613,12 +622,12 @@ export interface Sale {
   saleDate: string
   totalAmount: number
   discountAmount?: number
-  
+
   // Old fields (kept for backward compatibility)
   paidAmount: number            // ⚠️ Deprecated, use initial_paidAmount or total_paid_amount
   dueAmount?: number            // ⚠️ Deprecated, use initial_dueAmount or remaining_due_amount
   isPaid?: number               // ⚠️ Now calculated, use is_fully_paid
-  
+
   // New fields - Due Collection Tracking
   initial_paidAmount?: number   // Payment at sale time
   initial_dueAmount?: number    // Due at sale time
@@ -627,7 +636,7 @@ export interface Sale {
   is_fully_paid?: boolean       // Accurate payment status
   due_collections_count?: number  // Number of collection payments
   due_collections_total?: number  // Total from collections
-  
+
   change_amount?: number
   lossProfit?: number
   rounding_option?: RoundingOption
@@ -651,8 +660,17 @@ export interface SaleDetail {
   variant_name?: string | null
   quantities: number
   price: number
+  subTotal?: number
   lossProfit?: number
-  product?: Product
+  mfg_date?: string
+  expire_date?: string
+  // product?: Product
+  product?: {
+    id: number
+    productName: string
+    productCode?: string
+    productPicture?: string
+  }
   stock?: Stock
   variant?: ProductVariant
 }
@@ -703,6 +721,7 @@ export interface Purchase {
   details?: PurchaseDetail[]
   vat?: Vat
   payment_type?: PaymentType
+  purchaseReturns?: PurchaseReturn[]
 }
 
 export interface PurchaseDetail {
@@ -717,6 +736,13 @@ export interface PurchaseDetail {
   profit_percent?: number
   mfg_date?: string
   expire_date?: string
+  product?: {
+    id: number
+    productName: string
+    productCode?: string
+    productPicture?: string
+    image?: string
+  }
 }
 
 export interface CreatePurchaseRequest {
@@ -753,10 +779,20 @@ export interface PurchaseProductItem {
 
 export interface SaleReturn {
   id: number
+  business_id?: number
   sale_id: number
+  invoice_no?: string
   return_date: string
+  created_at?: string
+  updated_at?: string
   sale?: Sale
+  branch?: {
+    id: number
+    name: string
+  }
   details?: SaleReturnDetail[]
+  total_return_amount?: number
+  total_return_qty?: number
 }
 
 export interface SaleReturnDetail {
@@ -764,14 +800,33 @@ export interface SaleReturnDetail {
   sale_detail_id: number
   return_qty: number
   return_amount: number
+  product?: {
+    id: number
+    productName: string
+    productCode?: string
+    image?: string
+    productPicture?: string
+  }
+  batch_no?: string
 }
 
 export interface PurchaseReturn {
   id: number
+  business_id?: number
+  branch_id?: number
   purchase_id: number
+  invoice_no?: string
   return_date: string
+  created_at?: string
+  updated_at?: string
   purchase?: Purchase
+  branch?: {
+    id: number
+    name: string
+  }
   details?: PurchaseReturnDetail[]
+  total_return_amount?: number
+  total_return_qty?: number
 }
 
 export interface PurchaseReturnDetail {
@@ -779,6 +834,12 @@ export interface PurchaseReturnDetail {
   purchase_detail_id: number
   return_qty: number
   return_amount: number
+  product?: {
+    id: number
+    productName: string
+    productCode?: string
+  }
+  batch_no?: string
 }
 
 // ============================================

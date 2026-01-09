@@ -3915,48 +3915,140 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 
 ### 13.1 List Sale Returns
 
-**Endpoint:** `GET /sale-returns`  
-**Auth Required:** Yes
+**Endpoint:** `GET /sales-return`  
+**Auth Required:** Yes  
+**Description:** List all sale returns with flexible pagination modes and filters.
+
+Supports **4 pagination modes** via query parameters:
+
+1. **Default Mode** (no pagination params): Returns all sale returns with safety limit (1000)
+2. **Limit Mode** (`?limit=N`): Returns first N records (max 1000) - for dropdowns
+3. **Offset Mode** (`?page=X&per_page=Y`): Page-based pagination (max 100/page) - for management tables
+4. **Cursor Mode** (`?cursor=X&per_page=Y`): Cursor-based pagination (max 1000/page) - for sync/export
 
 **Query Parameters:**
-- `start_date` - Filter start date
-- `end_date` - Filter end date
 
-**Response:**
+**Filters:**
+- `sale_id`: Filter by sale ID
+- `date_from`: Start date (YYYY-MM-DD)
+- `date_to`: End date (YYYY-MM-DD)
+- `start_date`: Alias for date_from (backward compatibility)
+- `end_date`: Alias for date_to (backward compatibility)
+- `invoice_no`: Filter by return invoice number (partial match)
+- `search`: Search by return invoice number or party name
+
+**Pagination:**
+- `limit`: Number of items (Mode 2)
+- `page` + `per_page`: Offset pagination (Mode 3)
+- `cursor` + `per_page`: Cursor pagination (Mode 4)
+
+**Example Requests:**
+
+```bash
+# Mode 1: Default - All returns
+GET /api/v1/sales-return
+
+# Mode 2: Limit - First 50 returns
+GET /api/v1/sales-return?limit=50
+
+# Mode 3: Offset - Page 2 with 20 per page
+GET /api/v1/sales-return?page=2&per_page=20
+
+# Mode 4: Cursor - For sync/export
+GET /api/v1/sales-return?cursor=0&per_page=500
+
+# With filters
+GET /api/v1/sales-return?date_from=2025-01-01&date_to=2025-01-31&sale_id=5
+GET /api/v1/sales-return?search=John&limit=100
+```
+
+**Response (Default/Limit Mode - HTTP 200):**
 ```json
 {
   "message": "Data fetched successfully.",
   "data": [
     {
       "id": 1,
-      "sale_id": 1,
-      "return_date": "2024-01-20",
+      "business_id": 1,
+      "sale_id": 5,
+      "invoice_no": "SR01",
+      "return_date": "2025-01-05",
       "sale": {
-        "id": 1,
-        "invoiceNumber": "S-00001",
+        "id": 5,
+        "invoiceNumber": "INV-0005",
+        "totalAmount": 500.00,
+        "isPaid": 1,
         "party": {
           "id": 1,
-          "name": "Customer"
+          "name": "Customer Name",
+          "phone": "1234567890",
+          "email": "customer@example.com"
         }
+      },
+      "branch": {
+        "id": 1,
+        "name": "Main Branch"
       },
       "details": [
         {
           "id": 1,
-          "sale_detail_id": 1,
-          "return_qty": 1,
-          "return_amount": 750.00
+          "return_qty": 2,
+          "return_amount": 100.00,
+          "product": {
+            "id": 5,
+            "productName": "Product Name",
+            "productCode": "PRD005",
+            "image": "/storage/products/image.jpg",
+            "batch_no": "BATCH001"
+          }
         }
-      ]
+      ],
+      "total_return_amount": 100.00,
+      "total_return_qty": 2,
+      "created_at": "2025-01-05T10:00:00+00:00",
+      "updated_at": "2025-01-05T10:00:00+00:00"
     }
-  ]
+  ],
+  "_server_timestamp": "2025-01-05T10:00:00Z"
+}
+```
+
+**Response (Offset Mode - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [...],
+  "pagination": {
+    "total": 245,
+    "per_page": 20,
+    "current_page": 1,
+    "last_page": 13,
+    "from": 1,
+    "to": 20
+  },
+  "_server_timestamp": "2025-01-05T10:00:00Z"
+}
+```
+
+**Response (Cursor Mode - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [...],
+  "pagination": {
+    "next_cursor": 100,
+    "has_more": true,
+    "per_page": 50
+  },
+  "_server_timestamp": "2025-01-05T10:00:00Z"
 }
 ```
 
 ---
 
-### 11.2 Create Sale Return
+### 13.2 Create Sale Return
 
-**Endpoint:** `POST /sale-returns`  
+**Endpoint:** `POST /sales-return`  
 **Auth Required:** Yes
 
 **Request Body:**
@@ -3967,20 +4059,131 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
   "sale_detail_id": ["array of sale detail IDs"],
   "return_qty": ["array of quantities"],
   "return_amount": ["array of amounts"],
-  "lossProfit": ["array of profit adjustments"],
-  "totalAmount": "numeric",
-  "paidAmount": "numeric",
-  "dueAmount": "numeric",
-  "discountAmount": "numeric"
+  "lossProfit": ["array of profit adjustments (optional)"]
 }
 ```
+
+**Validation:**
+- `sale_id` - Required, must exist in sales table
+- `return_date` - Required, must be valid date
+- `sale_detail_id` - Required array of existing sale_detail IDs
+- `return_qty` - Required array of numeric values ≥ 0
+- `return_amount` - Required array of numeric values ≥ 0
+- `lossProfit` - Optional array of numeric adjustments
+
+**Response (HTTP 201):**
+```json
+{
+  "success": true,
+  "message": "Data saved successfully.",
+  "data": {
+    "id": 50,
+    "business_id": 1,
+    "sale_id": 5,
+    "invoice_no": "SR50",
+    "return_date": "2025-01-05",
+    "sale": {
+      "id": 5,
+      "invoiceNumber": "INV-0005",
+      "party": {
+        "id": 1,
+        "name": "Customer Name",
+        "phone": "1234567890",
+        "email": "customer@example.com"
+      }
+    },
+    "details": [
+      {
+        "id": 1,
+        "return_qty": 2,
+        "return_amount": 100.00,
+        "product": {
+          "id": 5,
+          "productName": "Product Name",
+          "productCode": "PRD005",
+          "image": "/storage/products/image.jpg"
+        }
+      }
+    ],
+    "total_return_amount": 100.00,
+    "total_return_qty": 2
+  },
+  "_server_timestamp": "2025-01-05T10:00:00Z"
+}
+```
+
+**Business Logic:**
+- ✅ Updates party due amount (decreases by return amount)
+- ✅ Returns stock to inventory
+- ✅ Creates SaleReturnDetails records for tracking
+- ✅ Uses transaction for consistency
+- ✅ Returns proper error messages on validation failure
 
 ---
 
 ### 13.3 Get Sale Return Details
 
-**Endpoint:** `GET /sale-returns/{id}`  
+**Endpoint:** `GET /sales-return/{id}`  
 **Auth Required:** Yes
+
+**Response (HTTP 200):**
+```json
+{
+  "success": true,
+  "message": "Data fetched successfully.",
+  "data": {
+    "id": 1,
+    "business_id": 1,
+    "sale_id": 5,
+    "invoice_no": "SR01",
+    "return_date": "2025-01-05",
+    "sale": {
+      "id": 5,
+      "invoiceNumber": "INV-0005",
+      "totalAmount": 500.00,
+      "isPaid": 1,
+      "party": {
+        "id": 1,
+        "name": "Customer Name",
+        "phone": "1234567890",
+        "email": "customer@example.com"
+      }
+    },
+    "branch": {
+      "id": 1,
+      "name": "Main Branch"
+    },
+    "details": [
+      {
+        "id": 1,
+        "return_qty": 2,
+        "return_amount": 100.00,
+        "product": {
+          "id": 5,
+          "productName": "Product Name",
+          "productCode": "PRD005",
+          "image": "/storage/products/image.jpg",
+          "batch_no": "BATCH001"
+        }
+      }
+    ],
+    "total_return_amount": 100.00,
+    "total_return_qty": 2,
+    "created_at": "2025-01-05T10:00:00+00:00",
+    "updated_at": "2025-01-05T10:00:00+00:00"
+  },
+  "_server_timestamp": "2025-01-05T10:00:00Z"
+}
+```
+
+**Error Response (HTTP 404):**
+```json
+{
+  "success": false,
+  "message": "Sale return not found",
+  "_server_timestamp": "2025-01-05T10:00:00Z"
+}
+```
 
 ---
 
@@ -3989,11 +4192,137 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 ### 14.1 List Purchase Returns
 
 **Endpoint:** `GET /purchase-returns`  
-**Auth Required:** Yes
+**Auth Required:** Yes  
+**Description:** List all purchase returns with flexible pagination modes and filters.
+
+Supports **4 pagination modes** via query parameters:
+
+1. **Default Mode** (no pagination params): Returns all purchase returns with safety limit (1000)
+2. **Limit Mode** (`?limit=N`): Returns first N records (max 1000) - for dropdowns
+3. **Offset Mode** (`?page=X&per_page=Y`): Page-based pagination (max 100/page) - for management tables
+4. **Cursor Mode** (`?cursor=X&per_page=Y`): Cursor-based pagination (max 1000/page) - for sync/export
 
 **Query Parameters:**
-- `start_date` - Filter start date
-- `end_date` - Filter end date
+
+**Filters:**
+- `purchase_id`: Filter by purchase ID
+- `date_from`: Start date (YYYY-MM-DD)
+- `date_to`: End date (YYYY-MM-DD)
+- `start_date`: Alias for date_from (backward compatibility)
+- `end_date`: Alias for date_to (backward compatibility)
+- `invoice_no`: Filter by return invoice number (partial match)
+- `search`: Search by return invoice number or party name
+
+**Pagination:**
+- `limit`: Number of items (Mode 2)
+- `page` + `per_page`: Offset pagination (Mode 3)
+- `cursor` + `per_page`: Cursor pagination (Mode 4)
+
+**Example Requests:**
+
+```bash
+# Mode 1: Default - All returns
+GET /api/v1/purchase-returns
+
+# Mode 2: Limit - First 50 returns
+GET /api/v1/purchase-returns?limit=50
+
+# Mode 3: Offset - Page 2 with 20 per page
+GET /api/v1/purchase-returns?page=2&per_page=20
+
+# Mode 4: Cursor - For sync/export
+GET /api/v1/purchase-returns?cursor=0&per_page=500
+
+# With filters
+GET /api/v1/purchase-returns?date_from=2025-01-01&date_to=2025-01-31&purchase_id=5
+GET /api/v1/purchase-returns?search=John&limit=100
+```
+
+**Response (Default/Limit Mode - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [
+    {
+      "id": 1,
+      "business_id": 1,
+      "branch_id": 1,
+      "purchase_id": 5,
+      "invoice_no": "PR01",
+      "return_date": "2025-01-05",
+      "created_at": "2025-01-05T10:00:00+00:00",
+      "updated_at": "2025-01-05T10:00:00+00:00",
+      "purchase": {
+        "id": 5,
+        "invoiceNumber": "PUR-00005",
+        "totalAmount": 5000.00,
+        "paidAmount": 3000.00,
+        "dueAmount": 2000.00,
+        "isPaid": 0,
+        "party": {
+          "id": 10,
+          "name": "ABC Suppliers",
+          "email": "abc@example.com",
+          "phone": "+1234567890",
+          "type": "Supplier"
+        }
+      },
+      "branch": {
+        "id": 1,
+        "name": "Main Branch"
+      },
+      "details": [
+        {
+          "id": 1,
+          "purchase_detail_id": 15,
+          "return_qty": 5,
+          "return_amount": 500.00,
+          "product": {
+            "id": 20,
+            "productName": "Laptop XYZ",
+            "productCode": "LAP-001"
+          },
+          "batch_no": "BATCH-2025-001"
+        }
+      ],
+      "total_return_amount": 500.00,
+      "total_return_qty": 5
+    }
+  ],
+  "_server_timestamp": "2025-01-07T10:00:00+00:00"
+}
+```
+
+**Response (Offset Mode - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [...],
+  "pagination": {
+    "total": 150,
+    "per_page": 20,
+    "current_page": 2,
+    "last_page": 8,
+    "from": 21,
+    "to": 40
+  },
+  "_server_timestamp": "2025-01-07T10:00:00+00:00"
+}
+```
+
+**Response (Cursor Mode - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": [...],
+  "pagination": {
+    "next_cursor": 500,
+    "has_more": true,
+    "per_page": 500
+  },
+  "_server_timestamp": "2025-01-07T10:00:00+00:00"
+}
+```
 
 ---
 
@@ -4005,17 +4334,59 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 **Request Body:**
 ```json
 {
-  "purchase_id": "integer (required, exists)",
-  "return_date": "date (required)",
-  "purchase_detail_id": ["array of purchase detail IDs"],
-  "return_qty": ["array of quantities"],
-  "return_amount": ["array of amounts"],
-  "totalAmount": "numeric",
-  "paidAmount": "numeric",
-  "dueAmount": "numeric",
-  "discountAmount": "numeric"
+  "purchase_id": 5,
+  "return_date": "2025-01-05",
+  "purchase_detail_id": [15, 16],
+  "return_qty": [5, 3],
+  "return_amount": [500.00, 300.00],
+  "totalAmount": 4200.00,
+  "paidAmount": 2200.00,
+  "dueAmount": 2000.00,
+  "discountAmount": 0
 }
 ```
+
+**Validation Rules:**
+- `purchase_id`: required, must exist in purchases table
+- `return_date`: required, valid date
+- `purchase_detail_id`: required, array of purchase detail IDs
+- `return_qty`: required, array of quantities matching detail IDs
+- `return_amount`: required, array of amounts matching detail IDs
+
+**Response (Success - HTTP 200):**
+```json
+{
+  "message": "Data saved successfully.",
+  "data": {
+    "id": 1,
+    "business_id": 1,
+    "branch_id": 1,
+    "purchase_id": 5,
+    "invoice_no": "PR01",
+    "return_date": "2025-01-05",
+    "created_at": "2025-01-05T10:00:00+00:00",
+    "updated_at": "2025-01-05T10:00:00+00:00"
+  }
+}
+```
+
+**Response (Error - HTTP 422):**
+```json
+{
+  "message": "Validation failed",
+  "errors": {
+    "purchase_id": ["The purchase id field is required."],
+    "return_date": ["The return date field is required."]
+  }
+}
+```
+
+**Business Logic:**
+- Reduces stock quantity for returned items
+- Reduces purchase detail quantities
+- Updates party's due amount (decreases by return amount)
+- Updates purchase totals (totalAmount, paidAmount, dueAmount)
+- Creates entries in purchase_return_details table
 
 ---
 
@@ -4023,6 +4394,79 @@ curl -X GET "http://localhost:8000/api/purchase?search=P-00001&page=1&per_page=2
 
 **Endpoint:** `GET /purchase-returns/{id}`  
 **Auth Required:** Yes
+
+**Response (Success - HTTP 200):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "id": 1,
+    "business_id": 1,
+    "branch_id": 1,
+    "purchase_id": 5,
+    "invoice_no": "PR01",
+    "return_date": "2025-01-05",
+    "created_at": "2025-01-05T10:00:00+00:00",
+    "updated_at": "2025-01-05T10:00:00+00:00",
+    "purchase": {
+      "id": 5,
+      "invoiceNumber": "PUR-00005",
+      "totalAmount": 4200.00,
+      "paidAmount": 2200.00,
+      "dueAmount": 2000.00,
+      "isPaid": 0,
+      "party": {
+        "id": 10,
+        "name": "ABC Suppliers",
+        "email": "abc@example.com",
+        "phone": "+1234567890",
+        "type": "Supplier"
+      }
+    },
+    "branch": {
+      "id": 1,
+      "name": "Main Branch"
+    },
+    "details": [
+      {
+        "id": 1,
+        "purchase_detail_id": 15,
+        "return_qty": 5,
+        "return_amount": 500.00,
+        "product": {
+          "id": 20,
+          "productName": "Laptop XYZ",
+          "productCode": "LAP-001"
+        },
+        "batch_no": "BATCH-2025-001"
+      },
+      {
+        "id": 2,
+        "purchase_detail_id": 16,
+        "return_qty": 3,
+        "return_amount": 300.00,
+        "product": {
+          "id": 21,
+          "productName": "Mouse ABC",
+          "productCode": "MOU-001"
+        },
+        "batch_no": "BATCH-2025-002"
+      }
+    ],
+    "total_return_amount": 800.00,
+    "total_return_qty": 8
+  },
+  "_server_timestamp": "2025-01-07T10:00:00+00:00"
+}
+```
+
+**Response (Not Found - HTTP 404):**
+```json
+{
+  "success": false,
+  "message": "Purchase return not found"
+}
+```
 
 ---
 
@@ -5121,55 +5565,336 @@ Toggles `status` between active/inactive for the specified category.
 
 ## 22. Stocks
 
-### 22.1 Add Stock
+### 22.1 List Stocks
 
-Adds stock to the system.
+**Endpoint:** `GET /stocks`  
+**Auth Required:** Yes  
+**Description:** List all stock records with flexible pagination modes and comprehensive filters.
 
-This endpoint supports two modes:
-1. **Increment Existing Stock** (by `stock_id`)
-2. **Create New Stock/Batch Entry** (by `product_id` and optional `variant_id`)
+Supports **4 pagination modes** via query parameters:
 
-**Endpoint:** `POST /stocks`  
-**Auth Required:** Yes
+1. **Default Mode** (no pagination params): Returns all stocks with safety limit (1000)
+2. **Limit Mode** (`?limit=N`): Returns first N records (max 1000) - for dropdowns
+3. **Offset Mode** (`?page=X&per_page=Y`): Page-based pagination (max 100/page) - for management tables
+4. **Cursor Mode** (`?cursor=X&per_page=Y`): Cursor-based pagination (max 1000/page) - for sync/export
 
-**Request Body:**
+**Query Parameters:**
+
+**Filters:**
+- `product_id`: Filter by specific product
+- `variant_id`: Filter by product variant (for variable products)
+- `warehouse_id`: Filter by warehouse location
+- `branch_id`: Filter by branch
+- `batch_no`: Filter by batch number (partial match)
+- `stock_status`: Filter by stock level status
+  - `in_stock`: Quantity > 0
+  - `out_of_stock`: Quantity = 0
+  - `low_stock`: Quantity ≤ product alert_quantity
+- `expiry_status`: Filter by expiration status
+  - `expired`: expire_date < today
+  - `expiring_soon`: expire_date within N days (use with `days` parameter, default: 30)
+- `days`: Days threshold for `expiring_soon` filter (default: 30)
+- `search`: Search across product name, product code, and batch number
+
+**Pagination:**
+- `limit`: Number of items (Mode 2)
+- `page` + `per_page`: Offset pagination (Mode 3)
+- `cursor` + `per_page`: Cursor pagination (Mode 4)
+
+**Example Requests:**
+
+```bash
+# Mode 1: Default - All stocks
+GET /api/v1/stocks
+
+# Mode 2: Limit - First 100 stocks
+GET /api/v1/stocks?limit=100
+
+# Mode 3: Offset - Page 2 with 20 per page
+GET /api/v1/stocks?page=2&per_page=20
+
+# Mode 4: Cursor - For sync/export
+GET /api/v1/stocks?cursor=0&per_page=500
+
+# Filter by product
+GET /api/v1/stocks?product_id=5&limit=100
+
+# Filter by warehouse
+GET /api/v1/stocks?warehouse_id=1&page=1&per_page=20
+
+# Filter by stock status
+GET /api/v1/stocks?stock_status=out_of_stock
+
+# Filter expired items
+GET /api/v1/stocks?expiry_status=expired
+
+# Filter expiring soon (within 7 days)
+GET /api/v1/stocks?expiry_status=expiring_soon&days=7
+
+# Search by product name or batch
+GET /api/v1/stocks?search=Nike&limit=50
+
+# Combine filters
+GET /api/v1/stocks?warehouse_id=1&stock_status=in_stock&page=1&per_page=20
+```
+
+**Response (Default/Limit Mode - HTTP 200):**
 ```json
 {
-  "productStock": "integer (required)"
+  "message": "Data fetched successfully.",
+  "data": [
+    {
+      "id": 1,
+      "business_id": 1,
+      "product_id": 5,
+      "variant_id": null,
+      "warehouse_id": 1,
+      "branch_id": 1,
+      "batch_no": "BATCH001",
+      "quantity": 50,
+      "cost_price": 80.00,
+      "sale_price": 120.00,
+      "dealer_price": 110.00,
+      "wholesale_price": 105.00,
+      "profit_percent": 50.00,
+      "mfg_date": "2025-01-01",
+      "expire_date": "2026-01-01",
+      "is_expired": false,
+      "days_until_expiry": 365,
+      "product": {
+        "id": 5,
+        "productName": "Nike Structure 25",
+        "productCode": "PRD005",
+        "image": "/storage/products/nike.jpg"
+      },
+      "variant": null,
+      "warehouse": {
+        "id": 1,
+        "name": "Main Warehouse"
+      },
+      "branch": {
+        "id": 1,
+        "name": "Main Branch"
+      },
+      "created_at": "2025-01-01T10:00:00+00:00",
+      "updated_at": "2025-01-05T10:00:00+00:00"
+    }
+  ],
+  "_server_timestamp": "2025-01-08T10:00:00Z"
 }
 ```
 
-**Mode A: Increment Existing Stock**
+**Response (Offset Mode - HTTP 200):**
 ```json
 {
-  "stock_id": "integer (required, exists)",
-  "productStock": "integer (required)"
+  "message": "Data fetched successfully.",
+  "data": [...],
+  "pagination": {
+    "total": 523,
+    "per_page": 20,
+    "current_page": 1,
+    "last_page": 27,
+    "from": 1,
+    "to": 20
+  },
+  "_server_timestamp": "2025-01-08T10:00:00Z"
 }
 ```
 
-**Mode B: Create New Stock/Batch Entry**
+**Response (Cursor Mode - HTTP 200):**
 ```json
 {
-  "product_id": "integer (required, exists)",
-  "variant_id": "integer (optional, exists)",
-  "warehouse_id": "integer (optional, exists)",
-  "batch_no": "string (required when product inventory_tracking_mode is batch)",
-  "mfg_date": "date (optional)",
-  "expire_date": "date (optional)",
-  "productStock": "integer (required)",
-  "productPurchasePrice": "numeric (optional)",
-  "productSalePrice": "numeric (optional)",
-  "productWholeSalePrice": "numeric (optional)",
-  "productDealerPrice": "numeric (optional)",
-  "profit_percent": "numeric (optional)"
+  "message": "Data fetched successfully.",
+  "data": [...],
+  "pagination": {
+    "next_cursor": 100,
+    "has_more": true,
+    "per_page": 500
+  },
+  "_server_timestamp": "2025-01-08T10:00:00Z"
 }
 ```
 
 ---
 
-### 22.2 Update Stock
+### 22.2 Get Single Stock
 
-Updates stock details.
+**Endpoint:** `GET /stocks/{id}`  
+**Auth Required:** Yes  
+**Description:** Retrieve detailed information for a specific stock record.
+
+**Response (HTTP 200):**
+```json
+{
+  "success": true,
+  "message": "Data fetched successfully.",
+  "data": {
+    "id": 1,
+    "business_id": 1,
+    "product_id": 5,
+    "variant_id": null,
+    "warehouse_id": 1,
+    "branch_id": 1,
+    "batch_no": "BATCH001",
+    "quantity": 50,
+    "cost_price": 80.00,
+    "sale_price": 120.00,
+    "dealer_price": 110.00,
+    "wholesale_price": 105.00,
+    "profit_percent": 50.00,
+    "mfg_date": "2025-01-01",
+    "expire_date": "2026-01-01",
+    "is_expired": false,
+    "days_until_expiry": 365,
+    "product": {
+      "id": 5,
+      "productName": "Nike Structure 25",
+      "productCode": "PRD005",
+      "product_type": "simple",
+      "category": {
+        "id": 1,
+        "categoryName": "Shoes"
+      },
+      "image": "/storage/products/nike.jpg"
+    },
+    "variant": null,
+    "warehouse": {
+      "id": 1,
+      "name": "Main Warehouse",
+      "location": "Building A"
+    },
+    "branch": {
+      "id": 1,
+      "name": "Main Branch",
+      "address": "123 Main St"
+    },
+    "created_at": "2025-01-01T10:00:00+00:00",
+    "updated_at": "2025-01-05T10:00:00+00:00"
+  },
+  "_server_timestamp": "2025-01-08T10:00:00Z"
+}
+```
+
+**Error Response (HTTP 404):**
+```json
+{
+  "success": false,
+  "message": "Stock not found",
+  "_server_timestamp": "2025-01-08T10:00:00Z"
+}
+```
+
+---
+
+### 22.3 Add Stock
+
+Adds stock to the system. This endpoint supports two modes:
+1. **Mode A: Increment Existing Stock** (by `stock_id`)
+2. **Mode B: Create New Stock/Batch Entry** (by `product_id` and optional `variant_id`)
+
+**Endpoint:** `POST /stocks`  
+**Auth Required:** Yes
+
+**Mode A: Increment Existing Stock**
+
+Adds quantity to an existing stock record.
+
+**Request Body:**
+```json
+{
+  "stock_id": 10,
+  "productStock": 50
+}
+```
+
+**Validation:**
+- `stock_id` - Required (integer, exists in stocks table)
+- `productStock` - Required (integer, > 0)
+
+**Mode B: Create New Stock/Batch Entry**
+
+Creates a new stock record for a product or variant.
+
+**Request Body:**
+```json
+{
+  "product_id": 5,
+  "variant_id": null,
+  "warehouse_id": 1,
+  "branch_id": 1,
+  "batch_no": "BATCH001",
+  "mfg_date": "2025-01-01",
+  "expire_date": "2026-01-01",
+  "productStock": 100,
+  "productPurchasePrice": 80.00,
+  "productSalePrice": 120.00,
+  "productWholeSalePrice": 105.00,
+  "productDealerPrice": 110.00,
+  "profit_percent": 50.00
+}
+```
+
+**Validation:**
+- `product_id` - Required (integer, exists in products table)
+- `variant_id` - Optional (integer, exists in product_variants table)
+- `warehouse_id` - Optional (integer, exists in warehouses table)
+- `branch_id` - Optional (integer, defaults to user's branch)
+- `batch_no` - Required when product's `inventory_tracking_mode` is `batch`
+- `mfg_date` - Optional (date, YYYY-MM-DD)
+- `expire_date` - Optional (date, YYYY-MM-DD, must be after mfg_date)
+- `productStock` - Required (integer, ≥ 0)
+- `productPurchasePrice` - Optional (numeric, ≥ 0, defaults to product cost)
+- `productSalePrice` - Optional (numeric, ≥ 0, defaults to product price)
+- `productWholeSalePrice` - Optional (numeric, ≥ 0)
+- `productDealerPrice` - Optional (numeric, ≥ 0)
+- `profit_percent` - Optional (numeric, calculated if not provided)
+
+**Response (HTTP 201):**
+```json
+{
+  "success": true,
+  "message": "Stock added successfully",
+  "data": {
+    "id": 50,
+    "business_id": 1,
+    "product_id": 5,
+    "variant_id": null,
+    "warehouse_id": 1,
+    "branch_id": 1,
+    "batch_no": "BATCH001",
+    "quantity": 100,
+    "cost_price": 80.00,
+    "sale_price": 120.00,
+    "dealer_price": 110.00,
+    "wholesale_price": 105.00,
+    "profit_percent": 50.00,
+    "mfg_date": "2025-01-01",
+    "expire_date": "2026-01-01",
+    "product": {
+      "id": 5,
+      "productName": "Nike Structure 25",
+      "productCode": "PRD005"
+    },
+    "created_at": "2025-01-08T10:00:00+00:00"
+  },
+  "_server_timestamp": "2025-01-08T10:00:00Z"
+}
+```
+
+**Business Logic:**
+- ✅ Mode A: Increments quantity on existing stock record
+- ✅ Mode B: Creates new stock record with provided details
+- ✅ Inherits pricing from product if not provided
+- ✅ Inherits pricing from variant if variant_id provided
+- ✅ Validates batch_no requirement based on product tracking mode
+- ✅ Validates warehouse and branch existence
+- ✅ Enforces business_id isolation
+
+---
+
+### 22.4 Update Stock
+
+Updates stock details (pricing, dates, etc.). Cannot change core references (product_id, variant_id).
 
 **Endpoint:** `PUT /stocks/{id}`  
 **Auth Required:** Yes
@@ -5177,23 +5902,129 @@ Updates stock details.
 **Request Body:**
 ```json
 {
-  "productStock": "integer (optional)",
-  "productPurchasePrice": "numeric (optional)",
-  "productSalePrice": "numeric (optional)",
-  "productDealerPrice": "numeric (optional)",
-  "productWholeSalePrice": "numeric (optional)",
-  "profit_percent": "numeric (optional)",
-  "mfg_date": "date (optional)",
-  "expire_date": "date (optional)"
+  "productStock": 75,
+  "productPurchasePrice": 85.00,
+  "productSalePrice": 125.00,
+  "productDealerPrice": 115.00,
+  "productWholeSalePrice": 110.00,
+  "profit_percent": 47.00,
+  "mfg_date": "2025-01-01",
+  "expire_date": "2026-01-01"
 }
 ```
 
+**Validation:**
+- `productStock` - Optional (integer, ≥ 0)
+- `productPurchasePrice` - Optional (numeric, ≥ 0)
+- `productSalePrice` - Optional (numeric, ≥ 0)
+- `productDealerPrice` - Optional (numeric, ≥ 0)
+- `productWholeSalePrice` - Optional (numeric, ≥ 0)
+- `profit_percent` - Optional (numeric)
+- `mfg_date` - Optional (date, YYYY-MM-DD)
+- `expire_date` - Optional (date, YYYY-MM-DD, must be after mfg_date if both provided)
+
+**Response (HTTP 200):**
+```json
+{
+  "success": true,
+  "message": "Stock updated successfully",
+  "data": {
+    "id": 1,
+    "quantity": 75,
+    "cost_price": 85.00,
+    "sale_price": 125.00,
+    "dealer_price": 115.00,
+    "wholesale_price": 110.00,
+    "profit_percent": 47.00,
+    "mfg_date": "2025-01-01",
+    "expire_date": "2026-01-01",
+    "updated_at": "2025-01-08T10:00:00+00:00"
+  },
+  "_server_timestamp": "2025-01-08T10:00:00Z"
+}
+```
+
+**Error Response (HTTP 404):**
+```json
+{
+  "success": false,
+  "message": "Stock not found",
+  "_server_timestamp": "2025-01-08T10:00:00Z"
+}
+```
+
+**Business Logic:**
+- ✅ Only updates provided fields (partial update)
+- ✅ Cannot change product_id, variant_id, warehouse_id, branch_id (core references)
+- ✅ Validates date logic (expire_date after mfg_date)
+- ✅ Enforces business_id isolation
+
 ---
 
-### 22.3 Delete Stock
+### 22.5 Delete Stock
 
 **Endpoint:** `DELETE /stocks/{id}`  
-**Auth Required:** Yes
+**Auth Required:** Yes  
+**Description:** Soft deletes a stock record.
+
+**Response (HTTP 200):**
+```json
+{
+  "success": true,
+  "message": "Stock deleted successfully",
+  "_server_timestamp": "2025-01-08T10:00:00Z"
+}
+```
+
+**Error Response (HTTP 404):**
+```json
+{
+  "success": false,
+  "message": "Stock not found",
+  "_server_timestamp": "2025-01-08T10:00:00Z"
+}
+```
+
+**Business Logic:**
+- ✅ Soft delete (sets deleted_at timestamp)
+- ✅ Can be restored if needed
+- ✅ Enforces business_id isolation
+
+---
+
+### 22.6 Stock Management Notes
+
+**Computed Fields:**
+- `is_expired` - Boolean, true if expire_date < today
+- `days_until_expiry` - Integer, days remaining (negative if expired)
+
+**Product Type Support:**
+- **Simple Products**: Stock record with product_id only
+- **Batch Products**: Multiple stock records per product (different batch_no values)
+- **Variable Products**: Stock records linked to specific variants (variant_id)
+
+**Batch/Lot Tracking:**
+- Products with `inventory_tracking_mode: 'batch'` require `batch_no` field
+- Each batch can have unique mfg_date and expire_date
+- Batches tracked separately in inventory
+
+**Pricing Hierarchy:**
+1. Stock-level pricing (if set)
+2. Variant-level pricing (if variant_id present)
+3. Product-level pricing (fallback)
+
+**Stock Status Logic:**
+- `in_stock`: quantity > 0
+- `out_of_stock`: quantity = 0
+- `low_stock`: quantity ≤ product's alert_quantity
+
+**Expiry Status Logic:**
+- `expired`: expire_date < current date
+- `expiring_soon`: expire_date within specified days (default 30)
+
+**Related Endpoints:**
+- See [Section 34: Batch/Lot Management](#34-batchlot-management) for batch tracking features
+- See [Section 3.6: Product Variants](#36-product-variants-management) for variant stock management
 
 ---
 

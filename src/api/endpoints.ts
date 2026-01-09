@@ -112,16 +112,16 @@ export const API_ENDPOINTS = {
 
   // Sale Returns
   SALE_RETURNS: {
-    LIST: '/sale-returns',
-    GET: (id: number) => `/sale-returns/${id}`,
-    CREATE: '/sale-returns',
+    LIST: '/sales-return',
+    GET: (id: number) => `/sales-return/${id}`,
+    CREATE: '/sales-return',
   },
 
   // Purchase Returns
   PURCHASE_RETURNS: {
-    LIST: '/purchase-returns',
-    GET: (id: number) => `/purchase-returns/${id}`,
-    CREATE: '/purchase-returns',
+    LIST: '/purchases-return',
+    GET: (id: number) => `/purchases-return/${id}`,
+    CREATE: '/purchases-return',
   },
 
   // Due Collection
@@ -195,6 +195,7 @@ export const API_ENDPOINTS = {
 
   // Stocks
   STOCKS: {
+    LIST: '/stocks',
     ADD: '/stocks',
     UPDATE: (id: number) => `/stocks/${id}`,
     DELETE: (id: number) => `/stocks/${id}`,

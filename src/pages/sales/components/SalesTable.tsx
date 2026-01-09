@@ -37,10 +37,43 @@ export interface SalesTableProps {
   isLoading: boolean
   /** Callback when view action is clicked */
   onView: (sale: Sale) => void
+  /** Callback when return action is clicked */
+  onReturn: (sale: Sale) => void
   /** Callback when delete action is clicked */
   onDelete: (sale: Sale) => void
   /** Callback when clear filters button is clicked (for no results state) */
   onClearFilters: () => void
+}
+
+// ============================================
+// Helper Functions
+// ============================================
+
+/**
+ * Calculate total return amount from sale returns
+ * Handles both backend formats and calculates from details if needed
+ */
+function calculateReturnAmount(sale: Sale): number {
+  if (!sale.saleReturns || sale.saleReturns.length === 0) return 0
+
+  return sale.saleReturns.reduce((sum, ret) => {
+    // Try snake_case first (preferred format)
+    if (ret.total_return_amount != null) {
+      return sum + ret.total_return_amount
+    }
+    // Try camelCase (backend sometimes sends this)
+    if ((ret as unknown as { returnAmount?: number }).returnAmount != null) {
+      return sum + (ret as unknown as { returnAmount: number }).returnAmount
+    }
+    // Fallback: calculate from details array
+    if (ret.details && Array.isArray(ret.details)) {
+      const detailsSum = ret.details.reduce((detailSum, detail) => {
+        return detailSum + (detail.return_amount || 0)
+      }, 0)
+      return sum + detailsSum
+    }
+    return sum
+  }, 0)
 }
 
 // ============================================
@@ -115,10 +148,11 @@ const NoResultsState = memo(function NoResultsState({ onClearFilters }: NoResult
 interface SaleRowProps {
   sale: Sale
   onView: (sale: Sale) => void
+  onReturn: (sale: Sale) => void
   onDelete: (sale: Sale) => void
 }
 
-const SaleRow = memo(function SaleRow({ sale, onView, onDelete }: SaleRowProps) {
+const SaleRow = memo(function SaleRow({ sale, onView, onReturn, onDelete }: SaleRowProps) {
   const { format: formatCurrencyAmount } = useCurrency()
   const paymentBadge = getPaymentStatusBadge(sale)
   const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
@@ -206,6 +240,33 @@ const SaleRow = memo(function SaleRow({ sale, onView, onDelete }: SaleRowProps) 
         )}
       </TableCell>
 
+      {/* Return Amount */}
+      <TableCell className="text-right">
+        {(() => {
+          const returnAmount = calculateReturnAmount(sale)
+          return returnAmount > 0 ? (
+            <span className="text-red-600 dark:text-red-400">
+              {formatCurrencyAmount(returnAmount)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )
+        })()}
+      </TableCell>
+
+      {/* Net Total (Total - Returns) */}
+      <TableCell className="text-right font-medium">
+        {(() => {
+          const returnAmount = calculateReturnAmount(sale)
+          const netTotal = (sale.totalAmount ?? 0) - returnAmount
+          return (
+            <span className={returnAmount > 0 ? 'text-blue-600 dark:text-blue-400' : ''}>
+              {formatCurrencyAmount(netTotal)}
+            </span>
+          )
+        })()}
+      </TableCell>
+
       {/* Status */}
       <TableCell>
         <Badge
@@ -257,6 +318,12 @@ const SaleRow = memo(function SaleRow({ sale, onView, onDelete }: SaleRowProps) 
               <Eye className="mr-2 h-4 w-4" />
               View Details
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onReturn(sale)}>
+              <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              Return
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => onDelete(sale)}
               className="text-destructive focus:text-destructive"
@@ -286,6 +353,8 @@ const SalesTableHeader = memo(function SalesTableHeader() {
         <TableHead className="text-right">Total</TableHead>
         <TableHead className="text-right">Paid</TableHead>
         <TableHead className="text-right">Due</TableHead>
+        <TableHead className="text-right">Return Amount</TableHead>
+        <TableHead className="text-right">Net Total</TableHead>
         <TableHead>Status</TableHead>
         <TableHead className="text-center">Sync</TableHead>
         <TableHead className="w-12">
@@ -306,6 +375,7 @@ function SalesTableComponent({
   isLoading,
   onView,
   onDelete,
+  onReturn,
   onClearFilters,
 }: SalesTableProps) {
   // Loading state
@@ -350,7 +420,7 @@ function SalesTableComponent({
             <SalesTableHeader />
             <TableBody>
               {sales.map((sale) => (
-                <SaleRow key={sale.id} sale={sale} onView={onView} onDelete={onDelete} />
+                <SaleRow key={sale.id} sale={sale} onView={onView} onDelete={onDelete} onReturn={onReturn} />
               ))}
             </TableBody>
           </Table>
