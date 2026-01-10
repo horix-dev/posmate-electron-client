@@ -1,20 +1,3 @@
-## 2026-01-10 — CI uses .env.development `VITE_API_BASE_URL` ✅
-
-**Context**: Avoid hardcoding API URLs in CI builds and ensure dev builds use the same endpoint defined for local development.
-
-**Change**:
-- Updated GitHub Actions workflow to read `VITE_API_BASE_URL` from `.env.development` and pass it to the build.
-- Removed the previously hardcoded `http://localhost:8700` in the CI build step.
-
-**Files Modified**:
-- `.github/workflows/release-dev.yml` — Load `.env.development` and reference `${{ env.VITE_API_BASE_URL }}` in Build step.
-
-**Impact**:
-- ✅ Single source of truth for dev API URL
-- ✅ Easy updates by changing `.env.development`
-- ✅ No code changes required to switch dev endpoint
-
----
 ## 2026-01-09 — Stock List Page with Tabs (All, Low, Expired) ✅
 
 **Context**: Created a new dedicated stocks management page with tabbed interface for viewing all stocks, low stock items, and expired products. Follows the same pattern as the parties page with dropdown tabs.
