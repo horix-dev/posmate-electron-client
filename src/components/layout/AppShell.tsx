@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TitleBar } from './TitleBar'
 import { OfflineBanner } from '@/components/common/OfflineBanner'
@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils'
 
 export function AppShell() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const isPosPage = location.pathname === '/pos'
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#f1ecf7] dark:bg-[#1c1c1e]">
@@ -17,16 +19,22 @@ export function AppShell() {
       <TitleBar onNavigate={navigate} />
 
       {/* Main Content Area */}
-      <div className={cn('flex flex-1 flex-col pt-12 transition-all duration-300')}>
+      <div className={cn('flex min-h-0 flex-1 flex-col pt-12 transition-all duration-300')}>
         {/* Offline Banner */}
         <OfflineBanner />
 
         {/* Page Content */}
-        <ScrollArea className="flex-1">
-          <main className="min-h-full p-6">
+        {isPosPage ? (
+          <main className="min-h-0 flex-1 p-0">
             <Outlet />
           </main>
-        </ScrollArea>
+        ) : (
+          <ScrollArea className="min-h-0 flex-1">
+            <main className="min-h-full p-6">
+              <Outlet />
+            </main>
+          </ScrollArea>
+        )}
       </div>
     </div>
   )

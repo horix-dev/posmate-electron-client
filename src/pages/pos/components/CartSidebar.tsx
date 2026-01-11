@@ -1,12 +1,23 @@
 import { memo, useMemo, useCallback } from 'react'
-import { ShoppingCart, Pause, PlayCircle, Trash2, User, Receipt, CreditCard } from 'lucide-react'
+import {
+  ShoppingCart,
+  Pause,
+  PlayCircle,
+  Trash2,
+  User,
+  Receipt,
+  CreditCard,
+  Minus,
+  Plus,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { useCurrency } from '@/hooks'
-import { CartItem, type CartItemDisplay } from './CartItem'
+import type { CartItemDisplay } from './CartItem'
 import type { Party, PaymentType } from '@/types/api.types'
 
 // ============================================
@@ -234,16 +245,94 @@ function CartSidebarComponent({
           <EmptyCart heldCartsCount={heldCartsCount} onOpenHeldCarts={onOpenHeldCarts} />
         ) : (
           <ScrollArea className="h-full">
-            <div className="space-y-2 p-4" role="list" aria-label="Cart items">
-              {items.map((item) => (
-                <CartItem
-                  key={item.id}
-                  item={item}
-                  onUpdateQuantity={onUpdateQuantity}
-                  onRemove={onRemoveItem}
-                />
-              ))}
-            </div>
+            <table className="w-full text-sm" role="table" aria-label="Cart items">
+              <thead className="sticky top-0 z-10 bg-muted text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">Item</th>
+                  <th className="px-2 py-2 text-center font-medium">Qty</th>
+                  <th className="px-2 py-2 text-right font-medium">Price</th>
+                  <th className="px-3 py-2 text-right font-medium">Total</th>
+                  <th className="w-8 px-2 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => {
+                  const lineTotal = item.quantity * item.salePrice
+                  return (
+                    <tr key={item.id} className="border-b hover:bg-muted/50" role="row">
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{item.productName}</span>
+                          {item.variantName && (
+                            <span className="text-xs text-primary">{item.variantName}</span>
+                          )}
+                          {item.batchNo && (
+                            <span className="text-xs text-muted-foreground">
+                              Batch: {item.batchNo}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-2 py-2">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => onUpdateQuantity(item.productId, item.quantity - 1)}
+                            disabled={item.quantity <= 1}
+                            aria-label={`Decrease ${item.productName} quantity`}
+                          >
+                            <Minus className="h-3 w-3" aria-hidden="true" />
+                          </Button>
+                          <Input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const newQty = parseInt(e.target.value, 10)
+                              if (!isNaN(newQty) && newQty >= 1 && newQty <= item.maxStock) {
+                                onUpdateQuantity(item.productId, newQty)
+                              }
+                            }}
+                            min={1}
+                            max={item.maxStock}
+                            className="h-6 w-12 text-center text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            aria-label={`${item.productName} quantity`}
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => onUpdateQuantity(item.productId, item.quantity + 1)}
+                            disabled={item.quantity >= item.maxStock}
+                            aria-label={`Increase ${item.productName} quantity`}
+                          >
+                            <Plus className="h-3 w-3" aria-hidden="true" />
+                          </Button>
+                        </div>
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums">
+                        {formatCurrency(item.salePrice)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                        {formatCurrency(lineTotal)}
+                      </td>
+                      <td className="px-2 py-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                          onClick={() => onRemoveItem(item.productId)}
+                          aria-label={`Remove ${item.productName} from cart`}
+                        >
+                          <Trash2 className="h-3 w-3" aria-hidden="true" />
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </ScrollArea>
         )}
       </CardContent>
@@ -257,41 +346,34 @@ function CartSidebarComponent({
       )}
 
       <CardFooter className="flex-col gap-2 bg-gray-200 px-4 pb-4 pt-2 dark:bg-sidebar">
-        {/* Action Buttons */}
+        {/* Action Buttons + Payment in Single Row */}
         <div className="flex w-full gap-2">
           <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
+            variant="destructive"
+            className="h-14 flex-[1] text-lg font-bold"
             onClick={onClearCart}
             disabled={isEmpty}
           >
-            <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+            <Trash2 className="mr-2 h-5 w-5" aria-hidden="true" />
             Clear
           </Button>
           <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
+            className="h-14 flex-[1] bg-yellow-500 text-lg font-bold text-black hover:bg-yellow-600"
             onClick={onHoldCart}
             disabled={isEmpty}
           >
-            <Pause className="mr-2 h-4 w-4" aria-hidden="true" />
+            <Pause className="mr-2 h-5 w-5" aria-hidden="true" />
             Hold
           </Button>
+          <Button
+            className="h-14 flex-[2] bg-green-600 text-lg font-bold text-white hover:bg-green-700"
+            onClick={onPayment}
+            disabled={isEmpty}
+          >
+            <CreditCard className="mr-2 h-5 w-5" aria-hidden="true" />
+            Pay {formatCurrency(totals.total)}
+          </Button>
         </div>
-
-        {/* Payment Button */}
-        <Button
-          size="lg"
-          variant={'success'}
-          className="w-full text-base"
-          onClick={onPayment}
-          disabled={isEmpty}
-        >
-          <CreditCard className="mr-2 h-5 w-5" aria-hidden="true" />
-          Pay {formatCurrency(totals.total)}
-        </Button>
 
         {/* Payment Type Hint */}
         {paymentType && (

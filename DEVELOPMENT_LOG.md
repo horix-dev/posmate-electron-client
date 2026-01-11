@@ -1,3 +1,16 @@
+## 2026-01-11 — POS Layout: Remove ScrollArea Wrapper ✅
+
+**Context**: The POS page showed a small bottom gap due to Radix `ScrollArea` viewport sizing inside the app shell.
+
+**Solution Implemented**:
+- Render the `/pos` route content without `ScrollArea` in the app shell.
+- Keep `ScrollArea` for non-POS pages so they retain the standard scroll behavior.
+
+**Files Modified**:
+- `src/components/layout/AppShell.tsx`
+
+---
+
 ## 2026-01-10 — Silent Print Handler Optimization (Electron) 🔄
 
 **Context**: Refined silent printing to use `contextIsolation: true` with `executeJavaScript` instead of preload script approach.

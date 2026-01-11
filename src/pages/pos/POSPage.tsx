@@ -582,51 +582,54 @@ export function POSPage() {
   // Render
   // ----------------------------------------
   return (
-    <div className="relative h-[calc(100vh-6rem)] bg-muted/30 p-4 pr-[28rem]">
-      {/* Products Section */}
-      <div className="h-full min-w-0 overflow-hidden rounded-xl border bg-background p-4 shadow-sm">
-        <ProductGrid
-          products={filteredProducts}
-          categories={categories}
-          selectedCategoryId={filters.categoryId}
-          searchQuery={filters.search}
-          isLoading={isLoading}
-          viewMode={viewMode}
-          onCategoryChange={handleCategoryChange}
-          onSearchChange={handleSearchChange}
-          onAddToCart={handleAddToCart}
-          onSelectVariant={handleOpenVariantSelection}
-          onViewModeChange={setViewMode}
-        />
-      </div>
+    <div className="h-full bg-muted/30">
+      {/* Two-column layout: Cart 60% | Products 40% */}
+      <div className="grid h-full grid-cols-5">
+        {/* Cart Panel (60%) */}
+        <aside className="col-span-3 border-r bg-background">
+          <div className="flex h-full flex-col overflow-hidden">
+            <CartSidebar
+              items={adaptedCartItems}
+              customer={customer}
+              paymentType={paymentType}
+              totals={cartTotals}
+              vatPercentage={vatPercentage}
+              heldCartsCount={heldCarts.length}
+              invoiceNumber={invoiceNumber || 'Loading...'}
+              onUpdateQuantity={(productId, quantity) => {
+                const item = cartItems.find((i) => i.product.id === productId)
+                if (item) handleUpdateQuantity(item.id, quantity)
+              }}
+              onRemoveItem={(productId) => {
+                const item = cartItems.find((i) => i.product.id === productId)
+                if (item) handleRemoveItem(item.id)
+              }}
+              onClearCart={handleClearCart}
+              onHoldCart={handleHoldCart}
+              onOpenHeldCarts={handleOpenHeldCarts}
+              onSelectCustomer={handleOpenCustomerDialog}
+              onPayment={handleOpenPayment}
+            />
+          </div>
+        </aside>
 
-      {/* Fixed Cart Panel (Right) */}
-      <aside className="fixed bottom-0 right-0 top-12 z-30 w-[28rem] border-l bg-background">
-        <div className="flex h-full flex-col overflow-hidden">
-          <CartSidebar
-            items={adaptedCartItems}
-            customer={customer}
-            paymentType={paymentType}
-            totals={cartTotals}
-            vatPercentage={vatPercentage}
-            heldCartsCount={heldCarts.length}
-            invoiceNumber={invoiceNumber || 'Loading...'}
-            onUpdateQuantity={(productId, quantity) => {
-              const item = cartItems.find((i) => i.product.id === productId)
-              if (item) handleUpdateQuantity(item.id, quantity)
-            }}
-            onRemoveItem={(productId) => {
-              const item = cartItems.find((i) => i.product.id === productId)
-              if (item) handleRemoveItem(item.id)
-            }}
-            onClearCart={handleClearCart}
-            onHoldCart={handleHoldCart}
-            onOpenHeldCarts={handleOpenHeldCarts}
-            onSelectCustomer={handleOpenCustomerDialog}
-            onPayment={handleOpenPayment}
+        {/* Products Section (40%) */}
+        <section className="col-span-2 min-w-0 overflow-hidden border bg-background p-4 shadow-sm">
+          <ProductGrid
+            products={filteredProducts}
+            categories={categories}
+            selectedCategoryId={filters.categoryId}
+            searchQuery={filters.search}
+            isLoading={isLoading}
+            viewMode={viewMode}
+            onCategoryChange={handleCategoryChange}
+            onSearchChange={handleSearchChange}
+            onAddToCart={handleAddToCart}
+            onSelectVariant={handleOpenVariantSelection}
+            onViewModeChange={setViewMode}
           />
-        </div>
-      </aside>
+        </section>
+      </div>
 
       {/* Keyboard Shortcuts Button */}
       <TooltipProvider>
