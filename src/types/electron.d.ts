@@ -183,6 +183,7 @@ export interface ElectronAPI {
   sqlite?: ElectronSQLiteAPI
   print?: {
     receipt: (url: string) => Promise<{ success: boolean }>
+    receiptHTML: (htmlContent: string) => Promise<{ success: boolean }>
   }
   getDeviceId?: () => Promise<string>
   getAppInfo?: () => Promise<{

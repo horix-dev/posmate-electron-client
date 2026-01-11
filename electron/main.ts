@@ -14,7 +14,6 @@ const store = new Store({
   encryptionKey: 'horix-pos-secure-key-2024',
 })
 
-// Load environment variables from .env files at runtime
 // This ensures locally built apps get the correct channel
 function loadEnvFile(envFile: string, options?: { overrideExisting?: boolean }) {
   try {
@@ -104,7 +103,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false, // Disable sandbox for -webkit-app-region to work
+      sandbox: true, // Disable sandbox for -webkit-app-region to work
     },
   })
 
@@ -303,7 +302,7 @@ ipcMain.handle('secure-store-clear', () => {
   return true
 })
 
-// Silent printing handler
+// Silent printing handler (URL-based)
 ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
   try {
     // Create hidden window to load and print the invoice
@@ -346,6 +345,77 @@ ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     }
+  }
+})
+
+// Silent printing handler (HTML-based) - EXACT copy of working hpos client
+ipcMain.on('print-receipt-html', async (event, htmlContent: string) => {
+  console.log('🖨️ Print receipt requested')
+  
+  const printWindow = new BrowserWindow({
+    width: 800,
+    height: 1200,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'print-preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: false, // CRITICAL: Must be false
+      sandbox: false,
+    },
+  })
+
+  try {
+    // Load HTML content
+    await printWindow.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`
+    )
+    console.log('🖨️ Receipt HTML loaded')
+
+    // Wait for content to render
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    // Get printers
+    const printers = await printWindow.webContents.getPrintersAsync()
+    const defaultPrinter = printers.find((p) => p.isDefault)
+    
+    if (!defaultPrinter) {
+      console.error('🖨️ No printer found')
+      printWindow.close()
+      event.reply('print-receipt-html-result', { success: false, error: 'No printer available' })
+      return
+    }
+
+    console.log('🖨️ Printing to:', defaultPrinter.name)
+    console.log('🖨️ Available printers:', printers.map(p => `${p.name}${p.isDefault ? ' (default)' : ''}`).join(', '))
+
+    // Print silently
+    printWindow.webContents.print(
+      {
+        silent: true,
+        printBackground: true,
+        deviceName: defaultPrinter.name,
+        margins: { marginType: 'none' },
+        pageSize: { width: 72000, height: 297000 },
+        scaleFactor: 100,
+      },
+      (success, errorType) => {
+        printWindow.close()
+        if (success) {
+          console.log('🖨️ Print successful!')
+          event.reply('print-receipt-html-result', { success: true })
+        } else {
+          console.error('🖨️ Print failed:', errorType)
+          event.reply('print-receipt-html-result', { success: false, error: errorType || 'Print failed' })
+        }
+      }
+    )
+  } catch (error) {
+    console.error('🖨️ Print receipt failed:', error)
+    printWindow.close()
+    event.reply('print-receipt-html-result', { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
   }
 })
 

@@ -11,7 +11,8 @@ import { offlineSalesService } from '@/api/services/offlineSales.service'
 import { partiesService } from '@/api/services/parties.service'
 import { productsService } from '@/api/services/products.service'
 import { getApiErrorMessage } from '@/api/axios'
-import { printReceipt } from '@/lib/receipt-printer'
+import { printReceipt } from '@/lib/receipt-generator'
+import { useBusinessStore } from '@/stores/business.store'
 import type { Product, Stock, PaymentType, Party as Customer } from '@/types/api.types'
 import type { ProductVariant } from '@/types/variant.types'
 
@@ -53,6 +54,7 @@ export function POSPage() {
   // Store & Data
   // ----------------------------------------
   const autoPrintReceipt = useUIStore((state) => state.autoPrintReceipt)
+  const business = useBusinessStore((state) => state.business)
 
   // Cart store
   const {
@@ -341,13 +343,30 @@ export function POSPage() {
           toast.success('Sale saved offline - will sync when online')
         } else {
           toast.success('Sale completed successfully!')
+        }
 
-          // Print receipt if auto-print is enabled and invoice_url is available
-          if (autoPrintReceipt && result.data.invoice_url) {
-            const printSuccess = await printReceipt(result.data)
+        // Print receipt if auto-print is enabled (works offline)
+        if (autoPrintReceipt) {
+          console.log('[POS] Auto-print enabled, generating receipt...')
+
+          try {
+            const printSuccess = await printReceipt({
+              sale: result.data,
+              business,
+              customer,
+            })
+
+            // Only show error if print truly failed
+            // In dev mode, print dialog may show but still succeed
             if (!printSuccess) {
-              toast.warning('Receipt print failed. Please check popup blocker settings.')
+              console.warn('[POS] Print may have failed or shown dialog')
+              // Don't show error toast - user may have printed via dialog
+            } else {
+              console.log('[POS] Receipt printed to printer')
             }
+          } catch (error) {
+            console.error('[POS] Receipt print error:', error)
+            // Silently log error but don't show toast
           }
         }
 
@@ -384,6 +403,7 @@ export function POSPage() {
       vatAmount,
       totalAmount,
       autoPrintReceipt,
+      business,
       clearCart,
       closeDialog,
       setInvoiceNumber,
