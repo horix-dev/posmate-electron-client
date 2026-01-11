@@ -88,8 +88,8 @@ const PaymentTypeButton = memo(function PaymentTypeButton({
       className={cn(
         'flex h-auto flex-col items-center justify-center gap-1 rounded-xl border px-3 py-2 text-xs font-medium transition-all',
         isSelected
-          ? 'shadow-sm shadow-primary/30 ring-2 ring-primary ring-offset-2'
-          : 'border-muted/70',
+          ? 'shadow-sm shadow-primary/30'
+          : 'border-gray-300 hover:border-gray-400 dark:border-gray-700 dark:hover:border-gray-600',
         isDisabled && 'opacity-60'
       )}
       onClick={handleClick}
@@ -275,9 +275,7 @@ function PaymentDialogComponent({
             {/* Amount Summary */}
             <div className="rounded-lg bg-muted p-4 text-center">
               <p className="text-sm text-muted-foreground">Amount Due</p>
-              <p className="text-3xl font-bold text-primary">
-                {formatCurrency(totalAmount)}
-              </p>
+              <p className="text-3xl font-bold text-primary">{formatCurrency(totalAmount)}</p>
             </div>
 
             {/* Payment Types */}
@@ -423,27 +421,19 @@ function PaymentDialogComponent({
                 <div className="mt-2 space-y-1 text-xs">
                   <div className="flex justify-between text-red-700 dark:text-red-300">
                     <span>Current Due:</span>
-                    <span>
-                      {formatCurrency(customer.due)}
-                    </span>
+                    <span>{formatCurrency(customer.due)}</span>
                   </div>
                   <div className="flex justify-between text-red-700 dark:text-red-300">
                     <span>New Due:</span>
-                    <span>
-                      {formatCurrency(dueAmount)}
-                    </span>
+                    <span>{formatCurrency(dueAmount)}</span>
                   </div>
                   <div className="flex justify-between border-t border-red-200 pt-1 font-semibold text-red-900 dark:border-red-800 dark:text-red-100">
                     <span>Total:</span>
-                    <span>
-                      {formatCurrency(newCustomerDue)}
-                    </span>
+                    <span>{formatCurrency(newCustomerDue)}</span>
                   </div>
                   <div className="flex justify-between text-red-700 dark:text-red-300">
                     <span>Credit Limit:</span>
-                    <span>
-                      {formatCurrency(customer.credit_limit)}
-                    </span>
+                    <span>{formatCurrency(customer.credit_limit)}</span>
                   </div>
                 </div>
               </div>
