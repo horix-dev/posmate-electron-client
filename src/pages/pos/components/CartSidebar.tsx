@@ -129,7 +129,7 @@ const CartTotalsSection = memo(function CartTotalsSection({
 }: CartTotalsSectionProps) {
   const { format: formatCurrency } = useCurrency()
   return (
-    <div className="space-y-2 bg-gray-200 px-4 py-3">
+    <div className="space-y-2 bg-gray-200 px-4 py-3 dark:bg-sidebar">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Subtotal</span>
         <span>{formatCurrency(totals.subtotal)}</span>
@@ -256,7 +256,7 @@ function CartSidebarComponent({
         </>
       )}
 
-      <CardFooter className="flex-col gap-2 bg-gray-200 px-4 pb-4 pt-2">
+      <CardFooter className="flex-col gap-2 bg-gray-200 px-4 pb-4 pt-2 dark:bg-sidebar">
         {/* Action Buttons */}
         <div className="flex w-full gap-2">
           <Button
