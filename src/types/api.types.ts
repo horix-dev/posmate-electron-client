@@ -551,17 +551,22 @@ export type PartyType = 'Retailer' | 'Dealer' | 'Wholesaler' | 'Supplier'
 
 export interface Party {
   id: number
+  business_id: number
   name: string
   email?: string
   phone?: string
   address?: string
   type: PartyType
   due: number
-  wallet?: number
+  wallet: number
   credit_limit?: number
-  opening_balance?: number
-  opening_balance_type?: 'due' | 'advance'
+  opening_balance: number
+  opening_balance_type: 'due' | 'advance'
   image?: string
+  version: number
+  created_at: string
+  updated_at: string
+  deleted_at?: string
 }
 
 export interface CreatePartyRequest {
@@ -624,18 +629,18 @@ export interface Sale {
   discountAmount?: number
 
   // Old fields (kept for backward compatibility)
-  paidAmount: number            // ⚠️ Deprecated, use initial_paidAmount or total_paid_amount
-  dueAmount?: number            // ⚠️ Deprecated, use initial_dueAmount or remaining_due_amount
-  isPaid?: number               // ⚠️ Now calculated, use is_fully_paid
+  paidAmount: number // ⚠️ Deprecated, use initial_paidAmount or total_paid_amount
+  dueAmount?: number // ⚠️ Deprecated, use initial_dueAmount or remaining_due_amount
+  isPaid?: number // ⚠️ Now calculated, use is_fully_paid
 
   // New fields - Due Collection Tracking
-  initial_paidAmount?: number   // Payment at sale time
-  initial_dueAmount?: number    // Due at sale time
-  total_paid_amount?: number    // Initial + due collections
+  initial_paidAmount?: number // Payment at sale time
+  initial_dueAmount?: number // Due at sale time
+  total_paid_amount?: number // Initial + due collections
   remaining_due_amount?: number // Actual remaining due
-  is_fully_paid?: boolean       // Accurate payment status
-  due_collections_count?: number  // Number of collection payments
-  due_collections_total?: number  // Total from collections
+  is_fully_paid?: boolean // Accurate payment status
+  due_collections_count?: number // Number of collection payments
+  due_collections_total?: number // Total from collections
 
   change_amount?: number
   lossProfit?: number
@@ -715,8 +720,29 @@ export interface Purchase {
   purchaseDate: string
   totalAmount: number
   discountAmount?: number
+  discount_percent?: number
+  discount_type?: string
+  shipping_charge?: number
+  vat_amount?: number
+  vat_percent?: number
   paidAmount: number
   dueAmount?: number
+  change_amount?: number
+  isPaid?: boolean
+  paymentType?: string
+  created_at?: string
+  updated_at?: string
+  user?: {
+    id: number
+    name: string
+    role?: string
+  }
+  branch?: {
+    id: number
+    name: string
+    phone?: string
+    address?: string
+  }
   party?: Party
   details?: PurchaseDetail[]
   vat?: Vat
@@ -727,6 +753,7 @@ export interface Purchase {
 export interface PurchaseDetail {
   id: number
   product_id: number
+  variant_id?: number | null
   stock_id: number
   quantities: number
   productPurchasePrice: number
@@ -734,6 +761,7 @@ export interface PurchaseDetail {
   productDealerPrice?: number
   productWholeSalePrice?: number
   profit_percent?: number
+  subTotal?: number
   mfg_date?: string
   expire_date?: string
   product?: {
@@ -742,6 +770,21 @@ export interface PurchaseDetail {
     productCode?: string
     productPicture?: string
     image?: string
+    product_type?: string
+    category?: {
+      id: number
+      categoryName: string
+    }
+  }
+  variant?: {
+    id: number
+    variant_name: string
+  } | null
+  stock?: {
+    id: number
+    batch_no?: string
+    expire_date?: string
+    mfg_date?: string
   }
 }
 
@@ -754,8 +797,12 @@ export interface CreatePurchaseRequest {
   vat_amount?: number
   totalAmount: number
   discountAmount?: number
+  discount_percent?: number
+  discount_type?: string
+  shipping_charge?: number
   paidAmount: number
   dueAmount?: number
+  change_amount?: number
   products: PurchaseProductItem[]
 }
 

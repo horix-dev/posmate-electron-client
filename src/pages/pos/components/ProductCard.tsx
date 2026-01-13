@@ -155,7 +155,7 @@ function ProductCardComponent({
     <Card
       className={cn(
         'group relative cursor-pointer transition-all hover:shadow-md',
-        isOutOfStock && 'cursor-not-allowed opacity-50'
+        isOutOfStock && 'cursor-not-allowed bg-muted/40 opacity-60 grayscale'
       )}
       onClick={handleClick}
       role="button"

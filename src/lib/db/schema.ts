@@ -4,15 +4,7 @@
  */
 
 import Dexie, { type Table } from 'dexie'
-import type {
-  Product,
-  Category,
-  Party,
-  PaymentType,
-  Vat,
-  Stock,
-  Sale,
-} from '@/types/api.types'
+import type { Product, Category, Party, PaymentType, Vat, Stock, Sale } from '@/types/api.types'
 
 // ============================================
 // Local Storage Types
@@ -24,41 +16,50 @@ import type {
  */
 export interface SyncQueueItem {
   id?: number
-  
+
   // Idempotency key - unique identifier for this operation (prevents duplicates)
   idempotencyKey: string
-  
+
   // Operation details
   operation: 'CREATE' | 'UPDATE' | 'DELETE'
-  entity: 'sale' | 'purchase' | 'expense' | 'income' | 'due_collection' | 'product' | 'customer' | 'party' | 'stock'
+  entity:
+    | 'sale'
+    | 'purchase'
+    | 'expense'
+    | 'income'
+    | 'due_collection'
+    | 'product'
+    | 'customer'
+    | 'party'
+    | 'stock'
   entityId: string | number // Local ID (may be temporary for creates)
-  
+
   // Version for optimistic locking (for updates)
   expectedVersion?: number
-  
+
   // Request payload
   data: unknown // The actual payload to send
   endpoint: string // API endpoint to call
   method: 'POST' | 'PUT' | 'DELETE'
-  
+
   // Retry logic
   attempts: number
   maxAttempts: number
   lastAttemptAt?: string
   nextRetryAt?: string
-  
+
   // Timestamps
   createdAt: string
   offlineTimestamp: string // When operation was created offline
-  
+
   // Status tracking
   status: 'pending' | 'processing' | 'failed' | 'completed' | 'conflict'
   error?: string
   errorCode?: string
-  
+
   // Conflict resolution
   conflictData?: unknown // Server data on conflict
-  
+
   // Result tracking
   serverId?: number // Server-assigned ID after sync
   serverResponse?: unknown
@@ -86,7 +87,7 @@ export interface LocalCategory extends Category {
  */
 export interface LocalParty extends Party {
   lastSyncedAt: string
-  version?: number // For optimistic locking
+  version: number // For optimistic locking
 }
 
 /**
@@ -182,13 +183,11 @@ export class POSDatabase extends Dexie {
       vats: '++id, vatName, lastSyncedAt',
 
       // Transaction tables
-      sales:
-        '++id, invoiceNo, tempId, customerId, isOffline, isSynced, createdAt, lastSyncedAt',
+      sales: '++id, invoiceNo, tempId, customerId, isOffline, isSynced, createdAt, lastSyncedAt',
       heldCarts: '++id, cartId, customerId, createdAt',
 
       // Sync infrastructure
-      syncQueue:
-        '++id, entity, status, createdAt, lastAttemptAt, [status+createdAt]',
+      syncQueue: '++id, entity, status, createdAt, lastAttemptAt, [status+createdAt]',
       metadata: 'key, updatedAt',
     })
   }
@@ -231,10 +230,7 @@ export class POSDatabase extends Dexie {
   /**
    * Set metadata value
    */
-  async setMetadata(
-    key: string,
-    value: string | number | boolean
-  ): Promise<void> {
+  async setMetadata(key: string, value: string | number | boolean): Promise<void> {
     await this.metadata.put({
       key,
       value,
@@ -285,21 +281,15 @@ export async function isDatabaseReady(): Promise<boolean> {
  * Get database statistics
  */
 export async function getDatabaseStats() {
-  const [
-    productsCount,
-    categoriesCount,
-    partiesCount,
-    salesCount,
-    heldCartsCount,
-    syncQueueCount,
-  ] = await Promise.all([
-    db.products.count(),
-    db.categories.count(),
-    db.parties.count(),
-    db.sales.count(),
-    db.heldCarts.count(),
-    db.syncQueue.where('status').equals('pending').count(),
-  ])
+  const [productsCount, categoriesCount, partiesCount, salesCount, heldCartsCount, syncQueueCount] =
+    await Promise.all([
+      db.products.count(),
+      db.categories.count(),
+      db.parties.count(),
+      db.sales.count(),
+      db.heldCarts.count(),
+      db.syncQueue.where('status').equals('pending').count(),
+    ])
 
   return {
     products: productsCount,

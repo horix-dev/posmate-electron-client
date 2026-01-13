@@ -1,7 +1,19 @@
-import { memo, useEffect, useCallback } from 'react'
+import { memo, useEffect, useCallback, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
+import {
+  Loader2,
+  Upload,
+  X,
+  User,
+  Mail,
+  Phone as PhoneIcon,
+  MapPin,
+  Wallet,
+  CreditCard,
+  ArrowRightLeft,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -13,7 +25,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import {
   Form,
   FormControl,
@@ -21,14 +33,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import type { Party } from '@/types/api.types'
 import {
   supplierFormSchema,
@@ -66,6 +73,7 @@ function SupplierFormDialogComponent({
   isSaving = false,
 }: SupplierFormDialogProps) {
   const isEdit = !!initialData
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   // Initialize form with react-hook-form and zod validation
   const form = useForm<SupplierFormData>({
@@ -79,11 +87,32 @@ function SupplierFormDialogComponent({
       if (initialData) {
         const formData = partyToSupplierFormData(initialData)
         form.reset(formData)
+        setImagePreview(initialData.image || null)
       } else {
         form.reset(defaultSupplierFormValues)
+        setImagePreview(null)
       }
     }
   }, [open, initialData, form])
+
+  // Handle image selection
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      form.setValue('image', file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  // Handle image removal
+  const handleImageRemove = () => {
+    form.setValue('image', undefined)
+    setImagePreview(null)
+  }
 
   // Handle form submission
   const handleSubmit = useCallback(
@@ -104,7 +133,7 @@ function SupplierFormDialogComponent({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="max-w-2xl max-h-[90vh] flex flex-col"
+        className="flex max-h-[90vh] max-w-2xl flex-col"
         aria-describedby="supplier-form-description"
       >
         <DialogHeader>
@@ -117,221 +146,240 @@ function SupplierFormDialogComponent({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
-            <div className="flex-1 overflow-y-auto px-1 space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Name */}
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter supplier name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Contact Person */}
-              <FormField
-                control={form.control}
-                name="contact_person"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contact Person</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter contact person" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Email */}
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="Enter email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Phone */}
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter phone number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Address */}
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Address</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Enter address" rows={2} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid gap-4 md:grid-cols-3">
-              {/* City */}
-              <FormField
-                control={form.control}
-                name="city"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>City</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter city" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* State */}
-              <FormField
-                control={form.control}
-                name="state"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>State/Province</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter state" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* ZIP Code */}
-              <FormField
-                control={form.control}
-                name="zip_code"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>ZIP/Postal Code</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter ZIP code" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Country */}
-              <FormField
-                control={form.control}
-                name="country"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Country</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter country" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Tax Number */}
-              <FormField
-                control={form.control}
-                name="tax_number"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tax / VAT Number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter tax number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Payment Terms */}
-              <FormField
-                control={form.control}
-                name="payment_terms"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Payment Terms</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex min-h-0 flex-1 flex-col">
+            <div className="flex-1 space-y-6 overflow-y-auto px-1 py-2">
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Name */}
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem className="col-span-2">
+                      <FormLabel>Name *</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select payment terms" />
-                        </SelectTrigger>
+                        <div className="relative">
+                          <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input className="pl-9" placeholder="Enter supplier name" {...field} />
+                        </div>
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Net 15">Net 15</SelectItem>
-                        <SelectItem value="Net 30">Net 30</SelectItem>
-                        <SelectItem value="Net 60">Net 60</SelectItem>
-                        <SelectItem value="Due on receipt">Due on receipt</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Phone */}
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <PhoneIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input className="pl-9" placeholder="Enter phone number" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Email */}
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            className="pl-9"
+                            type="email"
+                            placeholder="Enter email"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Address */}
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem className="col-span-2">
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <MapPin className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                          <Textarea
+                            className="min-h-[80px] pl-9"
+                            placeholder="Enter address details"
+                            rows={2}
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid gap-4 rounded-lg border bg-muted/10 p-4 md:grid-cols-2">
+                {/* Opening Balance */}
+                <FormField
+                  control={form.control}
+                  name="opening_balance"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Opening Balance</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Wallet className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="number"
+                            className="pl-9"
+                            placeholder="0.00"
+                            step="0.01"
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) =>
+                              field.onChange(e.target.value ? parseFloat(e.target.value) : 0)
+                            }
+                          />
+                        </div>
+                      </FormControl>
+                      <FormDescription>Initial balance amount</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Opening Balance Type */}
+                <FormField
+                  control={form.control}
+                  name="opening_balance_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Balance Type *</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="grid grid-cols-2 gap-2"
+                        >
+                          <div>
+                            <RadioGroupItem
+                              value="due"
+                              id="supplier-due"
+                              className="peer sr-only"
+                            />
+                            <Label
+                              htmlFor="supplier-due"
+                              className={cn(
+                                'flex cursor-pointer flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 transition-all hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary',
+                                field.value === 'due' && 'border-primary bg-primary/10'
+                              )}
+                            >
+                              <CreditCard className="mb-1 h-4 w-4" />
+                              <span className="text-xs font-semibold">Due</span>
+                              <span className="line-clamp-1 text-center text-[10px] text-muted-foreground">
+                                They owe you
+                              </span>
+                            </Label>
+                          </div>
+                          <div>
+                            <RadioGroupItem
+                              value="advance"
+                              id="supplier-advance"
+                              className="peer sr-only"
+                            />
+                            <Label
+                              htmlFor="supplier-advance"
+                              className={cn(
+                                'flex cursor-pointer flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 transition-all hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary',
+                                field.value === 'advance' && 'border-primary bg-primary/10'
+                              )}
+                            >
+                              <ArrowRightLeft className="mb-1 h-4 w-4" />
+                              <span className="text-xs font-semibold">Advance</span>
+                              <span className="line-clamp-1 text-center text-[10px] text-muted-foreground">
+                                You owe them
+                              </span>
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Image Upload */}
+              <FormField
+                control={form.control}
+                name="image"
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                render={({ field: { onChange: _onChange, value: _value, ...fieldRest } }) => (
+                  <FormItem>
+                    <FormLabel>Supplier Image</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center gap-4">
+                        {imagePreview && (
+                          <div className="group relative shrink-0">
+                            <img
+                              src={imagePreview}
+                              alt="Preview"
+                              className="h-20 w-20 rounded-md border object-cover shadow-sm"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute -right-2 -top-2 h-6 w-6 rounded-full opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+                              onClick={handleImageRemove}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <Label
+                            htmlFor="image-upload"
+                            className="flex h-20 w-full cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/25 transition-colors hover:bg-muted/50"
+                          >
+                            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                              <Upload className="h-4 w-4" />
+                              <span className="text-sm font-medium">Click to upload image</span>
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">MAX 2MB</p>
+                          </Label>
+                          <Input
+                            id="image-upload"
+                            type="file"
+                            accept="image/jpeg,image/png,image/jpg,image/gif"
+                            {...fieldRest}
+                            onChange={handleImageChange}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              {/* Active Status */}
-              <FormField
-                control={form.control}
-                name="is_active"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-2 space-y-0 pt-6">
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <FormLabel className="!mt-0">Active</FormLabel>
-                  </FormItem>
-                )}
-              />
             </div>
 
-            {/* Notes */}
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Enter notes" rows={3} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            </div>
-
-            <DialogFooter className="pt-4 shrink-0">
+            <DialogFooter className="mt-2 shrink-0 border-t pt-4">
               <Button type="button" variant="outline" onClick={handleClose} disabled={isSaving}>
                 Cancel
               </Button>

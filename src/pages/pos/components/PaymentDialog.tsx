@@ -338,7 +338,9 @@ function PaymentDialogComponent({
             {/* Amount Paid Input - Now shown for all payment types */}
             <div className="space-y-2">
               <Label htmlFor="amount-paid">
-                Amount Paid (Enter partial amount or adjust as needed)
+                {isCreditPayment && customer
+                  ? 'Amount Paid (Enter partial amount or adjust as needed)'
+                  : 'Amount Received'}
               </Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">

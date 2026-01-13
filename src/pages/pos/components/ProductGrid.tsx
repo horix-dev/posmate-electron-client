@@ -232,6 +232,20 @@ function ProductGridComponent({
   onSelectVariant,
   onViewModeChange,
 }: ProductGridProps) {
+  // Sort products: in-stock first, out-of-stock at the end
+  const sortedProducts = useMemo(() => {
+    return [...products].sort((a, b) => {
+      const aStock = a.stocks_sum_product_stock ?? a.productStock ?? 0
+      const bStock = b.stocks_sum_product_stock ?? b.productStock ?? 0
+      const aOutOfStock = aStock <= 0
+      const bOutOfStock = bStock <= 0
+
+      if (aOutOfStock && !bOutOfStock) return 1
+      if (!aOutOfStock && bOutOfStock) return -1
+      return 0
+    })
+  }, [products])
+
   const gridClassName = useMemo(
     () => cn('grid', viewMode === 'grid' ? 'grid-cols-4 gap-3' : 'grid-cols-1 gap-2'),
     [viewMode]
@@ -264,7 +278,7 @@ function ProductGridComponent({
           <EmptyState searchQuery={searchQuery} onClear={() => onSearchChange('')} />
         ) : (
           <div className={cn(gridClassName, 'pr-3')}>
-            {products.map((product) => (
+            {sortedProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}

@@ -12,8 +12,7 @@ describe('purchaseCalculations', () => {
           { quantities: 2, productPurchasePrice: 50 },
           { quantities: 1, productPurchasePrice: 20 },
         ],
-        10,
-        30
+        { discountAmount: 10, paidAmount: 30 }
       )
 
       expect(totals.subtotal).toBe(120)
@@ -22,11 +21,10 @@ describe('purchaseCalculations', () => {
     })
 
     it('never returns negative totals', () => {
-      const totals = calculatePurchaseTotals(
-        [{ quantities: 1, productPurchasePrice: 10 }],
-        999,
-        999
-      )
+      const totals = calculatePurchaseTotals([{ quantities: 1, productPurchasePrice: 10 }], {
+        discountAmount: 999,
+        paidAmount: 999,
+      })
 
       expect(totals.subtotal).toBe(10)
       expect(totals.totalAmount).toBe(0)
@@ -38,9 +36,7 @@ describe('purchaseCalculations', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         [{ quantities: 'x' as any, productPurchasePrice: NaN }],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        'nope' as any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any
+        { discountAmount: 'nope' as any, paidAmount: undefined as any }
       )
 
       expect(totals.subtotal).toBe(0)

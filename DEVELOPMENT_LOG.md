@@ -1,3 +1,219 @@
+# Development Log
+
+## 2026-01-14 — Fix: Supplier Update with Image Upload (Method Spoofing) 🔧
+
+**Context**: Supplier update requests with images were failing because Laravel doesn't properly parse `multipart/form-data` with PUT requests.
+
+**Problem**:
+- PUT request to `/api/v1/parties/{id}` with multipart form data was returning "The name field is required" errors
+- All form fields were being sent but Laravel wasn't parsing them from the PUT request body
+- This is a known Laravel limitation with file uploads in PUT/PATCH requests
+
+**Solution**:
+- Changed `parties.service.ts` update method from `api.put()` to `api.post()` with `_method=PUT` field
+- This uses Laravel's method spoofing which properly handles multipart/form-data with file uploads
+- The `_method` field tells Laravel to treat the POST as a PUT request
+
+**Files Modified**:
+- `src/api/services/parties.service.ts` - Updated `update()` method to use POST with method spoofing
+
+**Technical Details**:
+```typescript
+// Before: api.put() - doesn't work with multipart/form-data
+await api.put(url, formData)
+
+// After: api.post() with _method field - works correctly
+formData.append('_method', 'PUT')
+await api.post(url, formData)
+```
+
+---
+
+## 2026-01-14 — Backend API Alignment: Customer & Supplier CRUD Compatibility ✅
+
+**Context**: Frontend customer/supplier forms were not compatible with the Laravel backend Party API specification.
+
+**Problem**:
+1. **Extra unsupported fields** - Frontend sent fields the backend doesn't accept:
+   - `contact_person`, `city`, `state`, `zip_code`, `country`, `tax_number`, `payment_terms`, `notes`, `is_active`
+2. **Missing required fields**:
+   - Customer type selection (Retailer/Dealer/Wholesaler) was hardcoded
+   - Credit limit field missing from customer forms
+   - Opening balance and balance type hardcoded instead of user-configurable
+   - Image upload not implemented
+3. **Type mismatches**:
+   - Party interface missing backend fields: `business_id`, `version`, `created_at`, `updated_at`, `deleted_at`
+   - `wallet` and `opening_balance` were optional but backend always returns them
+
+**Solution Implemented**:
+
+### 1. Updated Type Definitions (`src/types/api.types.ts`)
+- Added all backend response fields to `Party` interface
+- Made `wallet`, `opening_balance`, `version`, timestamps non-optional to match API
+
+### 2. Customer Schema & Form (`src/pages/customers/`)
+**Removed unsupported fields:**
+- `contact_person`, `city`, `state`, `zip_code`, `country`, `tax_number`, `payment_terms`, `notes`, `is_active`
+
+**Added backend-compatible fields:**
+- `type` - Dropdown for Retailer/Dealer/Wholesaler selection
+- `credit_limit` - Number input with validation (0-999999999999.99)
+- `opening_balance` - Number input for initial balance
+- `opening_balance_type` - Radio buttons for "Due" vs "Advance"
+- `image` - File upload with preview and remove functionality
+
+### 3. Supplier Schema & Form (`src/pages/suppliers/`)
+**Removed unsupported fields:**
+- Same as customer form
+
+**Added backend-compatible fields:**
+- `opening_balance` - Number input for initial balance
+- `opening_balance_type` - Radio buttons (defaults to "advance" for suppliers)
+- `image` - File upload with preview
+
+### 4. Form Implementation Updates
+**CustomerFormDialog.tsx:**
+- Added customer type selector (Retailer/Dealer/Wholesaler)
+- Added credit limit field with description
+- Added opening balance section with radio group
+- Implemented image upload with preview and remove
+- Fixed form data mapping to use actual form values
+
+**SupplierFormDialog.tsx:**
+- Added opening balance section
+- Implemented image upload with preview
+- Added helper text explaining balance types for suppliers
+
+### 5. Page-Level Updates
+**CustomersPage.tsx:**
+- Updated `handleSave` to pass all form fields to API
+- Properly maps customer type from form instead of hardcoding
+- Includes credit_limit, opening_balance, opening_balance_type, and image
+
+**SuppliersPage.tsx:**
+- Updated `handleSave` to pass opening balance fields
+- Includes opening_balance, opening_balance_type, and image
+
+**useSuppliers.ts hook:**
+- Removed hardcoded `type: 'Supplier'` from create mutation (now passed from form)
+
+**Files Modified:**
+- `src/types/api.types.ts` - Updated Party interface
+- `src/pages/customers/schemas/customer.schema.ts` - New backend-compatible schema
+- `src/pages/customers/components/CustomerFormDialog.tsx` - Complete form redesign
+- `src/pages/customers/CustomersPage.tsx` - Updated form data handling
+- `src/pages/suppliers/schemas/supplier.schema.ts` - New backend-compatible schema
+- `src/pages/suppliers/components/SupplierFormDialog.tsx` - Complete form redesign
+- `src/pages/suppliers/SuppliersPage.tsx` - Updated form data handling
+- `src/pages/suppliers/hooks/useSuppliers.ts` - Fixed type assignment
+
+**Backend API Reference**: `backend_docs/SUPPLIER_CUSTOMER_API.md`
+
+---
+
+## 2026-01-11 — UX Enhancement: Hero Row + Variant Slide-over Panel ✅
+
+---
+
+## 2026-01-13 — Electron: Image Fetch Proxy (Bypass CORS) ✅
+
+**Context**: Some images could not be fetched/cached in the renderer due to missing/strict CORS headers on the backend.
+
+**Problem**:
+- `fetch()` from the renderer is subject to Chromium CORS rules (even inside Electron)
+- The image cache (`src/lib/cache/imageCache.ts`) uses `fetch(url).blob()` and would fail when the backend doesn’t allow the renderer origin
+
+**Solution Implemented**:
+- Added a **main-process IPC handler** (`fetch-image`) that fetches image bytes server-side and returns them to the renderer
+- Enforced basic safety constraints:
+  - Allowlisted hosts (derived from `VITE_API_BASE_URL` + production fallback)
+  - `http/https` only
+  - Manual redirect handling with host re-validation
+  - Timeout + max size limit
+  - `content-type` must be `image/*`
+- Updated the renderer image cache to use this proxy automatically when `window.electronAPI.images.fetch` is available; otherwise it falls back to normal `fetch()` for web
+
+**Files Modified**:
+- `electron/main.ts` - IPC handler and fetch safety controls
+- `electron/preload.ts` - Exposed `window.electronAPI.images.fetch`
+- `src/types/electron.d.ts` - Added typings for `images.fetch`
+- `src/lib/cache/imageCache.ts` - Use IPC proxy in Electron
+
+
+**Context**: Improved POS cashier UX with visual scan confirmation and streamlined variant selection.
+
+**Problem**:
+1. Cart items had equal visual weight - cashiers couldn't quickly confirm new scans
+2. Variant selection modal broke the flow and obscured the product grid
+
+**Solution Implemented**:
+
+### 1. Hero Row (Cart Visual Confirmation)
+- Reversed cart item order to show newest item at the top
+- Applied subtle blue highlight to the most recent item (`bg-blue-100/60`)
+- Added smooth fade transition (`duration-1000`) when item moves down
+- Dark mode support with appropriate contrast
+
+### 2. Variant Selection Slide-over Panel
+- Replaced modal Dialog with Sheet component (right side slide-over)
+- Wider panel (`sm:max-w-lg`) for better visibility
+- Larger product image preview (w-48 vs w-32)
+- Fixed footer with full-width action buttons
+- Scrollable content area that doesn't obscure product grid
+
+**Benefits**:
+- **Immediate Scan Feedback**: Cashiers can confirm scan without reading entire cart
+- **Flow Preservation**: Slide-over keeps product grid visible during variant selection
+- **Better Space Usage**: Larger preview and controls in slide-over format
+- **Reduced Cognitive Load**: No modal overlay interruption
+
+**Files Modified**:
+- `src/pages/pos/components/CartSidebar.tsx` - Hero row implementation
+- `src/pages/pos/components/VariantSelectionDialog.tsx` - Sheet conversion
+
+**Technical Details**:
+- Used `useMemo` for reversed items array (performance)
+- Conditional styling with `cn()` utility
+- Sheet component from `@/components/ui/sheet`
+- Maintained all existing functionality and props
+
+---
+
+## 2026-01-11 — POS Cart: Scrollable Items + Pinned Totals/Actions ✅
+
+**Context**: When the cart had many items, the totals/actions area could be pushed below the viewport instead of keeping only the items list scrollable.
+
+**Problem**:
+- Cart items section expanded vertically, pushing the bottom actions off-screen
+- Radix `ScrollArea` needs a constrained parent height; missing `min-h-0` in flex containers prevented proper scrolling behavior
+
+**Solution Implemented**:
+- Restructured the cart to a strict flex layout: header (shrink) + items (`flex-1 min-h-0`) + footer (shrink)
+- Made the items area the only scrollable region (`ScrollArea` set to `flex-1 min-h-0`)
+- Removed reliance on `position: sticky` for the totals/actions area (unnecessary once only the items scroll)
+- Added `min-h-0` to the cart column wrapper so children can shrink within the grid layout
+
+**Files Modified**:
+- `src/pages/pos/components/CartSidebar.tsx`
+- `src/pages/pos/POSPage.tsx`
+
+---
+
+## 2026-01-12 — POS: Make Smart Tender Optional ✅
+
+**Context**: Smart Tender should be optional per store preference.
+
+**Solution Implemented**:
+- Added a persisted `smartTenderEnabled` flag in the UI store
+- Added a Settings toggle under **Settings → General → POS Settings**
+- Updated the Pay flow: when disabled, Pay opens the payment dialog directly; when enabled, it shows Smart Tender first
+
+**Files Modified**:
+- `src/stores/ui.store.ts`
+- `src/pages/settings/SettingsPage.tsx`
+- `src/pages/pos/POSPage.tsx`
+- `src/__tests__/stores/ui.store.test.ts`
+
 ## 2026-01-11 — POS Layout: Remove ScrollArea Wrapper ✅
 
 **Context**: The POS page showed a small bottom gap due to Radix `ScrollArea` viewport sizing inside the app shell.
@@ -3802,3 +4018,259 @@ await storage.syncQueue.enqueue({ ... })
 ---
 
 *Last Updated: December 2024*
+
+## 2026-01-14  UI/UX Improvements: Supplier Form Dialog
+
+**Context**: The supplier form was functional but lacked visual hierarchy and professional polish. The image upload was basic and some inputs lacked context.
+
+**Improvements**:
+1. **Enhanced Visual Hierarchy**: 
+   - Grouped fields into 'Personal Details' and 'Financial Details' sections.
+   - Added clearer separation for Financial Details with a subtle background.
+2. **Improved Input UX**:
+   - Added icons to all input fields (User, Phone, Mail, Map, Wallet, CreditCard) for better recognition.
+   - Changed 'Balance Type' selection from standard radio buttons to select cards with icons and descriptions ('Due' vs 'Advance').
+3. **Better Image Upload**:
+   - Replaced basic file input with a styled drag-drop area with 'Click to upload' CTA.
+   - Improved image preview and remove button styling.
+4. **Layout Optimization**:
+   - Optimized grid usage to balance the form (Name full width, Phone/Email side-by-side).
+
+**Files Modified**:
+- \src/pages/suppliers/components/SupplierFormDialog.tsx\
+
+
+## 2026-01-14  UI/UX Improvements: Customer Form Dialog
+
+**Context**: Similar to the Supplier Form, the Customer Form needed UI/UX polish and consistency.
+
+**Improvements**:
+1. **Consistent Visual Language**: Applied the same styled layout as Supplier Form (Grouped sections, specific icons).
+2. **Enhanced Select UX**: Added icon inside Select trigger for Customer Type.
+3. **Improved Financial Section**: Grouped Credit Limit and Opening Balance with clear icons and background.
+4. **Better Input recognition**: Added specific icons for Phone, Email, Address, etc.
+
+**Files Modified**:
+- \src/pages/customers/components/CustomerFormDialog.tsx\
+
+
+
+## 2026-01-14  Backend API Alignment: Purchase CRUD Backend Compatibility 
+
+**Context**: Verified and enhanced the purchase CRUD implementation to be fully compatible with the Laravel backend Purchase API specification.
+
+**Changes Implemented**:
+
+### 1. Type Definitions Updated (src/types/api.types.ts)
+**Added missing backend response fields to Purchase interface:**
+- discount_percent, discount_type, shipping_charge
+- at_amount, at_percent
+- change_amount, isPaid, paymentType
+- created_at, updated_at
+- user object (id, name, role)
+- ranch object (id, name, phone, address)
+
+**Enhanced PurchaseDetail interface:**
+- Added ariant_id field (for variant product support)
+- Added subTotal field
+- Enhanced product object with product_type and category
+- Added ariant object (id, variant_name)
+- Added stock object (id, batch_no, expire_date, mfg_date)
+
+**Updated CreatePurchaseRequest:**
+- Added discount_percent, discount_type, shipping_charge
+- Added change_amount
+
+### 2. API Service Enhancement (src/api/services/purchases.service.ts)
+**Added missing filter parameters to getAll():**
+- limit - For dropdown mode
+- cursor - For cursor pagination/sync mode
+- isPaid - Filter by payment status
+- 'returned-purchase' - Show only purchases with returns
+- invoiceNumber - Exact invoice number match
+
+### 3. Calculation Engine Overhaul (src/pages/purchases/utils/purchaseCalculations.ts)
+**Enhanced PurchaseTotals interface:**
+- Added discountAmount, atAmount, shippingCharge to returned values
+
+**Upgraded calculatePurchaseTotals() function:**
+- Changed from positional parameters to options object
+- Added support for percentage-based discounts (vs fixed amount)
+- Added VAT calculation based on percentage
+- Added shipping charge to total
+- Formula: Total = (Subtotal - Discount) + VAT + Shipping
+
+**Updated buildCreatePurchaseRequest():**
+- Uses new calculation method with all options
+- Passes at_percent for proper VAT calculation
+- Includes all new fields in request payload
+
+### 4. Purchase Form Enhancements (src/pages/purchases/NewPurchasePage.tsx)
+
+**New Form Fields Added:**
+
+**Discount Type Selector:**
+- Toggle between Fixed Amount and Percentage
+- When percentage is selected, shows calculated discount amount
+- Dynamically updates form based on selection
+
+**VAT/Tax Support:**
+- Dropdown selector for configured VAT rates
+- Auto-fetches VAT configurations from backend
+- Displays calculated VAT amount (read-only)
+- VAT applied after discount: (Subtotal - Discount)  VAT%
+
+**Shipping Charge:**
+- Number input for freight/delivery costs
+- Added to final total amount
+
+**Enhanced Payment Summary:**
+- Now displays: Subtotal  Discount  VAT  Shipping  Total  Paid  Due
+- Visual breakdown of all cost components
+- Percentage discount shows both % and calculated amount
+
+**Updated State Management:**
+- Added ats state for VAT configurations
+- Added watchers for: discount_type, discount_percent, shipping_charge, at_id
+- Computed atPercent from selected VAT
+
+**Enhanced Calculations:**
+- Real-time calculation with all new fields
+- Updates form hidden fields for API submission
+- Display calculations use same logic as backend
+
+### 5. Code Organization
+**Deleted obsolete file:**
+- Removed src/pages/purchases/components/NewPurchaseDialog.tsx (moved to full-page version)
+
+### 6. Verification Documentation
+**Created comprehensive compatibility report:**
+- ackend_docs/PURCHASE_CRUD_VERIFICATION.md
+- Field-by-field comparison with backend API
+- Request/response structure validation
+- Missing features identified (all optional enhancements)
+- Priority-based recommendations
+
+**Compatibility Status:  PRODUCTION READY**
+
+**What Works:**
+- All CRUD operations match backend spec
+- Required fields properly validated
+- Optional backend features now implemented:
+  - Percentage discounts (in addition to fixed)
+  - VAT/Tax calculation and tracking
+  - Shipping charges
+  - Enhanced filtering options
+- Proper calculation order: Subtotal  Discount  VAT  Shipping
+- All pagination modes supported (default, limit, offset, cursor)
+
+**Backend API Features Now Supported:**
+1.  Fixed and percentage discount types
+2.  VAT/Tax calculation with configurable rates
+3.  Shipping charge tracking
+4.  Multiple filter options (isPaid, returned-purchase, etc.)
+5.  Variant product support in types
+6.  Complete response metadata (user, branch, timestamps)
+
+**Files Modified:**
+- src/types/api.types.ts - Enhanced type definitions
+- src/api/services/purchases.service.ts - Added filter parameters
+- src/pages/purchases/utils/purchaseCalculations.ts - Upgraded calculation engine
+- src/pages/purchases/NewPurchasePage.tsx - Full-featured purchase form
+- ackend_docs/PURCHASE_CRUD_VERIFICATION.md - Verification documentation
+
+**Files Deleted:**
+- src/pages/purchases/components/NewPurchaseDialog.tsx - Consolidated to full-page version
+
+
+## 2026-01-14  UI/UX: Enhanced Customers & Suppliers Pages 
+
+**Context**: The Customers and Suppliers list pages were functional but lacked visual polish and key information.
+
+**Improvements**:
+1. **Visual Overhaul**: 
+   - Added **Avatars** with initial fallbacks for better recognition.
+   - Implemented **Skeleton Loaders** for a smoother loading experience.
+   - Improved list item layout with better typography and spacing.
+2. **Information Density**:
+   - Added **Badges** for Customer Types (Wholesale/Retail).
+   - Displayed **Current Balance** with color coding (Green/Red) directly in the list.
+   - Combined contact info (Phone/Email) in a cleaner format.
+3. **UX Enhancements**:
+   - Added **Offline Banner** to Customers page (previously only on Suppliers).
+   - Improved **Empty States** with clear iconography and calls to action.
+   - Consistent design pattern applied across both pages.
+
+**Files Modified**:
+- \src/pages/customers/CustomersPage.tsx\
+- \src/pages/suppliers/SuppliersPage.tsx\
+
+
+## 2026-01-14  UI/UX Polish: Purchase Page Refinements
+
+**Context**: Based on visual review, the New Purchase screen had several layout and usability inconsistencies.
+
+**Improvements**:
+1.  **Payment Section Overhaul**:
+    - Replaced scattered inputs with a clean **2-column layout**.
+    - Left column: Payment method, Discount, TAX/VAT, Shipping inputs.
+    - Right column: **Unified Summary Card** showing Subtotal, Discount, Tax, Shipping, Net Payable, Paid, and Balance Due in a vertical invoice-style list.
+    - Improved visual hierarchy for 'Net Payable' and 'Balance Due'.
+
+2.  **Procut Table Polish**:
+    - **Alignment**: Right-aligned numeric headers (Qty, Price, Subtotal).
+    - **Subtotal**: Moved from plain text to a **Disabled Input** for better visual consistency with other inputs.
+    - **Profit Label**: Added breathing room (margin) between Sale Price input and profit percentage.
+    - **Date Inputs**: Increased font size for Batch/Expiry fields for better readability.
+
+3.  **UX Enhancements**:
+    - **Field Reordering**: Moved **Supplier** to the first position in the form (Primary required field).
+    - **Clear All**: Changed button style to 'Ghost' to reduce visual noise and prevent accidental clicks.
+    - **Pay Full Button**: Renamed 'Full' to 'Pay Full' for clarity.
+
+**Files Modified**:
+- \src/pages/purchases/NewPurchasePage.tsx\
+
+
+## 2026-01-14 (Update) UI/UX: Product Table Layout Optimization
+
+**Context**: The product table layout was identified as Top-Heavy, with misaligned columns and distinct visual weight issues.
+
+**Improvements**:
+1.  **Column Structure**:
+    - Split 'Batch / Expiry / Mfg' into **3 separate columns**.
+    - New Layout: Details (30%), Batch (10%), Expiry (10%), Mfg (10%), Qty (10%), Cost (10%), Sale (10%), Subtotal (10%).
+    - This distributes weight evenly and prevents vertical expansion of rows.
+
+2.  **Vertical Rhythm**:
+    - Changed lign-top to lign-middle for all table rows.
+    - All inputs are now perfectly vertically centered relative to each other.
+
+3.  **Input Styling**:
+    - Added **Currency Prefix** (e.g. 'Rs') inside Cost and Sale price inputs using specific relative positioning.
+    - Added pl-8 to these inputs to prevent text overlap.
+    - This visually distinguishes financial fields from simple quantity fields.
+
+4.  **Action Column**:
+    - Styled 'Trash' button as ghost variant with hover state hover:bg-destructive/10.
+    - Improved click target area visibility without cluttering the UI.
+
+**Files Modified**:
+- \src/pages/purchases/NewPurchasePage.tsx\
+
+
+## 2026-01-14 (Update 2) UI/UX: Product Image in Purchase Table
+
+**Context**: To improve product identification, a product image column was requested for the purchase form product table.
+
+**Improvements**:
+1.  **New Column**: Added 'Image' column (50px width) at the start of the table.
+2.  **Implementation**: 
+    - Fetches \productPicture\ from the product object.
+    - Displays a thumbnail with rounded corners and border.
+    - Shows a placeholder icon if no image is available.
+3.  **Layout Adjustment**: Adjusted 'Product Details' column width from 25% to 20% to accommodate the image column without cramping other fields.
+
+**Files Modified**:
+- \src/pages/purchases/NewPurchasePage.tsx\
+

@@ -39,9 +39,16 @@ const createMockStock = (overrides: Partial<Stock> = {}): Stock => ({
 
 const createMockParty = (overrides: Partial<Party> = {}): Party => ({
   id: 1,
+  business_id: 1,
   name: 'Test Customer',
   type: 'Retailer',
   due: 0,
+  wallet: 0,
+  opening_balance: 0,
+  opening_balance_type: 'due' as const,
+  version: 1,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
   ...overrides,
 })
 

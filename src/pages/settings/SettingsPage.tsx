@@ -32,8 +32,16 @@ type AppInfo = {
 }
 
 export function SettingsPage() {
-  const { theme, setTheme, soundEnabled, setSoundEnabled, autoPrintReceipt, setAutoPrintReceipt } =
-    useUIStore()
+  const {
+    theme,
+    setTheme,
+    soundEnabled,
+    setSoundEnabled,
+    autoPrintReceipt,
+    setAutoPrintReceipt,
+    smartTenderEnabled,
+    setSmartTenderEnabled,
+  } = useUIStore()
   const business = useBusinessStore((state) => state.business)
 
   const {
@@ -246,6 +254,16 @@ export function SettingsPage() {
                   </p>
                 </div>
                 <Switch checked={autoPrintReceipt} onCheckedChange={setAutoPrintReceipt} />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Smart Tender</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Show Smart Tender before opening payment
+                  </p>
+                </div>
+                <Switch checked={smartTenderEnabled} onCheckedChange={setSmartTenderEnabled} />
               </div>
             </CardContent>
           </Card>

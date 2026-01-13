@@ -23,7 +23,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-// Select removed - not currently used, can re-add when payment type selector is needed
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Command,
@@ -37,10 +43,10 @@ import { Calendar } from '@/components/ui/calendar'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import { purchasesService, productsService, partiesService } from '@/api/services'
+import { purchasesService, productsService, partiesService, vatsService } from '@/api/services'
 import { useCurrency } from '@/hooks'
 import { calculatePurchaseTotals, buildCreatePurchaseRequest } from '../utils/purchaseCalculations'
-import type { Product, Party } from '@/types/api.types'
+import type { Product, Party, Vat } from '@/types/api.types'
 
 // ============================================
 // Form Schema
@@ -66,8 +72,13 @@ const purchaseFormSchema = z.object({
   invoiceNumber: z.string().optional(),
   purchaseDate: z.string().min(1, 'Purchase date is required'),
   payment_type_id: z.number().optional(),
+  vat_id: z.number().optional(),
+  vat_amount: z.number().min(0).optional(),
   totalAmount: z.number().min(0),
   discountAmount: z.number().min(0).optional(),
+  discount_percent: z.number().min(0).max(100).optional(),
+  discount_type: z.enum(['fixed', 'percentage']).optional(),
+  shipping_charge: z.number().min(0).optional(),
   paidAmount: z.number().min(0),
   dueAmount: z.number().min(0).optional(),
   products: z.array(purchaseProductSchema).min(1, 'At least one product is required'),
@@ -187,6 +198,7 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
 }: NewPurchaseDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [suppliers, setSuppliers] = useState<Party[]>([])
+  const [vats, setVats] = useState<Vat[]>([])
   // const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([])
   const [isLoadingData, setIsLoadingData] = useState(false)
   const [supplierOpen, setSupplierOpen] = useState(false)
@@ -202,8 +214,13 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
       invoiceNumber: '',
       purchaseDate: format(new Date(), 'yyyy-MM-dd'),
       payment_type_id: undefined,
+      vat_id: undefined,
+      vat_amount: 0,
       totalAmount: 0,
       discountAmount: 0,
+      discount_percent: 0,
+      discount_type: 'fixed',
+      shipping_charge: 0,
       paidAmount: 0,
       dueAmount: 0,
       products: [],
@@ -218,15 +235,48 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
   // Watch for calculations
   const watchProducts = form.watch('products')
   const watchDiscount = form.watch('discountAmount') || 0
+  const watchDiscountType = form.watch('discount_type') || 'fixed'
+  const watchDiscountPercent = form.watch('discount_percent') || 0
+  const watchShipping = form.watch('shipping_charge') || 0
+  const watchVatId = form.watch('vat_id')
   const watchPaid = form.watch('paidAmount') || 0
+
+  // Get selected VAT rate for calculations
+  const selectedVat = vats.find((v) => v.id === watchVatId)
+  const vatPercent = selectedVat?.rate || 0
 
   // Update form values for submission (but display uses computed values)
   useEffect(() => {
-    const totals = calculatePurchaseTotals(watchProducts, watchDiscount, watchPaid)
+    const totals = calculatePurchaseTotals(watchProducts, {
+      discountAmount: watchDiscount,
+      discountPercent: watchDiscountPercent,
+      discountType: watchDiscountType,
+      vatPercent,
+      shippingCharge: watchShipping,
+      paidAmount: watchPaid,
+    })
 
     form.setValue('totalAmount', totals.totalAmount, { shouldValidate: false, shouldDirty: false })
+    form.setValue('vat_amount', totals.vatAmount, { shouldValidate: false, shouldDirty: false })
     form.setValue('dueAmount', totals.dueAmount, { shouldValidate: false, shouldDirty: false })
-  }, [watchProducts, watchDiscount, watchPaid, form])
+
+    // If discount type is percentage, update the fixed amount
+    if (watchDiscountType === 'percentage') {
+      form.setValue('discountAmount', totals.discountAmount, {
+        shouldValidate: false,
+        shouldDirty: false,
+      })
+    }
+  }, [
+    watchProducts,
+    watchDiscount,
+    watchDiscountType,
+    watchDiscountPercent,
+    watchShipping,
+    vatPercent,
+    watchPaid,
+    form,
+  ])
 
   // Fetch initial data
   useEffect(() => {
@@ -237,6 +287,12 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
           // Fetch suppliers
           const suppliersData = await partiesService.getSuppliers()
           setSuppliers(suppliersData)
+
+          // Fetch VATs
+          const vatsResponse = await vatsService.getAll()
+          if (vatsResponse.data) {
+            setVats(Array.isArray(vatsResponse.data) ? vatsResponse.data : [])
+          }
 
           // Fetch products (for variant support)
           const productsResponse = await productsService.getList({ limit: 1000 })
@@ -325,10 +381,16 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
   const excludeProductIds = fields.map((f) => f.product_id)
 
   // Calculate totals directly from watched values for real-time updates
-  const { totalAmount, dueAmount } = calculatePurchaseTotals(
+  const { subtotal, discountAmount, vatAmount, totalAmount, dueAmount } = calculatePurchaseTotals(
     watchProducts,
-    watchDiscount,
-    watchPaid
+    {
+      discountAmount: watchDiscount,
+      discountPercent: watchDiscountPercent,
+      discountType: watchDiscountType,
+      vatPercent,
+      shippingCharge: watchShipping,
+      paidAmount: watchPaid,
+    }
   )
 
   return (
@@ -707,7 +769,7 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
                               <div className="flex h-10 items-center font-medium">
                                 {formatCurrency(
                                   (form.watch(`products.${index}.quantities`) || 0) *
-                                  (form.watch(`products.${index}.productPurchasePrice`) || 0)
+                                    (form.watch(`products.${index}.productPurchasePrice`) || 0)
                                 )}
                               </div>
                             </div>
@@ -721,69 +783,206 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
                 <Separator />
 
                 {/* Payment Section */}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                  {/* Discount */}
-                  <FormField
-                    control={form.control}
-                    name="discountAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Discount</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            {...field}
-                            value={field.value ?? 0}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <div className="space-y-4">
+                  <Label className="text-base font-semibold">Payment Details</Label>
 
-                  {/* Total (Read-only) */}
-                  <div>
-                    <Label>Total Amount</Label>
-                    <div className="flex h-10 items-center text-lg font-bold">
-                      {formatCurrency(totalAmount)}
-                    </div>
+                  {/* Discount Row */}
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    {/* Discount Type */}
+                    <FormField
+                      control={form.control}
+                      name="discount_type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Discount Type</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="fixed">Fixed Amount</SelectItem>
+                              <SelectItem value="percentage">Percentage</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Discount Value */}
+                    {watchDiscountType === 'percentage' ? (
+                      <FormField
+                        control={form.control}
+                        name="discount_percent"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Discount (%)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step="0.01"
+                                placeholder="0"
+                                {...field}
+                                value={field.value ?? 0}
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ) : (
+                      <FormField
+                        control={form.control}
+                        name="discountAmount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Discount Amount</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                placeholder="0.00"
+                                {...field}
+                                value={field.value ?? 0}
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    {/* Discount Display (if percentage) */}
+                    {watchDiscountType === 'percentage' && (
+                      <div>
+                        <Label>Discount Amount</Label>
+                        <div className="flex h-10 items-center font-medium text-muted-foreground">
+                          {formatCurrency(discountAmount)}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Paid Amount */}
-                  <FormField
-                    control={form.control}
-                    name="paidAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Paid Amount</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            {...field}
-                            value={field.value ?? 0}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Due (Read-only) */}
-                  <div>
-                    <Label>Due Amount</Label>
-                    <div
-                      className={cn(
-                        'flex h-10 items-center text-lg font-bold',
-                        dueAmount > 0 && 'text-destructive'
+                  {/* VAT and Shipping Row */}
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    {/* VAT Selector */}
+                    <FormField
+                      control={form.control}
+                      name="vat_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>VAT/Tax</FormLabel>
+                          <Select
+                            onValueChange={(value) =>
+                              field.onChange(value ? Number(value) : undefined)
+                            }
+                            value={field.value ? String(field.value) : ''}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="No tax" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="">No Tax</SelectItem>
+                              {vats.map((vat) => (
+                                <SelectItem key={vat.id} value={String(vat.id)}>
+                                  {vat.name} ({vat.rate}%)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
                       )}
-                    >
-                      {formatCurrency(dueAmount)}
+                    />
+
+                    {/* VAT Amount Display */}
+                    <div>
+                      <Label>VAT Amount</Label>
+                      <div className="flex h-10 items-center font-medium text-muted-foreground">
+                        {formatCurrency(vatAmount)}
+                      </div>
+                    </div>
+
+                    {/* Shipping Charge */}
+                    <FormField
+                      control={form.control}
+                      name="shipping_charge"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Shipping Charge</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              placeholder="0.00"
+                              {...field}
+                              value={field.value ?? 0}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Totals Row */}
+                  <div className="grid grid-cols-2 gap-4 rounded-lg border bg-muted/50 p-4 md:grid-cols-4">
+                    {/* Subtotal */}
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Subtotal</Label>
+                      <div className="mt-1 font-medium">{formatCurrency(subtotal)}</div>
+                    </div>
+
+                    {/* Total */}
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Total Amount</Label>
+                      <div className="mt-1 text-lg font-bold">{formatCurrency(totalAmount)}</div>
+                    </div>
+
+                    {/* Paid Amount Input */}
+                    <FormField
+                      control={form.control}
+                      name="paidAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Paid Amount</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              {...field}
+                              value={field.value ?? 0}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Due */}
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Due Amount</Label>
+                      <div
+                        className={cn(
+                          'mt-1 text-lg font-bold',
+                          dueAmount > 0 && 'text-destructive'
+                        )}
+                      >
+                        {formatCurrency(dueAmount)}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -1,20 +1,14 @@
 /**
- * Variant Selection Dialog
+ * Variant Selection Panel (Slide-over)
  *
- * Displays when a variable product is clicked in POS.
+ * Displays as a slide-over panel when a variable product is clicked in POS.
  * Allows user to select attribute values (Size, Color, etc.) and shows
  * the matching variant with stock and price information.
  */
 
 import { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { Package, Check, AlertTriangle, X } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -397,136 +391,163 @@ function VariantSelectionDialogComponent({
   const isOutOfStock = variantStock <= 0
   const isLowStock = variantStock > 0 && variantStock <= (product.alert_qty ?? 5)
 
+  // Handle keyboard shortcuts
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && matchedVariant && !isOutOfStock) {
+        e.preventDefault()
+        handleAddToCart()
+      }
+    },
+    [matchedVariant, handleAddToCart, isOutOfStock]
+  )
+
   // Get image (variant image or product image)
   const imageUrl = getImageUrl(matchedVariant?.image ?? product.productPicture)
 
   // Show error state if no variants or attributes available
   if (variants.length === 0) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="pr-8">{product.productName}</DialogTitle>
-          </DialogHeader>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="right" className="w-full sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>{product.productName}</SheetTitle>
+          </SheetHeader>
           <div className="py-8 text-center">
             <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-yellow-500" />
             <p className="text-muted-foreground">No variants available for this product.</p>
           </div>
-          <DialogFooter>
+          <SheetFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     )
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="pr-8">{product.productName}</DialogTitle>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="w-full overflow-hidden sm:max-w-lg"
+        onKeyDown={handleKeyDown}
+      >
+        <SheetHeader className="mb-4">
+          <SheetTitle>{product.productName}</SheetTitle>
+        </SheetHeader>
 
-        <div className="space-y-4">
-          {/* Product Image */}
-          <div className="relative mx-auto aspect-square w-32 overflow-hidden rounded-lg bg-muted">
-            {imageUrl ? (
-              <CachedImage
-                src={imageUrl}
-                alt={product.productName}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <Package className="h-12 w-12 text-muted-foreground/50" />
-              </div>
-            )}
-          </div>
-
-          <Separator />
-
-          {/* Attribute Selectors */}
+        <div className="flex h-[calc(100%-80px)] flex-col overflow-y-auto pr-2">
           <div className="space-y-4">
-            {attributes.map((attribute) => {
-              // Get available values considering other selections
-              const availableValueIds = getAvailableValueIds(attribute.id, variants, selectedValues)
-
-              const SelectorComponent =
-                attribute.type === 'color'
-                  ? ColorAttributeSelector
-                  : attribute.type === 'select'
-                    ? SelectAttributeSelector
-                    : ButtonAttributeSelector
-
-              return (
-                <SelectorComponent
-                  key={attribute.id}
-                  attribute={attribute}
-                  selectedValueId={selectedValues[attribute.id] ?? null}
-                  onSelect={(valueId) => handleSelectValue(attribute.id, valueId)}
-                  availableValueIds={availableValueIds}
+            {/* Product Image */}
+            <div className="relative mx-auto aspect-square w-48 overflow-hidden rounded-lg bg-muted">
+              {imageUrl ? (
+                <CachedImage
+                  src={imageUrl}
+                  alt={product.productName}
+                  className="h-full w-full object-cover"
                 />
-              )
-            })}
-          </div>
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <Package className="h-16 w-16 text-muted-foreground/50" />
+                </div>
+              )}
+            </div>
 
-          {/* Selected Variant Info */}
-          {matchedVariant && (
-            <>
-              <Separator />
-              <div className="space-y-2 rounded-lg border bg-muted/50 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">SKU</span>
-                  <span className="font-mono text-sm">{matchedVariant.sku}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Price</span>
-                  <span className="text-lg font-bold text-primary">
-                    {formatCurrency(variantPrice)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Stock</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">{variantStock} units</span>
-                    {isLowStock && (
-                      <Badge variant="outline" className="border-yellow-500 text-yellow-600">
-                        <AlertTriangle className="mr-1 h-3 w-3" />
-                        Low
-                      </Badge>
-                    )}
-                    {isOutOfStock && <Badge variant="destructive">Out of Stock</Badge>}
+            <Separator />
+
+            {/* Attribute Selectors */}
+            <div className="space-y-4">
+              {attributes.map((attribute) => {
+                // Get available values considering other selections
+                const availableValueIds = getAvailableValueIds(
+                  attribute.id,
+                  variants,
+                  selectedValues
+                )
+
+                const SelectorComponent =
+                  attribute.type === 'color'
+                    ? ColorAttributeSelector
+                    : attribute.type === 'select'
+                      ? SelectAttributeSelector
+                      : ButtonAttributeSelector
+
+                return (
+                  <SelectorComponent
+                    key={attribute.id}
+                    attribute={attribute}
+                    selectedValueId={selectedValues[attribute.id] ?? null}
+                    onSelect={(valueId) => handleSelectValue(attribute.id, valueId)}
+                    availableValueIds={availableValueIds}
+                  />
+                )
+              })}
+            </div>
+
+            {/* Selected Variant Info */}
+            {matchedVariant && (
+              <>
+                <Separator />
+                <div className="space-y-2 rounded-lg border bg-muted/50 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">SKU</span>
+                    <span className="font-mono text-sm">{matchedVariant.sku}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Price</span>
+                    <span className="text-lg font-bold text-primary">
+                      {formatCurrency(variantPrice)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Stock</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{variantStock} units</span>
+                      {isLowStock && (
+                        <Badge variant="outline" className="border-yellow-500 text-yellow-600">
+                          <AlertTriangle className="mr-1 h-3 w-3" />
+                          Low
+                        </Badge>
+                      )}
+                      {isOutOfStock && <Badge variant="destructive">Out of Stock</Badge>}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          {/* Selection prompt if not all selected */}
-          {!allAttributesSelected && attributes.length > 0 && (
-            <p className="text-center text-sm text-muted-foreground">
-              Please select all options to continue
-            </p>
-          )}
+            {/* Selection prompt if not all selected */}
+            {!allAttributesSelected && attributes.length > 0 && (
+              <p className="text-center text-sm text-muted-foreground">
+                Please select all options to continue
+              </p>
+            )}
+          </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleAddToCart} disabled={!matchedVariant || isOutOfStock}>
-            {`Add to Cart - ${formatCurrency(variantPrice)}`}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <SheetFooter className="absolute bottom-0 left-0 right-0 border-t bg-background p-6">
+          <div className="flex w-full gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddToCart}
+              disabled={!matchedVariant || isOutOfStock}
+              className="flex-[2]"
+            >
+              {`Add to Cart - ${formatCurrency(variantPrice)}`}
+            </Button>
+          </div>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }
 
 export const VariantSelectionDialog = memo(VariantSelectionDialogComponent)
 
-VariantSelectionDialog.displayName = 'VariantSelectionDialog'
+VariantSelectionDialog.displayName = 'VariantSelectionPanel'
 
 export default VariantSelectionDialog

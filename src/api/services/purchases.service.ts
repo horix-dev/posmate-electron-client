@@ -9,10 +9,15 @@ export const purchasesService = {
   getAll: async (params?: {
     page?: number
     per_page?: number
+    limit?: number
+    cursor?: number
     search?: string
     start_date?: string
     end_date?: string
     party_id?: number
+    isPaid?: boolean
+    'returned-purchase'?: boolean
+    invoiceNumber?: string
   }): Promise<PaginatedApiResponse<Purchase[]>> => {
     const { data } = await api.get<PaginatedApiResponse<Purchase[]>>(API_ENDPOINTS.PURCHASES.LIST, {
       params,

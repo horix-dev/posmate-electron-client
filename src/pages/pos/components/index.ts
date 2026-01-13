@@ -8,6 +8,7 @@ export { HeldCartsDialog } from './HeldCartsDialog'
 export { CustomerSelectDialog } from './CustomerSelectDialog'
 export { ShortcutsHelpDialog } from './ShortcutsHelpDialog'
 export { VariantSelectionDialog } from './VariantSelectionDialog'
+export { SmartTender } from './SmartTender'
 
 // Types
 export type { ProductCardProps } from './ProductCard'
@@ -19,3 +20,4 @@ export type { HeldCartsDialogProps } from './HeldCartsDialog'
 export type { CustomerSelectDialogProps } from './CustomerSelectDialog'
 export type { ShortcutsHelpDialogProps } from './ShortcutsHelpDialog'
 export type { VariantSelectionDialogProps } from './VariantSelectionDialog'
+export type { SmartTenderProps } from './SmartTender'

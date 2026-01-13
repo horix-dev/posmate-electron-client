@@ -42,6 +42,10 @@ interface UIState {
   autoPrintReceipt: boolean
   setAutoPrintReceipt: (enabled: boolean) => void
 
+  // POS Smart Tender
+  smartTenderEnabled: boolean
+  setSmartTenderEnabled: (enabled: boolean) => void
+
   // POS view mode
   posViewMode: 'grid' | 'list'
   setPosViewMode: (mode: 'grid' | 'list') => void
@@ -96,8 +100,7 @@ export const useUIStore = create<UIState>()(
       // Notifications
       notificationCount: 0,
       setNotificationCount: (count) => set({ notificationCount: count }),
-      incrementNotificationCount: () =>
-        set({ notificationCount: get().notificationCount + 1 }),
+      incrementNotificationCount: () => set({ notificationCount: get().notificationCount + 1 }),
       clearNotifications: () => set({ notificationCount: 0 }),
 
       // Sound settings
@@ -107,6 +110,10 @@ export const useUIStore = create<UIState>()(
       // Receipt printer
       autoPrintReceipt: false,
       setAutoPrintReceipt: (enabled) => set({ autoPrintReceipt: enabled }),
+
+      // POS Smart Tender
+      smartTenderEnabled: false,
+      setSmartTenderEnabled: (enabled) => set({ smartTenderEnabled: enabled }),
 
       // POS view mode
       posViewMode: 'grid',
@@ -124,6 +131,7 @@ export const useUIStore = create<UIState>()(
         sidebarState: state.sidebarState,
         soundEnabled: state.soundEnabled,
         autoPrintReceipt: state.autoPrintReceipt,
+        smartTenderEnabled: state.smartTenderEnabled,
         posViewMode: state.posViewMode,
         posProductsPerPage: state.posProductsPerPage,
       }),
