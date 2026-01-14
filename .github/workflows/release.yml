@@ -1,0 +1,158 @@
+name: Build Production Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch: # Allow manual triggers
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            build-name: Windows
+          - os: macos-latest
+            build-name: macOS
+          - os: ubuntu-latest
+            build-name: Linux
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libusb-1.0-0-dev
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run type check
+        run: npm run typecheck
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Get version from package.json
+        id: package_version
+        run: |
+          $version = node -p "require('./package.json').version"
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Build app (Production)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_API_BASE_URL: http://146.190.6.102:8001
+          UPDATE_CHANNEL: latest
+        run: npm run build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: posmate-${{ matrix.build-name }}-production
+          path: release/
+          retention-days: 90
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: success()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Get version from package.json
+        id: package_version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Get commit info
+        id: commit
+        run: |
+          echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          {
+            echo "message<<EOF"
+            git log -1 --pretty=%B
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Check if release exists
+        id: check_release
+        run: |
+          if gh release view "v${{ steps.package_version.outputs.version }}" &> /dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create or Update Release
+        uses: softprops/action-gh-release@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: v${{ steps.package_version.outputs.version }}
+          name: v${{ steps.package_version.outputs.version }}
+          draft: false
+          prerelease: false
+          body: |
+            ## Production Release v${{ steps.package_version.outputs.version }}
+
+            **Branch**: main  
+            **Commit**: ${{ steps.commit.outputs.short_sha }}  
+            **Update Channel**: latest (production)
+
+            ### Release Notes
+            ${{ steps.commit.outputs.message }}
+
+            ---
+
+            ### Installation
+
+            Download the appropriate installer for your operating system:
+            - **Windows**: POS-Mate-Setup-${{ steps.package_version.outputs.version }}.exe
+            - **macOS**: POS-Mate-${{ steps.package_version.outputs.version }}.dmg
+            - **Linux**: POS-Mate-${{ steps.package_version.outputs.version }}.AppImage
+
+            ### Auto-Update
+            This is a stable production release. The app will automatically check for updates on the `latest` channel.
+
+            ### What's New
+            See the commit history for detailed changes in this release.
+          files: |
+            release-artifacts/**/POS-Mate-*.exe
+            release-artifacts/**/POS-Mate-*.exe.blockmap
+            release-artifacts/**/POS-Mate-*.dmg
+            release-artifacts/**/POS-Mate-*.AppImage
+            release-artifacts/**/latest.yml
+            release-artifacts/**/latest-*.yml

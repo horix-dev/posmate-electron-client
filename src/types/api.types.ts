@@ -1061,6 +1061,44 @@ export interface ProductSettingsModules {
   show_mfg_date: string
 }
 
+export type ProfitOption = 'markup' | 'margin'
+
+export interface BusinessSettings {
+  id: number | null
+  business_id: number
+  companyName: string
+  address?: string | null
+  phoneNumber?: string | null
+  email?: string | null
+  business_category_id: number
+  vat_name?: string | null
+  vat_no?: string | null
+  invoice_logo?: string | null
+  invoice_scanner_logo?: string | null
+  sale_rounding_option: RoundingOption
+  product_profit_option?: ProfitOption | null
+  note?: string | null
+  note_label?: string | null
+  gratitude_message?: string | null
+}
+
+export interface UpdateBusinessSettingsRequest {
+  companyName: string
+  business_category_id: number
+  address?: string
+  email?: string
+  phoneNumber?: string
+  vat_name?: string
+  vat_no?: string
+  invoice_logo?: File
+  invoice_scanner_logo?: File
+  sale_rounding_option?: RoundingOption
+  product_profit_option?: ProfitOption
+  note?: string
+  note_label?: string
+  gratitude_message?: string
+}
+
 // ============================================
 // Print Labels Types
 // ============================================
