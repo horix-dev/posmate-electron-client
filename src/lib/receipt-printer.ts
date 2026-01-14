@@ -1,4 +1,8 @@
 /**
+ * @deprecated Use `@/lib/receipt-generator` instead.
+ * This file is kept for backward compatibility only.
+ * All new code should import from receipt-generator.
+ *
  * Receipt Printer Utility
  *
  * Handles receipt printing functionality for completed sales.

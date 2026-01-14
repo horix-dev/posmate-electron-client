@@ -19,6 +19,7 @@ export { reportsService } from './reports.service'
 export { salesService } from './sales.service'
 export { settingsService } from './settings.service'
 export { stocksService } from './stocks.service'
+export { stocksListService } from './stocksList.service'
 export { warehousesService } from './warehouses.service'
 
 // Currency service

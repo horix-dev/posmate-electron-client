@@ -1,3 +1,219 @@
+# Development Log
+
+## 2026-01-10 — Silent Print Handler Optimization (Electron) 🔄
+
+**Context**: Refined silent printing to use `contextIsolation: true` with `executeJavaScript` instead of preload script approach.
+
+**Problem**:
+- Print dialog still appearing despite `silent: true` flag
+- `contextIsolation: false` works but violates security model
+- Preload script blocking `window.print()` not always effective
+
+**Solution Implemented**:
+- Changed `contextIsolation` back to `true`
+- Use `executeJavaScript` to block `window.print()` after loading HTML
+- Simplified approach: inject JS directly instead of relying on preload
+- Kept PowerShell printer auto-configuration from startup
+
+**Implementation** (`electron/main.ts`):
+```typescript
+// In IPC handler 'print-receipt-html':
+await printWindow.webContents.executeJavaScript(`
+  window.print = function() { 
+    console.log('window.print() blocked'); 
+  };
+`)
+```
+
+**Benefits**:
+- Better security with `contextIsolation: true`
+- Direct JavaScript injection avoids preload file complications
+- Cleaner architecture - no need for .cjs preload compilation
+
+**Files Modified**:
+- `electron/main.ts` - Updated print handler
+- Removed unused `os` import (TypeScript strict mode)
+
+**Status**: 🔄 Testing in progress - app built and running
+
+---
+
+## 2026-01-10 — Frontend Receipt Generator (Offline-First) ✅
+
+**Context**: Implemented frontend-based receipt generation that works both online and offline. Replaced backend PDF dependency with structured data approach.
+
+**Problem**:
+- Previous implementation relied on backend `invoice_url` which doesn't exist offline
+- Receipts couldn't be printed when making offline sales
+- Violated offline-first architecture principles
+
+**Solution Implemented**:
+
+### 1. New Receipt Generator (`src/lib/receipt-generator.ts`)
+- **Function**: `generateReceiptHTML(data: ReceiptData)` - Creates HTML receipt from structured data
+- **Function**: `printReceipt(data: ReceiptData)` - Prints receipt (Electron silent print or browser)
+- **Interface**: `ReceiptData` - Contains sale, business info, and customer data
+
+**Features**:
+- ✅ Works offline - uses local data, no API dependency
+- ✅ Thermal printer format (80mm width)
+- ✅ Auto-print on load
+- ✅ Electron silent printing support (when `window.electronAPI.print.receiptHTML` available)
+- ✅ Browser print fallback
+- ✅ Handles variants, batches, discounts, VAT, due payments
+- ✅ Uses business logo and currency settings
+- ✅ Clean monospace format matching POS receipt style
+
+### 2. POSPage Updates
+- **Import**: Changed from `receipt-printer.ts` to `receipt-generator.ts`
+- **Added**: `useBusinessStore` to get business info for receipts
+- **Updated**: `handleProcessPayment()` to use new receipt generator
+  - Now passes structured data: `{ sale, business, customer }`
+  - Works for both online and offline sales
+  - Removed check for `invoice_url`
+
+**Files Modified**:
+- `src/lib/receipt-generator.ts` (NEW)
+- `src/pages/pos/POSPage.tsx`
+
+**Receipt Data Structure**:
+```typescript
+interface ReceiptData {
+  sale: Sale           // Complete sale with details, items, totals
+  business: Business   // Business info (name, logo, address, phone, currency)
+  customer: Party      // Customer info (optional)
+}
+```
+
+**Architecture Decision**:
+- **Frontend**: Generates and prints receipts from JSON data
+- **Backend**: Returns structured sale data (not HTML/PDF) - no changes required yet
+- When backend reprint endpoint is added later, it should return JSON data, not PDF URL
+
+**Deprecated**:
+- `src/lib/receipt-printer.ts` - Old implementation (keep for reference, can remove later)
+
+**Testing Notes**:
+- Test offline receipt printing (airplane mode)
+- Test Electron silent print (when available)
+- Test browser print fallback
+- Verify receipt displays business logo and currency correctly
+
+---
+
+## 2026-01-09 — Stock List Page with Tabs (All, Low, Expired) ✅
+
+**Context**: Created a new dedicated stocks management page with tabbed interface for viewing all stocks, low stock items, and expired products. Follows the same pattern as the parties page with dropdown tabs.
+
+**Problem**:
+- No dedicated page for viewing stocks inventory
+- Need to filter stocks by status (all, low, expired)
+- Stocks management was scattered across different pages
+
+**Solution Implemented**:
+
+### 1. Folder Structure
+```
+src/pages/stocks/
+├── StocksPage.tsx          (Main page with tabs)
+├── hooks/
+│   ├── useStocks.ts        (Data fetching hook)
+│   └── index.ts
+├── components/
+│   ├── StocksList.tsx      (Stock items display)
+│   └── index.ts
+```
+
+### 2. API Service (`src/api/services/stocksList.service.ts`)
+- **Endpoints**: `/stocks` with flexible pagination and filtering
+- **Methods**:
+  - `getAll()` - Get all stocks with pagination
+  - `getLowStocks()` - Get low stock items (stock_status: low_stock)
+  - `getExpiredStocks()` - Get expired products (expiry_status: expired)
+  - `getExpiringStocks()` - Get items expiring soon
+  - `search()` - Search by product name, code, or batch number
+
+### 3. Custom Hook (`useStocks.ts`)
+- **State Management**:
+  - `allStocks`, `lowStocks`, `expiredStocks` - Data arrays
+  - `isLoading`, `isLoadingLow`, `isLoadingExpired` - Loading states
+  - Pagination support (currentPage, perPage, totalItems)
+  
+- **Features**:
+  - Offline support detection
+  - Debounced search
+  - Warehouse and branch filtering
+  - Error handling with user-friendly messages
+  - Refetch functionality for manual refresh
+
+### 4. StocksPage Component
+- **Tabs**: 
+  - All Stocks - Complete inventory
+  - Low Stocks - Items below alert quantity
+  - Expired Products - Items with past expiration dates
+
+- **Features**:
+  - Search bar with debounced input (300ms)
+  - Stats cards showing counts and total value
+  - Tab state persisted in URL query params
+  - Offline notice when no internet
+  - Error handling with retry button
+  - Pagination ready for large datasets
+
+- **UI Elements**:
+  - Search with product/code/batch filtering
+  - Stats cards (Total items, Low stock count, Expired count, Total value)
+  - Individual stock items with batch info, quantities, prices, expiry dates
+  - Actions dropdown for each stock (View, Edit, Add)
+
+### 5. StocksList Component
+- Displays list of stock items in a card format
+- Shows: batch number, quantity, purchase/sale price, expiry date
+- Actions dropdown for each item
+- Loading state with spinner
+- Empty state with appropriate messages
+
+### 6. API Endpoint Updates
+**File**: `src/api/endpoints.ts`
+- Added `LIST: '/stocks'` to STOCKS object
+
+### 7. Router Configuration
+**File**: `src/routes/index.tsx`
+- Added `/stocks` route with lazy loading
+- Path: `/stocks`
+
+### 8. Navigation Update
+**File**: `src/components/layout/Sidebar.tsx`
+- Added "Stocks" menu item to secondary nav
+- Icon: Package
+- Position: After Finance, before Product Settings
+
+### 9. Service Export
+**File**: `src/api/services/index.ts`
+- Exported `stocksListService` for use throughout the app
+
+**Files Created/Modified**:
+- ✅ Created `src/pages/stocks/` folder structure
+- ✅ Created `src/pages/stocks/StocksPage.tsx`
+- ✅ Created `src/pages/stocks/hooks/useStocks.ts`
+- ✅ Created `src/pages/stocks/components/StocksList.tsx`
+- ✅ Created `src/api/services/stocksList.service.ts`
+- ✅ Modified `src/api/endpoints.ts` (added LIST endpoint)
+- ✅ Modified `src/routes/index.tsx` (added route)
+- ✅ Modified `src/components/layout/Sidebar.tsx` (added menu item)
+- ✅ Modified `src/api/services/index.ts` (exported service)
+
+**Pattern Followed**:
+- Same structure as parties page (tabs, search, filters)
+- Same hook pattern as useProducts, useUnits, etc.
+- Same component structure as inventory modules
+- Consistent UI with shadcn/ui components
+- Offline-first support ready
+
+**Status**: Complete and ready for use
+
+---
+
 ## 2026-01-05 — Automated Dev/Testing Build Pipeline with CI/CD ✅
 
 **Context**: Implemented a complete GitHub Actions workflow to automatically build and release development/testing versions from the `develop` branch, enabling continuous testing and beta updates.

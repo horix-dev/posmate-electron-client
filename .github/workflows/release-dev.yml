@@ -58,7 +58,7 @@ jobs:
       - name: Build app (Dev)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VITE_API_BASE_URL: http://localhost:8700
+          VITE_API_BASE_URL: http://146.190.6.102:8001
           UPDATE_CHANNEL: beta
         run: npm run build
 
@@ -131,8 +131,9 @@ jobs:
 
             **Auto-update**: Enabled on beta channel (checks every startup)
           files: |
-            release-artifacts/**/POS Mate-*.exe
-            release-artifacts/**/POS Mate-*.dmg
-            release-artifacts/**/POS Mate-*.AppImage
+            release-artifacts/**/POS-Mate-*.exe
+            release-artifacts/**/POS-Mate-*.exe.blockmap
+            release-artifacts/**/POS-Mate-*.dmg
+            release-artifacts/**/POS-Mate-*.AppImage
             release-artifacts/**/latest.yml
             release-artifacts/**/latest-*.yml

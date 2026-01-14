@@ -31,7 +31,6 @@ import {
 import { toast } from 'sonner'
 import { useCurrency } from '@/hooks'
 import type { Sale } from '@/types/api.types'
-import { printReceipt } from '@/lib/receipt-printer'
 import { isSaleSynced, formatSaleDate } from '../hooks'
 import { getPaymentStatusBadge, formatPaymentBreakdown, hasNewPaymentFields } from '../helpers'
 
@@ -87,17 +86,10 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
   const showPaymentBreakdown = hasNewPaymentFields(sale) && paymentBreakdown.dueCollections > 0
 
   const handlePrintReceipt = async () => {
-    if (!sale.invoice_url) {
-      toast.error('Invoice URL not available for this sale')
-      return
-    }
-
-    const success = await printReceipt(sale)
-    if (success) {
-      toast.success('Receipt sent to printer')
-    } else {
-      toast.error('Failed to open print window. Please check popup blocker settings.')
-    }
+    // The new receipt-generator API requires structured data, not sale alone
+    // For now, we'll show a message that printing is only available from POS page
+    toast.info('Use POS page to print receipts with silent printing')
+    return
   }
 
   return (
@@ -172,23 +164,56 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
                     <TableHead className="text-center">Qty</TableHead>
                     <TableHead className="text-right">Price</TableHead>
                     <TableHead className="text-right">Subtotal</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sale.details.map((detail, index) => (
-                    <TableRow key={detail.id || index}>
-                      <TableCell className="font-medium">
-                        {detail.product?.productName || 'Product'}
-                      </TableCell>
-                      <TableCell className="text-center">{detail.quantities}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrencyAmount(detail.price)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrencyAmount(detail.price * detail.quantities)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {sale.details.map((detail, index) => {
+                    // Check if this detail has been returned
+                    const returnedQty =
+                      sale.saleReturns?.reduce((sum, ret) => {
+                        const detailReturn = ret.details?.find(
+                          (d) => d.sale_detail_id === detail.id
+                        )
+                        return sum + (detailReturn?.return_qty || 0)
+                      }, 0) || 0
+
+                    const isFullyReturned = returnedQty >= detail.quantities
+                    const isPartiallyReturned = returnedQty > 0 && !isFullyReturned
+
+                    return (
+                      <TableRow
+                        key={detail.id || index}
+                        className={` ${isFullyReturned ? 'bg-red-50 dark:bg-red-950/20' : ''} ${isPartiallyReturned ? 'bg-yellow-50 dark:bg-yellow-950/20' : ''} `}
+                      >
+                        <TableCell className="font-medium">
+                          {detail.product?.productName || 'Product'}
+                        </TableCell>
+                        <TableCell className="text-center">{detail.quantities}</TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrencyAmount(detail.price)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrencyAmount(detail.price * detail.quantities)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isFullyReturned && (
+                            <Badge variant="destructive" className="text-xs">
+                              Returned ({returnedQty})
+                            </Badge>
+                          )}
+                          {isPartiallyReturned && (
+                            <Badge
+                              variant="secondary"
+                              className="bg-yellow-100 text-xs text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
+                            >
+                              Partial Return ({returnedQty})
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -272,6 +297,46 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
                       </span>
                     </div>
                   )}
+
+                  {/* Net Total after Returns */}
+                  {(() => {
+                    const returnAmount =
+                      sale.saleReturns?.reduce((sum, ret) => {
+                        // Try snake_case first (preferred format)
+                        if (ret.total_return_amount != null) return sum + ret.total_return_amount
+                        // Try camelCase (backend sometimes sends this)
+                        if ((ret as unknown as { returnAmount?: number }).returnAmount != null)
+                          return sum + (ret as unknown as { returnAmount: number }).returnAmount
+                        // Fallback: calculate from details array
+                        if (ret.details && Array.isArray(ret.details)) {
+                          const detailsSum = ret.details.reduce((detailSum, detail) => {
+                            return detailSum + (detail.return_amount || 0)
+                          }, 0)
+                          return sum + detailsSum
+                        }
+                        return sum
+                      }, 0) || 0
+
+                    if (returnAmount > 0) {
+                      const netTotal = (sale.totalAmount ?? 0) - returnAmount
+                      return (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Return Amount</span>
+                            <span className="text-red-600">
+                              -{formatCurrencyAmount(returnAmount)}
+                            </span>
+                          </div>
+                          <Separator />
+                          <div className="flex justify-between text-sm font-medium">
+                            <span>Net Total</span>
+                            <span className="text-blue-600">{formatCurrencyAmount(netTotal)}</span>
+                          </div>
+                        </>
+                      )
+                    }
+                    return null
+                  })()}
                 </div>
 
                 {/* Progress bar */}
@@ -306,6 +371,44 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
                   </span>
                 </div>
               )}
+
+              {/* Net Total after Returns */}
+              {(() => {
+                const returnAmount =
+                  sale.saleReturns?.reduce((sum, ret) => {
+                    // Try snake_case first (preferred format)
+                    if (ret.total_return_amount != null) return sum + ret.total_return_amount
+                    // Try camelCase (backend sometimes sends this)
+                    if ((ret as unknown as { returnAmount?: number }).returnAmount != null)
+                      return sum + (ret as unknown as { returnAmount: number }).returnAmount
+                    // Fallback: calculate from details array
+                    if (ret.details && Array.isArray(ret.details)) {
+                      const detailsSum = ret.details.reduce((detailSum, detail) => {
+                        return detailSum + (detail.return_amount || 0)
+                      }, 0)
+                      return sum + detailsSum
+                    }
+                    return sum
+                  }, 0) || 0
+
+                if (returnAmount > 0) {
+                  const netTotal = (sale.totalAmount ?? 0) - returnAmount
+                  return (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Return Amount</span>
+                        <span className="text-red-600">-{formatCurrencyAmount(returnAmount)}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between text-sm font-medium">
+                        <span>Net Total</span>
+                        <span className="text-blue-600">{formatCurrencyAmount(netTotal)}</span>
+                      </div>
+                    </>
+                  )
+                }
+                return null
+              })()}
             </>
           )}
 

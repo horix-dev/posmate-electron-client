@@ -21,6 +21,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Receipt Printing
   print: {
     receipt: (invoiceUrl: string) => ipcRenderer.invoke('print-receipt', invoiceUrl),
+    receiptHTML: (htmlContent: string) => {
+      return new Promise((resolve) => {
+        // Send print request
+        ipcRenderer.send('print-receipt-html', htmlContent)
+        
+        // Listen for reply (one-time)
+        ipcRenderer.once('print-receipt-html-result', (_event, result) => {
+          resolve(result)
+        })
+      })
+    },
   },
 
   // SQLite Database
