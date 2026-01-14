@@ -158,23 +158,35 @@ function ProductSearch({ onSelect }: ProductSearchProps) {
       subLabel: string
     }> = []
 
+    // Calculate main product stock (for variable products, use variants_total_stock)
+    const mainProductStock =
+      product.product_type === 'variable'
+        ? (product.variants_total_stock ?? 0)
+        : (product.stocks_sum_product_stock ?? product.productStock ?? 0)
+
     // Always add the main product (if variable, clicking it triggers bulk add)
     items.push({
       id: `p-${product.id}`,
       product,
       label: product.productName,
-      subLabel: `Code: ${product.productCode || 'N/A'} | ${product.product_type} | Stock: ${product.productStock ?? 0}`,
+      subLabel: `Code: ${product.productCode || 'N/A'} | ${product.product_type} | Stock: ${mainProductStock}`,
     })
 
     // If searchable and has variants, add specific variants
     if (product.product_type === 'variable' && product.variants) {
       product.variants.forEach((variant) => {
+        // Build variant display name
+        const variantDisplayName = variant.variant_name || variant.sku || `Variant ${variant.id}`
+
+        // Use total_stock if available, otherwise fall back to first stock entry
+        const variantStock = variant.total_stock ?? variant.stocks?.[0]?.productStock ?? 0
+
         items.push({
           id: `v-${variant.id}`,
           product,
           variant,
-          label: `${product.productName} - ${variant.variant_name}`,
-          subLabel: `SKU: ${variant.sku} | Stock: ${variant.stocks?.[0]?.productStock ?? 0}`,
+          label: `${product.productName} - ${variantDisplayName}`,
+          subLabel: `SKU: ${variant.sku} | Stock: ${variantStock}`,
         })
       })
     }
@@ -629,7 +641,7 @@ export function NewPurchasePage() {
                 control={form.control}
                 name="purchaseDate"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="flex flex-col">
                     <FormLabel>Purchase Date</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -641,9 +653,11 @@ export function NewPurchasePage() {
                               !field.value && 'text-muted-foreground'
                             )}
                           >
-                            {field.value
-                              ? format(new Date(field.value), 'MMM d, yyyy')
-                              : 'Select date'}
+                            {field.value ? (
+                              format(new Date(field.value), 'PPP')
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
                             <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
                         </FormControl>
@@ -655,6 +669,7 @@ export function NewPurchasePage() {
                           onSelect={(date: Date | undefined) =>
                             field.onChange(date ? format(date, 'yyyy-MM-dd') : '')
                           }
+                          disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
                           initialFocus
                         />
                       </PopoverContent>
@@ -753,11 +768,30 @@ export function NewPurchasePage() {
                                   <p className="text-sm font-medium">
                                     {field.product_name || `Product #${field.product_id}`}
                                   </p>
-                                  {variant && (
-                                    <Badge variant="secondary" className="mt-1 h-5 text-[10px]">
-                                      {variant.variant_name}
-                                    </Badge>
-                                  )}
+                                  <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                                    {product?.productCode && (
+                                      <span className="font-mono">Code: {product.productCode}</span>
+                                    )}
+                                    {variant && (
+                                      <>
+                                        {product?.productCode && <span>•</span>}
+                                        <Badge variant="secondary" className="h-5 text-[10px]">
+                                          {variant.variant_name || variant.sku}
+                                        </Badge>
+                                        {variant.sku && (
+                                          <span className="font-mono text-[10px]">
+                                            SKU: {variant.sku}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                    {!variant && product?.product_type && (
+                                      <>
+                                        {product?.productCode && <span>•</span>}
+                                        <span className="capitalize">{product.product_type}</span>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
 
                                 {/* Variant Selection - Show only if we added generic product, but we try to avoid that now */}
@@ -830,34 +864,70 @@ export function NewPurchasePage() {
                                   control={form.control}
                                   name={`products.${index}.expire_date`}
                                   render={({ field }) => (
-                                    <div className="relative">
-                                      <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                                        Exp
-                                      </span>
-                                      <Input
-                                        type="date"
-                                        {...field}
-                                        className="h-7 pl-7 text-[10px]"
-                                        title="Expiry Date"
-                                      />
-                                    </div>
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          className={cn(
+                                            'h-7 w-full justify-start pl-2 pr-1 text-left text-[10px] font-normal',
+                                            !field.value && 'text-muted-foreground'
+                                          )}
+                                        >
+                                          <span className="mr-1 text-[9px]">Exp:</span>
+                                          {field.value
+                                            ? format(new Date(field.value), 'dd/MM')
+                                            : 'Not set'}
+                                          <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                          mode="single"
+                                          selected={field.value ? new Date(field.value) : undefined}
+                                          onSelect={(date: Date | undefined) =>
+                                            field.onChange(date ? format(date, 'yyyy-MM-dd') : '')
+                                          }
+                                          disabled={(date) => date < new Date('1900-01-01')}
+                                          initialFocus
+                                        />
+                                      </PopoverContent>
+                                    </Popover>
                                   )}
                                 />
                                 <FormField
                                   control={form.control}
                                   name={`products.${index}.mfg_date`}
                                   render={({ field }) => (
-                                    <div className="relative">
-                                      <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                                        Mfg
-                                      </span>
-                                      <Input
-                                        type="date"
-                                        {...field}
-                                        className="h-7 pl-7 text-[10px]"
-                                        title="Manufacturing Date"
-                                      />
-                                    </div>
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          className={cn(
+                                            'h-7 w-full justify-start pl-2 pr-1 text-left text-[10px] font-normal',
+                                            !field.value && 'text-muted-foreground'
+                                          )}
+                                        >
+                                          <span className="mr-1 text-[9px]">Mfg:</span>
+                                          {field.value
+                                            ? format(new Date(field.value), 'dd/MM')
+                                            : 'Not set'}
+                                          <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                          mode="single"
+                                          selected={field.value ? new Date(field.value) : undefined}
+                                          onSelect={(date: Date | undefined) =>
+                                            field.onChange(date ? format(date, 'yyyy-MM-dd') : '')
+                                          }
+                                          disabled={(date) =>
+                                            date > new Date() || date < new Date('1900-01-01')
+                                          }
+                                          initialFocus
+                                        />
+                                      </PopoverContent>
+                                    </Popover>
                                   )}
                                 />
                               </div>
@@ -1001,11 +1071,13 @@ export function NewPurchasePage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {paymentTypes.map((pt) => (
-                              <SelectItem key={pt.id} value={pt.id.toString()}>
-                                {pt.name}
-                              </SelectItem>
-                            ))}
+                            {paymentTypes
+                              .filter((pt) => !pt.is_credit)
+                              .map((pt) => (
+                                <SelectItem key={pt.id} value={pt.id.toString()}>
+                                  {pt.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />

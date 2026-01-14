@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect, useCallback, forwardRef } from 'react'
+import React, { memo, useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Package, Loader2, Layers } from 'lucide-react'
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import {
   Dialog,
   DialogContent,
@@ -32,7 +33,7 @@ import {
 } from '@/components/ui/form'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
-import { getImageUrl, cn } from '@/lib/utils'
+import { getImageUrl } from '@/lib/utils'
 import type { Product, Category, Brand, Unit } from '@/types/api.types'
 import type { Attribute } from '@/types/variant.types'
 import {
@@ -45,24 +46,6 @@ import {
   formDataToVariableProductPayload,
 } from '../schemas'
 import { VariantManager } from './VariantManager'
-
-// ============================================
-// Helpers
-// ============================================
-
-const CurrencyInput = forwardRef<HTMLInputElement, React.ComponentProps<typeof Input>>(
-  (props, ref) => {
-    return (
-      <div className="relative w-full">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-          Rs
-        </span>
-        <Input ref={ref} {...props} className={cn('pl-9', props.className)} />
-      </div>
-    )
-  }
-)
-CurrencyInput.displayName = 'CurrencyInput'
 
 // ============================================
 // Types
@@ -393,6 +376,21 @@ function ProductFormDialogComponent({
                           </FormItem>
                         )}
                       />
+                      {!isVariableProduct && (
+                        <FormField
+                          control={form.control}
+                          name="barcode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Barcode</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g. 123456789012" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
                     </div>
 
                     <FormField

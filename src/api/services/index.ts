@@ -52,6 +52,9 @@ export {
   buildVariantSku,
 } from './variants.service'
 
+// Product search service (unified search across products, variants, batches)
+export { productSearchService } from './productSearch.service'
+
 // Export sync types
 export type {
   DeviceRegistrationRequest,

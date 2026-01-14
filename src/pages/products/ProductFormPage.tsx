@@ -1,12 +1,13 @@
-import React, { useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useCallback, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Package, Loader2, Layers, ArrowLeft, Save, Plus } from 'lucide-react'
+import { Package, Loader2, Layers, ArrowLeft, Save, Plus, Barcode } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import {
   Select,
   SelectContent,
@@ -33,31 +34,15 @@ import {
   defaultProductFormValues,
   formDataToFormData,
   formDataToVariableProductPayload,
+  productToFormData,
 } from './schemas'
 import { VariantManager } from './components/VariantManager'
 import { useProducts, useAttributes, DEFAULT_FILTERS } from './hooks'
 import { CategoryDialog } from '../product-settings/components/categories/CategoryDialog'
 import { BrandDialog } from '../product-settings/components/brands/BrandDialog'
 import { UnitDialog } from '../product-settings/components/units/UnitDialog'
-import type { Category, Brand, Unit } from '@/types/api.types'
-
-// ============================================
-// Helpers
-// ============================================
-
-const CurrencyInput = React.forwardRef<HTMLInputElement, React.ComponentProps<typeof Input>>(
-  (props, ref) => {
-    return (
-      <div className="relative w-full">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-          Rs
-        </span>
-        <Input ref={ref} {...props} className={cn('pl-9', props.className)} />
-      </div>
-    )
-  }
-)
-CurrencyInput.displayName = 'CurrencyInput'
+import type { Category, Brand, Unit, Product } from '@/types/api.types'
+import { productsService } from '@/api/services'
 
 // ============================================
 // Constants
@@ -70,9 +55,14 @@ const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/web
 // Main Component
 // ============================================
 
-export default function CreateProductPage() {
+export default function ProductFormPage() {
   const navigate = useNavigate()
+  const { id } = useParams<{ id: string }>()
+  const isEditMode = Boolean(id)
+
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingProduct, setIsLoadingProduct] = useState(isEditMode)
+  const [product, setProduct] = useState<Product | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [variants, setVariants] = useState<VariantInputData[]>([])
@@ -83,7 +73,8 @@ export default function CreateProductPage() {
   const [isUnitDialogOpen, setIsUnitDialogOpen] = useState(false)
 
   // Fetch data
-  const { categories, brands, units, createProduct, refetch } = useProducts(DEFAULT_FILTERS)
+  const { categories, brands, units, createProduct, updateProduct, refetch } =
+    useProducts(DEFAULT_FILTERS)
   const { attributes, isLoading: attributesLoading } = useAttributes()
 
   // Initialize form
@@ -95,6 +86,63 @@ export default function CreateProductPage() {
   // Watch product type
   const productType = form.watch('product_type')
   const isVariableProduct = productType === 'variable'
+
+  // Fetch product data for edit mode
+  useEffect(() => {
+    if (!isEditMode) return
+
+    const fetchProduct = async () => {
+      if (!id) {
+        toast.error('Product ID is required')
+        navigate('/products')
+        return
+      }
+
+      setIsLoadingProduct(true)
+      try {
+        const response = await productsService.getById(Number(id))
+        const productData = response.data
+        setProduct(productData)
+
+        // Convert product to form data
+        const formData = productToFormData(productData)
+
+        // Set form values
+        form.reset({
+          productName: formData.productName,
+          productCode: formData.productCode,
+          barcode: formData.barcode,
+          category_id: formData.category_id,
+          brand_id: formData.brand_id,
+          unit_id: formData.unit_id,
+          alert_qty: formData.alert_qty,
+          product_type: formData.product_type,
+          productPurchasePrice: formData.productPurchasePrice,
+          productSalePrice: formData.productSalePrice,
+          productStock: formData.productStock,
+          description: formData.description,
+        })
+
+        // Set variants if variable product
+        if (formData.variants && formData.variants.length > 0) {
+          setVariants(formData.variants)
+        }
+
+        // Set image preview if exists
+        if (productData.productPicture) {
+          setImagePreview(productData.productPicture)
+        }
+      } catch (error) {
+        console.error('Failed to fetch product:', error)
+        toast.error('Failed to load product data')
+        navigate('/products')
+      } finally {
+        setIsLoadingProduct(false)
+      }
+    }
+
+    fetchProduct()
+  }, [id, isEditMode, navigate, form])
 
   // Handle image change
   const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -191,18 +239,30 @@ export default function CreateProductPage() {
 
       setIsSubmitting(true)
       try {
-        if (data.product_type === 'variable') {
-          const payload = formDataToVariableProductPayload(data, variants)
-          await createProduct(payload, true)
+        if (isEditMode && id) {
+          // Update existing product
+          if (data.product_type === 'variable') {
+            const payload = formDataToVariableProductPayload(data, variants)
+            await updateProduct(Number(id), payload, true)
+          } else {
+            // For edit, pass isEdit=true to exclude productStock field
+            const formData = formDataToFormData(data, imageFile, true)
+            await updateProduct(Number(id), formData, false)
+          }
         } else {
-          const formData = formDataToFormData(data, imageFile, false)
-          await createProduct(formData, false)
+          // Create new product
+          if (data.product_type === 'variable') {
+            const payload = formDataToVariableProductPayload(data, variants)
+            await createProduct(payload, true)
+          } else {
+            const formData = formDataToFormData(data, imageFile, false)
+            await createProduct(formData, false)
+          }
         }
 
         navigate('/products')
       } catch (error: unknown) {
-        console.error('Failed to save product:', error)
-        // Error handling logic similar to dialog...
+        console.error(`Failed to ${isEditMode ? 'update' : 'create'} product:`, error)
         let errorMessage = String(error)
         if (error && typeof error === 'object') {
           const axiosError = error as {
@@ -222,18 +282,30 @@ export default function CreateProductPage() {
         } else if (errorMessage.includes('Duplicate entry')) {
           toast.error('A variant with this SKU already exists.')
         } else {
-          toast.error('Failed to create product')
+          toast.error(`Failed to ${isEditMode ? 'update' : 'create'} product`)
         }
       } finally {
         setIsSubmitting(false)
       }
     },
-    [imageFile, createProduct, navigate, variants]
+    [isEditMode, id, imageFile, createProduct, updateProduct, navigate, variants]
   )
 
   const handleVariantsChange = useCallback((newVariants: VariantInputData[]) => {
     setVariants(newVariants)
   }, [])
+
+  // Show loading state while fetching product
+  if (isLoadingProduct) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading product data...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 pb-24">
@@ -244,8 +316,14 @@ export default function CreateProductPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Add New Product</h1>
-            <p className="text-muted-foreground">Fill in the details to create a new product.</p>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {isEditMode ? 'Edit Product' : 'Add New Product'}
+            </h1>
+            <p className="text-muted-foreground">
+              {isEditMode
+                ? 'Update product details and information.'
+                : 'Fill in the details to create a new product.'}
+            </p>
           </div>
         </div>
       </header>
@@ -337,7 +415,20 @@ export default function CreateProductPage() {
                         <FormItem>
                           <FormLabel>Barcode</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g. 123456789012" {...field} />
+                            <div className="relative">
+                              <Input
+                                placeholder="Start scanning..."
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                  }
+                                }}
+                                className="pl-7 font-mono text-xs"
+                                {...field}
+                              />
+                              <Barcode className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            </div>
                           </FormControl>
                           <FormDescription>Scan or enter barcode number</FormDescription>
                           <FormMessage />
@@ -351,20 +442,33 @@ export default function CreateProductPage() {
                     name="product_type"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border bg-muted/20 p-3">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value === 'variable'}
-                            onCheckedChange={(checked) => {
-                              field.onChange(checked ? 'variable' : 'simple')
-                            }}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel className="cursor-pointer font-semibold">
-                            Variable Product
-                          </FormLabel>
-                          <FormDescription>Has variations like Size, Color, etc.</FormDescription>
-                        </div>
+                        {isEditMode ? (
+                          <div className="flex w-full items-center text-sm text-muted-foreground">
+                            <Layers className="mr-2 h-4 w-4" />
+                            <span className="mr-2 font-medium text-foreground">Type:</span>
+                            {field.value === 'variable' ? 'Variable Product' : 'Simple Product'}
+                            <span className="ml-2 text-xs">(Cannot be changed)</span>
+                          </div>
+                        ) : (
+                          <>
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value === 'variable'}
+                                onCheckedChange={(checked) => {
+                                  field.onChange(checked ? 'variable' : 'simple')
+                                }}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="cursor-pointer font-semibold">
+                                Variable Product
+                              </FormLabel>
+                              <FormDescription>
+                                Has variations like Size, Color, etc.
+                              </FormDescription>
+                            </div>
+                          </>
+                        )}
                       </FormItem>
                     )}
                   />
@@ -390,7 +494,6 @@ export default function CreateProductPage() {
                       <Select
                         onValueChange={(val) => {
                           field.onChange(val)
-                          // Focus flow: could focus brand next
                         }}
                         value={field.value}
                       >
@@ -503,7 +606,7 @@ export default function CreateProductPage() {
                 <Package className="h-5 w-5 text-primary" />
                 Pricing & Inventory
               </h3>
-              <div className="grid gap-6 md:grid-cols-3">
+              <div className={cn('grid gap-6', isEditMode ? 'md:grid-cols-2' : 'md:grid-cols-3')}>
                 <FormField
                   control={form.control}
                   name="productPurchasePrice"
@@ -542,20 +645,34 @@ export default function CreateProductPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="productStock"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Initial Stock</FormLabel>
-                      <FormControl>
-                        <Input type="number" min="0" placeholder="0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {!isEditMode && (
+                  <FormField
+                    control={form.control}
+                    name="productStock"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Initial Stock</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="0" placeholder="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </div>
+
+              {isEditMode && (
+                <>
+                  <Separator className="my-6" />
+                  <div className="rounded-lg bg-muted/30 p-4">
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Note:</strong> Stock quantity cannot be edited here. Use the Stock
+                      Adjustments page to modify inventory levels.
+                    </p>
+                  </div>
+                </>
+              )}
 
               <Separator className="my-6" />
 
@@ -586,7 +703,7 @@ export default function CreateProductPage() {
                 Product Variations
               </h3>
               <VariantManager
-                product={null}
+                product={product}
                 attributes={attributes}
                 attributesLoading={attributesLoading}
                 variants={variants}
@@ -619,10 +736,10 @@ export default function CreateProductPage() {
             <Button variant="outline" type="button" onClick={() => navigate('/products')}>
               Cancel
             </Button>
-            <Button onClick={form.handleSubmit(handleSubmit)} disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Save className="mr-2 h-4 w-4" />
-              Create Product
+              {isEditMode ? 'Update Product' : 'Create Product'}
             </Button>
           </div>
         </form>

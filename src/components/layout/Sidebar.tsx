@@ -19,7 +19,6 @@ import {
   UserCheck,
   Building2,
   ClipboardList,
-  PackagePlus,
   PackageMinus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -63,7 +62,7 @@ const mainNavItems: NavItem[] = [
     href: '/purchases',
     icon: Truck,
     children: [
-      { title: 'New Purchases', href: '/purchases?tab=purchases', icon: PackagePlus },
+      { title: 'All Purchases', href: '/purchases?tab=purchases', icon: Package },
       { title: 'Purchase Returns', href: '/purchases?tab=returns', icon: PackageMinus },
     ],
   },

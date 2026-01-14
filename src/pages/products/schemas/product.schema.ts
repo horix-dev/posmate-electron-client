@@ -37,6 +37,13 @@ export const productFormSchema = z.object({
     .optional()
     .or(z.literal('')),
 
+  barcode: z
+    .string()
+    .max(100, 'Barcode must be less than 100 characters')
+    .trim()
+    .optional()
+    .or(z.literal('')),
+
   category_id: z.string().optional().or(z.literal('')),
 
   brand_id: z.string().optional().or(z.literal('')),
@@ -96,6 +103,7 @@ export type ProductFormData = z.infer<typeof productFormSchema>
 export const defaultProductFormValues: ProductFormData = {
   productName: '',
   productCode: '',
+  barcode: '',
   category_id: '',
   brand_id: '',
   unit_id: '',
@@ -113,6 +121,7 @@ export const defaultProductFormValues: ProductFormData = {
 export function productToFormData(product: {
   productName: string
   productCode?: string | null
+  barcode?: string | null
   category_id?: number | null
   brand_id?: number | null
   unit_id?: number | null
@@ -168,6 +177,7 @@ export function productToFormData(product: {
   return {
     productName: product.productName,
     productCode: product.productCode || '',
+    barcode: product.barcode || '',
     category_id: product.category_id?.toString() || '',
     brand_id: product.brand_id?.toString() || '',
     unit_id: product.unit_id?.toString() || '',
@@ -198,6 +208,9 @@ export function formDataToFormData(
 
   if (data.productCode) {
     formData.append('productCode', data.productCode)
+  }
+  if (data.barcode) {
+    formData.append('barcode', data.barcode)
   }
   if (data.category_id) {
     formData.append('category_id', data.category_id)

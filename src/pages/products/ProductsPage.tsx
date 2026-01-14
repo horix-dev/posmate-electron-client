@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import { useDebounce } from '@/hooks'
 import { productsService } from '@/api/services'
 import type { Product } from '@/types/api.types'
-import type { VariableProductPayload } from './schemas'
 
 // Local imports
 import {
@@ -14,10 +13,9 @@ import {
   ProductFiltersBar,
   ProductTable,
   ProductDetailsDialog,
-  ProductFormDialog,
   DeleteProductDialog,
 } from './components'
-import { useProducts, useAttributes, DEFAULT_FILTERS } from './hooks'
+import { useProducts, DEFAULT_FILTERS } from './hooks'
 import type { ProductFilters } from './hooks'
 
 // ============================================
@@ -56,29 +54,20 @@ export function ProductsPage() {
     products,
     categories,
     brands,
-    units,
     totalStockValue,
     isLoading,
     error,
     filteredProducts,
     stats,
     refetch,
-    createProduct,
-    updateProduct,
     deleteProduct,
   } = useProducts(debouncedFilters)
-
-  // Attributes for variant products
-  const { attributes, isLoading: attributesLoading } = useAttributes()
 
   // ============================================
   // Dialog State
   // ============================================
   const [viewProduct, setViewProduct] = useState<Product | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false)
-  const [editProduct, setEditProduct] = useState<Product | null>(null)
-  const [isLoadingProduct, setIsLoadingProduct] = useState(false)
   const [deleteProductState, setDeleteProductState] = useState<Product | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -106,24 +95,13 @@ export function ProductsPage() {
     }
   }, [])
 
-  // Open edit product dialog - fetch full product details
-  const handleEdit = useCallback(async (product: Product) => {
-    setIsLoadingProduct(true)
-    setIsFormDialogOpen(true)
-
-    try {
-      // Fetch full product details including variants
-      const response = await productsService.getById(product.id)
-      setEditProduct(response.data)
-    } catch (error) {
-      console.error('Failed to fetch product details:', error)
-      toast.error('Failed to load product details')
-      // Fall back to the list product data
-      setEditProduct(product)
-    } finally {
-      setIsLoadingProduct(false)
-    }
-  }, [])
+  // Navigate to edit product page
+  const handleEdit = useCallback(
+    (product: Product) => {
+      navigate(`/products/${product.id}/edit`)
+    },
+    [navigate]
+  )
 
   // Open delete confirmation dialog
   const handleDeleteClick = useCallback((product: Product) => {
@@ -149,26 +127,6 @@ export function ProductsPage() {
   // Cancel delete
   const handleDeleteCancel = useCallback(() => {
     setDeleteProductState(null)
-  }, [])
-
-  // Form submit handler
-  const handleFormSubmit = useCallback(
-    async (data: FormData | VariableProductPayload, isEdit: boolean, isVariable: boolean) => {
-      if (isEdit && editProduct) {
-        await updateProduct(editProduct.id, data, isVariable)
-      } else {
-        await createProduct(data, isVariable)
-      }
-    },
-    [editProduct, createProduct, updateProduct]
-  )
-
-  // Close form dialog
-  const handleFormDialogClose = useCallback((open: boolean) => {
-    setIsFormDialogOpen(open)
-    if (!open) {
-      setEditProduct(null)
-    }
   }, [])
 
   // Clear all filters
@@ -254,20 +212,6 @@ export function ProductsPage() {
         product={viewProduct}
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
-      />
-
-      {/* Add/Edit Product Dialog */}
-      <ProductFormDialog
-        open={isFormDialogOpen}
-        onOpenChange={handleFormDialogClose}
-        product={editProduct}
-        isLoadingProduct={isLoadingProduct}
-        categories={categories}
-        brands={brands}
-        units={units}
-        attributes={attributes}
-        attributesLoading={attributesLoading}
-        onSubmit={handleFormSubmit}
       />
 
       {/* Delete Confirmation Dialog */}

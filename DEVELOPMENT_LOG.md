@@ -1,5 +1,217 @@
 # Development Log
 
+## 2026-01-15 — Unified Product Search Implementation ✅
+
+**Context**: Backend implemented unified search API that searches across products, variants, and batches in a single request (see [backend_docs/UNIFIED_PRODUCT_SEARCH_IMPLEMENTATION.md](backend_docs/UNIFIED_PRODUCT_SEARCH_IMPLEMENTATION.md)).
+
+**Problem**: Frontend needed integration to leverage the new unified search capabilities for multiple use cases:
+- POS barcode scanning (quick product lookup)
+- Product search dropdowns (autocomplete)
+- Inventory management (comprehensive search)
+- Batch tracking (search by batch number)
+- Variant lookup (search by SKU)
+
+**Solution Implemented**:
+
+### 1. Type Definitions ([types/product-search.types.ts](src/types/product-search.types.ts))
+```typescript
+// Search types
+export type ProductSearchType = 'product' | 'variant' | 'batch' | 'all'
+
+// Result types for each entity
+export interface ProductSearchResultItem { ... }
+export interface VariantSearchResultItem { ... }
+export interface BatchSearchResultItem { ... }
+
+// Unified search response
+export interface UnifiedSearchResponse {
+  products: ProductSearchResultItem[]
+  variants: VariantSearchResultItem[]
+  batches: BatchSearchResultItem[]
+  total: number
+}
+
+// Quick barcode lookup result
+export type QuickBarcodeResult = { type: 'product' | 'variant' | 'batch'; data: ... }
+```
+
+### 2. API Service ([api/services/productSearch.service.ts](src/api/services/productSearch.service.ts))
+- ✅ `search(params)` - Unified search with filtering and limits
+- ✅ `quickBarcodeLookup(barcode)` - Fast barcode scanning for POS
+
+**API Endpoints** ([endpoints.ts](src/api/endpoints.ts)):
+```typescript
+PRODUCTS: {
+  SEARCH: '/products/search',
+  QUICK_BARCODE: (barcode: string) => `/products/quick-barcode/${barcode}`,
+}
+```
+
+### 3. Custom Hooks ([hooks/useProductSearch.ts](src/hooks/useProductSearch.ts))
+
+**`useProductSearch()`** - Unified search with debouncing
+```typescript
+const { results, allResults, isLoading, search, clear } = useProductSearch()
+```
+- Automatic debouncing (default 300ms)
+- Offline-aware with retry logic
+- Returns categorized results (products, variants, batches)
+
+**`useBarcodeScanner()`** - Quick barcode lookup
+```typescript
+const { scan, isScanning, lastResult } = useBarcodeScanner({
+  onSuccess: (result) => { /* Handle scanned item */ },
+  onNotFound: (barcode) => { /* Handle not found */ }
+})
+```
+- Instant barcode lookup
+- Success/error/not-found callbacks
+- Returns typed result (product/variant/batch)
+
+**`useProductAutocomplete()`** - Autocomplete/dropdown search
+```typescript
+const { query, setQuery, results, onSelect } = useProductAutocomplete({
+  limit: 10,
+  onSelect: (item) => { /* Handle selection */ }
+})
+```
+- Built-in query state management
+- Automatic result limiting
+- Selection handling
+
+### 4. POS Barcode Scanner Hook ([hooks/usePOSBarcodeScanner.ts](src/hooks/usePOSBarcodeScanner.ts))
+
+**`usePOSBarcodeScanner()`** - Specialized POS scanning
+```typescript
+const { scanBarcode, lastScannedItem, inputRef } = usePOSBarcodeScanner({
+  onItemScanned: (item) => addToCart(item),
+  playSound: true,
+  autoFocus: true
+})
+```
+
+**Features**:
+- ✅ Audio feedback (success/error beeps using Web Audio API)
+- ✅ Auto-focus input management
+- ✅ Scan history (last 10 scans)
+- ✅ Toast notifications
+- ✅ Unified item format (products/variants/batches)
+- ✅ Input ref for keyboard integration
+
+### 5. Example Components ([components/examples/ProductSearchExamples.tsx](src/components/examples/ProductSearchExamples.tsx))
+
+Implemented all 5 use cases with complete UI examples:
+
+1. **`POSBarcodeScanner`** - POS barcode scanning with audio feedback
+2. **`ProductSearchDropdown`** - Autocomplete search dropdown
+3. **`InventoryManagementSearch`** - Comprehensive search with categorized results
+4. **`BatchTrackingSearch`** - Batch-specific search with expiry indicators
+5. **`VariantLookupSearch`** - Variant search by SKU with attribute display
+
+**Usage Example**:
+```typescript
+import { POSBarcodeScanner } from '@/components/examples/ProductSearchExamples'
+
+function POSPage() {
+  return <POSBarcodeScanner />
+}
+```
+
+### Benefits
+
+| Use Case | Hook | Features |
+|----------|------|----------|
+| **POS Barcode Scanning** | `usePOSBarcodeScanner` | Audio feedback, auto-focus, history |
+| **Product Search Dropdown** | `useProductAutocomplete` | Debouncing, limiting, selection |
+| **Inventory Management** | `useProductSearch` | All types, categorized results |
+| **Batch Tracking** | `useProductSearch` | Batch-only filter, expiry info |
+| **Variant Lookup** | `useProductSearch` | Variant-only filter, SKU search |
+
+### Architecture Compliance
+- ✅ **Service Layer Pattern** - Business logic in service
+- ✅ **Custom Hooks Pattern** - Encapsulated hook logic
+- ✅ **Offline-First** - Respects online status, caching
+- ✅ **Type Safety** - Full TypeScript coverage
+- ✅ **Reusable Components** - Example components provided
+
+### Files Created
+- [src/types/product-search.types.ts](src/types/product-search.types.ts) - Type definitions
+- [src/api/services/productSearch.service.ts](src/api/services/productSearch.service.ts) - API service
+- [src/hooks/useProductSearch.ts](src/hooks/useProductSearch.ts) - Search hooks
+- [src/hooks/usePOSBarcodeScanner.ts](src/hooks/usePOSBarcodeScanner.ts) - POS scanner hook
+- [src/components/examples/ProductSearchExamples.tsx](src/components/examples/ProductSearchExamples.tsx) - Usage examples
+
+### Files Modified
+- [src/api/endpoints.ts](src/api/endpoints.ts) - Added SEARCH and QUICK_BARCODE endpoints
+- [src/api/services/index.ts](src/api/services/index.ts) - Exported productSearchService
+- [src/hooks/index.ts](src/hooks/index.ts) - Exported new hooks
+
+### Integration Instructions
+
+**For POS Page**:
+```typescript
+import { usePOSBarcodeScanner } from '@/hooks'
+
+const { scanBarcode, inputRef } = usePOSBarcodeScanner({
+  onItemScanned: (item) => {
+    // Add to cart based on type
+    if (item.type === 'variant') {
+      cartStore.addVariant(item)
+    } else {
+      cartStore.addProduct(item)
+    }
+  }
+})
+
+return <input ref={inputRef} onKeyDown={(e) => {
+  if (e.key === 'Enter') {
+    scanBarcode(e.currentTarget.value)
+    e.currentTarget.value = ''
+  }
+}} />
+```
+
+**For Product Search**:
+```typescript
+import { useProductAutocomplete } from '@/hooks'
+
+const { query, setQuery, results } = useProductAutocomplete({
+  limit: 10,
+  onSelect: (item) => console.log('Selected:', item)
+})
+
+return (
+  <>
+    <input value={query} onChange={(e) => setQuery(e.target.value)} />
+    {results.map(item => <div key={item.id}>{item.name}</div>)}
+  </>
+)
+```
+
+**Status**: ✅ Complete - Ready for integration into existing pages
+
+---
+
+## 2026-01-14 — UI Organization: Payment Types & Attributes Tab Relocation
+
+**Problem**: Payment types were in Product Settings page (alongside categories, brands, models) while attributes were in general Settings page, causing confusion about where to find each feature.
+
+**Solution**:
+- Moved **Payment Types** tab from [ProductSettingsPage.tsx](src/pages/product-settings/ProductSettingsPage.tsx) to [SettingsPage.tsx](src/pages/settings/SettingsPage.tsx)
+  - Now alongside Business settings, Security, and other app-wide settings
+  - Includes full search functionality and payment type management
+- Moved **Attributes** tab from [SettingsPage.tsx](src/pages/settings/SettingsPage.tsx) to [ProductSettingsPage.tsx](src/pages/product-settings/ProductSettingsPage.tsx)
+  - Now alongside Categories, Brands, Models, and Units (all product-related settings)
+  - Displays attribute list with value counts
+
+**Rationale**: Payment types are payment/transaction settings (app-wide configuration), while attributes are product classification tools. This makes navigation more intuitive.
+
+**Files Modified**:
+- [ProductSettingsPage.tsx](src/pages/product-settings/ProductSettingsPage.tsx) - Added attributes, removed payment types
+- [SettingsPage.tsx](src/pages/settings/SettingsPage.tsx) - Added payment types, removed attributes
+
+---
+
 ## 2026-01-14 — Backend API Alignment: Payment Types CRUD Full Feature Implementation ✅
 
 **Context**: Payment types CRUD was partially implemented - missing key backend features like status toggle, bulk delete, and is_credit flag.

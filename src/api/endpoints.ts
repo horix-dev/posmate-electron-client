@@ -33,6 +33,9 @@ export const API_ENDPOINTS = {
     CREATE: '/products',
     UPDATE: (id: number) => `/products/${id}`,
     DELETE: (id: number) => `/products/${id}`,
+    // Unified search (products, variants, batches)
+    SEARCH: '/products/search',
+    QUICK_BARCODE: (barcode: string) => `/products/quick-barcode/${barcode}`,
   },
 
   // Categories
