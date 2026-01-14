@@ -1,4 +1,125 @@
-# Development Log
+## 2026-01-14 — Business Settings Complete Implementation 🎨
+
+**Context**: Implemented comprehensive business settings management UI matching the provided design specification and API documentation.
+
+**Features Implemented**:
+- Full business settings form with all fields from API documentation
+- Business category selection dropdown with data from backend
+- Company/Business name, phone, email, and address fields
+- VAT/GST configuration (title and number with validation)
+- Product profit calculation option (Markup vs Margin with descriptions)
+- Sale rounding options (6 options: none, round up, nearest whole, 0.05, 0.1, 0.5)
+- Invoice branding: logo and scanner logo upload with drag & drop
+- Custom receipt messages (invoice note, note label, post-sale gratitude message)
+- Image upload with preview and file validation
+- Two-column responsive grid layout matching design
+- Real-time form state management
+- Proper validation and error handling
+
+**Files Created**:
+1. `src/pages/settings/components/BusinessSettingsForm.tsx` - Main business settings form component
+
+**Files Modified**:
+1. `src/types/api.types.ts` - Added:
+   - `ProfitOption` type ('markup' | 'margin')
+   - `BusinessSettings` interface with all fields
+   - `UpdateBusinessSettingsRequest` interface
+2. `src/api/services/settings.service.ts` - Added:
+   - `getBusinessSettings()` method
+   - `updateBusinessSettings()` method with FormData support
+3. `src/pages/settings/SettingsPage.tsx` - Integrated BusinessSettingsForm in Business tab
+
+**API Integration**:
+- GET `/business-settings` - Fetch current settings
+- POST `/business-settings` - Update settings (multipart/form-data for images)
+- Proper FormData handling for file uploads
+- Integration with business categories API
+- Error handling with toast notifications
+
+**UI Features** (Exact Match to Design):
+- Responsive 2-column grid layout
+- Required field indicators (*)
+- Default option badges in dropdowns (e.g., "Default" for markup)
+- Loading states with spinner
+- Drag & drop image upload areas
+- Image preview before submission
+- Centered "Update" button at bottom
+- Placeholder texts matching design
+- Proper field ordering and grouping
+
+**Validation**:
+- Company name required
+- Business category required
+- VAT number required when VAT title is provided
+- Email format validation
+- Image file type validation (images only)
+- Image file size validation (max 5MB)
+
+**Architecture**:
+- Followed existing patterns (service layer architecture)
+- TypeScript strict typing
+- Reusable Select, Input, Textarea, and Button components
+- Separation of concerns
+- Toast-based user feedback
+
+**User Flow**:
+1. Settings page loads → Fetches business categories and current settings
+2. User fills/modifies form fields
+3. User optionally uploads logo images via drag & drop or click
+4. User clicks "Update" button
+5. FormData constructed with all fields and files
+6. API request sent with multipart/form-data
+7. Success → Toast notification + form updated with response data
+8. Error → Toast notification with error message
+
+## 2026-01-14 — Business Settings Complete Implementation 🎨
+
+**Context**: Implemented comprehensive business settings management UI matching the provided design specification.
+
+**Features Implemented**:
+- Full business settings form with all fields from API documentation
+- Business category selection dropdown
+- VAT/GST configuration (name and number)
+- Product profit calculation option (Markup vs Margin)
+- Sale rounding options (6 options: none, round up, nearest whole, 0.05, 0.1, 0.5)
+- Invoice branding: logo and scanner logo upload
+- Custom receipt messages (note, note label, gratitude message)
+- Drag & drop image upload component with preview
+- Real-time form state management
+- Proper validation and error handling
+
+**Files Created**:
+1. `src/api/services/businessSettings.service.ts` - API service for business settings
+2. `src/hooks/useBusinessSettings.ts` - Custom hook for settings management
+3. `src/components/ui/image-upload.tsx` - Reusable drag & drop image upload component
+4. `src/pages/settings/components/BusinessSettingsForm.tsx` - Main business settings form
+
+**Files Modified**:
+1. `src/types/api.types.ts` - Added BusinessSettings and related types
+2. `src/api/services/index.ts` - Exported businessSettingsService
+3. `src/pages/settings/components/index.ts` - Exported BusinessSettingsForm
+4. `src/pages/settings/SettingsPage.tsx` - Integrated BusinessSettingsForm in Business tab
+
+**API Integration**:
+- GET `/business-settings` - Fetch current settings
+- POST `/business-settings` - Update settings (multipart/form-data for images)
+- Proper FormData handling for file uploads
+- Automatic cache clearing on backend after updates
+
+**UI Features**:
+- Exact match to provided design screenshot
+- Responsive 2-column grid layout
+- Required field indicators (*)
+- Default option badges in dropdowns
+- Loading and saving states
+- Toast notifications for success/error
+- Image preview with remove capability
+
+**Architecture**:
+- Followed existing patterns (repository pattern, custom hooks)
+- Separation of concerns (service layer, hooks, components)
+- TypeScript strict typing
+- Offline-ready foundation (hook can be extended for caching)
 
 ## 2026-01-10 — Silent Print Handler Optimization (Electron) 🔄
 

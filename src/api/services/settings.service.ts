@@ -1,6 +1,6 @@
 import api, { ApiResponse } from '../axios'
 import { API_ENDPOINTS } from '../endpoints'
-import type { ProductSettings, Currency, User } from '@/types/api.types'
+import type { ProductSettings, Currency, User, BusinessSettings } from '@/types/api.types'
 
 export const settingsService = {
   // ============================================
@@ -25,6 +25,55 @@ export const settingsService = {
       ...settings,
       _method: 'PUT',
     })
+    return data
+  },
+
+  // ============================================
+  // Business Settings
+  // ============================================
+
+  /**
+   * Get business settings
+   */
+  getBusinessSettings: async (): Promise<ApiResponse<BusinessSettings>> => {
+    try {
+      const { data } = await api.get<ApiResponse<BusinessSettings>>(API_ENDPOINTS.SETTINGS.BUSINESS)
+      return data
+    } catch (error) {
+      console.error('Error fetching business settings from API:', error)
+      // Return empty response if API endpoint doesn't exist yet
+      return {
+        message: 'Business settings endpoint not yet available',
+        data: null as unknown as BusinessSettings,
+      }
+    }
+  },
+
+  /**
+   * Update business settings
+   */
+  updateBusinessSettings: async (
+    settings: Record<string, unknown>
+  ): Promise<ApiResponse<BusinessSettings>> => {
+    const formData = new FormData()
+
+    Object.entries(settings).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (value instanceof File) {
+          formData.append(key, value)
+        } else {
+          formData.append(key, String(value))
+        }
+      }
+    })
+
+    const { data } = await api.post<ApiResponse<BusinessSettings>>(
+      API_ENDPOINTS.SETTINGS.BUSINESS,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }
+    )
     return data
   },
 
