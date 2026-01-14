@@ -624,18 +624,18 @@ export interface Sale {
   discountAmount?: number
 
   // Old fields (kept for backward compatibility)
-  paidAmount: number            // ⚠️ Deprecated, use initial_paidAmount or total_paid_amount
-  dueAmount?: number            // ⚠️ Deprecated, use initial_dueAmount or remaining_due_amount
-  isPaid?: number               // ⚠️ Now calculated, use is_fully_paid
+  paidAmount: number // ⚠️ Deprecated, use initial_paidAmount or total_paid_amount
+  dueAmount?: number // ⚠️ Deprecated, use initial_dueAmount or remaining_due_amount
+  isPaid?: number // ⚠️ Now calculated, use is_fully_paid
 
   // New fields - Due Collection Tracking
-  initial_paidAmount?: number   // Payment at sale time
-  initial_dueAmount?: number    // Due at sale time
-  total_paid_amount?: number    // Initial + due collections
+  initial_paidAmount?: number // Payment at sale time
+  initial_dueAmount?: number // Due at sale time
+  total_paid_amount?: number // Initial + due collections
   remaining_due_amount?: number // Actual remaining due
-  is_fully_paid?: boolean       // Accurate payment status
-  due_collections_count?: number  // Number of collection payments
-  due_collections_total?: number  // Total from collections
+  is_fully_paid?: boolean // Accurate payment status
+  due_collections_count?: number // Number of collection payments
+  due_collections_total?: number // Total from collections
 
   change_amount?: number
   lossProfit?: number
@@ -1010,6 +1010,44 @@ export interface ProductSettingsModules {
   show_batch_no: string
   show_expire_date: string
   show_mfg_date: string
+}
+
+export type ProfitOption = 'markup' | 'margin'
+
+export interface BusinessSettings {
+  id: number | null
+  business_id: number
+  companyName: string
+  address?: string | null
+  phoneNumber?: string | null
+  email?: string | null
+  business_category_id: number
+  vat_name?: string | null
+  vat_no?: string | null
+  invoice_logo?: string | null
+  invoice_scanner_logo?: string | null
+  sale_rounding_option: RoundingOption
+  product_profit_option?: ProfitOption | null
+  note?: string | null
+  note_label?: string | null
+  gratitude_message?: string | null
+}
+
+export interface UpdateBusinessSettingsRequest {
+  companyName: string
+  business_category_id: number
+  address?: string
+  email?: string
+  phoneNumber?: string
+  vat_name?: string
+  vat_no?: string
+  invoice_logo?: File
+  invoice_scanner_logo?: File
+  sale_rounding_option?: RoundingOption
+  product_profit_option?: ProfitOption
+  note?: string
+  note_label?: string
+  gratitude_message?: string
 }
 
 // ============================================

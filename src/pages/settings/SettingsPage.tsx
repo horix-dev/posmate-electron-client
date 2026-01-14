@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import {
-  Store,
   Receipt,
   Bell,
   Palette,
@@ -16,13 +15,12 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { useUIStore, useBusinessStore } from '@/stores'
+import { useUIStore } from '@/stores'
 import { attributesService } from '@/api/services'
 import { useAppUpdater } from '@/hooks/useAppUpdater'
-import { AttributesSettings, CurrencySettings } from './components'
+import { AttributesSettings, CurrencySettings, BusinessSettingsForm } from './components'
 import type { Attribute } from '@/types/variant.types'
 
 type AppInfo = {
@@ -34,7 +32,6 @@ type AppInfo = {
 export function SettingsPage() {
   const { theme, setTheme, soundEnabled, setSoundEnabled, autoPrintReceipt, setAutoPrintReceipt } =
     useUIStore()
-  const business = useBusinessStore((state) => state.business)
 
   const {
     updateStatus,
@@ -252,32 +249,7 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="business" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Store className="h-5 w-5" />
-                Business Information
-              </CardTitle>
-              <CardDescription>Update your business details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Business Name</Label>
-                  <Input defaultValue={business?.companyName} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Phone Number</Label>
-                  <Input defaultValue={business?.phoneNumber} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Address</Label>
-                  <Input defaultValue={business?.address} />
-                </div>
-              </div>
-              <Button>Save Changes</Button>
-            </CardContent>
-          </Card>
+          <BusinessSettingsForm />
         </TabsContent>
 
         <TabsContent value="attributes" className="space-y-4">
