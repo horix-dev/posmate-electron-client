@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, LayoutGrid } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,9 +25,18 @@ import { VatDialog } from './components/vats/VatDialog'
 import type { Category, Brand, ProductModel, Unit, Rack, Shelf, PaymentType, Vat } from '@/types/api.types'
 
 export function ProductSettingsPage() {
+  const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState('categories')
   const [searchQuery, setSearchQuery] = useState('')
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  // Read tab from URL on mount
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab) {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
 
   // Dialog States
   const [isCategoryOpen, setIsCategoryOpen] = useState(false)
