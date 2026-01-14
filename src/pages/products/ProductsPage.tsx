@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -30,6 +31,7 @@ const SEARCH_DEBOUNCE_MS = 300
 // ============================================
 
 export function ProductsPage() {
+  const navigate = useNavigate()
   // ============================================
   // Filter State
   // ============================================
@@ -37,7 +39,7 @@ export function ProductsPage() {
 
   // Debounce search for performance
   const debouncedSearch = useDebounce(filters.search, SEARCH_DEBOUNCE_MS)
-  
+
   // Create debounced filters object
   const debouncedFilters = useMemo<ProductFilters>(
     () => ({
@@ -67,10 +69,7 @@ export function ProductsPage() {
   } = useProducts(debouncedFilters)
 
   // Attributes for variant products
-  const {
-    attributes,
-    isLoading: attributesLoading,
-  } = useAttributes()
+  const { attributes, isLoading: attributesLoading } = useAttributes()
 
   // ============================================
   // Dialog State
@@ -89,14 +88,13 @@ export function ProductsPage() {
 
   // Open add product dialog
   const handleAdd = useCallback(() => {
-    setEditProduct(null)
-    setIsFormDialogOpen(true)
-  }, [])
+    navigate('/products/create')
+  }, [navigate])
 
   // Open view product dialog - fetch full product details
   const handleView = useCallback(async (product: Product) => {
     setIsViewDialogOpen(true)
-    
+
     try {
       // Fetch full product details including variants
       const response = await productsService.getById(product.id)
@@ -112,7 +110,7 @@ export function ProductsPage() {
   const handleEdit = useCallback(async (product: Product) => {
     setIsLoadingProduct(true)
     setIsFormDialogOpen(true)
-    
+
     try {
       // Fetch full product details including variants
       const response = await productsService.getById(product.id)
@@ -199,7 +197,12 @@ export function ProductsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={handleRefresh} aria-label="Refresh products">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleRefresh}
+            aria-label="Refresh products"
+          >
             <RefreshCw className="h-4 w-4" aria-hidden="true" />
           </Button>
           <Button onClick={handleAdd}>
@@ -224,11 +227,7 @@ export function ProductsPage() {
       )}
 
       {/* Stats Cards */}
-      <ProductStatsCards
-        stats={stats}
-        totalStockValue={totalStockValue}
-        isLoading={isLoading}
-      />
+      <ProductStatsCards stats={stats} totalStockValue={totalStockValue} isLoading={isLoading} />
 
       {/* Filters */}
       <ProductFiltersBar

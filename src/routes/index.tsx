@@ -16,6 +16,7 @@ const OtpPage = lazy(() => import('@/pages/auth/OtpPage'))
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'))
 const POSPage = lazy(() => import('@/pages/pos/POSPage'))
 const ProductsPage = lazy(() => import('@/pages/products/ProductsPage'))
+const CreateProductPage = lazy(() => import('@/pages/products/CreateProductPage'))
 const SalesPage = lazy(() => import('@/pages/sales/SalesPage'))
 const PurchasesPage = lazy(() => import('@/pages/purchases/PurchasesPage'))
 const NewPurchasePage = lazy(() => import('@/pages/purchases/NewPurchasePage'))
@@ -113,6 +114,14 @@ const router = routerCreator([
         element: (
           <Suspense fallback={<PageLoader />}>
             <ProductsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'products/create',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <CreateProductPage />
           </Suspense>
         ),
       },

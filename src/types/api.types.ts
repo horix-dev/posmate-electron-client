@@ -615,6 +615,8 @@ export interface PaymentType {
 
 export interface CreatePaymentTypeRequest {
   name: string
+  status?: boolean
+  is_credit?: boolean
 }
 
 // ============================================

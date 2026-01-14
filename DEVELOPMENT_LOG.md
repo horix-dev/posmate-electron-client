@@ -1,5 +1,97 @@
 # Development Log
 
+## 2026-01-14 — Backend API Alignment: Payment Types CRUD Full Feature Implementation ✅
+
+**Context**: Payment types CRUD was partially implemented - missing key backend features like status toggle, bulk delete, and is_credit flag.
+
+**Problem**:
+1. **Missing Backend Features**:
+   - No status toggle (active/inactive) functionality
+   - Bulk delete used inefficient sequential API calls instead of bulk endpoint
+   - No UI for `is_credit` flag (credit payment types like "Due")
+   - Missing filter/search endpoint integration
+   - No pagination support
+
+2. **Incomplete Type Definitions**:
+   - `CreatePaymentTypeRequest` only had `name` field (missing `status` and `is_credit`)
+   - Missing endpoints: `FILTER`, `TOGGLE_STATUS`, `BULK_DELETE`
+
+3. **Limited UI**:
+   - Table didn't show payment type category (credit vs. payment)
+   - No visual status indicators
+   - Create/Edit dialog missing `is_credit` and `status` fields
+
+**Solution Implemented**:
+
+### 1. Enhanced Type Definitions ([api.types.ts](src/types/api.types.ts))
+```typescript
+export interface CreatePaymentTypeRequest {
+  name: string
+  status?: boolean      // NEW: Enable/disable payment type
+  is_credit?: boolean   // NEW: Mark as credit/due payment type
+}
+```
+
+### 2. Added Missing API Endpoints ([endpoints.ts](src/api/endpoints.ts))
+```typescript
+PAYMENT_TYPES: {
+  LIST: '/payment-types',
+  FILTER: '/payment-types/filter',              // NEW: Search & filter
+  CREATE: '/payment-types',
+  UPDATE: (id: number) => `/payment-types/${id}`,
+  DELETE: (id: number) => `/payment-types/${id}`,
+  TOGGLE_STATUS: (id: number) => `/payment-types/${id}/status`,  // NEW
+  BULK_DELETE: '/payment-types/delete-all',     // NEW
+}
+```
+
+### 3. Enhanced Service Layer ([inventory.service.ts](src/api/services/inventory.service.ts))
+- ✅ Added query params support to `getAll()` (limit, search, status, pagination)
+- ✅ New `filter()` method for dedicated filtering
+- ✅ New `toggleStatus()` method for status updates
+- ✅ Updated `deleteMultiple()` to use bulk endpoint (was sequential API calls)
+
+### 4. Enhanced Dialog Component ([PaymentTypeDialog.tsx](src/pages/product-settings/components/payment-types/PaymentTypeDialog.tsx))
+- ✅ Added `is_credit` checkbox with explanatory text
+- ✅ Added status toggle switch
+- ✅ Form now submits all 3 fields: `name`, `is_credit`, `status`
+
+### 5. Enhanced Table Component ([PaymentTypesTable.tsx](src/pages/product-settings/components/payment-types/PaymentTypesTable.tsx))
+- ✅ Added "Type" column with badges:
+  - 🟡 **Credit** badge for credit payment types (amber)
+  - ⚪ **Payment** badge for regular payment methods
+- ✅ Added "Status" column with toggle switches
+- ✅ Status toggle updates instantly via API
+- ✅ Bulk delete now uses efficient backend endpoint
+
+**Backend API Features Now Supported**:
+- ✅ All CRUD operations (Create, Read, Update, Delete)
+- ✅ Status management (PATCH `/payment-types/{id}/status`)
+- ✅ Bulk delete (POST `/payment-types/delete-all`)
+- ✅ Filter/Search endpoint ready (GET `/payment-types/filter`)
+- ✅ Credit payment type flag (`is_credit`)
+- ✅ Query parameters (limit, search, status, pagination) - service ready
+
+**UI/UX Improvements**:
+- Visual distinction between credit types ("Due") and payment methods ("Cash", "Card")
+- Inline status toggling without opening edit dialog
+- Explanatory text for credit payment types
+- Status switch with immediate feedback
+
+**Files Modified**:
+- `src/types/api.types.ts` - Enhanced CreatePaymentTypeRequest interface
+- `src/api/endpoints.ts` - Added missing endpoints
+- `src/api/services/inventory.service.ts` - Enhanced paymentTypesService
+- `src/pages/product-settings/components/payment-types/PaymentTypeDialog.tsx` - Added is_credit and status fields
+- `src/pages/product-settings/components/payment-types/PaymentTypesTable.tsx` - Added type badges and status toggle
+
+**Testing Notes**:
+- ⚠️ Credit payment types require `party_id` in sales (backend validation)
+- Default payment types ("Cash", "Card", "Due", etc.) created automatically on business setup
+- Status toggle immediately reflects in POS and other UI components
+
+---
+
 ## 2026-01-14 — Fix: Supplier Update with Image Upload (Method Spoofing) 🔧
 
 **Context**: Supplier update requests with images were failing because Laravel doesn't properly parse `multipart/form-data` with PUT requests.
@@ -4274,3 +4366,40 @@ await storage.syncQueue.enqueue({ ... })
 **Files Modified**:
 - \src/pages/purchases/NewPurchasePage.tsx\
 
+
+ # #   2 0 2 6 - 0 1 - 1 4     F e a t :   E n h a n c e d   V a r i a n t   P u r c h a s e   W o r k f l o w   ( U I / U X )   
+ 
+ * * C o n t e x t * * :   B u y i n g   v a r i a n t   p r o d u c t s   ( e . g . ,   S i z e / C o l o r )   w a s   c u m b e r s o m e ,   r e q u i r i n g   m u l t i p l e   c l i c k s   a n d   s e p a r a t e   e n t r i e s   i n   t h e   p u r c h a s e   t a b l e . 
+ 
+ * * P r o b l e m * * : 
+ -   S e l e c t i n g   v a r i a n t s   r e q u i r e d   a d d i n g   a   p a r e n t   p r o d u c t   t h e n   u s i n g   a   d r o p d o w n   i n   t h e   t a b l e   r o w 
+ -   N o   b u l k   e n t r y   s u p p o r t   f o r   m u l t i p l e   v a r i a n t s   o f   t h e   s a m e   p r o d u c t 
+ -   T a b l e   w a s   c r a m p e d   w i t h   s e p a r a t e   D a t e   c o l u m n s 
+ -   V a r i a n t s   f e l t   d i s c o n n e c t e d   v i s u a l l y   i n   t h e   t a b l e 
+ 
+ * * S o l u t i o n   I m p l e m e n t e d * * : 
+ 
+ # # #   1 .   R e f a c t o r e d   P r o d u c t   S e a r c h   ( N e w P u r c h a s e P a g e . t s x ) 
+ -   S e a r c h   r e s u l t s   n o w   s h o w   * * s p e c i f i c   v a r i a n t s * *   d i r e c t l y   ( e . g . ,   & q u o t ; N i k e   -   B l a c k & q u o t ; )   a l o n g s i d e   p a r e n t   p r o d u c t s 
+ -   S e l e c t i n g   a   s p e c i f i c   v a r i a n t   a d d s   i t   d i r e c t l y   t o   t h e   t a b l e   ( b y p a s s i n g   t h e   n e e d   f o r   r o w - l e v e l   s e l e c t i o n ) 
+ -   S e l e c t i n g   a   g e n e r i c   V a r i a b l e   P r o d u c t   n o w   t r i g g e r s   t h e   * * B u l k   E n t r y   M o d a l * * 
+ 
+ # # #   2 .   N e w   B u l k   E n t r y   M o d a l   ( V a r i a n t B u l k E n t r y D i a l o g . t s x ) 
+ -   A l l o w s   s e l e c t i n g   m u l t i p l e   v a r i a n t s   a t   o n c e 
+ -   G r i d   i n p u t   f o r   Q u a n t i t i e s ,   P r i c e s ,   B a t c h   N o ,   a n d   D a t e s   f o r   e a c h   v a r i a n t 
+ -   * * & q u o t ; A p p l y   t o   S e l e c t e d & q u o t ; * *   f e a t u r e   t o   b u l k - a p p l y   B a t c h / E x p i r y / M f g   d a t e s   t o   a l l   c h e c k e d   v a r i a n t s 
+ 
+ # # #   3 .   T a b l e   U I   E n h a n c e m e n t s 
+ -   * * M e r g e d   D a t e s * * :   C o m b i n e d   E x p i r y   a n d   M f g   D a t e   i n t o   a   s i n g l e   c o l u m n   w i t h   s t a c k e d   i n p u t s   t o   s a v e   s p a c e 
+ -   * * V i s u a l   C l a r i t y * * : 
+     -   A d d e d   V a r i a n t   N a m e   b a d g e   u n d e r   p r o d u c t   n a m e 
+     -   S h o w s   V a r i a n t - s p e c i f i c   i m a g e   ( i f   a v a i l a b l e )   i n s t e a d   o f   g e n e r i c   p r o d u c t   i m a g e 
+ -   * * U n i t   D i s p l a y * * :   M a i n t a i n e d   c u r r e n c y   p r e f i x e s   f o r   p r i c e   i n p u t s 
+ 
+ * * F i l e s   M o d i f i e d * * : 
+ -   s r c / p a g e s / p u r c h a s e s / N e w P u r c h a s e P a g e . t s x   -   S e a r c h   l o g i c ,   T a b l e   c o l u m n s ,   B u l k   d i a l o g   i n t e g r a t i o n 
+ -   s r c / p a g e s / p u r c h a s e s / c o m p o n e n t s / V a r i a n t B u l k E n t r y D i a l o g . t s x   -   N e w   c o m p o n e n t   f o r   b u l k   v a r i a n t   e n t r y 
+ 
+ 
+ 
+ 

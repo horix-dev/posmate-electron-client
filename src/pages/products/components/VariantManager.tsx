@@ -23,23 +23,15 @@ import {
   Loader2,
   DollarSign,
   Plus,
+  X,
+  Barcode,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -91,7 +83,10 @@ const AttributeSelector = memo(function AttributeSelector({
     if (allSelected) {
       onDeselectAll(attribute.id)
     } else {
-      onSelectAll(attribute.id, values.map((v) => v.id))
+      onSelectAll(
+        attribute.id,
+        values.map((v) => v.id)
+      )
     }
   }
 
@@ -163,6 +158,7 @@ interface VariantTableProps {
   attributes: Attribute[]
   onUpdateVariant: (index: number, updates: Partial<VariantInputData>) => void
   onDeleteVariant: (index: number) => void
+  onRemoveAttribute: (variantIndex: number, valueId: number) => void
 }
 
 const VariantTable = memo(function VariantTable({
@@ -170,6 +166,7 @@ const VariantTable = memo(function VariantTable({
   attributes,
   onUpdateVariant,
   onDeleteVariant,
+  onRemoveAttribute,
 }: VariantTableProps) {
   const { symbol: currencySymbol } = useCurrency()
   const valueMap = useMemo(() => {
@@ -209,56 +206,89 @@ const VariantTable = memo(function VariantTable({
 
   if (variants.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-        <Package className="mb-2 h-8 w-8" />
-        <p>No variants generated yet</p>
-        <p className="text-sm">Select attribute values above and generate variants</p>
+      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/50 py-8 text-center text-muted-foreground">
+        <Package className="mb-2 h-8 w-8 opacity-50" />
+        <p className="font-medium">No variants generated yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Select attribute values above and click "Generate Variants"
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="max-h-[400px] overflow-auto rounded-md border">
+    <div className="max-h-[500px] overflow-auto rounded-md border shadow-sm">
       <Table>
-        <TableHeader className="sticky top-0 bg-background z-10">
-          <TableRow>
-            <TableHead className="w-[50px] bg-background">Active</TableHead>
-            <TableHead className="min-w-[150px] bg-background">Variant</TableHead>
-            <TableHead className="min-w-[120px] bg-background">SKU</TableHead>
-            <TableHead className="min-w-[120px] bg-background">Barcode</TableHead>
-            <TableHead className="min-w-[110px] text-right bg-background">Initial Stock</TableHead>
-            <TableHead className="min-w-[100px] text-right bg-background">Cost ({currencySymbol})</TableHead>
-            <TableHead className="min-w-[100px] text-right bg-background">Price ({currencySymbol})</TableHead>
-            <TableHead className="min-w-[100px] text-right bg-background">Dealer ({currencySymbol})</TableHead>
-            <TableHead className="min-w-[100px] text-right bg-background">Wholesale ({currencySymbol})</TableHead>
-            <TableHead className="w-[60px] bg-background">Actions</TableHead>
+        <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-[50px] bg-muted/50">Active</TableHead>
+            <TableHead className="min-w-[200px] bg-muted/50">Variant Attributes</TableHead>
+            <TableHead className="min-w-[140px] bg-muted/50">SKU</TableHead>
+            <TableHead className="min-w-[140px] bg-muted/50">Barcode</TableHead>
+            <TableHead className="min-w-[110px] bg-muted/50 text-right">Stock</TableHead>
+            <TableHead className="min-w-[100px] bg-muted/50 text-right">
+              Cost ({currencySymbol})
+            </TableHead>
+            <TableHead className="min-w-[100px] bg-muted/50 text-right">
+              Price ({currencySymbol})
+            </TableHead>
+            <TableHead className="min-w-[100px] bg-muted/50 text-right">
+              Dealer ({currencySymbol})
+            </TableHead>
+            <TableHead className="min-w-[100px] bg-muted/50 text-right">
+              Wholesale ({currencySymbol})
+            </TableHead>
+            <TableHead className="w-[60px] bg-muted/50">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {variants.map((variant, index) => (
-            <TableRow key={index} className={cn(variant.is_active === 0 && 'opacity-50')}>
+            <TableRow
+              key={index}
+              className={cn(variant.is_active === 0 && 'bg-muted/30 opacity-60')}
+            >
               <TableCell>
                 <Switch
                   checked={variant.is_active === 1}
-                  onCheckedChange={(checked) => onUpdateVariant(index, { is_active: checked ? 1 : 0 })}
+                  onCheckedChange={(checked) =>
+                    onUpdateVariant(index, { is_active: checked ? 1 : 0 })
+                  }
                 />
               </TableCell>
               <TableCell>
-                <div className="flex flex-wrap items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1.5">
                   {variant.attribute_value_ids.map((valueId) => {
                     const info = valueMap.get(valueId)
                     return (
-                      <Badge key={valueId} variant="outline" className="text-xs">
+                      <Badge
+                        key={valueId}
+                        variant="secondary"
+                        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs hover:bg-muted"
+                      >
                         {info?.colorCode && (
                           <span
-                            className="mr-1 inline-block h-3 w-3 rounded-full"
+                            className="inline-block h-2.5 w-2.5 rounded-full border border-muted-foreground/20"
                             style={{ backgroundColor: info.colorCode }}
                           />
                         )}
                         {info?.value || valueId}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            onRemoveAttribute(index, valueId)
+                          }}
+                          className="ml-1 rounded-full p-0.5 transition-colors hover:bg-destructive hover:text-destructive-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                        >
+                          <X className="h-3 w-3" />
+                          <span className="sr-only">Remove attribute</span>
+                        </button>
                       </Badge>
                     )
                   })}
+                  {variant.attribute_value_ids.length === 0 && (
+                    <span className="text-sm italic text-muted-foreground">Base product</span>
+                  )}
                 </div>
               </TableCell>
               <TableCell>
@@ -268,12 +298,13 @@ const VariantTable = memo(function VariantTable({
                     onChange={(e) => onUpdateVariant(index, { sku: e.target.value })}
                     placeholder="Auto-generated"
                     className={cn(
-                      "h-8 font-mono text-sm",
-                      duplicateSkus.has(index) && "border-destructive focus-visible:ring-destructive"
+                      'h-8 font-mono text-xs',
+                      duplicateSkus.has(index) &&
+                        'border-destructive focus-visible:ring-destructive'
                     )}
                   />
                   {duplicateSkus.has(index) && (
-                    <p className="text-xs text-destructive flex items-center gap-1">
+                    <p className="flex items-center gap-1 text-[10px] text-destructive">
                       <AlertCircle className="h-3 w-3" />
                       Duplicate SKU
                     </p>
@@ -281,18 +312,21 @@ const VariantTable = memo(function VariantTable({
                 </div>
               </TableCell>
               <TableCell>
-                <Input
-                  value={variant.barcode || ''}
-                  onChange={(e) => onUpdateVariant(index, { barcode: e.target.value })}
-                  placeholder="Scannable barcode"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    }
-                  }}
-                  className="h-8 font-mono text-sm"
-                />
+                <div className="relative">
+                  <Input
+                    value={variant.barcode || ''}
+                    onChange={(e) => onUpdateVariant(index, { barcode: e.target.value })}
+                    placeholder="Start scanning..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }
+                    }}
+                    className="h-8 pl-7 font-mono text-xs"
+                  />
+                  <Barcode className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" />
+                </div>
               </TableCell>
               <TableCell>
                 <Input
@@ -300,7 +334,11 @@ const VariantTable = memo(function VariantTable({
                   min="0"
                   step="1"
                   value={variant.initial_stock ?? ''}
-                  onChange={(e) => onUpdateVariant(index, { initial_stock: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                  onChange={(e) =>
+                    onUpdateVariant(index, {
+                      initial_stock: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                    })
+                  }
                   placeholder="0"
                   className="h-8 text-right text-sm"
                 />
@@ -311,7 +349,11 @@ const VariantTable = memo(function VariantTable({
                   min="0"
                   step="0.01"
                   value={variant.cost_price ?? ''}
-                  onChange={(e) => onUpdateVariant(index, { cost_price: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  onChange={(e) =>
+                    onUpdateVariant(index, {
+                      cost_price: e.target.value ? parseFloat(e.target.value) : undefined,
+                    })
+                  }
                   placeholder="0.00"
                   className="h-8 text-right text-sm"
                 />
@@ -322,7 +364,11 @@ const VariantTable = memo(function VariantTable({
                   min="0"
                   step="0.01"
                   value={variant.price ?? ''}
-                  onChange={(e) => onUpdateVariant(index, { price: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  onChange={(e) =>
+                    onUpdateVariant(index, {
+                      price: e.target.value ? parseFloat(e.target.value) : undefined,
+                    })
+                  }
                   placeholder="0.00"
                   className="h-8 text-right text-sm"
                 />
@@ -333,7 +379,11 @@ const VariantTable = memo(function VariantTable({
                   min="0"
                   step="0.01"
                   value={variant.dealer_price ?? ''}
-                  onChange={(e) => onUpdateVariant(index, { dealer_price: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  onChange={(e) =>
+                    onUpdateVariant(index, {
+                      dealer_price: e.target.value ? parseFloat(e.target.value) : undefined,
+                    })
+                  }
                   placeholder="0.00"
                   className="h-8 text-right text-sm"
                 />
@@ -344,7 +394,11 @@ const VariantTable = memo(function VariantTable({
                   min="0"
                   step="0.01"
                   value={variant.wholesale_price ?? ''}
-                  onChange={(e) => onUpdateVariant(index, { wholesale_price: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  onChange={(e) =>
+                    onUpdateVariant(index, {
+                      wholesale_price: e.target.value ? parseFloat(e.target.value) : undefined,
+                    })
+                  }
                   placeholder="0.00"
                   className="h-8 text-right text-sm"
                 />
@@ -383,7 +437,11 @@ function generateCombinations(arrays: number[][]): number[][] {
   }, [])
 }
 
-function generateSku(productCode: string, attributeValueIds: number[], valueMap: Map<number, AttributeValue>): string {
+function generateSku(
+  productCode: string,
+  attributeValueIds: number[],
+  valueMap: Map<number, AttributeValue>
+): string {
   const parts = [productCode || 'PROD']
   attributeValueIds.forEach((id) => {
     const value = valueMap.get(id)
@@ -494,7 +552,9 @@ function VariantManagerComponent({
       return
     }
     const combinations = generateCombinations(arrays)
-    const existingSignatures = new Set(variants.map((v) => [...v.attribute_value_ids].sort().join('-')))
+    const existingSignatures = new Set(
+      variants.map((v) => [...v.attribute_value_ids].sort().join('-'))
+    )
     const productCode = product?.productCode || ''
     const newVariants: VariantInputData[] = combinations
       .filter((combo) => !existingSignatures.has([...combo].sort().join('-')))
@@ -513,19 +573,38 @@ function VariantManagerComponent({
       return
     }
     onVariantsChange([...variants, ...newVariants])
-    toast.success(`+"Generated "+newVariants.length+" new variant"+(newVariants.length !== 1 ? 's' : '')+`)
+    toast.success(
+      `+"Generated "+newVariants.length+" new variant"+(newVariants.length !== 1 ? 's' : '')+`
+    )
   }, [selectedValues, variants, product?.productCode, valueMap, onVariantsChange])
 
-  const handleUpdateVariant = useCallback((index: number, updates: Partial<VariantInputData>) => {
-    const newVariants = [...variants]
-    newVariants[index] = { ...newVariants[index], ...updates }
-    onVariantsChange(newVariants)
-  }, [variants, onVariantsChange])
+  const handleUpdateVariant = useCallback(
+    (index: number, updates: Partial<VariantInputData>) => {
+      const newVariants = [...variants]
+      newVariants[index] = { ...newVariants[index], ...updates }
+      onVariantsChange(newVariants)
+    },
+    [variants, onVariantsChange]
+  )
 
-  const handleDeleteVariant = useCallback((index: number) => {
-    onVariantsChange(variants.filter((_, i) => i !== index))
-    toast.success('Variant removed')
-  }, [variants, onVariantsChange])
+  const handleDeleteVariant = useCallback(
+    (index: number) => {
+      onVariantsChange(variants.filter((_, i) => i !== index))
+      toast.success('Variant removed')
+    },
+    [variants, onVariantsChange]
+  )
+
+  const handleRemoveAttributeFromVariant = useCallback(
+    (index: number, valueId: number) => {
+      const newVariants = [...variants]
+      newVariants[index].attribute_value_ids = newVariants[index].attribute_value_ids.filter(
+        (id) => id !== valueId
+      )
+      onVariantsChange(newVariants)
+    },
+    [variants, onVariantsChange]
+  )
 
   const handleApplyDefaultPrices = useCallback(() => {
     if (!bulkCostPrice && !bulkSalePrice) {
@@ -536,11 +615,13 @@ function VariantManagerComponent({
     const parsedCost = bulkCostPrice ? parseFloat(bulkCostPrice) : undefined
     const parsedPrice = bulkSalePrice ? parseFloat(bulkSalePrice) : undefined
 
-    onVariantsChange(variants.map((v) => ({
-      ...v,
-      cost_price: parsedCost !== undefined ? parsedCost : v.cost_price,
-      price: parsedPrice !== undefined ? parsedPrice : v.price,
-    })))
+    onVariantsChange(
+      variants.map((v) => ({
+        ...v,
+        cost_price: parsedCost !== undefined ? parsedCost : v.cost_price,
+        price: parsedPrice !== undefined ? parsedPrice : v.price,
+      }))
+    )
     toast.success('Applied to all variants')
   }, [variants, bulkCostPrice, bulkSalePrice, onVariantsChange])
 
@@ -568,7 +649,8 @@ function VariantManagerComponent({
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          No attributes available. Create attributes in Settings - Product Attributes before adding variants.
+          No attributes available. Create attributes in Settings - Product Attributes before adding
+          variants.
         </AlertDescription>
       </Alert>
     )
@@ -581,77 +663,114 @@ function VariantManagerComponent({
           <CardTitle className="text-base">Select Variations</CardTitle>
           <CardDescription>Choose which attribute values to create variations for</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {availableAttributes.map((attribute) => (
-            <AttributeSelector
-              key={attribute.id}
-              attribute={attribute}
-              selectedValueIds={Array.from(selectedValues.get(attribute.id) ?? [])}
-              onToggleValue={(valueId) => handleToggleValue(attribute.id, valueId)}
-              onSelectAll={handleSelectAll}
-              onDeselectAll={handleDeselectAll}
-            />
-          ))}
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            {availableAttributes.map((attribute) => (
+              <AttributeSelector
+                key={attribute.id}
+                attribute={attribute}
+                selectedValueIds={Array.from(selectedValues.get(attribute.id) ?? [])}
+                onToggleValue={(valueId) => handleToggleValue(attribute.id, valueId)}
+                onSelectAll={handleSelectAll}
+                onDeselectAll={handleDeselectAll}
+              />
+            ))}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-2">
+            <div className="text-sm text-muted-foreground">
+              {expectedVariantCount > 0 ? (
+                <span>
+                  Will create up to <strong>{expectedVariantCount}</strong> variant
+                  {expectedVariantCount !== 1 ? 's' : ''}
+                </span>
+              ) : (
+                'Select attribute values to generate variants'
+              )}
+            </div>
+            <Button
+              type="button"
+              onClick={handleGenerateVariants}
+              disabled={expectedVariantCount === 0}
+              size="sm"
+            >
+              {variants.length > 0 ? (
+                <Plus className="mr-2 h-4 w-4" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              {variants.length > 0 ? 'Add More Variants' : 'Generate Variants'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm text-muted-foreground">
-          {expectedVariantCount > 0 ? (
-            <span>Will create up to <strong>{expectedVariantCount}</strong> variant{expectedVariantCount !== 1 ? 's' : ''}</span>
-          ) : (
-            'Select attribute values to generate variants'
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {variants.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Cost for all"
-                value={bulkCostPrice}
-                onChange={(e) => setBulkCostPrice(e.target.value)}
-                className="h-9 w-32"
-              />
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Price for all"
-                value={bulkSalePrice}
-                onChange={(e) => setBulkSalePrice(e.target.value)}
-                className="h-9 w-32"
-              />
-              <Button type="button" variant="outline" size="sm" onClick={handleApplyDefaultPrices}>
-                <DollarSign className="mr-1 h-4 w-4" />
-                Apply to all
-              </Button>
-            </div>
-          )}
-          <Button type="button" onClick={handleGenerateVariants} disabled={expectedVariantCount === 0}>
-            {variants.length > 0 ? <Plus className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            {variants.length > 0 ? 'Add More Variants' : 'Generate Variants'}
-          </Button>
-        </div>
-      </div>
-
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-medium">Variants ({variants.length})</h3>
+          <h3 className="flex items-center gap-2 text-lg font-medium">
+            Variants
+            <Badge variant="secondary" className="ml-1">
+              {variants.length}
+            </Badge>
+          </h3>
           {variants.length > 0 && (
-            <Button type="button" variant="ghost" size="sm" onClick={handleClearAllVariants} className="text-destructive hover:text-destructive">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleClearAllVariants}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
               <Trash2 className="mr-1 h-4 w-4" />
-              Clear All
+              Clear All Rules
             </Button>
           )}
         </div>
+
+        {variants.length > 0 && (
+          <div className="mb-4 flex items-center gap-4 rounded-md border bg-muted/40 px-4 py-3">
+            <div className="mr-2 flex h-6 items-center gap-2 border-r pr-4 text-sm font-medium text-muted-foreground">
+              <DollarSign className="h-4 w-4" />
+              Bulk Edit:
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <span className="absolute left-2.5 top-2.5 text-xs text-muted-foreground">$</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Cost Price"
+                  className="h-9 w-32 bg-background pl-6"
+                  value={bulkCostPrice}
+                  onChange={(e) => setBulkCostPrice(e.target.value)}
+                />
+              </div>
+              <div className="relative">
+                <span className="absolute left-2.5 top-2.5 text-xs text-muted-foreground">$</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Sale Price"
+                  className="h-9 w-32 bg-background pl-6"
+                  value={bulkSalePrice}
+                  onChange={(e) => setBulkSalePrice(e.target.value)}
+                />
+              </div>
+              <Button size="sm" variant="secondary" onClick={handleApplyDefaultPrices}>
+                Apply to All
+              </Button>
+            </div>
+          </div>
+        )}
+
         <VariantTable
           variants={variants}
           attributes={attributes}
           onUpdateVariant={handleUpdateVariant}
           onDeleteVariant={handleDeleteVariant}
+          onRemoveAttribute={handleRemoveAttributeFromVariant}
         />
       </div>
 
@@ -659,7 +778,8 @@ function VariantManagerComponent({
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Variants will be created when you save the product. You can edit SKU and prices inline above.
+            Variants will be created when you save the product. You can edit SKU and prices inline
+            above.
           </AlertDescription>
         </Alert>
       )}

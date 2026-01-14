@@ -174,9 +174,12 @@ export const API_ENDPOINTS = {
   // Payment Types
   PAYMENT_TYPES: {
     LIST: '/payment-types',
+    FILTER: '/payment-types/filter',
     CREATE: '/payment-types',
     UPDATE: (id: number) => `/payment-types/${id}`,
     DELETE: (id: number) => `/payment-types/${id}`,
+    TOGGLE_STATUS: (id: number) => `/payment-types/${id}/status`,
+    BULK_DELETE: '/payment-types/delete-all',
   },
 
   // Print Labels

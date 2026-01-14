@@ -1,7 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import { Pencil, Trash2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { paymentTypesService } from '@/api/services/inventory.service'
 import type { PaymentType } from '@/types/api.types'
@@ -31,7 +40,11 @@ export function PaymentTypesTable({ searchQuery, refreshTrigger, onEdit }: Payme
   const [perPage, setPerPage] = useState(10)
 
   // Dialog state
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: number | null; name: string }>({
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean
+    id: number | null
+    name: string
+  }>({
     open: false,
     id: null,
     name: '',
@@ -80,6 +93,18 @@ export function PaymentTypesTable({ searchQuery, refreshTrigger, onEdit }: Payme
     } catch (error) {
       console.error(error)
       toast.error('Failed to delete payment type')
+    }
+  }
+
+  const handleToggleStatus = async (id: number, currentStatus: number | undefined) => {
+    try {
+      const newStatus = currentStatus === 1 ? false : true
+      await paymentTypesService.toggleStatus(id, newStatus)
+      toast.success(`Payment type ${newStatus ? 'activated' : 'deactivated'} successfully`)
+      fetchData()
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to update status')
     }
   }
 
@@ -178,13 +203,15 @@ export function PaymentTypesTable({ searchQuery, refreshTrigger, onEdit }: Payme
                     />
                   </TableHead>
                   <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                       No payment types found.
                     </TableCell>
                   </TableRow>
@@ -194,10 +221,31 @@ export function PaymentTypesTable({ searchQuery, refreshTrigger, onEdit }: Payme
                       <TableCell>
                         <Checkbox
                           checked={selectedIds.includes(item.id)}
-                          onCheckedChange={(checked) => handleSelectOne(checked as boolean, item.id)}
+                          onCheckedChange={(checked) =>
+                            handleSelectOne(checked as boolean, item.id)
+                          }
                         />
                       </TableCell>
                       <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>
+                        {item.is_credit ? (
+                          <Badge
+                            variant="secondary"
+                            className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100"
+                          >
+                            Credit
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">Payment</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={item.status === 1}
+                          onCheckedChange={() => handleToggleStatus(item.id, item.status)}
+                          aria-label={`Toggle ${item.name} status`}
+                        />
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button
