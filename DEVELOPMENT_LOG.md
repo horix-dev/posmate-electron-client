@@ -1,3 +1,5 @@
+# Development Log
+
 ## 2026-01-10 — Silent Print Handler Optimization (Electron) 🔄
 
 **Context**: Refined silent printing to use `contextIsolation: true` with `executeJavaScript` instead of preload script approach.
