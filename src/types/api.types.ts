@@ -996,20 +996,59 @@ export interface ChartDataPoint {
 // ============================================
 
 export interface ProductSettings {
+  id?: number
   business_id: number
   modules: ProductSettingsModules
+  created_at?: string
+  updated_at?: string
 }
 
 export interface ProductSettingsModules {
-  show_product_type_single: string
-  show_product_category: string
-  show_alert_qty: string
-  show_product_unit: string
+  // Add Product Settings Fields
+  show_product_price: string
   show_product_code: string
+  show_product_stock: string
+  show_product_sale_price: string
+  show_product_dealer_price: string
+  show_product_wholesale_price: string
+  show_product_unit: string
   show_product_brand: string
+  show_model_no: string
+  show_product_category: string
+  show_product_manufacturer: string
+  show_product_image: string
+  show_alert_qty: string
+  show_vat_id: string
+  show_vat_type: string
+  show_exclusive_price: string
+  show_inclusive_price: string
+  show_profit_percent: string
+  show_warehouse: string
+  show_rack: string
+  show_shelf: string
+  show_action: string
+  show_weight: string
   show_batch_no: string
   show_expire_date: string
   show_mfg_date: string
+
+  // Product Type Fields
+  show_product_type_single: string
+  show_product_type_variant: string
+
+  // Purchase Setting Fields
+  show_product_batch_no: string
+  show_product_expire_date: string
+
+  // Default Values
+  default_sale_price: number | null
+  default_wholesale_price: number | null
+  default_dealer_price: number | null
+  default_batch_no: string | null
+  expire_date_type: 'dmy' | 'my' | null
+  mfg_date_type: 'dmy' | 'my' | null
+  default_expired_date: string | null
+  default_mfg_date: string | null
 }
 
 export type ProfitOption = 'markup' | 'margin'

@@ -9,6 +9,7 @@ import {
   Tag,
   RefreshCw,
   Download,
+  Settings,
   // DollarSign,
   Info,
 } from 'lucide-react'
@@ -20,7 +21,12 @@ import { Switch } from '@/components/ui/switch'
 import { useUIStore } from '@/stores'
 import { attributesService } from '@/api/services'
 import { useAppUpdater } from '@/hooks/useAppUpdater'
-import { AttributesSettings, CurrencySettings, BusinessSettingsForm } from './components'
+import {
+  AttributesSettings,
+  CurrencySettings,
+  BusinessSettingsForm,
+  ProductSettingsForm,
+} from './components'
 import type { Attribute } from '@/types/variant.types'
 
 type AppInfo = {
@@ -159,6 +165,10 @@ export function SettingsPage() {
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="business">Business</TabsTrigger>
+          <TabsTrigger value="products">
+            <Settings className="mr-1 h-3 w-3" />
+            Products
+          </TabsTrigger>
           <TabsTrigger value="attributes">
             <Tag className="mr-1 h-3 w-3" />
             Attributes
@@ -250,6 +260,10 @@ export function SettingsPage() {
 
         <TabsContent value="business" className="space-y-4">
           <BusinessSettingsForm />
+        </TabsContent>
+
+        <TabsContent value="products" className="space-y-4">
+          <ProductSettingsForm />
         </TabsContent>
 
         <TabsContent value="attributes" className="space-y-4">

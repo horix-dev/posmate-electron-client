@@ -21,10 +21,10 @@ export const settingsService = {
   updateProductSettings: async (
     settings: Partial<ProductSettings['modules']>
   ): Promise<ApiResponse<ProductSettings>> => {
-    const { data } = await api.post<ApiResponse<ProductSettings>>(API_ENDPOINTS.SETTINGS.PRODUCT, {
-      ...settings,
-      _method: 'PUT',
-    })
+    const { data } = await api.post<ApiResponse<ProductSettings>>(
+      API_ENDPOINTS.SETTINGS.PRODUCT,
+      settings
+    )
     return data
   },
 
