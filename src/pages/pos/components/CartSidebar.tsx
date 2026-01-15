@@ -197,7 +197,6 @@ const EmptyCart = memo(function EmptyCart({ heldCartsCount, onOpenHeldCarts }: E
 function CartSidebarComponent({
   items,
   customer,
-  paymentType,
   totals,
   vatPercentage,
   heldCartsCount,
@@ -434,11 +433,6 @@ function CartSidebarComponent({
               </kbd>
             </Button>
           </div>
-
-          {/* Payment Type Hint */}
-          {paymentType && (
-            <p className="text-xs text-muted-foreground">Payment: {paymentType.name}</p>
-          )}
         </CardFooter>
       </div>
     </Card>
