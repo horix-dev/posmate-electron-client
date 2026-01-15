@@ -560,7 +560,7 @@ ipcMain.on('print-receipt-html', async (event, htmlContent: string) => {
     webPreferences: {
       preload: path.join(__dirname, 'print-preload.cjs'),
       nodeIntegration: false,
-      contextIsolation: false, // CRITICAL: Must be false
+      contextIsolation: false, // CRITICAL: Must be false for silent printing to work
       sandbox: false,
     },
   })
@@ -631,7 +631,7 @@ ipcMain.on('print-receipt-html-with-page-size', async (event, htmlContent: strin
     webPreferences: {
       preload: path.join(__dirname, 'print-preload.cjs'),
       nodeIntegration: false,
-      contextIsolation: false,
+      contextIsolation: false, // CRITICAL: Must be false for silent printing to work
       sandbox: false,
     },
   })

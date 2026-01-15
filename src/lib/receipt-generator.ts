@@ -6,18 +6,12 @@
  */
 
 import type { Sale, Business, Party } from '@/types/api.types'
+import { formatCurrency as formatCurrencyUtil } from '@/hooks/useCurrency'
 
 export interface ReceiptData {
   sale: Sale
   business: Business | null
   customer: Party | null
-}
-
-/**
- * Format currency for display
- */
-function formatCurrency(amount: number, currencySymbol = '$'): string {
-  return `${currencySymbol}${amount.toFixed(2)}`
 }
 
 /**
@@ -39,7 +33,6 @@ function formatDate(dateString: string): string {
  */
 export function generateReceiptHTML(data: ReceiptData): string {
   const { sale, business, customer } = data
-  const currencySymbol = business?.business_currency?.symbol || '$'
 
   // Calculate totals (handle both old and new due collection fields)
   const totalPaid = sale.total_paid_amount ?? sale.paidAmount
@@ -96,7 +89,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
     
     .receipt-title {
       font-size: 20px;
-      font-weight: bold;
+      font-weight: normal;
       margin-bottom: 5px;
       color: #000;
     }
@@ -217,7 +210,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
     <!-- Header -->
     <div class="header">
       ${business?.invoice_logo ? `<img src="${business.invoice_logo}" alt="Logo" class="logo" />` : ''}
-      <div class="business-name">${business?.companyName || 'POS Store'}</div>
+      <div class="business-name">${business?.companyName || 'Kutties Choice'}</div>
       <div class="receipt-title">Cash Receipt</div>
       <div class="invoice-number">#${sale.invoiceNumber}</div>
     </div>
@@ -243,7 +236,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
           (item) => `
       <div class="item-row">
         <span class="item-name">${item.product?.productName || 'Product'}${item.variant_name ? ' (' + item.variant_name + ')' : ''}</span>
-        <span class="item-price">${formatCurrency(item.subTotal || item.quantities * item.price, currencySymbol)}</span>
+        <span class="item-price">${formatCurrencyUtil(item.subTotal || item.quantities * item.price)}</span>
       </div>`
         )
         .join('')}
@@ -255,7 +248,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
     <div class="totals-section">
       <div class="total-row">
         <span class="label">Price</span>
-        <span class="amount">${formatCurrency(sale.totalAmount - (sale.vat_amount || 0) + (sale.discountAmount || 0), currencySymbol)}</span>
+        <span class="amount">${formatCurrencyUtil(sale.totalAmount - (sale.vat_amount || 0) + (sale.discountAmount || 0))}</span>
       </div>
       
       ${
@@ -263,7 +256,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
           ? `
       <div class="total-row">
         <span class="label">Sale</span>
-        <span class="amount">-${formatCurrency(sale.discountAmount, currencySymbol)}</span>
+        <span class="amount">-${formatCurrencyUtil(sale.discountAmount)}</span>
       </div>
       `
           : ''
@@ -274,7 +267,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
           ? `
       <div class="total-row">
         <span class="label">Tax</span>
-        <span class="amount">${formatCurrency(sale.vat_amount, currencySymbol)}</span>
+        <span class="amount">${formatCurrencyUtil(sale.vat_amount)}</span>
       </div>
       `
           : ''
@@ -284,7 +277,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
       
       <div class="total-row grand-total">
         <span class="label">Total</span>
-        <span class="amount">${formatCurrency(sale.totalAmount, currencySymbol)}</span>
+        <span class="amount">${formatCurrencyUtil(sale.totalAmount)}</span>
       </div>
       
       ${
@@ -292,7 +285,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
           ? `
       <div class="total-row">
         <span class="label">Paid</span>
-        <span class="amount">${formatCurrency(totalPaid, currencySymbol)}</span>
+        <span class="amount">${formatCurrencyUtil(totalPaid)}</span>
       </div>
       `
           : ''
@@ -303,7 +296,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
           ? `
       <div class="total-row">
         <span class="label">Due</span>
-        <span class="amount">${formatCurrency(totalDue, currencySymbol)}</span>
+        <span class="amount">${formatCurrencyUtil(totalDue)}</span>
       </div>
       `
           : ''
@@ -314,7 +307,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
           ? `
       <div class="total-row">
         <span class="label">Change</span>
-        <span class="amount">${formatCurrency(changeAmount, currencySymbol)}</span>
+        <span class="amount">${formatCurrencyUtil(changeAmount)}</span>
       </div>
       `
           : ''
