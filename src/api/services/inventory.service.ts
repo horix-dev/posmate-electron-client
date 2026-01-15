@@ -102,8 +102,29 @@ export const vatsService = {
 // ============================================
 
 export const paymentTypesService = {
-  getAll: async (): Promise<ApiResponse<PaymentType[]>> => {
-    const { data } = await api.get<ApiResponse<PaymentType[]>>(API_ENDPOINTS.PAYMENT_TYPES.LIST)
+  getAll: async (params?: {
+    limit?: number
+    page?: number
+    per_page?: number
+    cursor?: number
+    search?: string
+    status?: boolean
+  }): Promise<ApiResponse<PaymentType[]>> => {
+    const { data } = await api.get<ApiResponse<PaymentType[]>>(API_ENDPOINTS.PAYMENT_TYPES.LIST, {
+      params,
+    })
+    return data
+  },
+
+  filter: async (params?: {
+    search?: string
+    status?: boolean
+    page?: number
+    per_page?: number
+  }): Promise<ApiResponse<PaymentType[]>> => {
+    const { data } = await api.get<ApiResponse<PaymentType[]>>(API_ENDPOINTS.PAYMENT_TYPES.FILTER, {
+      params,
+    })
     return data
   },
 
@@ -126,12 +147,22 @@ export const paymentTypesService = {
     return data
   },
 
+  toggleStatus: async (id: number, status: boolean): Promise<ApiResponse<PaymentType>> => {
+    const { data } = await api.patch<ApiResponse<PaymentType>>(
+      API_ENDPOINTS.PAYMENT_TYPES.TOGGLE_STATUS(id),
+      { status }
+    )
+    return data
+  },
+
   delete: async (id: number): Promise<void> => {
     await api.delete(API_ENDPOINTS.PAYMENT_TYPES.DELETE(id))
   },
 
-  deleteMultiple: async (ids: number[]): Promise<void> => {
-    // Delete one by one since API doesn't have bulk delete endpoint
-    await Promise.all(ids.map((id) => api.delete(API_ENDPOINTS.PAYMENT_TYPES.DELETE(id))))
+  deleteMultiple: async (ids: number[]): Promise<ApiResponse<void>> => {
+    const { data } = await api.post<ApiResponse<void>>(API_ENDPOINTS.PAYMENT_TYPES.BULK_DELETE, {
+      ids,
+    })
+    return data
   },
 }

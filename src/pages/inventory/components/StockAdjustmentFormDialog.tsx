@@ -6,7 +6,7 @@
 import { memo, useEffect, useCallback, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Search, Package, AlertCircle } from 'lucide-react'
+import { Loader2, Package, AlertCircle } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -34,16 +34,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from '@/components/ui/command'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
+import { ProductLookup } from '@/components/shared/ProductLookup'
 import { ADJUSTMENT_REASONS } from '@/types/stockAdjustment.types'
 import type { Batch } from '@/types/stockAdjustment.types'
 import type { Product } from '@/types/api.types'
@@ -86,7 +79,6 @@ function StockAdjustmentFormDialogComponent({
   preselectedProductId,
 }: StockAdjustmentFormDialogProps) {
   // const user = useAuthStore((state) => state.user) // Reserved for future use
-  const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [variants, setVariants] = useState<ProductVariant[]>([])
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null)
@@ -300,7 +292,6 @@ function StockAdjustmentFormDialogComponent({
     (product: Product) => {
       setSelectedProduct(product)
       form.setValue('productId', product.id)
-      setProductSearchOpen(false)
 
       // Reset variant selection
       setSelectedVariant(null)
@@ -412,64 +403,45 @@ function StockAdjustmentFormDialogComponent({
                   render={() => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Product *</FormLabel>
-                      <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className={`w-full justify-between ${
-                                !selectedProduct && 'text-muted-foreground'
-                              }`}
-                            >
-                              {selectedProduct ? (
-                                <div className="flex flex-1 items-center gap-2 text-left">
-                                  <Package className="h-4 w-4 shrink-0" />
-                                  <span className="truncate">{selectedProduct.productName}</span>
-                                  {selectedProduct.productCode && (
-                                    <Badge variant="outline" className="ml-2">
-                                      {selectedProduct.productCode}
-                                    </Badge>
-                                  )}
-                                </div>
-                              ) : (
-                                <span>Select product...</span>
-                              )}
-                              <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[400px] p-0">
-                          <Command>
-                            <CommandInput placeholder="Search products..." />
-                            <CommandEmpty>No products found.</CommandEmpty>
-                            <CommandGroup className="max-h-64 overflow-auto">
-                              {products.map((product) => (
-                                <CommandItem
-                                  key={product.id}
-                                  onSelect={() => handleProductSelect(product)}
-                                  className="flex items-center gap-2"
-                                >
-                                  <Package className="h-4 w-4" />
-                                  <div className="min-w-0 flex-1">
-                                    <div className="truncate font-medium">
-                                      {product.productName}
-                                    </div>
-                                    {product.productCode && (
-                                      <div className="text-xs text-muted-foreground">
-                                        {product.productCode}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <Badge variant="secondary">
-                                    Stock: {getCurrentStock(product)}
-                                  </Badge>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+                      {selectedProduct ? (
+                        <div className="flex items-center gap-2 rounded-md border bg-muted/50 p-3">
+                          <Package className="h-4 w-4 shrink-0" />
+                          <div className="flex-1">
+                            <div className="font-medium">{selectedProduct.productName}</div>
+                            {selectedProduct.productCode && (
+                              <div className="text-xs text-muted-foreground">
+                                Code: {selectedProduct.productCode}
+                              </div>
+                            )}
+                          </div>
+                          <Badge variant="secondary">
+                            Stock: {getCurrentStock(selectedProduct)}
+                          </Badge>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedProduct(null)
+                              form.setValue('productId', 0)
+                              setVariants([])
+                              setSelectedVariant(null)
+                              setBatches([])
+                              setSelectedBatch(null)
+                            }}
+                          >
+                            Change
+                          </Button>
+                        </div>
+                      ) : (
+                        <ProductLookup
+                          onSelect={handleProductSelect}
+                          buttonText="Select product to adjust..."
+                          placeholder="Search products by name or code..."
+                          width="w-[400px]"
+                          showVariants={false}
+                        />
+                      )}
                       {selectedProduct && selectedProduct.product_type !== 'variable' && (
                         <FormDescription>
                           Current Stock: <strong>{currentStock}</strong>

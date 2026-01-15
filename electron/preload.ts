@@ -166,6 +166,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
   },
 
+  // Image Fetch (proxy through main process to bypass renderer CORS)
+  images: {
+    fetch: (url: string, headers?: Record<string, string>) =>
+      ipcRenderer.invoke('fetch-image', { url, headers }),
+  },
+
   // Event listeners
   onMainProcessMessage: (callback: (message: string) => void) => {
     ipcRenderer.on('main-process-message', (_event, message) => callback(message))

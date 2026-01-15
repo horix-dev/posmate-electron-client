@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useMemo, useState, useRef, useEffect } from 'react'
 import { Search, Package, Grid3X3, List, Loader2, Check, ChevronsUpDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -153,6 +153,16 @@ const SearchBar = memo(function SearchBar({
   onSearchChange,
   onViewModeChange,
 }: SearchBarProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    // Auto-focus on mount with a small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      inputRef.current?.focus()
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
+
   return (
     <div className="flex items-center gap-2">
       <div className="relative flex-1">
@@ -161,12 +171,15 @@ const SearchBar = memo(function SearchBar({
           aria-hidden="true"
         />
         <Input
+          ref={inputRef}
           type="search"
           placeholder="Search products or scan barcode..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
+          data-barcode-scan="true"
           className="pl-9"
           aria-label="Search products"
+          autoFocus
         />
       </div>
       <div className="flex items-center rounded-lg border bg-muted p-1">
@@ -232,14 +245,22 @@ function ProductGridComponent({
   onSelectVariant,
   onViewModeChange,
 }: ProductGridProps) {
+  // Sort products: in-stock first, out-of-stock at the end
+  const sortedProducts = useMemo(() => {
+    return [...products].sort((a, b) => {
+      const aStock = a.stocks_sum_product_stock ?? a.productStock ?? 0
+      const bStock = b.stocks_sum_product_stock ?? b.productStock ?? 0
+      const aOutOfStock = aStock <= 0
+      const bOutOfStock = bStock <= 0
+
+      if (aOutOfStock && !bOutOfStock) return 1
+      if (!aOutOfStock && bOutOfStock) return -1
+      return 0
+    })
+  }, [products])
+
   const gridClassName = useMemo(
-    () =>
-      cn(
-        'grid',
-        viewMode === 'grid'
-          ? 'grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-          : 'grid-cols-1 gap-2'
-      ),
+    () => cn('grid', viewMode === 'grid' ? 'grid-cols-4 gap-3' : 'grid-cols-1 gap-2'),
     [viewMode]
   )
 
@@ -270,7 +291,7 @@ function ProductGridComponent({
           <EmptyState searchQuery={searchQuery} onClear={() => onSearchChange('')} />
         ) : (
           <div className={cn(gridClassName, 'pr-3')}>
-            {products.map((product) => (
+            {sortedProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}

@@ -155,7 +155,7 @@ function ProductCardComponent({
     <Card
       className={cn(
         'group relative cursor-pointer transition-all hover:shadow-md',
-        isOutOfStock && 'cursor-not-allowed opacity-50'
+        isOutOfStock && 'cursor-not-allowed bg-muted/40 opacity-60 grayscale'
       )}
       onClick={handleClick}
       role="button"
@@ -191,22 +191,22 @@ function ProductCardComponent({
               )}
               loading="lazy"
               fallback={
-                <div className="flex h-full items-center justify-center">
-                  <Package className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
+                <div className="flex h-full items-center justify-center bg-primary/5">
+                  <Package className="h-8 w-8 text-primary/20" aria-hidden="true" />
                 </div>
               }
             />
           ) : (
-            <div className="flex h-full items-center justify-center">
-              <Package className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
+            <div className="flex h-full items-center justify-center bg-primary/5">
+              <Package className="h-8 w-8 text-primary/20" aria-hidden="true" />
             </div>
           )}
 
           {/* Badges (grid only) */}
-          {!isList && isVariable && !isOutOfStock && (
+          {!isList && isVariable && (
             <Badge
               variant="secondary"
-              className="absolute left-1 top-1 bg-primary/90 text-primary-foreground"
+              className="absolute left-1 top-1 bg-primary/90 text-primary-foreground transition-all duration-300"
             >
               <Layers className="mr-1 h-3 w-3" aria-hidden="true" />
               {variantCount} options
@@ -317,7 +317,19 @@ function ProductCardComponent({
 
           <div>
             <div className="text-xs text-muted-foreground">
-              Stock: <span className="font-bold">{totalStock}</span>
+              Stock:{' '}
+              <span
+                className={cn(
+                  'font-bold',
+                  isOutOfStock
+                    ? 'text-destructive'
+                    : isLowStock
+                      ? 'text-pos-warning'
+                      : 'text-green-600'
+                )}
+              >
+                {totalStock}
+              </span>
             </div>
           </div>
 

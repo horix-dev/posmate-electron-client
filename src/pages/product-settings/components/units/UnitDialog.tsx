@@ -8,7 +8,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from '@/components/ui/form'
 import { unitsService } from '@/api/services/units.service'
 import type { Unit } from '@/types/api.types'
 
@@ -23,7 +31,7 @@ interface UnitDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   editData?: Unit | null
-  onSuccess: () => void
+  onSuccess: (newItem?: Unit) => void
 }
 
 export function UnitDialog({ open, onOpenChange, editData, onSuccess }: UnitDialogProps) {
@@ -55,11 +63,12 @@ export function UnitDialog({ open, onOpenChange, editData, onSuccess }: UnitDial
           await unitsService.updateStatus(editData.id, values.status)
         }
         toast.success('Unit updated successfully')
+        onSuccess()
       } else {
-        await unitsService.create(values)
+        const response = await unitsService.create(values)
         toast.success('Unit created successfully')
+        onSuccess(response.data)
       }
-      onSuccess()
       onOpenChange(false)
     } catch (error) {
       console.error(error)

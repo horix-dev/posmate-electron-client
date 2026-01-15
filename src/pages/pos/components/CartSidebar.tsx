@@ -1,12 +1,26 @@
 import { memo, useMemo, useCallback } from 'react'
-import { ShoppingCart, Pause, PlayCircle, Trash2, User, Receipt, CreditCard } from 'lucide-react'
+import {
+  ShoppingCart,
+  Pause,
+  PlayCircle,
+  Trash2,
+  User,
+  Receipt,
+  CreditCard,
+  Minus,
+  Plus,
+  Package,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { CachedImage } from '@/components/common/CachedImage'
 import { useCurrency } from '@/hooks'
-import { CartItem, type CartItemDisplay } from './CartItem'
+import { cn, getImageUrl } from '@/lib/utils'
+import type { CartItemDisplay } from './CartItem'
 import type { Party, PaymentType } from '@/types/api.types'
 
 // ============================================
@@ -129,7 +143,7 @@ const CartTotalsSection = memo(function CartTotalsSection({
 }: CartTotalsSectionProps) {
   const { format: formatCurrency } = useCurrency()
   return (
-    <div className="space-y-2 bg-gray-200 px-4 py-3 dark:bg-sidebar">
+    <div className="shrink-0 space-y-2 border-t-2 border-primary/10 bg-primary/5 px-4 py-3 dark:bg-sidebar">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Subtotal</span>
         <span>{formatCurrency(totals.subtotal)}</span>
@@ -145,9 +159,11 @@ const CartTotalsSection = memo(function CartTotalsSection({
         <span>{formatCurrency(totals.vatAmount)}</span>
       </div>
       <Separator />
-      <div className="flex justify-between text-lg font-bold">
-        <span>Total</span>
-        <span className="text-primary">{formatCurrency(totals.total)}</span>
+      <div className="flex items-end justify-between">
+        <span className="pb-1 text-lg font-bold">Total</span>
+        <span className="text-3xl font-bold tracking-tight text-primary">
+          {formatCurrency(totals.total)}
+        </span>
       </div>
     </div>
   )
@@ -197,6 +213,9 @@ function CartSidebarComponent({
   const { format: formatCurrency } = useCurrency()
   const itemCount = useMemo(() => items.reduce((acc, item) => acc + item.quantity, 0), [items])
 
+  // Reverse items to show newest first (Hero row at top)
+  const reversedItems = useMemo(() => [...items].reverse(), [items])
+
   const isEmpty = items.length === 0
 
   const handleKeyboardPayment = useCallback(
@@ -211,7 +230,7 @@ function CartSidebarComponent({
 
   return (
     <Card
-      className="flex h-full flex-col border-0 bg-card shadow-none"
+      className="flex h-full min-h-0 flex-col border-0 bg-card shadow-none"
       role="region"
       aria-label="Shopping cart"
       onKeyDown={handleKeyboardPayment}
@@ -229,75 +248,199 @@ function CartSidebarComponent({
       <Separator />
 
       {/* Cart Items */}
-      <CardContent className="flex-1 overflow-hidden p-0">
+      <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-t-sidebar p-0">
         {isEmpty ? (
           <EmptyCart heldCartsCount={heldCartsCount} onOpenHeldCarts={onOpenHeldCarts} />
         ) : (
-          <ScrollArea className="h-full">
-            <div className="space-y-2 p-4" role="list" aria-label="Cart items">
-              {items.map((item) => (
-                <CartItem
-                  key={item.id}
-                  item={item}
-                  onUpdateQuantity={onUpdateQuantity}
-                  onRemove={onRemoveItem}
-                />
-              ))}
+          <ScrollArea className="min-h-0 w-full flex-1">
+            <div className="min-w-full">
+              <table className="w-full text-sm" role="table" aria-label="Cart items">
+                <thead className="sticky top-0 z-10 bg-sidebar text-xs text-sidebar-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Item</th>
+                    <th className="px-2 py-2 text-center font-medium">Qty</th>
+                    <th className="px-2 py-2 text-right font-medium">Price</th>
+                    <th className="px-3 py-2 text-right font-medium">Total</th>
+                    <th className="w-8 px-2 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reversedItems.map((item, index) => {
+                    const lineTotal = item.quantity * item.salePrice
+                    const isHero = index === 0
+
+                    return (
+                      <tr
+                        key={item.id}
+                        className={cn(
+                          'border-b transition-colors duration-1000 ease-out',
+                          isHero
+                            ? 'bg-green-100/80 hover:bg-primary/5 dark:bg-green-900/40 dark:hover:bg-blue-900/50'
+                            : 'hover:bg-muted/50'
+                        )}
+                        role="row"
+                      >
+                        <td className="px-3 py-2">
+                          <div className="flex items-start gap-3">
+                            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-primary/5">
+                              {getImageUrl(item.productImage) ? (
+                                <CachedImage
+                                  src={getImageUrl(item.productImage)!}
+                                  alt={item.productName}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full items-center justify-center">
+                                  <Package className="h-5 w-5 text-primary/40" aria-hidden="true" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="line-clamp-2 font-medium leading-tight">
+                                {item.productName}
+                              </span>
+                              <span className="font-mono text-[10px] text-muted-foreground/90">
+                                {item.productCode}
+                              </span>
+                              {item.variantName && (
+                                <span className="text-[11px] font-normal leading-relaxed text-muted-foreground">
+                                  {item.variantName}
+                                </span>
+                              )}
+                              {item.batchNo && (
+                                <span className="text-[11px] font-normal leading-3 text-muted-foreground">
+                                  Batch: {item.batchNo}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => onUpdateQuantity(item.productId, item.quantity - 1)}
+                              disabled={item.quantity <= 1}
+                              aria-label={`Decrease ${item.productName} quantity`}
+                            >
+                              <Minus className="h-3 w-3" aria-hidden="true" />
+                            </Button>
+                            <Input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const newQty = parseInt(e.target.value, 10)
+                                if (!isNaN(newQty) && newQty >= 1 && newQty <= item.maxStock) {
+                                  onUpdateQuantity(item.productId, newQty)
+                                }
+                              }}
+                              onFocus={(e) => e.target.select()}
+                              min={1}
+                              max={item.maxStock}
+                              className="h-6 w-12 cursor-pointer text-center text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              aria-label={`${item.productName} quantity`}
+                            />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => onUpdateQuantity(item.productId, item.quantity + 1)}
+                              disabled={item.quantity >= item.maxStock}
+                              aria-label={`Increase ${item.productName} quantity`}
+                            >
+                              <Plus className="h-3 w-3" aria-hidden="true" />
+                            </Button>
+                          </div>
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums">
+                          {formatCurrency(item.salePrice)}
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold tabular-nums text-foreground">
+                          {formatCurrency(lineTotal)}
+                        </td>
+                        <td className="px-2 py-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                            onClick={() => onRemoveItem(item.productId)}
+                            aria-label={`Remove ${item.productName} from cart`}
+                          >
+                            <Trash2 className="h-3 w-3" aria-hidden="true" />
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </ScrollArea>
         )}
       </CardContent>
 
-      {/* Totals & Actions */}
-      {!isEmpty && (
-        <>
-          <Separator />
-          <CartTotalsSection totals={totals} vatPercentage={vatPercentage} />
-        </>
-      )}
-
-      <CardFooter className="flex-col gap-2 bg-gray-200 px-4 pb-4 pt-2 dark:bg-sidebar">
-        {/* Action Buttons */}
-        <div className="flex w-full gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={onClearCart}
-            disabled={isEmpty}
-          >
-            <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-            Clear
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={onHoldCart}
-            disabled={isEmpty}
-          >
-            <Pause className="mr-2 h-4 w-4" aria-hidden="true" />
-            Hold
-          </Button>
-        </div>
-
-        {/* Payment Button */}
-        <Button
-          size="lg"
-          variant={'success'}
-          className="w-full text-base"
-          onClick={onPayment}
-          disabled={isEmpty}
-        >
-          <CreditCard className="mr-2 h-5 w-5" aria-hidden="true" />
-          Pay {formatCurrency(totals.total)}
-        </Button>
-
-        {/* Payment Type Hint */}
-        {paymentType && (
-          <p className="text-xs text-muted-foreground">Payment: {paymentType.name}</p>
+      {/* Totals & Actions (pinned at bottom; items above scroll) */}
+      <div className="shrink-0 bg-primary/5 dark:bg-sidebar">
+        {!isEmpty && (
+          <>
+            <Separator className="shrink-0" />
+            <CartTotalsSection totals={totals} vatPercentage={vatPercentage} />
+          </>
         )}
-      </CardFooter>
+
+        <CardFooter className="shrink-0 flex-col gap-2 bg-primary/5 px-4 pb-4 pt-2 dark:bg-sidebar">
+          {/* Action Buttons + Payment in Single Row */}
+          <div className="flex w-full gap-2">
+            <Button
+              variant="outline"
+              className="h-14 flex-[1] flex-col gap-1.5 border-destructive text-sm font-bold text-destructive hover:bg-destructive/10"
+              onClick={onClearCart}
+              disabled={isEmpty}
+            >
+              <div className="flex items-center justify-center">
+                <Trash2 className="mr-2 h-5 w-5" aria-hidden="true" />
+                Clear
+              </div>
+              <kbd className="hidden rounded bg-destructive/20 px-1 text-[10px] font-normal opacity-50 sm:inline-block">
+                Esc
+              </kbd>
+            </Button>
+            <Button
+              className="h-14 flex-[1] flex-col gap-1 bg-sky-500 text-sm font-bold text-white hover:bg-sky-600"
+              onClick={onHoldCart}
+              disabled={isEmpty}
+            >
+              <div className="flex items-center justify-center">
+                <Pause className="mr-2 h-5 w-5" aria-hidden="true" />
+                Hold
+              </div>
+              <kbd className="hidden rounded bg-white/20 px-1 text-[10px] font-normal opacity-75 sm:inline-block">
+                H
+              </kbd>
+            </Button>
+            <Button
+              className="h-16 flex-[3] flex-col gap-1 bg-green-600 text-lg font-bold text-white hover:bg-green-700"
+              onClick={onPayment}
+              disabled={isEmpty}
+            >
+              <div className="flex items-center justify-center">
+                <CreditCard className="mr-2 h-6 w-6" aria-hidden="true" />
+                Pay
+              </div>
+              <kbd className="hidden rounded border border-white/30 bg-white/20 px-2 py-0.5 text-xs font-normal sm:inline-block">
+                Space
+              </kbd>
+            </Button>
+          </div>
+
+          {/* Payment Type Hint */}
+          {paymentType && (
+            <p className="text-xs text-muted-foreground">Payment: {paymentType.name}</p>
+          )}
+        </CardFooter>
+      </div>
     </Card>
   )
 }

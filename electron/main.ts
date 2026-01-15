@@ -6,6 +6,16 @@ import Store from 'electron-store'
 import { sqliteService } from './sqlite.service'
 import { initAutoUpdater, getAutoUpdater } from './autoUpdater'
 
+type FetchImageRequest = {
+  url: string
+  headers?: Record<string, string>
+}
+
+type FetchImageResponse = {
+  mimeType: string
+  data: Uint8Array
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Initialize electron-store for secure settings
@@ -303,7 +313,190 @@ ipcMain.handle('secure-store-clear', () => {
   return true
 })
 
-// Silent printing handler
+// ============================================
+// Image Fetch Proxy (Bypass Renderer CORS)
+// ============================================
+
+function getAllowedImageHosts(): Set<string> {
+  const allowed = new Set<string>()
+
+  const addHostFromUrl = (value: string | undefined) => {
+    if (!value) return
+    try {
+      allowed.add(new URL(value).host)
+    } catch {
+      // ignore invalid URL
+    }
+  }
+
+  // Primary API base (present in .env.* and loaded by loadEnvFile)
+  addHostFromUrl(process.env.VITE_API_BASE_URL)
+
+  // Fallback production host used in src/lib/utils.ts
+  addHostFromUrl('https://api.posmate.app')
+
+  return allowed
+}
+
+function resolveRequestedUrl(rawUrl: string): URL {
+  // Support relative URLs by resolving against the API base.
+  if (rawUrl.startsWith('/')) {
+    const base = process.env.VITE_API_BASE_URL
+    if (!base) {
+      throw new Error('Cannot resolve relative URL: missing VITE_API_BASE_URL')
+    }
+    return new URL(rawUrl, base)
+  }
+  return new URL(rawUrl)
+}
+
+function sanitizeHeaders(headers: Record<string, string> | undefined): Record<string, string> {
+  if (!headers) return {}
+
+  // Very small allowlist; expand only if necessary.
+  const allowedKeys = new Set(['authorization', 'accept'])
+  const out: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(headers)) {
+    const normalizedKey = key.toLowerCase().trim()
+    if (!allowedKeys.has(normalizedKey)) continue
+    if (typeof value !== 'string') continue
+    // Basic size guard
+    if (value.length > 8192) continue
+    out[normalizedKey] = value
+  }
+
+  return out
+}
+
+async function fetchWithRedirectChecks(
+  initialUrl: URL,
+  init: RequestInit,
+  allowedHosts: Set<string>,
+  maxRedirects = 5
+): Promise<Response> {
+  let currentUrl = initialUrl
+
+  for (let i = 0; i <= maxRedirects; i++) {
+    const res = await fetch(currentUrl, { ...init, redirect: 'manual' })
+    const location = res.headers.get('location')
+
+    if (res.status >= 300 && res.status < 400 && location) {
+      const nextUrl = new URL(location, currentUrl)
+      if (!allowedHosts.has(nextUrl.host)) {
+        throw new Error(`Redirect blocked to untrusted host: ${nextUrl.host}`)
+      }
+      currentUrl = nextUrl
+      continue
+    }
+
+    return res
+  }
+
+  throw new Error('Too many redirects')
+}
+
+async function readBodyWithLimit(response: Response, maxBytes: number, onTooLarge: () => void): Promise<Uint8Array> {
+  const contentLength = response.headers.get('content-length')
+  if (contentLength) {
+    const length = Number(contentLength)
+    if (Number.isFinite(length) && length > maxBytes) {
+      onTooLarge()
+      throw new Error('Image too large')
+    }
+  }
+
+  const body: any = response.body
+  const reader = body?.getReader?.()
+  if (!reader) {
+    const ab = await response.arrayBuffer()
+    const bytes = new Uint8Array(ab)
+    if (bytes.byteLength > maxBytes) {
+      onTooLarge()
+      throw new Error('Image too large')
+    }
+    return bytes
+  }
+
+  const chunks: Uint8Array[] = []
+  let received = 0
+  let done = false
+
+  while (!done) {
+    const result = await reader.read()
+    done = result.done
+    const value = result.value
+    if (done) break
+    if (!(value instanceof Uint8Array)) continue
+
+    received += value.byteLength
+    if (received > maxBytes) {
+      onTooLarge()
+      throw new Error('Image too large')
+    }
+
+    chunks.push(value)
+  }
+
+  const out = new Uint8Array(received)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return out
+}
+
+ipcMain.handle('fetch-image', async (_event, request: FetchImageRequest): Promise<FetchImageResponse> => {
+  const allowedHosts = getAllowedImageHosts()
+
+  const requestedUrl = resolveRequestedUrl(request?.url)
+  if (requestedUrl.protocol !== 'http:' && requestedUrl.protocol !== 'https:') {
+    throw new Error('Only http/https URLs are allowed')
+  }
+
+  if (!allowedHosts.has(requestedUrl.host)) {
+    throw new Error(`Blocked image host: ${requestedUrl.host}`)
+  }
+
+  const controller = new AbortController()
+  const timeoutMs = 15000
+  const maxBytes = 10 * 1024 * 1024 // 10MB
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const headers = sanitizeHeaders(request?.headers)
+
+    const res = await fetchWithRedirectChecks(
+      requestedUrl,
+      {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+      },
+      allowedHosts
+    )
+
+    if (!res.ok) {
+      throw new Error(`Failed to fetch image (${res.status})`)
+    }
+
+    const contentType = res.headers.get('content-type') || ''
+    if (!contentType.toLowerCase().startsWith('image/')) {
+      throw new Error(`Unexpected content-type: ${contentType || 'unknown'}`)
+    }
+
+    const bytes = await readBodyWithLimit(res, maxBytes, () => controller.abort())
+    return {
+      mimeType: contentType || 'image/jpeg',
+      data: bytes,
+    }
+  } finally {
+    clearTimeout(timer)
+  }
+})
+
+// Silent printing handler (URL-based)
 ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
   try {
     // Create hidden window to load and print the invoice

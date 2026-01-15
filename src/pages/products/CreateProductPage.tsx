@@ -1,0 +1,716 @@
+import React, { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Package, Loader2, Layers, ArrowLeft, Save, Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from '@/components/ui/form'
+import { Separator } from '@/components/ui/separator'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import type { VariantInputData } from './schemas'
+import {
+  productFormSchema,
+  type ProductFormData,
+  defaultProductFormValues,
+  formDataToFormData,
+  formDataToVariableProductPayload,
+} from './schemas'
+import { VariantManager } from './components/VariantManager'
+import { useProducts, useAttributes, DEFAULT_FILTERS } from './hooks'
+import { CategoryDialog } from '../product-settings/components/categories/CategoryDialog'
+import { BrandDialog } from '../product-settings/components/brands/BrandDialog'
+import { UnitDialog } from '../product-settings/components/units/UnitDialog'
+import type { Category, Brand, Unit } from '@/types/api.types'
+
+// ============================================
+// Helpers
+// ============================================
+
+const CurrencyInput = React.forwardRef<HTMLInputElement, React.ComponentProps<typeof Input>>(
+  (props, ref) => {
+    return (
+      <div className="relative w-full">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+          Rs
+        </span>
+        <Input ref={ref} {...props} className={cn('pl-9', props.className)} />
+      </div>
+    )
+  }
+)
+CurrencyInput.displayName = 'CurrencyInput'
+
+// ============================================
+// Constants
+// ============================================
+
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024 // 2MB
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+
+// ============================================
+// Main Component
+// ============================================
+
+export default function CreateProductPage() {
+  const navigate = useNavigate()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [variants, setVariants] = useState<VariantInputData[]>([])
+
+  // Dialog states
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false)
+  const [isBrandDialogOpen, setIsBrandDialogOpen] = useState(false)
+  const [isUnitDialogOpen, setIsUnitDialogOpen] = useState(false)
+
+  // Fetch data
+  const { categories, brands, units, createProduct, refetch } = useProducts(DEFAULT_FILTERS)
+  const { attributes, isLoading: attributesLoading } = useAttributes()
+
+  // Initialize form
+  const form = useForm<ProductFormData>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: defaultProductFormValues,
+  })
+
+  // Watch product type
+  const productType = form.watch('product_type')
+  const isVariableProduct = productType === 'variable'
+
+  // Handle image change
+  const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      toast.error('Invalid file type. Please upload a JPEG, PNG, or WebP image.')
+      return
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast.error('Image size must be less than 2MB.')
+      return
+    }
+
+    setImageFile(file)
+    const reader = new FileReader()
+    reader.onloadend = () => setImagePreview(reader.result as string)
+    reader.readAsDataURL(file)
+  }, [])
+
+  // Handle SKU generation
+  const handleGenerateSku = useCallback(() => {
+    const productName = form.getValues('productName')
+    if (productName) {
+      // Simple SKU generation logic: NAME-RANDOM
+      const code =
+        productName.substring(0, 3).toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000)
+      form.setValue('productCode', code)
+    }
+  }, [form])
+
+  // Handle instant creation success
+  const handleCategorySuccess = useCallback(
+    async (newCategory?: Category) => {
+      await refetch()
+      if (newCategory) {
+        form.setValue('category_id', newCategory.id.toString())
+      }
+    },
+    [refetch, form]
+  )
+
+  const handleBrandSuccess = useCallback(
+    async (newBrand?: Brand) => {
+      await refetch()
+      if (newBrand) {
+        form.setValue('brand_id', newBrand.id.toString())
+      }
+    },
+    [refetch, form]
+  )
+
+  const handleUnitSuccess = useCallback(
+    async (newUnit?: Unit) => {
+      await refetch()
+      if (newUnit) {
+        form.setValue('unit_id', newUnit.id.toString())
+      }
+    },
+    [refetch, form]
+  )
+
+  // Handle form submission
+  const handleSubmit = useCallback(
+    async (data: ProductFormData) => {
+      // Validate variants for variable products
+      if (data.product_type === 'variable' && variants.length === 0) {
+        toast.error('Variable products must have at least one variant')
+        return
+      }
+
+      // Check for duplicate SKUs
+      if (data.product_type === 'variable' && variants.length > 0) {
+        const skuCounts = new Map<string, number>()
+        variants.forEach((variant) => {
+          const sku = variant.sku?.trim().toUpperCase()
+          if (sku) {
+            skuCounts.set(sku, (skuCounts.get(sku) || 0) + 1)
+          }
+        })
+        const duplicates = Array.from(skuCounts.entries())
+          .filter(([, count]) => count > 1)
+          .map(([sku]) => sku)
+
+        if (duplicates.length > 0) {
+          toast.error(
+            `Duplicate SKUs found: ${duplicates.join(', ')}. Each variant must have a unique SKU.`
+          )
+          return
+        }
+      }
+
+      setIsSubmitting(true)
+      try {
+        if (data.product_type === 'variable') {
+          const payload = formDataToVariableProductPayload(data, variants)
+          await createProduct(payload, true)
+        } else {
+          const formData = formDataToFormData(data, imageFile, false)
+          await createProduct(formData, false)
+        }
+
+        navigate('/products')
+      } catch (error: unknown) {
+        console.error('Failed to save product:', error)
+        // Error handling logic similar to dialog...
+        let errorMessage = String(error)
+        if (error && typeof error === 'object') {
+          const axiosError = error as {
+            response?: { data?: { message?: string } }
+            message?: string
+          }
+          errorMessage = axiosError.response?.data?.message || axiosError.message || String(error)
+        }
+
+        const duplicateSkuMatch = errorMessage.match(
+          /Duplicate entry '[\d]+-([^']+)' for key 'product_variants\.unique_sku_business'/
+        )
+
+        if (duplicateSkuMatch) {
+          const duplicateSku = duplicateSkuMatch[1]
+          toast.error(`SKU "${duplicateSku}" already exists.`)
+        } else if (errorMessage.includes('Duplicate entry')) {
+          toast.error('A variant with this SKU already exists.')
+        } else {
+          toast.error('Failed to create product')
+        }
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [imageFile, createProduct, navigate, variants]
+  )
+
+  const handleVariantsChange = useCallback((newVariants: VariantInputData[]) => {
+    setVariants(newVariants)
+  }, [])
+
+  return (
+    <div className="space-y-6 pb-24">
+      {/* Header */}
+      <header className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => navigate('/products')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Add New Product</h1>
+            <p className="text-muted-foreground">Fill in the details to create a new product.</p>
+          </div>
+        </div>
+      </header>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-10">
+          {/* Card 1: Basic Info */}
+          <div className="rounded-lg border bg-card p-6">
+            <h3 className="mb-6 flex items-center gap-2 text-lg font-semibold">
+              <Package className="h-5 w-5 text-primary" />
+              Basic Information
+            </h3>
+
+            <div className="flex flex-col gap-8 md:flex-row">
+              {/* Image Upload */}
+              <div className="flex-shrink-0">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="relative flex h-40 w-40 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-muted transition-all hover:bg-muted/80">
+                    {imagePreview ? (
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Package className="h-12 w-12 text-muted-foreground/40" />
+                    )}
+                    <Input
+                      type="file"
+                      accept={ACCEPTED_IMAGE_TYPES.join(',')}
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                      onChange={handleImageChange}
+                    />
+                  </div>
+                  <Label className="cursor-pointer text-sm font-medium text-primary hover:underline">
+                    {imagePreview ? 'Change Image' : 'Upload Image'}
+                  </Label>
+                  <span className="text-xs text-muted-foreground">Max 2MB</span>
+                </div>
+              </div>
+
+              {/* Fields */}
+              <div className="flex-1 space-y-6">
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="product_type"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <FormLabel>Product Type</FormLabel>
+                        <FormControl>
+                          <div className="flex gap-4">
+                            <div
+                              className={cn(
+                                'flex cursor-pointer items-center gap-2 rounded-lg border p-4 transition-colors hover:bg-muted/50',
+                                field.value === 'simple'
+                                  ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                                  : 'bg-card'
+                              )}
+                              onClick={() => field.onChange('simple')}
+                            >
+                              <div
+                                className={cn(
+                                  'h-4 w-4 rounded-full border border-primary',
+                                  field.value === 'simple' ? 'bg-primary' : 'bg-transparent'
+                                )}
+                              />
+                              <div className="space-y-1">
+                                <span className="font-medium leading-none">Simple Product</span>
+                                <p className="text-xs text-muted-foreground">
+                                  Standard item with single SKU
+                                </p>
+                              </div>
+                            </div>
+
+                            <div
+                              className={cn(
+                                'flex cursor-pointer items-center gap-2 rounded-lg border p-4 transition-colors hover:bg-muted/50',
+                                field.value === 'variable'
+                                  ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                                  : 'bg-card'
+                              )}
+                              onClick={() => field.onChange('variable')}
+                            >
+                              <div
+                                className={cn(
+                                  'h-4 w-4 rounded-full border border-primary',
+                                  field.value === 'variable' ? 'bg-primary' : 'bg-transparent'
+                                )}
+                              />
+                              <div className="space-y-1">
+                                <span className="font-medium leading-none">Variable Product</span>
+                                <p className="text-xs text-muted-foreground">
+                                  Has sizes, colors, or options
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="productName"
+                    render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel>Product Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Wireless Headphones" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="productCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Product Code / SKU</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input placeholder="e.g. WH-1000XM4" {...field} className="pr-16" />
+                            {!isVariableProduct && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-1 top-1 h-8 px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                                onClick={handleGenerateSku}
+                              >
+                                Generate
+                              </Button>
+                            )}
+                          </div>
+                        </FormControl>
+                        <FormDescription>
+                          {isVariableProduct
+                            ? 'Base code for generating variant SKUs'
+                            : 'Leave blank to auto-generate'}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {!isVariableProduct && (
+                    <FormField
+                      control={form.control}
+                      name="barcode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Barcode</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. 123456789012" {...field} />
+                          </FormControl>
+                          <FormDescription>Scan or enter barcode number</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {/* Removed old checkbox location */}
+
+                  <FormField
+                    control={form.control}
+                    name="is_batch_tracked"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border bg-muted/20 p-3">
+                        <FormControl>
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="cursor-pointer font-semibold">
+                            Batch/Lot Tracking
+                          </FormLabel>
+                          <FormDescription>
+                            Track by batch number with expiry dates (e.g., food, medicine)
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Classification */}
+          <div className="rounded-lg border bg-card p-6">
+            <h3 className="mb-6 flex items-center gap-2 text-lg font-semibold">
+              <Layers className="h-5 w-5 text-primary" />
+              Classification
+            </h3>
+            <div className="grid gap-6 md:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="category_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category *</FormLabel>
+                    <div className="flex gap-2">
+                      <Select
+                        onValueChange={(val) => {
+                          field.onChange(val)
+                          // Focus flow: could focus brand next
+                        }}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id.toString()}>
+                              {cat.categoryName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setIsCategoryDialogOpen(true)}
+                        className="flex-shrink-0"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="brand_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Brand</FormLabel>
+                    <div className="flex gap-2">
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select brand" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {brands.map((brand) => (
+                            <SelectItem key={brand.id} value={brand.id.toString()}>
+                              {brand.brandName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setIsBrandDialogOpen(true)}
+                        className="flex-shrink-0"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="unit_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Unit *</FormLabel>
+                    <div className="flex gap-2">
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select unit" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {units.map((unit) => (
+                            <SelectItem key={unit.id} value={unit.id.toString()}>
+                              {unit.unitName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setIsUnitDialogOpen(true)}
+                        className="flex-shrink-0"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Card 3: Pricing & Inventory (Simple Product Only) */}
+          {!isVariableProduct && (
+            <div className="rounded-lg border bg-card p-6">
+              <h3 className="mb-6 flex items-center gap-2 text-lg font-semibold">
+                <Package className="h-5 w-5 text-primary" />
+                Pricing & Inventory
+              </h3>
+              <div className="grid gap-6 md:grid-cols-3">
+                <FormField
+                  control={form.control}
+                  name="productPurchasePrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Purchase Price</FormLabel>
+                      <FormControl>
+                        <CurrencyInput
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="productSalePrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sale Price</FormLabel>
+                      <FormControl>
+                        <CurrencyInput
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="productStock"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Initial Stock</FormLabel>
+                      <FormControl>
+                        <Input type="number" min="0" placeholder="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Separator className="my-6" />
+
+              <div className="w-full md:w-1/3">
+                <FormField
+                  control={form.control}
+                  name="alert_qty"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Low Stock Alert</FormLabel>
+                      <FormControl>
+                        <Input type="number" min="0" placeholder="e.g. 10" {...field} />
+                      </FormControl>
+                      <FormDescription>Get notified when stock reaches this level.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Card 4: Variations (Variable Product Only) */}
+          {isVariableProduct && (
+            <div className="rounded-lg border bg-card p-6">
+              <h3 className="mb-6 flex items-center gap-2 text-lg font-semibold">
+                <Layers className="h-5 w-5 text-primary" />
+                Product Variations
+              </h3>
+              <VariantManager
+                product={null}
+                attributes={attributes}
+                attributesLoading={attributesLoading}
+                variants={variants}
+                onVariantsChange={handleVariantsChange}
+              />
+
+              <Separator className="my-6" />
+
+              <div className="w-full md:w-1/3">
+                <FormField
+                  control={form.control}
+                  name="alert_qty"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Low Stock Alert (Global)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min="0" placeholder="e.g. 5" {...field} />
+                      </FormControl>
+                      <FormDescription>Default alert level if not set per variant.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Fixed Footer */}
+          <div className="shadow-up fixed bottom-0 left-0 right-0 z-10 flex items-center justify-end gap-4 border-t bg-background p-4">
+            <Button variant="outline" type="button" onClick={() => navigate('/products')}>
+              Cancel
+            </Button>
+            <Button onClick={form.handleSubmit(handleSubmit)} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Save className="mr-2 h-4 w-4" />
+              Create Product
+            </Button>
+          </div>
+        </form>
+      </Form>
+
+      <CategoryDialog
+        open={isCategoryDialogOpen}
+        onOpenChange={setIsCategoryDialogOpen}
+        onSuccess={handleCategorySuccess}
+      />
+
+      <BrandDialog
+        open={isBrandDialogOpen}
+        onOpenChange={setIsBrandDialogOpen}
+        onSuccess={handleBrandSuccess}
+      />
+
+      <UnitDialog
+        open={isUnitDialogOpen}
+        onOpenChange={setIsUnitDialogOpen}
+        onSuccess={handleUnitSuccess}
+      />
+    </div>
+  )
+}

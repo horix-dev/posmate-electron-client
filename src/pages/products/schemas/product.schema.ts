@@ -37,6 +37,13 @@ export const productFormSchema = z.object({
     .optional()
     .or(z.literal('')),
 
+  barcode: z
+    .string()
+    .max(100, 'Barcode must be less than 100 characters')
+    .trim()
+    .optional()
+    .or(z.literal('')),
+
   category_id: z.string().optional().or(z.literal('')),
 
   brand_id: z.string().optional().or(z.literal('')),
@@ -51,6 +58,8 @@ export const productFormSchema = z.object({
     .pipe(z.string().regex(/^\d*$/, 'Alert quantity must be a positive number').optional()),
 
   product_type: z.enum(['simple', 'variable']).default('simple'),
+
+  is_batch_tracked: z.boolean().default(false),
 
   productPurchasePrice: z
     .string()
@@ -96,11 +105,13 @@ export type ProductFormData = z.infer<typeof productFormSchema>
 export const defaultProductFormValues: ProductFormData = {
   productName: '',
   productCode: '',
+  barcode: '',
   category_id: '',
   brand_id: '',
   unit_id: '',
   alert_qty: '',
   product_type: 'simple',
+  is_batch_tracked: false,
   productPurchasePrice: '',
   productSalePrice: '',
   productStock: '',
@@ -113,11 +124,13 @@ export const defaultProductFormValues: ProductFormData = {
 export function productToFormData(product: {
   productName: string
   productCode?: string | null
+  barcode?: string | null
   category_id?: number | null
   brand_id?: number | null
   unit_id?: number | null
   alert_qty?: number | null
   product_type: 'simple' | 'variable' | 'variant' | 'single'
+  is_batch_tracked?: boolean
   description?: string | null
   stocks?: Array<{
     productPurchasePrice: number
@@ -168,11 +181,13 @@ export function productToFormData(product: {
   return {
     productName: product.productName,
     productCode: product.productCode || '',
+    barcode: product.barcode || '',
     category_id: product.category_id?.toString() || '',
     brand_id: product.brand_id?.toString() || '',
     unit_id: product.unit_id?.toString() || '',
     alert_qty: product.alert_qty?.toString() || '',
     product_type: normalizedProductType,
+    is_batch_tracked: product.is_batch_tracked ?? false,
     productPurchasePrice: stock?.productPurchasePrice?.toString() || '',
     productSalePrice: stock?.productSalePrice?.toString() || '',
     productStock: stock?.productStock?.toString() || '',
@@ -199,6 +214,9 @@ export function formDataToFormData(
   if (data.productCode) {
     formData.append('productCode', data.productCode)
   }
+  if (data.barcode) {
+    formData.append('barcode', data.barcode)
+  }
   if (data.category_id) {
     formData.append('category_id', data.category_id)
   }
@@ -213,6 +231,7 @@ export function formDataToFormData(
   }
 
   formData.append('product_type', data.product_type)
+  formData.append('is_batch_tracked', data.is_batch_tracked ? '1' : '0')
 
   if (data.productPurchasePrice) {
     formData.append('productPurchasePrice', data.productPurchasePrice)
@@ -242,6 +261,7 @@ export interface VariableProductPayload {
   unit_id?: number
   alert_qty?: number
   product_type: 'variable'
+  is_batch_tracked: boolean
   description?: string
   variants: VariantInputData[]
 }
@@ -264,6 +284,7 @@ export function formDataToVariableProductPayload(
     unit_id: data.unit_id ? parseInt(data.unit_id, 10) : undefined,
     alert_qty: data.alert_qty ? parseInt(data.alert_qty, 10) : undefined,
     product_type: 'variable',
+    is_batch_tracked: data.is_batch_tracked,
     description: data.description || undefined,
     variants: variants,
   }
