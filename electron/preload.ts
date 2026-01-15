@@ -32,6 +32,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
         })
       })
     },
+    receiptHTMLWithPageSize: (htmlContent: string, pageSize: { width: number; height: number }) => {
+      return new Promise((resolve) => {
+        // Send print request with page size
+        ipcRenderer.send('print-receipt-html-with-page-size', htmlContent, pageSize)
+        
+        // Listen for reply (one-time)
+        ipcRenderer.once('print-receipt-html-result', (_event, result) => {
+          resolve(result)
+        })
+      })
+    },
   },
 
   // SQLite Database

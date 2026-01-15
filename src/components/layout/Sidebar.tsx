@@ -268,9 +268,7 @@ export function Sidebar() {
           <div className="mb-2 flex h-12 items-center justify-between border-b border-sidebar-border bg-sidebar px-4">
             {!isCollapsed && (
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <ShoppingCart className="h-4 w-4" />
-                </div>
+                <img src="/posmate.png" alt="POS Mate Logo" className="h-8 w-8 object-contain" />
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold">
                     {business?.companyName || 'POS Mate'}
@@ -279,8 +277,8 @@ export function Sidebar() {
               </div>
             )}
             {isCollapsed && (
-              <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <ShoppingCart className="h-4 w-4" />
+              <div className="mx-auto">
+                <img src="/posmate.png" alt="POS Mate Logo" className="h-8 w-8 object-contain" />
               </div>
             )}
           </div>

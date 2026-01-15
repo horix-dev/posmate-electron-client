@@ -106,7 +106,7 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
+    icon: path.join(process.env.VITE_PUBLIC, 'posmate.png'),
     title: 'POSMATE',
     show: false, // Show when ready to prevent visual flash
     frame: false, // Hide native title bar and frame
@@ -539,6 +539,147 @@ ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     }
+  }
+})
+
+// Silent printing handler (HTML-based) - EXACT copy of working hpos client
+ipcMain.on('print-receipt-html', async (event, htmlContent: string) => {
+  console.log('🖨️ Print receipt requested')
+  
+  const printWindow = new BrowserWindow({
+    width: 800,
+    height: 1200,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'print-preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: false, // CRITICAL: Must be false
+      sandbox: false,
+    },
+  })
+
+  try {
+    // Load HTML content
+    await printWindow.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`
+    )
+    console.log('🖨️ Receipt HTML loaded')
+
+    // Wait for content to render
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    // Get printers
+    const printers = await printWindow.webContents.getPrintersAsync()
+    const defaultPrinter = printers.find((p) => p.isDefault)
+    
+    if (!defaultPrinter) {
+      console.error('🖨️ No default printer found')
+      printWindow.close()
+      event.reply('print-receipt-html-result', { success: false, error: 'No default printer found' })
+      return
+    }
+
+    console.log('🖨️ Printing to:', defaultPrinter.name)
+    console.log('🖨️ Available printers:', printers.map(p => `${p.name}${p.isDefault ? ' (default)' : ''}`).join(', '))
+
+    // Print silently
+    printWindow.webContents.print(
+      {
+        silent: true,
+        printBackground: true,
+        deviceName: defaultPrinter.name,
+        margins: { marginType: 'none' },
+        pageSize: { width: 72000, height: 297000 },
+        scaleFactor: 100,
+      },
+      (success, errorType) => {
+        if (success) {
+          console.log('🖨️ Print successful')
+          event.reply('print-receipt-html-result', { success: true })
+        } else {
+          console.error('🖨️ Print failed:', errorType)
+          event.reply('print-receipt-html-result', { success: false, error: errorType })
+        }
+        printWindow.close()
+      }
+    )
+  } catch (error) {
+    console.error('🖨️ Print receipt failed:', error)
+    printWindow.close()
+    event.reply('print-receipt-html-result', { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// Silent printing handler with custom page size for labels
+ipcMain.on('print-receipt-html-with-page-size', async (event, htmlContent: string, pageSize: { width: number; height: number }) => {
+  console.log('🖨️ Print labels requested with custom page size:', pageSize)
+  
+  const printWindow = new BrowserWindow({
+    width: 800,
+    height: 1200,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'print-preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: false,
+      sandbox: false,
+    },
+  })
+
+  try {
+    // Load HTML content
+    await printWindow.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`
+    )
+    console.log('🖨️ Label HTML loaded')
+
+    // Wait for content to render
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    // Get printers
+    const printers = await printWindow.webContents.getPrintersAsync()
+    const defaultPrinter = printers.find((p) => p.isDefault)
+    
+    if (!defaultPrinter) {
+      console.error('🖨️ No default printer found')
+      printWindow.close()
+      event.reply('print-receipt-html-result', { success: false, error: 'No default printer found' })
+      return
+    }
+
+    console.log('🖨️ Printing to:', defaultPrinter.name)
+
+    // Print silently with custom page size
+    printWindow.webContents.print(
+      {
+        silent: true,
+        printBackground: true,
+        deviceName: defaultPrinter.name,
+        margins: { marginType: 'none' },
+        pageSize: pageSize, // Use custom page size (width/height in microns)
+        scaleFactor: 100,
+      },
+      (success, errorType) => {
+        if (success) {
+          console.log('🖨️ Label print successful')
+          event.reply('print-receipt-html-result', { success: true })
+        } else {
+          console.error('🖨️ Label print failed:', errorType)
+          event.reply('print-receipt-html-result', { success: false, error: errorType })
+        }
+        printWindow.close()
+      }
+    )
+  } catch (error) {
+    console.error('🖨️ Label print failed:', error)
+    printWindow.close()
+    event.reply('print-receipt-html-result', { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
   }
 })
 

@@ -20,6 +20,12 @@ import { LabelConfiguration } from './LabelConfiguration'
 import { SelectedProductsTable } from './SelectedProductsTable'
 import { BarcodePreview } from './BarcodePreview'
 
+// Type for Electron print API response
+type PrintResult = {
+  success: boolean
+  error?: string
+}
+
 // Replace SearchProductResult with a local option type (minimal fields we render)
 type ProductOption = {
   optionValue: string
@@ -218,7 +224,11 @@ export function PrintLabelsPage() {
             variantName = String(variant.variant_name ?? '')
           }
           // Fallback to attributes_map if neither above is available
-          if (!variantName && variant.attributes_map && typeof variant.attributes_map === 'object') {
+          if (
+            !variantName &&
+            variant.attributes_map &&
+            typeof variant.attributes_map === 'object'
+          ) {
             const attrMap = variant.attributes_map as Record<string, string>
             variantName = Object.values(attrMap).join(' / ')
           }
@@ -229,8 +239,10 @@ export function PrintLabelsPage() {
             id: Number(product.id),
             variantId: Number(variant.id),
             isVariant: true,
-            productName: `${String(product.productName ?? product.name ?? '')} : ${variantName}`.trim(),
-            productCode: String(variant.sku ?? variant.barcode ?? '').trim() || baseOption.productCode,
+            productName:
+              `${String(product.productName ?? product.name ?? '')} : ${variantName}`.trim(),
+            productCode:
+              String(variant.sku ?? variant.barcode ?? '').trim() || baseOption.productCode,
             barcode: variantBarcode || baseBarcode || undefined,
             productSalePrice:
               variant.price !== undefined
@@ -420,7 +432,7 @@ export function PrintLabelsPage() {
         height: 10,
         includetext: true,
         textxalign: 'center',
-        backgroundcolor: 'ffffff'
+        backgroundcolor: 'ffffff',
       })
 
       return svg
@@ -475,10 +487,13 @@ export function PrintLabelsPage() {
       }
     }
 
-    const paperSettings: Record<string, { width: string; height: string; cols: number }> = {
-      '1': { width: '38mm', height: '25mm', cols: 4 },
-      '2': { width: '50mm', height: '25mm', cols: 3 },
-      '3': { width: '50.8mm', height: '31.75mm', cols: 4 },
+    const paperSettings: Record<
+      string,
+      { width: string; height: string; labelHeight: string; gap: string; cols: number }
+    > = {
+      '1': { width: '38mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 4 },
+      '2': { width: '50mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 3 },
+      '3': { width: '50.8mm', height: '31.75mm', labelHeight: '31.75mm', gap: '10mm', cols: 4 },
     }
     const dims = paperSettings[barcodeSetting] || paperSettings['1']
 
@@ -520,9 +535,9 @@ export function PrintLabelsPage() {
               background-color: white;
             }
             
-            /* Page Setup */
+            /* Page Setup - page height = label (25mm) + gap (10mm) = 35mm total */
             @page {
-              ${isSheet ? 'size: A4; margin: 0.25in;' : `size: ${dims.width} ${dims.height}; margin: 0;`}
+              ${isSheet ? 'size: A4; margin: 0.25in;' : `size: 50mm 35mm landscape; margin: 0; padding: 0;`}
             }
 
             .container { 
@@ -533,23 +548,21 @@ export function PrintLabelsPage() {
                   : 'display: block;'
               }
             }
-            
+
             .label { 
               width: ${dims.width}; 
-              height: ${dims.height}; 
+              height: ${dims.labelHeight}; 
               border: 1px dotted #ccc; 
               display: flex; 
               flex-direction: column; 
-              justify-content: center; 
+              justify-content: space-between; 
               align-items: center; 
-              padding: 2px; 
+              padding: 1px 1px 1px 1px; 
               text-align: center; 
               overflow: hidden; 
               background: white;
               position: relative;
-              /* Force page break for rolls */
-              ${!isSheet ? 'page-break-after: always; break-after: page;' : ''}
-              margin-bottom: ${!isSheet ? '0' : '0.125in'};
+              ${!isSheet ? `page-break-after: always; break-after: page;` : `margin-bottom: 0.125in;`}
             }
             
             /* Hide border for print */
@@ -560,7 +573,6 @@ export function PrintLabelsPage() {
               .label:last-child { 
                 page-break-after: auto; 
                 break-after: auto; 
-                margin-bottom: 0;
               }
               .container {
                 /* Ensure grid works on print */
@@ -613,24 +625,84 @@ export function PrintLabelsPage() {
 
     setPreviewLoading(true)
     try {
+      // Get current paper settings
+      const paperSettings: Record<
+        string,
+        { width: string; height: string; labelHeight: string; gap: string; cols: number }
+      > = {
+        '1': { width: '38mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 4 },
+        '2': { width: '50mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 3 },
+        '3': { width: '50.8mm', height: '31.75mm', labelHeight: '31.75mm', gap: '10mm', cols: 4 },
+      }
+      const dims = paperSettings[barcodeSetting] || paperSettings['1']
+
       const printHTML = generatePrintHTML()
-      const printWindow = window.open('', '_blank', 'width=800,height=600')
 
-      if (printWindow) {
-        printWindow.document.write(printHTML)
-        printWindow.document.close()
+      // Convert mm to microns for page size (1mm = 1000 microns)
+      // Page height = label height + gap between stickers
+      const widthMm = parseInt(dims.width)
+      const gapMm = 10 // 10mm gap between stickers
+      const heightMm = parseInt(dims.labelHeight) + gapMm
+      const pageWidth = Math.round(widthMm * 1000) // 50mm = 50,000 microns
+      const pageHeight = Math.round(heightMm * 1000) // 28mm = 28,000 microns
 
-        // Wait for images to load before printing
-        printWindow.onload = () => {
-          // We can print automatically or let the user see the preview first
-          setTimeout(() => {
-            printWindow.print()
-          }, 500)
+      // If running inside Electron, prefer the native silent-print path
+      // exposed via the preload as `electronAPI.print.receiptHTMLWithPageSize`.
+      // Fallback to opening a new window for browser environments.
+      try {
+        const electronWindow = window as unknown as {
+          electronAPI?: {
+            print?: {
+              receiptHTMLWithPageSize?: (
+                html: string,
+                pageSize: { width: number; height: number }
+              ) => Promise<PrintResult>
+              receiptHTML?: (html: string) => Promise<PrintResult>
+            }
+          }
         }
 
-        toast.success('Print window opened')
-      } else {
-        toast.error('Failed to open print window')
+        if (
+          typeof window !== 'undefined' &&
+          electronWindow.electronAPI?.print?.receiptHTMLWithPageSize
+        ) {
+          const result = await electronWindow.electronAPI.print.receiptHTMLWithPageSize(printHTML, {
+            width: pageWidth,
+            height: pageHeight,
+          })
+          if (result && result.success) {
+            toast.success('Sent to printer')
+          } else {
+            toast.error('Printer error: ' + (result?.error || ''))
+          }
+        } else if (
+          typeof window !== 'undefined' &&
+          electronWindow.electronAPI?.print?.receiptHTML
+        ) {
+          const result = await electronWindow.electronAPI.print.receiptHTML(printHTML)
+          if (result && result.success) {
+            toast.success('Sent to printer')
+          } else {
+            toast.error('Printer error')
+          }
+        } else {
+          const printWindow = window.open('', '_blank', 'width=800,height=600')
+          if (printWindow) {
+            printWindow.document.write(printHTML)
+            printWindow.document.close()
+            printWindow.onload = () => {
+              setTimeout(() => {
+                printWindow.print()
+              }, 500)
+            }
+            toast.success('Print window opened')
+          } else {
+            toast.error('Failed to open print window')
+          }
+        }
+      } catch (err) {
+        console.error('Print invocation failed:', err)
+        toast.error('Failed to invoke print')
       }
     } catch (err) {
       toast.error('Failed to generate labels')
@@ -795,7 +867,11 @@ export function PrintLabelsPage() {
                                             }
 
                                             const barcodeValue = String(
-                                              d.barcode ?? p.barcode ?? d.productCode ?? d.code ?? ''
+                                              d.barcode ??
+                                                p.barcode ??
+                                                d.productCode ??
+                                                d.code ??
+                                                ''
                                             )
 
                                             handleAddProduct({

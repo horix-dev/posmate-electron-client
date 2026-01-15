@@ -11,6 +11,7 @@
     "dist",
     "dist-electron"
   ],
+  "icon": "public/posmate.png",
   // Auto-update configuration
   "publish": [
     {
