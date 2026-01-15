@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Wallet, Plus, Search, Tags } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCurrency } from '@/hooks'
@@ -17,9 +18,18 @@ import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog'
 import { BulkDeleteConfirmDialog } from '@/components/common/BulkDeleteConfirmDialog'
 
 export function FinancePage() {
+  const [searchParams] = useSearchParams()
   const { format: formatCurrency } = useCurrency()
   const [activeTab, setActiveTab] = useState<'expenses' | 'income'>('expenses')
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Read tab from URL on mount
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'income' || tab === 'expenses') {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
 
   // Data State - Now storing normalized data
   const [expenses, setExpenses] = useState<NormalizedTransaction[]>([])
