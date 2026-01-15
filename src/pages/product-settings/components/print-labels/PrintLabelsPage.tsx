@@ -22,17 +22,22 @@ import { BarcodePreview } from './BarcodePreview'
 
 // Replace SearchProductResult with a local option type (minimal fields we render)
 type ProductOption = {
-  id: number
+  optionValue: string
+  id: number // parent product id
   productName: string
   productCode: string
+  barcode?: string
   productSalePrice?: number
   productDealerPrice?: number
   productStock?: number
+  isVariant?: boolean
+  variantId?: number
 }
 
 interface SelectedProduct extends BarcodeBatchItem {
   product_name: string
   product_code: string
+  barcode?: string
   unit_price?: number
   stock?: number
 }
@@ -64,9 +69,9 @@ export function PrintLabelsPage() {
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([])
 
   // Product dropdown options
-  const [productOptions, setProductOptions] = useState<ProductOption[]>([]) // <-- type updated
+  const [productOptions, setProductOptions] = useState<ProductOption[]>([])
   const [productOptionsLoading, setProductOptionsLoading] = useState(false)
-  const [selectedProductId, setSelectedProductId] = useState<string>('')
+  const [selectedOptionValue, setSelectedOptionValue] = useState<string>('')
   const [productSearch, setProductSearch] = useState('')
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
 
@@ -138,7 +143,9 @@ export function PrintLabelsPage() {
 
   // Helper to normalize product list response
   const normalizeItems = (products: unknown[]): ProductOption[] => {
-    return products.map((p: unknown) => {
+    const options: ProductOption[] = []
+
+    products.forEach((p: unknown) => {
       const product = p as Record<string, unknown>
       // Extract sale price: try root level, then stocks array
       let salePrice: number | undefined =
@@ -178,15 +185,74 @@ export function PrintLabelsPage() {
         }, 0)
       }
 
-      return {
+      // Extract barcode directly from API response (barcode field added to backend)
+      const baseBarcode: string = String(
+        product.barcode ?? product.productCode ?? product.code ?? ''
+      ).trim()
+
+      const baseOption: ProductOption = {
+        optionValue: `product-${product.id}`,
         id: Number(product.id),
         productName: String(product.productName ?? product.name ?? ''),
         productCode: String(product.productCode ?? product.code ?? ''),
-        productSalePrice: salePrice ? Number(salePrice) : 0,
-        productDealerPrice: dealerPrice ? Number(dealerPrice) : 0,
-        productStock: stock ? Number(stock) : 0,
+        barcode: baseBarcode || undefined,
+        productSalePrice: salePrice !== undefined ? Number(salePrice) : undefined,
+        productDealerPrice: dealerPrice !== undefined ? Number(dealerPrice) : undefined,
+        productStock: stock !== undefined ? Number(stock) : undefined,
+      }
+
+      options.push(baseOption)
+
+      if (Array.isArray(product.variants)) {
+        product.variants.forEach((v: unknown) => {
+          const variant = v as Record<string, unknown>
+          // Build variant name from attribute_values (matches ProductDetailsDialog logic)
+          let variantName = ''
+          if (variant.attribute_values && Array.isArray(variant.attribute_values)) {
+            variantName = (variant.attribute_values as Array<Record<string, unknown>>)
+              .map((av) => av.value)
+              .join(' / ')
+          }
+          // Fallback to variant_name from API if available
+          if (!variantName) {
+            variantName = String(variant.variant_name ?? '')
+          }
+          // Fallback to attributes_map if neither above is available
+          if (!variantName && variant.attributes_map && typeof variant.attributes_map === 'object') {
+            const attrMap = variant.attributes_map as Record<string, string>
+            variantName = Object.values(attrMap).join(' / ')
+          }
+
+          const variantBarcode = String(variant.barcode ?? variant.sku ?? '').trim()
+          const variantOption: ProductOption = {
+            optionValue: `variant-${product.id}-${variant.id}`,
+            id: Number(product.id),
+            variantId: Number(variant.id),
+            isVariant: true,
+            productName: `${String(product.productName ?? product.name ?? '')} : ${variantName}`.trim(),
+            productCode: String(variant.sku ?? variant.barcode ?? '').trim() || baseOption.productCode,
+            barcode: variantBarcode || baseBarcode || undefined,
+            productSalePrice:
+              variant.price !== undefined
+                ? Number(variant.price)
+                : salePrice !== undefined
+                  ? Number(salePrice)
+                  : undefined,
+            productDealerPrice: dealerPrice !== undefined ? Number(dealerPrice) : undefined,
+            productStock:
+              variant.total_stock !== undefined
+                ? Number(variant.total_stock)
+                : stock !== undefined
+                  ? Number(stock)
+                  : undefined,
+          }
+
+          options.push(variantOption)
+        })
       }
     })
+
+    return options
   }
 
   // Load initial product options for dropdown (server)
@@ -260,7 +326,7 @@ export function PrintLabelsPage() {
         // Duplicate labels based on quantity
         for (let i = 0; i < qty; i++) {
           // Generate placeholder barcode SVG (simple code128-like representation)
-          const barcodeValue = String(product.product_code)
+          const barcodeValue = String(product.barcode || product.product_code)
           const barcodeSvg = generateBarcodeSVG(barcodeValue, barcodeType)
 
           const label: LabelPayload = {
@@ -352,7 +418,7 @@ export function PrintLabelsPage() {
         text: text,
         scale: 3,
         height: 10,
-        includetext: false,
+        includetext: true,
         textxalign: 'center',
         backgroundcolor: 'ffffff'
       })
@@ -383,7 +449,7 @@ export function PrintLabelsPage() {
       const qty = Number(product.quantity || 1)
 
       for (let i = 0; i < qty; i++) {
-        const barcodeValue = String(product.product_code || product.product_id)
+        const barcodeValue = String(product.barcode || product.product_code)
         const barcodeSvg = generateBarcodeSVG(barcodeValue, barcodeType)
 
         const label: LabelPayload = {
@@ -611,8 +677,8 @@ export function PrintLabelsPage() {
                       <span className="flex items-center gap-2 truncate text-left">
                         <Search className="h-4 w-4 text-muted-foreground" />
                         <span className="truncate">
-                          {selectedProductId
-                            ? productOptions.find((p) => String(p.id) === selectedProductId)
+                          {selectedOptionValue
+                            ? productOptions.find((p) => p.optionValue === selectedOptionValue)
                                 ?.productName
                             : productOptionsLoading
                               ? 'Loading products...'
@@ -659,11 +725,30 @@ export function PrintLabelsPage() {
                                     const displayPrice = p.productSalePrice ?? p.productDealerPrice
                                     return (
                                       <CommandItem
-                                        key={p.id}
-                                        value={String(p.id)}
+                                        key={p.optionValue}
+                                        value={p.optionValue}
                                         onSelect={async () => {
-                                          setSelectedProductId(String(p.id))
+                                          setSelectedOptionValue(p.optionValue)
                                           setProductPopoverOpen(false)
+
+                                          // For variants, we already have the needed values; no extra fetch required.
+                                          if (p.isVariant && p.variantId) {
+                                            handleAddProduct({
+                                              product_id: p.variantId,
+                                              product_name: p.productName,
+                                              product_code: p.productCode,
+                                              barcode: p.barcode,
+                                              unit_price: p.productSalePrice ?? 0,
+                                              stock: p.productStock ?? 0,
+                                              quantity: 1,
+                                              batch_id: null,
+                                              packing_date: null,
+                                            })
+                                            setSelectedOptionValue('')
+                                            setProductSearch('')
+                                            return
+                                          }
+
                                           try {
                                             const detailResp = await productsService.getById(p.id)
                                             const d = ((detailResp &&
@@ -709,17 +794,22 @@ export function PrintLabelsPage() {
                                                   | undefined) ?? undefined
                                             }
 
+                                            const barcodeValue = String(
+                                              d.barcode ?? p.barcode ?? d.productCode ?? d.code ?? ''
+                                            )
+
                                             handleAddProduct({
                                               product_id: p.id,
                                               product_name: String(d.productName ?? d.name ?? ''),
                                               product_code: String(d.productCode ?? d.code ?? ''),
+                                              barcode: barcodeValue,
                                               unit_price: salePrice ? Number(salePrice) : 0,
                                               stock: stock ? Number(stock) : 0,
                                               quantity: 1,
                                               batch_id: null,
                                               packing_date: null,
                                             })
-                                            setSelectedProductId('')
+                                            setSelectedOptionValue('')
                                             setProductSearch('')
                                           } catch (err) {
                                             console.error('Failed to fetch product details:', err)
@@ -730,7 +820,7 @@ export function PrintLabelsPage() {
                                         <div className="flex w-full flex-col text-left">
                                           <span className="font-medium">{p.productName}</span>
                                           <div className="mt-0.5 flex justify-between text-xs text-muted-foreground">
-                                            <span>Code: {p.productCode}</span>
+                                            <span>Barcode: {p.barcode || '-'}</span>
                                             <span>Price: {displayPrice ?? '-'}</span>
                                             <span>Stock: {p.productStock ?? 0}</span>
                                           </div>

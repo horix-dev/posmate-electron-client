@@ -1,3 +1,24 @@
+## 2026-01-15 — Print Labels: Variants & Barcodes ✅
+
+**Context**: Product label picker needed to surface variant SKUs/attributes and display backend barcodes.
+
+**Problem**:
+- Product dropdown only listed parent products (no variants/attributes).
+- Barcode field from backend was ignored; labels used product code instead.
+
+**Solution Implemented**:
+- Flattened variants into product options with attribute-based names (e.g., `Product : Size / Color`) and included their barcodes/SKUs.
+- Command list now shows barcode alongside code/price/stock and uses composite option keys for variants.
+- Variant selections add directly without extra API fetch; base products still fetch details for accurate stock/price.
+- Label preview generation now prioritizes barcode when present.
+
+**Files Modified**:
+- `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx`
+
+**Status**: ✅ Completed
+
+---
+
 ## 2026-01-10 — Silent Print Handler Optimization (Electron) 🔄
 
 **Context**: Refined silent printing to use `contextIsolation: true` with `executeJavaScript` instead of preload script approach.
