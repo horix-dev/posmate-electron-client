@@ -92,7 +92,7 @@ export function BarcodePreview({ barcodes, paperSetting }: BarcodePreviewProps) 
                 )}
 
                 {/* Product Code (always below barcode) */}
-                {barcode.show_product_code && barcode.product_code && (
+                {/* {barcode.show_product_code && barcode.product_code && (
                   <div
                     className="w-full truncate leading-tight"
                     style={{
@@ -101,7 +101,7 @@ export function BarcodePreview({ barcodes, paperSetting }: BarcodePreviewProps) 
                   >
                     {barcode.product_code}
                   </div>
-                )}
+                )} */}
 
                 {/* Packing Date */}
                 {barcode.show_pack_date && barcode.packing_date && (

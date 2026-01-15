@@ -381,6 +381,7 @@ export interface Product {
   variants?: ProductVariant[]
   attributes?: ProductAttribute[]
   variants_total_stock?: number
+  barcode?: string
 }
 
 export interface Stock {
