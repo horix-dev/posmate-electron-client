@@ -61,137 +61,148 @@ export function generateReceiptHTML(data: ReceiptData): string {
     }
     
     body {
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      line-height: 1.4;
-      padding: 20px;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+      line-height: 1.3;
+      padding: 15px;
       max-width: 80mm;
       margin: 0 auto;
+      background: white;
+      color: #000;
     }
     
     .receipt {
       background: white;
+      padding: 10px;
     }
     
     .header {
       text-align: center;
-      margin-bottom: 20px;
-      border-bottom: 2px dashed #000;
-      padding-bottom: 10px;
+      margin-bottom: 12px;
     }
     
     .logo {
-      max-width: 120px;
-      margin-bottom: 10px;
+      max-width: 100px;
+      height: auto;
+      margin-bottom: 8px;
     }
     
     .business-name {
       font-size: 18px;
       font-weight: bold;
+      margin-bottom: 6px;
+      color: #000;
+    }
+    
+    .receipt-title {
+      font-size: 20px;
+      font-weight: bold;
       margin-bottom: 5px;
+      color: #000;
     }
     
-    .business-info {
-      font-size: 11px;
-      color: #333;
+    .invoice-number {
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 8px;
     }
     
-    .invoice-info {
-      margin-bottom: 15px;
-      padding-bottom: 10px;
-      border-bottom: 1px dashed #000;
+    .info-section {
+      margin-bottom: 8px;
     }
     
     .info-row {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
+      font-size: 13px;
     }
     
-    .label {
-      font-weight: bold;
+    .info-row .label {
+      color: #333;
+      min-width: 80px;
     }
     
-    .customer-info {
-      margin-bottom: 15px;
-      padding-bottom: 10px;
-      border-bottom: 1px dashed #000;
+    .info-row .value {
+      color: #000;
+      text-align: right;
+      flex: 1;
     }
     
-    .items-table {
-      width: 100%;
-      margin-bottom: 15px;
-      border-collapse: collapse;
+    .divider {
+      border: none;
+      border-top: 1px dashed #999;
+      margin: 8px 0;
     }
     
-    .items-table th {
-      text-align: left;
-      border-bottom: 1px solid #000;
-      padding: 5px 0;
-      font-weight: bold;
+    .items-section {
+      margin: 6px 0;
     }
     
-    .items-table td {
-      padding: 8px 0;
-      border-bottom: 1px dashed #ccc;
+    .item-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+      font-size: 13px;
     }
     
     .item-name {
-      font-weight: bold;
-      margin-bottom: 2px;
+      color: #000;
+      flex: 1;
     }
     
-    .item-details {
-      font-size: 10px;
-      color: #555;
-    }
-    
-    .qty-price {
+    .item-price {
       text-align: right;
+      color: #000;
+      min-width: 60px;
     }
     
-    .totals {
-      margin-top: 15px;
-      padding-top: 10px;
-      border-top: 2px solid #000;
+    .totals-section {
+      margin-top: 6px;
     }
     
     .total-row {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 5px;
+      margin-bottom: 3px;
+      font-size: 13px;
+    }
+    
+    .total-row .label {
+      color: #333;
+    }
+    
+    .total-row .amount {
+      text-align: right;
+      color: #000;
     }
     
     .total-row.grand-total {
-      font-size: 16px;
       font-weight: bold;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid #000;
+      font-size: 15px;
+      margin-top: 4px;
+      padding-top: 4px;
     }
     
-    .total-row.payment {
-      margin-top: 10px;
-      padding-top: 5px;
-      border-top: 1px dashed #000;
+    .total-row.grand-total .label,
+    .total-row.grand-total .amount {
+      color: #000;
     }
     
     .footer {
-      margin-top: 20px;
-      padding-top: 15px;
-      border-top: 2px dashed #000;
       text-align: center;
-      font-size: 11px;
-    }
-    
-    .thank-you {
-      font-weight: bold;
-      margin-bottom: 5px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #555;
     }
     
     @media print {
       body {
         padding: 0;
+      }
+      
+      .receipt {
+        padding: 10px;
       }
       
       @page {
@@ -205,113 +216,54 @@ export function generateReceiptHTML(data: ReceiptData): string {
   <div class="receipt">
     <!-- Header -->
     <div class="header">
-      ${
-        business?.invoice_logo
-          ? `<img src="${business.invoice_logo}" alt="Logo" class="logo" />`
-          : ''
-      }
+      ${business?.invoice_logo ? `<img src="${business.invoice_logo}" alt="Logo" class="logo" />` : ''}
       <div class="business-name">${business?.companyName || 'POS Store'}</div>
-      <div class="business-info">
-        ${business?.address ? `${business.address}<br>` : ''}
-        ${business?.phoneNumber ? `Tel: ${business.phoneNumber}<br>` : ''}
-      </div>
+      <div class="receipt-title">Cash Receipt</div>
+      <div class="invoice-number">#${sale.invoiceNumber}</div>
     </div>
     
-    <!-- Invoice Info -->
-    <div class="invoice-info">
-      <div class="info-row">
-        <span class="label">Invoice:</span>
-        <span>${sale.invoiceNumber}</span>
-      </div>
+    <!-- Business & Invoice Info -->
+    <div class="info-section">
+      ${business?.address ? `<div class="info-row"><span class="label">Address:</span><span class="value">${business.address}</span></div>` : ''}
+      ${business?.phoneNumber ? `<div class="info-row"><span class="label">Tel:</span><span class="value">${business.phoneNumber}</span></div>` : ''}
       <div class="info-row">
         <span class="label">Date:</span>
-        <span>${formatDate(sale.saleDate)}</span>
+        <span class="value">${formatDate(sale.saleDate)}</span>
       </div>
-      ${
-        sale.payment_type
-          ? `
-      <div class="info-row">
-        <span class="label">Payment:</span>
-        <span>${sale.payment_type.name}</span>
-      </div>
-      `
-          : ''
-      }
+      ${sale.user?.name ? `<div class="info-row"><span class="label">Manager:</span><span class="value">${sale.user.name}</span></div>` : ''}
+      ${customer ? `<div class="info-row"><span class="label">Customer:</span><span class="value">${customer.name}</span></div>` : ''}
     </div>
     
-    <!-- Customer Info -->
-    ${
-      customer
-        ? `
-    <div class="customer-info">
-      <div class="info-row">
-        <span class="label">Customer:</span>
-        <span>${customer.name}</span>
-      </div>
-      ${
-        customer.phone
-          ? `
-      <div class="info-row">
-        <span class="label">Phone:</span>
-        <span>${customer.phone}</span>
-      </div>
-      `
-          : ''
-      }
-    </div>
-    `
-        : ''
-    }
+    <hr class="divider">
     
     <!-- Items -->
-    <table class="items-table">
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th class="qty-price">Qty × Price</th>
-          <th class="qty-price">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${(sale.details || [])
-          .map(
-            (item) => `
-        <tr>
-          <td>
-            <div class="item-name">${item.product?.productName || 'Product'}</div>
-            ${
-              item.variant_name
-                ? `<div class="item-details">Variant: ${item.variant_name}</div>`
-                : ''
-            }
-            ${
-              item.stock?.batch_no
-                ? `<div class="item-details">Batch: ${item.stock.batch_no}</div>`
-                : ''
-            }
-          </td>
-          <td class="qty-price">${item.quantities} × ${formatCurrency(item.price, currencySymbol)}</td>
-          <td class="qty-price">${formatCurrency(item.subTotal || item.quantities * item.price, currencySymbol)}</td>
-        </tr>
-        `
-          )
-          .join('')}
-      </tbody>
-    </table>
+    <div class="items-section">
+      ${(sale.details || [])
+        .map(
+          (item) => `
+      <div class="item-row">
+        <span class="item-name">${item.product?.productName || 'Product'}${item.variant_name ? ' (' + item.variant_name + ')' : ''}</span>
+        <span class="item-price">${formatCurrency(item.subTotal || item.quantities * item.price, currencySymbol)}</span>
+      </div>`
+        )
+        .join('')}
+    </div>
+    
+    <hr class="divider">
     
     <!-- Totals -->
-    <div class="totals">
+    <div class="totals-section">
       <div class="total-row">
-        <span>Subtotal:</span>
-        <span>${formatCurrency(sale.totalAmount - (sale.vat_amount || 0) + (sale.discountAmount || 0), currencySymbol)}</span>
+        <span class="label">Price</span>
+        <span class="amount">${formatCurrency(sale.totalAmount - (sale.vat_amount || 0) + (sale.discountAmount || 0), currencySymbol)}</span>
       </div>
       
       ${
         sale.discountAmount && sale.discountAmount > 0
           ? `
       <div class="total-row">
-        <span>Discount:</span>
-        <span>-${formatCurrency(sale.discountAmount, currencySymbol)}</span>
+        <span class="label">Sale</span>
+        <span class="amount">-${formatCurrency(sale.discountAmount, currencySymbol)}</span>
       </div>
       `
           : ''
@@ -321,29 +273,37 @@ export function generateReceiptHTML(data: ReceiptData): string {
         sale.vat_amount && sale.vat_amount > 0
           ? `
       <div class="total-row">
-        <span>VAT ${sale.vat?.rate ? `(${sale.vat.rate}%)` : ''}:</span>
-        <span>${formatCurrency(sale.vat_amount, currencySymbol)}</span>
+        <span class="label">Tax</span>
+        <span class="amount">${formatCurrency(sale.vat_amount, currencySymbol)}</span>
       </div>
       `
           : ''
       }
       
+      <hr class="divider">
+      
       <div class="total-row grand-total">
-        <span>TOTAL:</span>
-        <span>${formatCurrency(sale.totalAmount, currencySymbol)}</span>
+        <span class="label">Total</span>
+        <span class="amount">${formatCurrency(sale.totalAmount, currencySymbol)}</span>
       </div>
       
-      <div class="total-row payment">
-        <span>Paid:</span>
-        <span>${formatCurrency(totalPaid, currencySymbol)}</span>
+      ${
+        totalPaid > 0
+          ? `
+      <div class="total-row">
+        <span class="label">Paid</span>
+        <span class="amount">${formatCurrency(totalPaid, currencySymbol)}</span>
       </div>
+      `
+          : ''
+      }
       
       ${
         totalDue > 0
           ? `
-      <div class="total-row payment">
-        <span>Due:</span>
-        <span>${formatCurrency(totalDue, currencySymbol)}</span>
+      <div class="total-row">
+        <span class="label">Due</span>
+        <span class="amount">${formatCurrency(totalDue, currencySymbol)}</span>
       </div>
       `
           : ''
@@ -352,9 +312,9 @@ export function generateReceiptHTML(data: ReceiptData): string {
       ${
         changeAmount > 0
           ? `
-      <div class="total-row payment">
-        <span>Change:</span>
-        <span>${formatCurrency(changeAmount, currencySymbol)}</span>
+      <div class="total-row">
+        <span class="label">Change</span>
+        <span class="amount">${formatCurrency(changeAmount, currencySymbol)}</span>
       </div>
       `
           : ''
@@ -364,20 +324,15 @@ export function generateReceiptHTML(data: ReceiptData): string {
     ${
       sale.note
         ? `
-    <div class="footer">
-      <div style="margin-bottom: 10px; font-style: italic;">
-        Note: ${sale.note}
-      </div>
+    <div style="text-align: center; margin: 10px 0; font-size: 11px; font-style: italic; color: #666;">
+      Note: ${sale.note}
     </div>
     `
         : ''
     }
     
     <!-- Footer -->
-    <div class="footer">
-      <div class="thank-you">Thank You for Your Business!</div>
-      <div>Please visit again</div>
-    </div>
+    <div class="footer">*** Thank you for shopping ***</div>
   </div>
   
   <script>

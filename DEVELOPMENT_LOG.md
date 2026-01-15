@@ -10,6 +10,126 @@ Files Modified:
 - `src/api/services/stocksList.service.ts`
 
 Notes: `useStocks` already consumes both services; UI (`StocksList`) shows variant name beneath product name and expiry date when available. Both tabs now include variant products.
+## 2026-01-15 — Print Labels Currency Integration ✅
+
+**Context**: Updated barcode label printing to use the currency hook for proper currency formatting.
+
+**Problem**:
+- Label printing was hardcoded with dollar sign ($) for prices
+- Did not respect business currency settings from the backend
+- Currency position and symbol were not configurable
+
+**Solution Implemented**:
+1. Imported and integrated `useCurrency` hook in PrintLabelsPage
+2. Replaced hardcoded price formatting (`$${price.toFixed(2)}`) with `formatCurrency(price)`
+3. Price now respects:
+   - Business currency symbol (e.g., $, €, ৳, £)
+   - Currency position (before/after amount)
+   - Decimal places configuration
+
+**Files Modified**:
+1. `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx`:
+   - Added `useCurrency` import
+   - Added `const { format: formatCurrency } = useCurrency()` hook call
+   - Updated price display in `generatePrintHTML` to use `formatCurrency(barcode.product_price)`
+
+**Technical Details**:
+- Currency formatting follows business settings from `/currencies/business/active` API
+- Falls back to business store currency if active currency not available
+- Supports all currency positions and symbols configured in backend
+
+**Status**: ✅ Completed
+
+---
+## 2026-01-15 — Electron App Icon Update ✅
+
+**Context**: Updated the Electron application icon to use the posmate.png branding logo.
+
+**Problem**:
+- Application was using a generic icon.png file
+- App icon in taskbar, dock, and window didn't reflect brand identity
+
+**Solution Implemented**:
+1. Updated Electron BrowserWindow configuration to use posmate.png
+2. Added global icon configuration to electron-builder.json5
+3. electron-builder will automatically generate platform-specific icons:
+   - Windows: .ico format
+   - macOS: .icns format
+   - Linux: .png format
+
+**Files Modified**:
+1. `electron/main.ts` - Changed BrowserWindow icon from icon.png to posmate.png
+2. `electron-builder.json5` - Added global icon property pointing to public/posmate.png
+
+**Technical Notes**:
+- Icon is loaded from VITE_PUBLIC directory at runtime
+- electron-builder converts the PNG to platform-specific formats during build
+- The 1MB PNG (1035038 bytes) will be optimized during the build process
+
+**Status**: ✅ Completed
+
+---
+## 2026-01-15 — Application Logo Integration ✅
+
+**Context**: Integrated the posmate.png branding logo throughout the application UI.
+
+**Problem**:
+- Application was using a generic ShoppingCart icon as placeholder
+- No branded logo in the sidebar
+
+**Solution Implemented**:
+1. Copied posmate.png to `public/` directory for static asset serving
+2. Updated Sidebar component (`src/components/layout/Sidebar.tsx`):
+   - Replaced ShoppingCart icon with `<img src="/posmate.png">` in logo section
+   - Applied to both expanded and collapsed sidebar states
+   - Added `object-contain` class for proper image scaling
+
+**Files Modified**:
+1. `src/components/layout/Sidebar.tsx` - Replaced icon-based logo with image logo
+2. `public/posmate.png` - Added logo file
+
+**Status**: ✅ Completed
+
+---
+## 2026-01-15 — Barcode Label Printing Enhancement ✅
+
+**Context**: Enhanced barcode label printing with Electron native printing support for better control over page sizes and silent printing.
+
+**Problem**:
+- Browser print dialog had limited control over custom label sizes
+- No silent printing option for label printers
+- Gap between labels wasn't properly accounted for in page sizing
+
+**Solution Implemented**:
+1. Added new Electron IPC handlers for HTML-based printing:
+   - `print-receipt-html` - Silent printing with default page size
+   - `print-receipt-html-with-page-size` - Silent printing with custom page dimensions in microns
+2. Updated preload API to expose new print methods:
+   - `receiptHTML()` - For standard receipt printing
+   - `receiptHTMLWithPageSize()` - For custom label sizes
+3. Enhanced PrintLabelsPage to:
+   - Calculate proper page dimensions (label height + gap in microns)
+   - Use Electron native printing when available
+   - Fall back to browser print dialog when not in Electron
+   - Properly structure labels with page breaks for roll printers
+
+**Technical Details**:
+- Page size conversion: mm to microns (1mm = 1000 microns)
+- Label height calculation includes 10mm gap between stickers
+- Uses BrowserWindow with `contextIsolation: false` for print rendering
+- Supports both roll labels (individual pages) and sheet labels (grid layout)
+
+**Files Modified**:
+1. `electron/main.ts` - Added print-receipt-html and print-receipt-html-with-page-size IPC handlers
+2. `electron/preload.ts` - Added receiptHTML and receiptHTMLWithPageSize to print API
+3. `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx`:
+   - Updated paperSettings to include labelHeight and gap
+   - Enhanced handleGenerateAndPrint to use Electron API when available
+   - Improved CSS for proper label sizing and page breaks
+
+**Status**: ✅ Completed
+
+---
 ## 2026-01-15 — Print Labels: Variants & Barcodes ✅
 
 **Context**: Product label picker needed to surface variant SKUs/attributes and display backend barcodes.

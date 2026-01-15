@@ -267,25 +267,12 @@ export function Sidebar() {
         )}
       >
         <div className="relative z-10 flex h-full flex-col">
-          {/* Logo / Business Name - Matches unified title bar height */}
-          <div className="mb-2 flex h-12 items-center justify-between border-b border-sidebar-border bg-sidebar px-4">
+          {/* Business Name - Matches unified title bar height */}
+          <div className="mb-2 flex h-12 items-center justify-center border-b border-sidebar-border bg-sidebar px-4">
             {!isCollapsed && (
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <ShoppingCart className="h-4 w-4" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold">
-                    {business?.companyName || 'POS Mate'}
-                  </span>
-                </div>
-              </div>
+              <span className="text-sm font-semibold">{business?.companyName || 'POS Mate'}</span>
             )}
-            {isCollapsed && (
-              <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <ShoppingCart className="h-4 w-4" />
-              </div>
-            )}
+            {isCollapsed && <span className="text-xs font-semibold">PM</span>}
           </div>
 
           {/* Navigation */}
