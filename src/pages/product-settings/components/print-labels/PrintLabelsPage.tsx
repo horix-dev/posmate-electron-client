@@ -15,6 +15,8 @@ import {
 import { type BarcodeBatchItem } from '@/api/services/barcodes.service'
 import { type LabelPayload } from '@/api/services/print-labels.service'
 import { productsService } from '@/api/services/products.service'
+import { useCurrency } from '@/hooks/useCurrency'
+import { useBusinessStore } from '@/stores'
 
 import { LabelConfiguration } from './LabelConfiguration'
 import { SelectedProductsTable } from './SelectedProductsTable'
@@ -63,6 +65,9 @@ type BwipJs = {
 const bwip: BwipJs = bwipjs as unknown as BwipJs
 
 export function PrintLabelsPage() {
+  const { format: formatCurrency } = useCurrency()
+  const business = useBusinessStore((state) => state.business)
+
   type BarcodeTypeOpt = { value: string; label: string }
   type PaperSettingOpt = { value: string; label: string; name: string; dimensions?: string }
   const [settings, setSettings] = useState<{
@@ -345,7 +350,7 @@ export function PrintLabelsPage() {
             barcode_svg: barcodeSvg,
             packing_date: product.packing_date || null,
             product_name: product.product_name,
-            business_name: 'Horix', // Default business name
+            business_name: business?.companyName || 'Business Name',
             product_code: product.product_code,
             product_price: product.unit_price || 0,
             product_stock: product.stock || 0,
@@ -468,7 +473,7 @@ export function PrintLabelsPage() {
           barcode_svg: barcodeSvg,
           packing_date: product.packing_date || null,
           product_name: product.product_name,
-          business_name: 'Horix',
+          business_name: business?.companyName || 'KC',
           product_code: product.product_code,
           product_price: product.unit_price || 0,
           product_stock: product.stock || 0,
@@ -508,10 +513,8 @@ export function PrintLabelsPage() {
       <div class="label" style="width: ${dims.width}; height: ${dims.height};">
         ${barcode.show_business_name && barcode.business_name ? `<div class="business-name" style="font-size: ${convertPtToPixels(barcode.business_name_size)}px;">${barcode.business_name}</div>` : ''}
         ${barcode.show_product_name && barcode.product_name ? `<div class="product-name" style="font-size: ${convertPtToPixels(barcode.product_name_size)}px;">${barcode.product_name}</div>` : ''}
-        ${barcode.show_product_price && typeof barcode.product_price === 'number' ? `<div class="price" style="font-size: ${convertPtToPixels(barcode.product_price_size)}px;">Price: $${barcode.product_price.toFixed(2)}</div>` : ''}
+        ${barcode.show_product_price && typeof barcode.product_price === 'number' ? `<div class="price" style="font-size: ${convertPtToPixels(barcode.product_price_size)}px;">Price: ${formatCurrency(barcode.product_price)}</div>` : ''}
         <div class="barcode"><img src="${svgSrc}" alt="barcode"/></div>
-        ${barcode.show_product_code && barcode.product_code ? `<div class="product-code" style="font-size: ${convertPtToPixels(barcode.product_code_size)}px;">${barcode.product_code}</div>` : ''}
-        ${barcode.show_pack_date && barcode.packing_date ? `<div class="pack-date" style="font-size: ${convertPtToPixels(barcode.pack_date_size)}px;">${barcode.packing_date}</div>` : ''}
       </div>
     `
       })

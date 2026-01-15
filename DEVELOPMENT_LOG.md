@@ -1,3 +1,34 @@
+## 2026-01-15 — Print Labels Currency Integration ✅
+
+**Context**: Updated barcode label printing to use the currency hook for proper currency formatting.
+
+**Problem**:
+- Label printing was hardcoded with dollar sign ($) for prices
+- Did not respect business currency settings from the backend
+- Currency position and symbol were not configurable
+
+**Solution Implemented**:
+1. Imported and integrated `useCurrency` hook in PrintLabelsPage
+2. Replaced hardcoded price formatting (`$${price.toFixed(2)}`) with `formatCurrency(price)`
+3. Price now respects:
+   - Business currency symbol (e.g., $, €, ৳, £)
+   - Currency position (before/after amount)
+   - Decimal places configuration
+
+**Files Modified**:
+1. `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx`:
+   - Added `useCurrency` import
+   - Added `const { format: formatCurrency } = useCurrency()` hook call
+   - Updated price display in `generatePrintHTML` to use `formatCurrency(barcode.product_price)`
+
+**Technical Details**:
+- Currency formatting follows business settings from `/currencies/business/active` API
+- Falls back to business store currency if active currency not available
+- Supports all currency positions and symbols configured in backend
+
+**Status**: ✅ Completed
+
+---
 ## 2026-01-15 — Electron App Icon Update ✅
 
 **Context**: Updated the Electron application icon to use the posmate.png branding logo.

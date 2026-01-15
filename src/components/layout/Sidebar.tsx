@@ -264,23 +264,12 @@ export function Sidebar() {
         )}
       >
         <div className="relative z-10 flex h-full flex-col">
-          {/* Logo / Business Name - Matches unified title bar height */}
-          <div className="mb-2 flex h-12 items-center justify-between border-b border-sidebar-border bg-sidebar px-4">
+          {/* Business Name - Matches unified title bar height */}
+          <div className="mb-2 flex h-12 items-center justify-center border-b border-sidebar-border bg-sidebar px-4">
             {!isCollapsed && (
-              <div className="flex items-center gap-3">
-                <img src="/posmate.png" alt="POS Mate Logo" className="h-8 w-8 object-contain" />
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold">
-                    {business?.companyName || 'POS Mate'}
-                  </span>
-                </div>
-              </div>
+              <span className="text-sm font-semibold">{business?.companyName || 'POS Mate'}</span>
             )}
-            {isCollapsed && (
-              <div className="mx-auto">
-                <img src="/posmate.png" alt="POS Mate Logo" className="h-8 w-8 object-contain" />
-              </div>
-            )}
+            {isCollapsed && <span className="text-xs font-semibold">PM</span>}
           </div>
 
           {/* Navigation */}
