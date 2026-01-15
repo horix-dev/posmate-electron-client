@@ -9,10 +9,8 @@ import {
   Mail,
   Phone as PhoneIcon,
   MapPin,
-  Wallet,
   CreditCard,
   ArrowRightLeft,
-  DollarSign,
   Tag,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -26,6 +24,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
@@ -277,23 +276,18 @@ function CustomerFormDialogComponent({
                     <FormItem>
                       <FormLabel>Credit Limit</FormLabel>
                       <FormControl>
-                        <div className="relative">
-                          <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            type="number"
-                            className="pl-9"
-                            placeholder="Enter credit limit"
-                            step="0.01"
-                            min="0"
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) =>
-                              field.onChange(
-                                e.target.value ? parseFloat(e.target.value) : undefined
-                              )
-                            }
-                          />
-                        </div>
+                        <CurrencyInput
+                          currencySymbol="$"
+                          className="pl-9"
+                          placeholder="Enter credit limit"
+                          step="0.01"
+                          min="0"
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) =>
+                            field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)
+                          }
+                        />
                       </FormControl>
                       <FormDescription>Max credit amount</FormDescription>
                       <FormMessage />
@@ -309,20 +303,17 @@ function CustomerFormDialogComponent({
                     <FormItem>
                       <FormLabel>Opening Balance</FormLabel>
                       <FormControl>
-                        <div className="relative">
-                          <Wallet className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            type="number"
-                            className="pl-9"
-                            placeholder="0.00"
-                            step="0.01"
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) =>
-                              field.onChange(e.target.value ? parseFloat(e.target.value) : 0)
-                            }
-                          />
-                        </div>
+                        <CurrencyInput
+                          currencySymbol="$"
+                          className="pl-9"
+                          placeholder="0.00"
+                          step="0.01"
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) =>
+                            field.onChange(e.target.value ? parseFloat(e.target.value) : 0)
+                          }
+                        />
                       </FormControl>
                       <FormDescription>Initial balance amount</FormDescription>
                       <FormMessage />

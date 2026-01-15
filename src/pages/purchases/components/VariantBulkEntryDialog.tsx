@@ -16,6 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
+import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import {
   Table,
@@ -59,6 +60,10 @@ export function VariantBulkEntryDialog({
   const [globalBatch, setGlobalBatch] = useState('')
   const [globalExpiry, setGlobalExpiry] = useState('')
   const [globalMfg, setGlobalMfg] = useState('')
+  const [openGlobalExpiryPicker, setOpenGlobalExpiryPicker] = useState(false)
+  const [openGlobalMfgPicker, setOpenGlobalMfgPicker] = useState(false)
+  const [openVariantExpiry, setOpenVariantExpiry] = useState<Record<number, boolean>>({})
+  const [openVariantMfg, setOpenVariantMfg] = useState<Record<number, boolean>>({})
   const { symbol: currencySymbol } = useCurrency()
 
   // Initialize entries when product changes
@@ -89,6 +94,10 @@ export function VariantBulkEntryDialog({
       setGlobalBatch('')
       setGlobalExpiry('')
       setGlobalMfg('')
+      setOpenGlobalExpiryPicker(false)
+      setOpenGlobalMfgPicker(false)
+      setOpenVariantExpiry({})
+      setOpenVariantMfg({})
     }
   }, [product, open])
 
@@ -168,88 +177,94 @@ export function VariantBulkEntryDialog({
 
   if (!product) return null
 
+  const isSimpleTracking = !product.is_batch_tracked
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] min-h-0 max-w-4xl flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Add Variants: {product.productName}</DialogTitle>
           <DialogDescription>Select variants and enter purchase details.</DialogDescription>
         </DialogHeader>
 
-        <div className="flex shrink-0 gap-4 rounded-lg bg-muted/50 p-4">
-          <div className="grid flex-1 gap-2">
-            <Label>Batch No</Label>
-            <Input
-              value={globalBatch}
-              onChange={(e) => setGlobalBatch(e.target.value)}
-              placeholder="Apply to all selected"
-              className="h-8"
-            />
+        {!isSimpleTracking && (
+          <div className="flex shrink-0 gap-4 rounded-lg bg-muted/50 p-4">
+            <div className="grid flex-1 gap-2">
+              <Label>Batch No</Label>
+              <Input
+                value={globalBatch}
+                onChange={(e) => setGlobalBatch(e.target.value)}
+                placeholder="Apply to all selected"
+                className="h-8"
+              />
+            </div>
+            <div className="grid flex-1 gap-2">
+              <Label>Expiry Date</Label>
+              <Popover open={openGlobalExpiryPicker} onOpenChange={setOpenGlobalExpiryPicker}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'h-8 w-full justify-start text-left font-normal',
+                      !globalExpiry && 'text-muted-foreground'
+                    )}
+                  >
+                    {globalExpiry ? format(new Date(globalExpiry), 'PPP') : 'Pick a date'}
+                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={globalExpiry ? new Date(globalExpiry) : undefined}
+                    onSelect={(date: Date | undefined) => {
+                      setGlobalExpiry(date ? format(date, 'yyyy-MM-dd') : '')
+                      setOpenGlobalExpiryPicker(false)
+                    }}
+                    disabled={(date) => date < new Date('1900-01-01')}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="grid flex-1 gap-2">
+              <Label>Mfg Date</Label>
+              <Popover open={openGlobalMfgPicker} onOpenChange={setOpenGlobalMfgPicker}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'h-8 w-full justify-start text-left font-normal',
+                      !globalMfg && 'text-muted-foreground'
+                    )}
+                  >
+                    {globalMfg ? format(new Date(globalMfg), 'PPP') : 'Pick a date'}
+                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={globalMfg ? new Date(globalMfg) : undefined}
+                    onSelect={(date: Date | undefined) => {
+                      setGlobalMfg(date ? format(date, 'yyyy-MM-dd') : '')
+                      setOpenGlobalMfgPicker(false)
+                    }}
+                    disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="flex items-end">
+              <Button size="sm" onClick={handleApplyGlobal} variant="secondary">
+                Apply to Selected
+              </Button>
+            </div>
           </div>
-          <div className="grid flex-1 gap-2">
-            <Label>Expiry Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    'h-8 w-full justify-start text-left font-normal',
-                    !globalExpiry && 'text-muted-foreground'
-                  )}
-                >
-                  {globalExpiry ? format(new Date(globalExpiry), 'PPP') : 'Pick a date'}
-                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={globalExpiry ? new Date(globalExpiry) : undefined}
-                  onSelect={(date: Date | undefined) =>
-                    setGlobalExpiry(date ? format(date, 'yyyy-MM-dd') : '')
-                  }
-                  disabled={(date) => date < new Date('1900-01-01')}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="grid flex-1 gap-2">
-            <Label>Mfg Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    'h-8 w-full justify-start text-left font-normal',
-                    !globalMfg && 'text-muted-foreground'
-                  )}
-                >
-                  {globalMfg ? format(new Date(globalMfg), 'PPP') : 'Pick a date'}
-                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={globalMfg ? new Date(globalMfg) : undefined}
-                  onSelect={(date: Date | undefined) =>
-                    setGlobalMfg(date ? format(date, 'yyyy-MM-dd') : '')
-                  }
-                  disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="flex items-end">
-            <Button size="sm" onClick={handleApplyGlobal} variant="secondary">
-              Apply to Selected
-            </Button>
-          </div>
-        </div>
+        )}
 
-        <ScrollArea className="min-h-[300px] flex-1">
+        <ScrollArea className="min-h-0 flex-1">
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
               <TableRow>
@@ -324,88 +339,108 @@ export function VariantBulkEntryDialog({
                         }
                       />
                     </TableCell>
-                    <TableCell>
-                      <Input
-                        className="h-8 w-full"
-                        value={entry.batch_no}
-                        onChange={(e) => handleEntryChange(variant.id, 'batch_no', e.target.value)}
-                        placeholder="Batch"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-2">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                'h-8 w-full justify-start px-2 text-left text-xs font-normal',
-                                !entry.expire_date && 'text-muted-foreground'
-                              )}
-                            >
-                              <span className="mr-1 font-medium text-muted-foreground/70">
-                                Exp:
-                              </span>
-                              {entry.expire_date
-                                ? format(new Date(entry.expire_date), 'dd/MM/yyyy')
-                                : 'Set Date'}
-                              <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={entry.expire_date ? new Date(entry.expire_date) : undefined}
-                              onSelect={(date: Date | undefined) =>
-                                handleEntryChange(
-                                  variant.id,
-                                  'expire_date',
-                                  date ? format(date, 'yyyy-MM-dd') : ''
-                                )
-                              }
-                              disabled={(date) => date < new Date('1900-01-01')}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                'h-8 w-full justify-start px-2 text-left text-xs font-normal',
-                                !entry.mfg_date && 'text-muted-foreground'
-                              )}
-                            >
-                              <span className="mr-1 font-medium text-muted-foreground/70">
-                                Mfg:
-                              </span>
-                              {entry.mfg_date
-                                ? format(new Date(entry.mfg_date), 'dd/MM/yyyy')
-                                : 'Set Date'}
-                              <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={entry.mfg_date ? new Date(entry.mfg_date) : undefined}
-                              onSelect={(date: Date | undefined) =>
-                                handleEntryChange(
-                                  variant.id,
-                                  'mfg_date',
-                                  date ? format(date, 'yyyy-MM-dd') : ''
-                                )
-                              }
-                              disabled={(date) =>
-                                date > new Date() || date < new Date('1900-01-01')
-                              }
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </TableCell>
+                    {!isSimpleTracking && (
+                      <TableCell>
+                        <Input
+                          className="h-8 w-full"
+                          value={entry.batch_no}
+                          onChange={(e) =>
+                            handleEntryChange(variant.id, 'batch_no', e.target.value)
+                          }
+                          placeholder="Batch"
+                        />
+                      </TableCell>
+                    )}
+                    {!isSimpleTracking && (
+                      <TableCell>
+                        <div className="space-y-2">
+                          <Popover
+                            open={openVariantExpiry[variant.id] || false}
+                            onOpenChange={(isOpen) =>
+                              setOpenVariantExpiry((prev) => ({ ...prev, [variant.id]: isOpen }))
+                            }
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  'h-8 w-full justify-start px-2 text-left text-xs font-normal',
+                                  !entry.expire_date && 'text-muted-foreground'
+                                )}
+                              >
+                                <span className="mr-1 font-medium text-muted-foreground/70">
+                                  Exp:
+                                </span>
+                                {entry.expire_date
+                                  ? format(new Date(entry.expire_date), 'dd/MM/yyyy')
+                                  : 'Set Date'}
+                                <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={
+                                  entry.expire_date ? new Date(entry.expire_date) : undefined
+                                }
+                                onSelect={(date: Date | undefined) => {
+                                  handleEntryChange(
+                                    variant.id,
+                                    'expire_date',
+                                    date ? format(date, 'yyyy-MM-dd') : ''
+                                  )
+                                  setOpenVariantExpiry((prev) => ({ ...prev, [variant.id]: false }))
+                                }}
+                                disabled={(date) => date < new Date('1900-01-01')}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <Popover
+                            open={openVariantMfg[variant.id] || false}
+                            onOpenChange={(isOpen) =>
+                              setOpenVariantMfg((prev) => ({ ...prev, [variant.id]: isOpen }))
+                            }
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  'h-8 w-full justify-start px-2 text-left text-xs font-normal',
+                                  !entry.mfg_date && 'text-muted-foreground'
+                                )}
+                              >
+                                <span className="mr-1 font-medium text-muted-foreground/70">
+                                  Mfg:
+                                </span>
+                                {entry.mfg_date
+                                  ? format(new Date(entry.mfg_date), 'dd/MM/yyyy')
+                                  : 'Set Date'}
+                                <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={entry.mfg_date ? new Date(entry.mfg_date) : undefined}
+                                onSelect={(date: Date | undefined) => {
+                                  handleEntryChange(
+                                    variant.id,
+                                    'mfg_date',
+                                    date ? format(date, 'yyyy-MM-dd') : ''
+                                  )
+                                  setOpenVariantMfg((prev) => ({ ...prev, [variant.id]: false }))
+                                }}
+                                disabled={(date) =>
+                                  date > new Date() || date < new Date('1900-01-01')
+                                }
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 )
               })}
@@ -413,8 +448,10 @@ export function VariantBulkEntryDialog({
           </Table>
         </ScrollArea>
 
-        <DialogFooter className="mt-6">
-          <div className="flex w-full items-center justify-between">
+        <Separator className="shrink-0" />
+
+        <DialogFooter className="shrink-0 px-0 py-4">
+          <div className="flex w-full items-center justify-between px-6">
             <span className="text-sm text-muted-foreground">
               {selectedVariants.size} variants selected
             </span>

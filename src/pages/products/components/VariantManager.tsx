@@ -219,10 +219,10 @@ const VariantTable = memo(function VariantTable({
         <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
           <TableRow className="hover:bg-transparent">
             <TableHead className="w-[50px] bg-muted/50">Active</TableHead>
-            <TableHead className="min-w-[200px] bg-muted/50">Variant Attributes</TableHead>
-            <TableHead className="min-w-[140px] bg-muted/50">SKU</TableHead>
-            <TableHead className="min-w-[140px] bg-muted/50">Barcode</TableHead>
-            <TableHead className="min-w-[110px] bg-muted/50 text-right">Stock</TableHead>
+            <TableHead className="w-[15%] min-w-[120px] bg-muted/50">Variant</TableHead>
+            <TableHead className="min-w-[160px] bg-muted/50">SKU</TableHead>
+            <TableHead className="min-w-[160px] bg-muted/50">Barcode</TableHead>
+            <TableHead className="min-w-[100px] bg-muted/50 text-right">Stock</TableHead>
             <TableHead className="min-w-[100px] bg-muted/50 text-right">
               Cost ({currencySymbol})
             </TableHead>
@@ -424,18 +424,34 @@ function generateCombinations(arrays: number[][]): number[][] {
 }
 
 function generateSku(
+  productName: string,
   productCode: string,
   attributeValueIds: number[],
   valueMap: Map<number, AttributeValue>
 ): string {
-  const parts = [productCode || 'PROD']
+  const cleanedName = (productName || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const cleanedCode = (productCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const prefix = (cleanedName || cleanedCode || 'PROD').slice(0, 3)
+
+  const parts = [prefix]
   attributeValueIds.forEach((id) => {
     const value = valueMap.get(id)
     if (value) {
       parts.push(value.slug?.toUpperCase() || value.value.substring(0, 3).toUpperCase())
     }
   })
+
+  // Add random 4-digit number for uniqueness
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000)
+  parts.push(randomSuffix.toString())
+
   return parts.join('-')
+}
+
+function getSkuPrefix(productName: string, productCode: string): string {
+  const cleanedName = (productName || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const cleanedCode = (productCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  return (cleanedName || cleanedCode || 'PROD').slice(0, 3)
 }
 
 function VariantManagerComponent({
@@ -525,6 +541,41 @@ function VariantManagerComponent({
     return selectedValues.size > 0 ? count : 0
   }, [selectedValues])
 
+  // Auto-fix placeholder SKUs once product name/code is available
+  useEffect(() => {
+    if (variants.length === 0) return
+    const productName = product?.productName || ''
+    const productCode = product?.productCode || ''
+    const desiredPrefix = getSkuPrefix(productName, productCode)
+
+    // If we still don't have a real prefix, nothing to fix
+    if (!desiredPrefix || desiredPrefix === 'PRO') return
+
+    const updated = variants.map((variant) => {
+      const sku = (variant.sku || '').trim().toUpperCase()
+
+      // Regenerate only obvious placeholders or empty SKUs.
+      // Note: older placeholder default produced "PRO-..." (from PROD -> PRO).
+      const isPlaceholder =
+        sku === '' ||
+        sku === 'PROD' ||
+        sku === 'PRO' ||
+        sku.startsWith('PROD-') ||
+        sku.startsWith('PRO-')
+
+      if (!isPlaceholder) return variant
+      if (sku.startsWith(`${desiredPrefix}-`)) return variant
+
+      return {
+        ...variant,
+        sku: generateSku(productName, productCode, variant.attribute_value_ids, valueMap),
+      }
+    })
+
+    const changed = updated.some((v, idx) => v.sku !== variants[idx]?.sku)
+    if (changed) onVariantsChange(updated)
+  }, [product?.productName, product?.productCode, variants, valueMap, onVariantsChange])
+
   const handleGenerateVariants = useCallback(() => {
     if (selectedValues.size === 0) {
       toast.error('Please select at least one attribute value')
@@ -542,11 +593,33 @@ function VariantManagerComponent({
     const existingSignatures = new Set(
       variants.map((v) => [...v.attribute_value_ids].sort().join('-'))
     )
+    const productName = product?.productName || ''
     const productCode = product?.productCode || ''
+    const desiredPrefix = getSkuPrefix(productName, productCode)
+
+    const updatedExistingVariants = variants.map((variant) => {
+      const sku = (variant.sku || '').trim().toUpperCase()
+      const shouldRegenerateSku =
+        sku === '' ||
+        sku === 'PROD' ||
+        sku === 'PRO' ||
+        sku.startsWith('PROD-') ||
+        sku.startsWith('PRO-')
+      if (!shouldRegenerateSku) return variant
+      if (sku.startsWith(`${desiredPrefix}-`)) return variant
+      return {
+        ...variant,
+        sku: generateSku(productName, productCode, variant.attribute_value_ids, valueMap),
+      }
+    })
+    const existingSkusChanged = updatedExistingVariants.some(
+      (v, idx) => v.sku !== variants[idx]?.sku
+    )
+
     const newVariants: VariantInputData[] = combinations
       .filter((combo) => !existingSignatures.has([...combo].sort().join('-')))
       .map((combo) => ({
-        sku: generateSku(productCode, combo, valueMap),
+        sku: generateSku(productName, productCode, combo, valueMap),
         enabled: 1 as const,
         cost_price: undefined,
         price: undefined,
@@ -556,14 +629,26 @@ function VariantManagerComponent({
         attribute_value_ids: combo,
       }))
     if (newVariants.length === 0) {
-      toast.info('All combinations already exist')
+      if (existingSkusChanged) {
+        onVariantsChange(updatedExistingVariants)
+        toast.success('Updated variant SKUs')
+      } else {
+        toast.info('All combinations already exist')
+      }
       return
     }
-    onVariantsChange([...variants, ...newVariants])
+    onVariantsChange([...updatedExistingVariants, ...newVariants])
     toast.success(
-      `+"Generated "+newVariants.length+" new variant"+(newVariants.length !== 1 ? 's' : '')+`
+      `Generated ${newVariants.length} new variant${newVariants.length !== 1 ? 's' : ''}`
     )
-  }, [selectedValues, variants, product?.productCode, valueMap, onVariantsChange])
+  }, [
+    selectedValues,
+    variants,
+    product?.productName,
+    product?.productCode,
+    valueMap,
+    onVariantsChange,
+  ])
 
   const handleUpdateVariant = useCallback(
     (index: number, updates: Partial<VariantInputData>) => {
@@ -706,11 +791,11 @@ function VariantManagerComponent({
         </div>
 
         {variants.length > 0 && (
-          <div className="mb-4 flex items-center gap-4 rounded-md border bg-muted/40 px-4 py-3">
-            <div className="mr-2 flex h-6 items-center gap-2 border-r pr-4 text-sm font-medium text-muted-foreground">
+          <div className="mb-4 flex items-center gap-4 rounded-md border border-primary/20 bg-primary/5 px-4 py-4 dark:bg-primary/10">
+            <div className="mr-2 flex h-6 items-center gap-2 border-r border-primary/20 pr-4 text-sm font-semibold text-primary">
               Bulk Edit:
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Input
                 type="number"
                 min="0"

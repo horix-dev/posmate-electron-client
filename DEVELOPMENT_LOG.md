@@ -1,5 +1,278 @@
 # Development Log
 
+## 2026-01-15 — Sidebar Visual Refinements ✅
+
+**Problem**: The sidebar needed visual hierarchy improvements, better spacing, and refined interactive states as per user feedback. Specifically, the "Synced" icon was too bright, active sub-menus lacked contrast, and the collapse button was too small.
+
+**Solution**:
+- **Visual Hierarchy**: Updated active sub-menu items to use a lighter background (`bg-primary/10`) with bold text for better contrast against the parent menu.
+- **Icon Consistency**: Applied consistent `strokeWidth={1.5}` to all sidebar icons.
+- **Spacing & Alignment**: Increased sub-menu indentation and top navigation padding (`py-6`).
+- **Bottom Section**: Refined `SyncStatusIndicator` to use a muted icon with a green status dot. Enlarged the "Collapse" button area (`h-10`, full width).
+- **Interactive Feedback**: Implemented subtle hover states (`bg-sidebar-foreground/5`).
+
+**Files Updated**:
+- [src/components/layout/Sidebar.tsx](src/components/layout/Sidebar.tsx)
+- [src/components/common/SyncStatusIndicator.tsx](src/components/common/SyncStatusIndicator.tsx)
+
+
+## 2026-01-15 — POS Variant Barcode Auto-Add ✅
+
+**Problem**: Scanning/typing a variant barcode in the POS search only filtered the product list and did not add the item to cart.
+
+**Solution**:
+- Enabled barcode scanner capture while focused in the POS search input by setting `data-barcode-scan="true"`.
+- Improved local variant barcode resolution to correctly locate the matching `Stock` row via `stock.variant_id` and auto-add the variant to cart.
+
+**Files Updated**:
+- [src/pages/pos/components/ProductGrid.tsx](src/pages/pos/components/ProductGrid.tsx)
+- [src/pages/pos/POSPage.tsx](src/pages/pos/POSPage.tsx)
+
+## 2026-01-15 — Auto-Collapse Sidebar On POS ✅
+
+**Problem**: The POS screen benefits from maximum horizontal space, but the sidebar remained in the user’s last state.
+
+**Solution**:
+- Auto-collapse the sidebar when navigating to `/pos`.
+- Auto-expand when navigating away *only if* the collapse was triggered automatically (does not override a user manually collapsing it elsewhere).
+
+**Files Updated**:
+- [src/components/layout/AppShell.tsx](src/components/layout/AppShell.tsx)
+
+## 2026-01-15 — ProductLookup Integration in Stock Adjustments ✅
+
+**Context**: Extended the reusable `ProductLookup` component to the Stock Adjustment feature, replacing the custom Command-based product search.
+
+### Changes Implemented:
+
+**Refactored** [StockAdjustmentFormDialog.tsx](src/pages/inventory/components/StockAdjustmentFormDialog.tsx):
+- ✅ Replaced Command/Popover-based product search with `<ProductLookup />`
+- ✅ Removed ~60 lines of duplicate product search UI code
+- ✅ Improved UX: Shows selected product in a card with "Change" button instead of reopening popover
+- ✅ Configured for stock adjustment context:
+  ```tsx
+  <ProductLookup
+    onSelect={handleProductSelect}
+    buttonText="Select product to adjust..."
+    placeholder="Search products by name or code..."
+    width="w-[400px]"
+    showVariants={false}  // Variants handled separately in the form
+  />
+  ```
+
+**Benefits**:
+- Consistent product search experience across Purchases and Stock Adjustments
+- Cleaner, more maintainable code
+- Better UX with selected product display + change button
+- Stock information visible during selection
+
+**Total Impact**:
+- 3 features now using `ProductLookup`: Purchase Page, Purchase Dialog, Stock Adjustments
+- ~236 lines of duplicate code eliminated across the codebase
+
+---
+
+## 2026-01-15 — Reusable ProductLookup Component Refactoring ✅
+
+**Problem**: Found code duplication — `ProductSearch` component existed in both [NewPurchasePage.tsx](src/pages/purchases/NewPurchasePage.tsx) and [NewPurchaseDialog.tsx](src/pages/purchases/components/NewPurchaseDialog.tsx) with slightly different implementations:
+- Different popover widths (`w-[400px]` vs `w-[500px]`)
+- Different filtering logic
+- One supported variants, one didn't
+- ~87 lines of duplicated code per instance
+
+**Solution**: Created a unified, reusable `ProductLookup` component with configurable options.
+
+### Changes Implemented:
+
+**1. Created Reusable Component** ([src/components/shared/ProductLookup.tsx](src/components/shared/ProductLookup.tsx)):
+```typescript
+export interface ProductLookupProps {
+  onSelect: (product: Product, variant?: ProductVariant) => void
+  excludeIds?: number[]          // Products to exclude from results
+  placeholder?: string           // Custom search placeholder
+  buttonText?: string           // Custom button text
+  width?: string                // Popover width (e.g., 'w-[400px]')
+  showVariants?: boolean        // Show variant options (default: true)
+  showProductType?: boolean     // Show product type badge (default: true)
+  showStock?: boolean           // Show stock information (default: true)
+  className?: string            // Custom button className
+  showErrorToast?: boolean      // Show toast on error (default: true)
+  maxResults?: number           // Max results to display (default: 50)
+}
+```
+
+**Features**:
+- ✅ Unified product search with variant support
+- ✅ Flattens products + variants into searchable items
+- ✅ Smart stock calculation (uses `variants_total_stock` for variable products)
+- ✅ Badge indicators: "Variant" for specific variants, "Bulk Add" for variable products
+- ✅ Fully configurable via props
+- ✅ Memoized for performance
+- ✅ TypeScript strict mode compliant
+
+**2. Refactored Files**:
+- [NewPurchasePage.tsx](src/pages/purchases/NewPurchasePage.tsx): Removed 87 lines, now uses `<ProductLookup />`
+- [NewPurchaseDialog.tsx](src/pages/purchases/components/NewPurchaseDialog.tsx): Removed duplicate, uses `<ProductLookup width="w-[400px]" showVariants={false} />`
+
+**3. Created Exports** ([src/components/shared/index.ts](src/components/shared/index.ts)):
+```typescript
+export { ProductLookup, type ProductLookupProps } from './ProductLookup'
+```
+
+### Benefits:
+- **DRY Principle**: Single source of truth for product lookup UI
+- **Consistent UX**: Unified behavior across purchase flows
+- **Maintainable**: One place to update search logic
+- **Reusable**: Ready for Stock Adjustments, Sales Returns, Inventory Transfers, etc.
+- **Configurable**: Adapts to different contexts via props
+
+### Future Use Cases:
+- Stock adjustment forms
+- Sales return dialogs
+- Inventory transfer pages
+- Product label printing selection
+- Any feature requiring product selection
+
+---
+
+## 2026-01-15 — Batch Tracking Field Integration (`is_batch_tracked`) ✅
+
+**Context**: Backend refactored the product type system to use a clear `is_batch_tracked` boolean flag instead of confusing `inventory_tracking_mode` field. See [backend_docs/FRONTEND_PRODUCT_TYPE_INTEGRATION.md](backend_docs/FRONTEND_PRODUCT_TYPE_INTEGRATION.md).
+
+**Changes Implemented**:
+
+### 1. Type Definitions Updated
+- Added `is_batch_tracked?: boolean` to `Product` interface in [types/api.types.ts](src/types/api.types.ts)
+- Added `is_batch_tracked: z.boolean().default(false)` to product form schema
+- Updated `VariableProductPayload` interface to include `is_batch_tracked`
+
+### 2. Form Updates
+**Product Creation/Edit Forms** ([ProductFormPage.tsx](src/pages/products/ProductFormPage.tsx), [CreateProductPage.tsx](src/pages/products/CreateProductPage.tsx)):
+- ✅ Added "Batch/Lot Tracking" checkbox toggle
+- ✅ Shows after "Variable Product" toggle
+- ✅ Description: "Track by batch number with expiry dates (e.g., food, medicine)"
+- ✅ Cannot be changed in edit mode (shown as read-only)
+
+### 3. Schema Updates ([product.schema.ts](src/pages/products/schemas/product.schema.ts))
+- Added `is_batch_tracked` to form data type
+- Included in `defaultProductFormValues` (default: `false`)
+- Added to `productToFormData()` converter
+- Added to `formDataToFormData()` - sends as `'1'` or `'0'` string
+- Added to `formDataToVariableProductPayload()` - sends as boolean
+
+### 4. UI Conditional Rendering
+**Updated components to use `is_batch_tracked` instead of legacy `inventory_tracking_mode`:**
+- [ProductDetailsDialog.tsx](src/pages/products/components/ProductDetailsDialog.tsx): `!product.is_batch_tracked` determines if batch fields are hidden
+- [VariantBulkEntryDialog.tsx](src/pages/purchases/components/VariantBulkEntryDialog.tsx): Same logic for purchase batch entry
+
+**Logic:**
+```typescript
+// Old (removed):
+const isSimpleTracking = product.inventory_tracking_mode === 'simple'
+
+// New (current):
+const isSimpleTracking = !product.is_batch_tracked
+```
+
+### 5. Product Type Combinations Now Supported
+| `product_type` | `is_batch_tracked` | Description | Example Use Case |
+|----------------|-------------------|-------------|------------------|
+| `simple` | `false` | Simple Product | Office supplies, electronics |
+| `simple` | `true` | Batch Product | Food, medicine with expiry |
+| `variable` | `false` | Variable Product | T-shirts (sizes/colors) |
+| `variable` | `true` | Variable Batch Product | Medicine with different strengths + expiry |
+
+### 6. API Payload Format
+**Simple Product:**
+```javascript
+{
+  product_type: "simple",
+  is_batch_tracked: true,  // New field
+  // ... other fields
+}
+```
+
+**Variable Product:**
+```javascript
+{
+  product_type: "variable",
+  is_batch_tracked: true,  // New field
+  variants: [...]
+}
+```
+
+**Files Modified**:
+- `src/types/api.types.ts` - Added `is_batch_tracked` to Product interface
+- `src/pages/products/schemas/product.schema.ts` - Updated schema, converters, and types
+- `src/pages/products/ProductFormPage.tsx` - Added batch tracking toggle
+- `src/pages/products/CreateProductPage.tsx` - Added batch tracking toggle
+- `src/pages/products/components/ProductDetailsDialog.tsx` - Use `is_batch_tracked` instead of `inventory_tracking_mode`
+- `src/pages/purchases/components/VariantBulkEntryDialog.tsx` - Use `is_batch_tracked` instead of `inventory_tracking_mode`
+
+**Migration Notes**:
+- Backend auto-migrates legacy data (`'variant'` type → `'simple'` + `is_batch_tracked=true`)
+- Frontend now aligned with backend's 4-type product matrix
+- No breaking changes for existing variable product SKU generation (recently fixed)
+
+---
+
+## 2026-01-15 — Product Cache Invalidation After Purchase ✅
+
+**Problem**: After creating a purchase and adding stock to variants, the ProductDetailsDialog was still showing old stock values (e.g., showing 300 instead of 390). This was because the product cache (stored in IndexedDB/SQLite) was not being invalidated when purchases were created.
+
+**Root Cause**: 
+- `useProducts` hook caches product data in IndexedDB/SQLite for offline support
+- When creating a purchase via `purchasesService.create()`, stock levels are updated on the backend
+- However, the cached product data in IndexedDB/SQLite was not being cleared
+- When users viewed product details, the dialog would show cached data with old stock values
+
+**Solution Implemented**:
+1. Added `storage.products.clear()` call after successful purchase creation in:
+   - [NewPurchasePage.tsx](src/pages/purchases/NewPurchasePage.tsx#L519) - Main purchase page
+   - [NewPurchaseDialog.tsx](src/pages/purchases/components/NewPurchaseDialog.tsx#L367) - Purchase dialog component
+
+2. Cache invalidation happens immediately after the purchase API call succeeds but before navigation/success toast
+3. Wrapped cache clear in try-catch to prevent blocking the success flow if cache clear fails
+
+**Impact**:
+- Product stock values are now always up-to-date after purchases
+- Next product fetch will retrieve fresh data from the API
+- Applies to both simple products and variant products with batch tracking
+
+**Files Modified**:
+- `src/pages/purchases/NewPurchasePage.tsx` - Added storage import and cache clear
+- `src/pages/purchases/components/NewPurchaseDialog.tsx` - Added storage import and cache clear
+
+---
+
+## 2026-01-15 — Purchase Table: Hide Batch Fields When Not Tracked ✅
+
+**Change**: In the purchase product table, when a selected simple/variant product has `is_batch_tracked === false`, the Batch column and Exp/Mfg date controls now display a muted `N/A` instead of editable inputs.
+
+**Files Modified**:
+- `src/pages/purchases/NewPurchasePage.tsx`
+
+---
+
+## 2026-01-15 — Variable Variant SKU Auto-Prefix Fix ✅
+
+**Problem**: Variant SKUs for new variable products were being generated with placeholder prefixes like `PROD-...`/`PRO-...` instead of using the product name prefix (e.g., expected `BAG-BLUE-XL-1234`).
+
+**Root Cause**:
+- During create flow, `product` is `null` in `VariantManager`, so SKU generation must use live form values.
+- Existing placeholder SKUs (`PROD-...`/`PRO-...`) weren’t being regenerated when product name/code became available.
+
+**Solution Implemented**:
+- `VariantManager` now takes `productName`/`productCode` props from the create form.
+- SKU prefix is derived from the first 3 alphanumeric chars of product name (fallback to product code).
+- Auto-fixes placeholder SKUs when product name/code changes (no extra button needed).
+
+**Files Modified**:
+- `src/pages/products/components/VariantManager.tsx`
+- `src/pages/products/CreateProductPage.tsx`
+
+---
+
 ## 2026-01-15 — Unified Product Search Implementation ✅
 
 **Context**: Backend implemented unified search API that searches across products, variants, and batches in a single request (see [backend_docs/UNIFIED_PRODUCT_SEARCH_IMPLEMENTATION.md](backend_docs/UNIFIED_PRODUCT_SEARCH_IMPLEMENTATION.md)).
@@ -8529,3 +8802,22 @@ await storage.syncQueue.enqueue({ ... })
 ---
 
 *Last Updated: December 2024*
+## 2026-01-15 â€” Sidebar & Status Indicator Polish âœ…
+
+**Problem**: User requested further refinement on visual hierarchy (active sub-menu contrast), spacing (logo padding, dividers), and interactive states (full-width collapse button, hover effects).
+
+**Solution**:
+- **Active Sub-Menu**: Added a vertical active line (`w-[2px] bg-primary`) on the left of active sub-items to anchor the eye.
+- **Icon Alignment**: Enforced `strokeWidth={1.5}` on all dropdown chevrons.
+- **Spacing**: 
+    - Added `mb-2` to the logo header to separate it from the navigation.
+    - Updated the footer separator to `border-white/10` for a subtle division above "Synced".
+- **Status Indicator**: 
+    - Ensured the "Synced" green dot is center-aligned with the text.
+    - Confirmed the cloud icon uses `text-muted-foreground`.
+- **Interactivity**: 
+    - Ensured inactive sub-items respond to hover with background shifts.
+
+**Files Updated**:
+- [src/components/layout/Sidebar.tsx](src/components/layout/Sidebar.tsx)
+- [src/components/common/SyncStatusIndicator.tsx](src/components/common/SyncStatusIndicator.tsx)

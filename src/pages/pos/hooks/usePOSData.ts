@@ -290,7 +290,16 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
         const query = filters.search.toLowerCase().trim()
         const matchesName = product.productName.toLowerCase().includes(query)
         const matchesCode = product.productCode?.toLowerCase().includes(query)
-        if (!matchesName && !matchesCode) return false
+
+        // Also search in variant barcodes and SKUs for variable products
+        const matchesVariant = product.variants?.some((variant) => {
+          const matchesSku = variant.sku?.toLowerCase().includes(query)
+          const matchesBarcode = variant.barcode?.toLowerCase().includes(query)
+          const matchesVariantName = variant.variant_name?.toLowerCase().includes(query)
+          return matchesSku || matchesBarcode || matchesVariantName
+        })
+
+        if (!matchesName && !matchesCode && !matchesVariant) return false
       }
 
       // Category filter

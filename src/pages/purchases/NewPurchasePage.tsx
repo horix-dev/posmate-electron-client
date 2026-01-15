@@ -10,7 +10,6 @@ import {
   Loader2,
   Package,
   CalendarIcon,
-  Search,
   ChevronsUpDown,
   ArrowLeft,
   Image as ImageIcon,
@@ -53,6 +52,7 @@ import {
 } from '@/components/ui/command'
 import { Calendar } from '@/components/ui/calendar'
 import { cn } from '@/lib/utils'
+import { storage } from '@/lib/storage'
 import {
   purchasesService,
   productsService,
@@ -65,6 +65,7 @@ import {
   type SupplierFormData,
 } from '@/pages/suppliers/components/SupplierFormDialog'
 import { VariantBulkEntryDialog, type VariantEntry } from './components/VariantBulkEntryDialog'
+import { ProductLookup } from '@/components/shared/ProductLookup'
 import { useCurrency } from '@/hooks'
 import { calculatePurchaseTotals, buildCreatePurchaseRequest } from './utils/purchaseCalculations'
 import type { Product, Party, PaymentType, Vat } from '@/types/api.types'
@@ -107,159 +108,6 @@ const purchaseFormSchema = z.object({
 })
 
 type PurchaseFormValues = z.infer<typeof purchaseFormSchema>
-
-// ============================================
-// Product Search Component
-// ============================================
-
-interface ProductSearchProps {
-  onSelect: (product: Product, variant?: ProductVariant) => void
-  excludeIds: number[]
-}
-
-function ProductSearch({ onSelect }: ProductSearchProps) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const [products, setProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      if (!search.trim() && products.length === 0) {
-        // Load initial products
-        setIsLoading(true)
-        try {
-          const response = await productsService.getList({ limit: 50 })
-          const data = response?.data
-          if (Array.isArray(data)) {
-            setProducts(data)
-          } else if (data && typeof data === 'object' && 'data' in data) {
-            const items = (data as Record<string, unknown>).data as Product[]
-            setProducts(items)
-          }
-        } catch (error) {
-          console.error('Failed to fetch products:', error)
-          toast.error('Failed to load products')
-        } finally {
-          setIsLoading(false)
-        }
-      }
-    }
-    fetchProducts()
-  }, [products.length, search])
-
-  // Flatten items for search
-  const searchItems = products.flatMap((product) => {
-    const items: Array<{
-      id: string
-      product: Product
-      variant?: ProductVariant
-      label: string
-      subLabel: string
-    }> = []
-
-    // Calculate main product stock (for variable products, use variants_total_stock)
-    const mainProductStock =
-      product.product_type === 'variable'
-        ? (product.variants_total_stock ?? 0)
-        : (product.stocks_sum_product_stock ?? product.productStock ?? 0)
-
-    // Always add the main product (if variable, clicking it triggers bulk add)
-    items.push({
-      id: `p-${product.id}`,
-      product,
-      label: product.productName,
-      subLabel: `Code: ${product.productCode || 'N/A'} | ${product.product_type} | Stock: ${mainProductStock}`,
-    })
-
-    // If searchable and has variants, add specific variants
-    if (product.product_type === 'variable' && product.variants) {
-      product.variants.forEach((variant) => {
-        // Build variant display name
-        const variantDisplayName = variant.variant_name || variant.sku || `Variant ${variant.id}`
-
-        // Use total_stock if available, otherwise fall back to first stock entry
-        const variantStock = variant.total_stock ?? variant.stocks?.[0]?.productStock ?? 0
-
-        items.push({
-          id: `v-${variant.id}`,
-          product,
-          variant,
-          label: `${product.productName} - ${variantDisplayName}`,
-          subLabel: `SKU: ${variant.sku} | Stock: ${variantStock}`,
-        })
-      })
-    }
-
-    return items
-  })
-
-  const filteredItems = searchItems.filter((item) => {
-    const searchLower = search.toLowerCase()
-    return (
-      item.label.toLowerCase().includes(searchLower) ||
-      item.subLabel.toLowerCase().includes(searchLower)
-    )
-  })
-
-  // Limit results for performance
-  const displayItems = filteredItems.slice(0, 50)
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" className="w-full justify-start">
-          <Search className="mr-2 h-4 w-4" />
-          Search and add product...
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[500px] p-0" align="start">
-        <Command>
-          <CommandInput
-            placeholder="Search by name, code, or variant..."
-            value={search}
-            onValueChange={setSearch}
-          />
-          <CommandList>
-            <CommandEmpty>{isLoading ? 'Loading...' : 'No products found.'}</CommandEmpty>
-            <CommandGroup>
-              {displayItems.map((item) => (
-                <CommandItem
-                  key={item.id}
-                  value={`${item.label}-${item.id}`}
-                  onSelect={() => {
-                    onSelect(item.product, item.variant)
-                    setOpen(false)
-                    setSearch('')
-                  }}
-                >
-                  <div className="flex flex-col">
-                    <span className="font-medium">{item.label}</span>
-                    <span className="text-xs text-muted-foreground">{item.subLabel}</span>
-                  </div>
-                  {item.variant && (
-                    <Badge variant="secondary" className="ml-auto text-xs">
-                      Variant
-                    </Badge>
-                  )}
-                  {!item.variant && item.product.product_type === 'variable' && (
-                    <Badge variant="outline" className="ml-auto text-xs">
-                      Bulk Add
-                    </Badge>
-                  )}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  )
-}
-// Import Badge here or rely on global?
-// Badge is not imported. I need to replace imports again or remove Badge usage.
-// I will remove Badge usage for now to avoid breaking imports or add it to imports in a separate call?
-// I can just text-style it.
 
 // ============================================
 // Main Component
@@ -405,9 +253,9 @@ export function NewPurchasePage() {
     // Generate invoice number
     const generateInvoice = async () => {
       try {
-        const response = await purchasesService.getNextInvoiceNumber()
-        if (response.data?.invoice_number) {
-          form.setValue('invoiceNumber', response.data.invoice_number)
+        const invoiceNumber = await purchasesService.getNextInvoiceNumber()
+        if (invoiceNumber) {
+          form.setValue('invoiceNumber', invoiceNumber)
         }
       } catch {
         // Use default format
@@ -517,6 +365,13 @@ export function NewPurchasePage() {
     setIsSubmitting(true)
     try {
       await purchasesService.create(buildCreatePurchaseRequest(values))
+
+      // Invalidate product cache since stock levels have changed
+      try {
+        await storage.products.clear()
+      } catch (err) {
+        console.warn('Failed to clear product cache:', err)
+      }
 
       toast.success('Purchase created successfully')
       navigate('/purchases')
@@ -641,7 +496,7 @@ export function NewPurchasePage() {
                 control={form.control}
                 name="purchaseDate"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
+                  <FormItem className="">
                     <FormLabel>Purchase Date</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -713,7 +568,7 @@ export function NewPurchasePage() {
                       Clear All
                     </Button>
                   )}
-                  <ProductSearch onSelect={handleAddProduct} excludeIds={excludeProductIds} />
+                  <ProductLookup onSelect={handleAddProduct} excludeIds={excludeProductIds} />
                 </div>
               </div>
 
@@ -848,89 +703,110 @@ export function NewPurchasePage() {
 
                             {/* Batch No */}
                             <TableCell className="align-middle">
-                              <FormField
-                                control={form.control}
-                                name={`products.${index}.batch_no`}
-                                render={({ field }) => (
-                                  <Input {...field} placeholder="Batch" className="h-8 text-xs" />
-                                )}
-                              />
+                              {!product?.is_batch_tracked ? (
+                                <span className="text-xs text-muted-foreground">N/A</span>
+                              ) : (
+                                <FormField
+                                  control={form.control}
+                                  name={`products.${index}.batch_no`}
+                                  render={({ field }) => (
+                                    <Input {...field} placeholder="Batch" className="h-7 text-xs" />
+                                  )}
+                                />
+                              )}
                             </TableCell>
 
                             {/* Dates */}
                             <TableCell className="align-middle">
-                              <div className="space-y-1">
-                                <FormField
-                                  control={form.control}
-                                  name={`products.${index}.expire_date`}
-                                  render={({ field }) => (
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          className={cn(
-                                            'h-7 w-full justify-start pl-2 pr-1 text-left text-[10px] font-normal',
-                                            !field.value && 'text-muted-foreground'
-                                          )}
-                                        >
-                                          <span className="mr-1 text-[9px]">Exp:</span>
-                                          {field.value
-                                            ? format(new Date(field.value), 'dd/MM')
-                                            : 'Not set'}
-                                          <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                          mode="single"
-                                          selected={field.value ? new Date(field.value) : undefined}
-                                          onSelect={(date: Date | undefined) =>
-                                            field.onChange(date ? format(date, 'yyyy-MM-dd') : '')
-                                          }
-                                          disabled={(date) => date < new Date('1900-01-01')}
-                                          initialFocus
-                                        />
-                                      </PopoverContent>
-                                    </Popover>
-                                  )}
-                                />
-                                <FormField
-                                  control={form.control}
-                                  name={`products.${index}.mfg_date`}
-                                  render={({ field }) => (
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          className={cn(
-                                            'h-7 w-full justify-start pl-2 pr-1 text-left text-[10px] font-normal',
-                                            !field.value && 'text-muted-foreground'
-                                          )}
-                                        >
-                                          <span className="mr-1 text-[9px]">Mfg:</span>
-                                          {field.value
-                                            ? format(new Date(field.value), 'dd/MM')
-                                            : 'Not set'}
-                                          <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                          mode="single"
-                                          selected={field.value ? new Date(field.value) : undefined}
-                                          onSelect={(date: Date | undefined) =>
-                                            field.onChange(date ? format(date, 'yyyy-MM-dd') : '')
-                                          }
-                                          disabled={(date) =>
-                                            date > new Date() || date < new Date('1900-01-01')
-                                          }
-                                          initialFocus
-                                        />
-                                      </PopoverContent>
-                                    </Popover>
-                                  )}
-                                />
-                              </div>
+                              {!product?.is_batch_tracked ? (
+                                <div className="space-y-1 text-[10px] text-muted-foreground">
+                                  <div>
+                                    <span className="mr-1 text-[9px]">Exp:</span>
+                                    N/A
+                                  </div>
+                                  <div>
+                                    <span className="mr-1 text-[9px]">Mfg:</span>
+                                    N/A
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <FormField
+                                    control={form.control}
+                                    name={`products.${index}.expire_date`}
+                                    render={({ field }) => (
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            className={cn(
+                                              'h-7 w-full justify-start pl-2 pr-1 text-left text-[10px] font-normal',
+                                              !field.value && 'text-muted-foreground'
+                                            )}
+                                          >
+                                            <span className="mr-1 text-[9px]">Exp:</span>
+                                            {field.value
+                                              ? format(new Date(field.value), 'dd/MM')
+                                              : ''}
+                                            <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                          <Calendar
+                                            mode="single"
+                                            selected={
+                                              field.value ? new Date(field.value) : undefined
+                                            }
+                                            onSelect={(date: Date | undefined) =>
+                                              field.onChange(date ? format(date, 'yyyy-MM-dd') : '')
+                                            }
+                                            disabled={(date) => date < new Date('1900-01-01')}
+                                            initialFocus
+                                          />
+                                        </PopoverContent>
+                                      </Popover>
+                                    )}
+                                  />
+                                  <FormField
+                                    control={form.control}
+                                    name={`products.${index}.mfg_date`}
+                                    render={({ field }) => (
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            className={cn(
+                                              'h-7 w-full justify-start pl-2 pr-1 text-left text-[10px] font-normal',
+                                              !field.value && 'text-muted-foreground'
+                                            )}
+                                          >
+                                            <span className="mr-1 text-[9px]">Mfg:</span>
+                                            {field.value
+                                              ? format(new Date(field.value), 'dd/MM')
+                                              : ''}
+                                            <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                          <Calendar
+                                            mode="single"
+                                            selected={
+                                              field.value ? new Date(field.value) : undefined
+                                            }
+                                            onSelect={(date: Date | undefined) =>
+                                              field.onChange(date ? format(date, 'yyyy-MM-dd') : '')
+                                            }
+                                            disabled={(date) =>
+                                              date > new Date() || date < new Date('1900-01-01')
+                                            }
+                                            initialFocus
+                                          />
+                                        </PopoverContent>
+                                      </Popover>
+                                    )}
+                                  />
+                                </div>
+                              )}
                             </TableCell>
 
                             {/* Quantities */}
@@ -944,7 +820,7 @@ export function NewPurchasePage() {
                                       <Input
                                         type="number"
                                         min={1}
-                                        className="foc-qty h-8 text-right"
+                                        className="foc-qty h-7 text-right"
                                         {...field}
                                         onChange={(e) => field.onChange(Number(e.target.value))}
                                         autoFocus={index === fields.length - 1}
@@ -972,7 +848,7 @@ export function NewPurchasePage() {
                                           type="number"
                                           min={0}
                                           step="0.01"
-                                          className="h-8 pl-8 text-right"
+                                          className="h-7 pl-8 text-right"
                                           {...field}
                                           onChange={(e) => field.onChange(Number(e.target.value))}
                                         />
@@ -1017,7 +893,7 @@ export function NewPurchasePage() {
                               <Input
                                 readOnly
                                 disabled
-                                className="h-8 bg-muted/50 text-right font-medium text-foreground disabled:opacity-100"
+                                className="h-7 bg-muted/50 text-right font-medium text-foreground disabled:opacity-100"
                                 value={formatCurrency(
                                   (form.watch(`products.${index}.quantities`) || 0) *
                                     (form.watch(`products.${index}.productPurchasePrice`) || 0)

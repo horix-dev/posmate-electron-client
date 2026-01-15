@@ -83,10 +83,10 @@ export const purchasesService = {
   /**
    * Generate next invoice number
    */
-  getNextInvoiceNumber: async (): Promise<ApiResponse<{ invoice_number: string }>> => {
-    const { data } = await api.get<ApiResponse<{ invoice_number: string }>>(
-      API_ENDPOINTS.INVOICES.NEW_INVOICE_NUMBER
-    )
+  getNextInvoiceNumber: async (): Promise<string> => {
+    const { data } = await api.get<string>(API_ENDPOINTS.INVOICES.NEW_INVOICE_NUMBER, {
+      params: { platform: 'purchases' },
+    })
     return data
   },
 

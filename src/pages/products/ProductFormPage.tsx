@@ -472,6 +472,39 @@ export default function ProductFormPage() {
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="is_batch_tracked"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border bg-muted/20 p-3">
+                        {isEditMode ? (
+                          <div className="flex w-full items-center text-sm text-muted-foreground">
+                            <Package className="mr-2 h-4 w-4" />
+                            <span className="mr-2 font-medium text-foreground">
+                              Batch Tracking:
+                            </span>
+                            {field.value ? 'Enabled' : 'Disabled'}
+                            <span className="ml-2 text-xs">(Cannot be changed)</span>
+                          </div>
+                        ) : (
+                          <>
+                            <FormControl>
+                              <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="cursor-pointer font-semibold">
+                                Batch/Lot Tracking
+                              </FormLabel>
+                              <FormDescription>
+                                Track by batch number with expiry dates (e.g., food, medicine)
+                              </FormDescription>
+                            </div>
+                          </>
+                        )}
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </div>
             </div>

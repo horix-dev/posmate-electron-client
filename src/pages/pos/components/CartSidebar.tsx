@@ -9,6 +9,7 @@ import {
   CreditCard,
   Minus,
   Plus,
+  Package,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -16,8 +17,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { CachedImage } from '@/components/common/CachedImage'
 import { useCurrency } from '@/hooks'
-import { cn } from '@/lib/utils'
+import { cn, getImageUrl } from '@/lib/utils'
 import type { CartItemDisplay } from './CartItem'
 import type { Party, PaymentType } from '@/types/api.types'
 
@@ -141,7 +143,7 @@ const CartTotalsSection = memo(function CartTotalsSection({
 }: CartTotalsSectionProps) {
   const { format: formatCurrency } = useCurrency()
   return (
-    <div className="shrink-0 space-y-2 bg-gray-200 px-4 py-3 dark:bg-sidebar">
+    <div className="shrink-0 space-y-2 border-t-2 border-primary/10 bg-primary/5 px-4 py-3 dark:bg-sidebar">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Subtotal</span>
         <span>{formatCurrency(totals.subtotal)}</span>
@@ -157,9 +159,11 @@ const CartTotalsSection = memo(function CartTotalsSection({
         <span>{formatCurrency(totals.vatAmount)}</span>
       </div>
       <Separator />
-      <div className="flex justify-between text-lg font-bold">
-        <span>Total</span>
-        <span className="text-primary">{formatCurrency(totals.total)}</span>
+      <div className="flex items-end justify-between">
+        <span className="pb-1 text-lg font-bold">Total</span>
+        <span className="text-3xl font-bold tracking-tight text-primary">
+          {formatCurrency(totals.total)}
+        </span>
       </div>
     </div>
   )
@@ -271,22 +275,44 @@ function CartSidebarComponent({
                         className={cn(
                           'border-b transition-colors duration-1000 ease-out',
                           isHero
-                            ? 'bg-blue-100/60 hover:bg-blue-100/70 dark:bg-blue-900/40 dark:hover:bg-blue-900/50'
+                            ? 'bg-green-100/80 hover:bg-primary/5 dark:bg-green-900/40 dark:hover:bg-blue-900/50'
                             : 'hover:bg-muted/50'
                         )}
                         role="row"
                       >
                         <td className="px-3 py-2">
-                          <div className="flex flex-col">
-                            <span className="font-medium">{item.productName}</span>
-                            {item.variantName && (
-                              <span className="text-xs text-primary">{item.variantName}</span>
-                            )}
-                            {item.batchNo && (
-                              <span className="text-xs text-muted-foreground">
-                                Batch: {item.batchNo}
+                          <div className="flex items-start gap-3">
+                            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-primary/5">
+                              {getImageUrl(item.productImage) ? (
+                                <CachedImage
+                                  src={getImageUrl(item.productImage)!}
+                                  alt={item.productName}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full items-center justify-center">
+                                  <Package className="h-5 w-5 text-primary/40" aria-hidden="true" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="line-clamp-2 font-medium leading-tight">
+                                {item.productName}
                               </span>
-                            )}
+                              <span className="font-mono text-[10px] text-muted-foreground/90">
+                                {item.productCode}
+                              </span>
+                              {item.variantName && (
+                                <span className="text-[11px] font-normal leading-relaxed text-muted-foreground">
+                                  {item.variantName}
+                                </span>
+                              )}
+                              {item.batchNo && (
+                                <span className="text-[11px] font-normal leading-3 text-muted-foreground">
+                                  Batch: {item.batchNo}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-2 py-2">
@@ -331,7 +357,7 @@ function CartSidebarComponent({
                         <td className="px-2 py-2 text-right tabular-nums">
                           {formatCurrency(item.salePrice)}
                         </td>
-                        <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                        <td className="px-3 py-2 text-right font-semibold tabular-nums text-foreground">
                           {formatCurrency(lineTotal)}
                         </td>
                         <td className="px-2 py-2">
@@ -356,7 +382,7 @@ function CartSidebarComponent({
       </CardContent>
 
       {/* Totals & Actions (pinned at bottom; items above scroll) */}
-      <div className="shrink-0 bg-gray-200 dark:bg-sidebar">
+      <div className="shrink-0 bg-primary/5 dark:bg-sidebar">
         {!isEmpty && (
           <>
             <Separator className="shrink-0" />
@@ -364,34 +390,46 @@ function CartSidebarComponent({
           </>
         )}
 
-        <CardFooter className="shrink-0 flex-col gap-2 bg-gray-200 px-4 pb-4 pt-2 dark:bg-sidebar">
+        <CardFooter className="shrink-0 flex-col gap-2 bg-primary/5 px-4 pb-4 pt-2 dark:bg-sidebar">
           {/* Action Buttons + Payment in Single Row */}
           <div className="flex w-full gap-2">
             <Button
-              variant="destructive"
-              className="h-14 flex-[1] text-lg font-bold"
+              variant="outline"
+              className="h-14 flex-[1] flex-col gap-1.5 border-destructive text-sm font-bold text-destructive hover:bg-destructive/10"
               onClick={onClearCart}
               disabled={isEmpty}
             >
-              <Trash2 className="mr-2 h-5 w-5" aria-hidden="true" />
-              Clear
+              <div className="flex items-center justify-center">
+                <Trash2 className="mr-2 h-5 w-5" aria-hidden="true" />
+                Clear
+              </div>
+              <kbd className="hidden rounded bg-destructive/20 px-1 text-[10px] font-normal opacity-50 sm:inline-block">
+                Esc
+              </kbd>
             </Button>
             <Button
-              className="h-14 flex-[1] bg-yellow-500 text-lg font-bold text-black hover:bg-yellow-600"
+              className="h-14 flex-[1] flex-col gap-1 bg-sky-500 text-sm font-bold text-white hover:bg-sky-600"
               onClick={onHoldCart}
               disabled={isEmpty}
             >
-              <Pause className="mr-2 h-5 w-5" aria-hidden="true" />
-              Hold
+              <div className="flex items-center justify-center">
+                <Pause className="mr-2 h-5 w-5" aria-hidden="true" />
+                Hold
+              </div>
+              <kbd className="hidden rounded bg-white/20 px-1 text-[10px] font-normal opacity-75 sm:inline-block">
+                H
+              </kbd>
             </Button>
             <Button
-              className="h-14 flex-[2] bg-green-600 text-lg font-bold text-white hover:bg-green-700"
+              className="h-16 flex-[3] flex-col gap-1 bg-green-600 text-lg font-bold text-white hover:bg-green-700"
               onClick={onPayment}
               disabled={isEmpty}
             >
-              <CreditCard className="mr-2 h-5 w-5" aria-hidden="true" />
-              Pay {formatCurrency(totals.total)}
-              <kbd className="ml-2 hidden rounded border border-white/30 bg-white/20 px-1.5 py-0.5 text-xs font-normal sm:inline-block">
+              <div className="flex items-center justify-center">
+                <CreditCard className="mr-2 h-6 w-6" aria-hidden="true" />
+                Pay
+              </div>
+              <kbd className="hidden rounded border border-white/30 bg-white/20 px-2 py-0.5 text-xs font-normal sm:inline-block">
                 Space
               </kbd>
             </Button>

@@ -76,6 +76,7 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
 
   const stockStatus = getStockStatus(product)
   const handleClose = () => onOpenChange(false)
+  const isSimpleTracking = !product.is_batch_tracked
 
   // Calculate total stock
   // Prioritize actual stock records if available, as they represent the real-time physical inventory
@@ -208,7 +209,9 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
                 <TabsTrigger value="variants" disabled={product.product_type !== 'variable'}>
                   Variants ({product.variants?.length || 0})
                 </TabsTrigger>
-                <TabsTrigger value="batches">Batches ({product.stocks?.length || 0})</TabsTrigger>
+                <TabsTrigger value="batches" disabled={isSimpleTracking}>
+                  Batches ({product.stocks?.length || 0})
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -369,7 +372,7 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
                                     />
                                   </TableCell>
                                 </TableRow>
-                                {isExpanded && variantBatches.length > 0 && (
+                                {!isSimpleTracking && isExpanded && variantBatches.length > 0 && (
                                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                                     <TableCell colSpan={6} className="p-0">
                                       <div className="border-b px-4 py-3">
@@ -418,7 +421,7 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
                                     </TableCell>
                                   </TableRow>
                                 )}
-                                {isExpanded && variantBatches.length === 0 && (
+                                {!isSimpleTracking && isExpanded && variantBatches.length === 0 && (
                                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                                     <TableCell
                                       colSpan={6}
@@ -445,68 +448,80 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
                 </TabsContent>
 
                 <TabsContent value="batches" className="mt-0">
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Batch / SKU</TableHead>
-                          <TableHead className="text-right">Purch. Price</TableHead>
-                          <TableHead className="text-right">Sale Price</TableHead>
-                          <TableHead className="text-right">Stock</TableHead>
-                          <TableHead className="w-[80px] text-center">Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {product.stocks && product.stocks.length > 0 ? (
-                          product.stocks.map((stock) => (
-                            <TableRow key={stock.id}>
-                              <TableCell>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">
-                                    {stock.batch_no || 'Default Batch'}
-                                  </span>
-                                  {stock.variant_id && (
-                                    <span className="font-mono text-xs text-muted-foreground">
-                                      {stock.variant_id}
+                  {isSimpleTracking ? (
+                    <div className="rounded-lg border border-dashed p-8 text-center">
+                      <Package className="mx-auto h-8 w-8 text-muted-foreground/30" />
+                      <p className="mt-2 text-sm font-medium text-muted-foreground">
+                        Batch Tracking Not Available
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        This product uses simple inventory tracking mode.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Batch / SKU</TableHead>
+                            <TableHead className="text-right">Purch. Price</TableHead>
+                            <TableHead className="text-right">Sale Price</TableHead>
+                            <TableHead className="text-right">Stock</TableHead>
+                            <TableHead className="w-[80px] text-center">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {product.stocks && product.stocks.length > 0 ? (
+                            product.stocks.map((stock) => (
+                              <TableRow key={stock.id}>
+                                <TableCell>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">
+                                      {stock.batch_no || 'Default Batch'}
                                     </span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right text-xs">
-                                {formatCurrency(stock.productPurchasePrice)}
-                              </TableCell>
-                              <TableCell className="text-right text-xs">
-                                {formatCurrency(stock.productSalePrice)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Badge variant="secondary" className="font-mono font-normal">
-                                  {stock.productStock}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div
-                                  className={cn(
-                                    'inline-flex h-2.5 w-2.5 rounded-full',
-                                    stock.productStock > 0 ? 'bg-green-500' : 'bg-red-300'
-                                  )}
-                                  title={stock.productStock > 0 ? 'Available' : 'Out of Stock'}
-                                />
+                                    {stock.variant_id && (
+                                      <span className="font-mono text-xs text-muted-foreground">
+                                        {stock.variant_id}
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right text-xs">
+                                  {formatCurrency(stock.productPurchasePrice)}
+                                </TableCell>
+                                <TableCell className="text-right text-xs">
+                                  {formatCurrency(stock.productSalePrice)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Badge variant="secondary" className="font-mono font-normal">
+                                    {stock.productStock}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div
+                                    className={cn(
+                                      'inline-flex h-2.5 w-2.5 rounded-full',
+                                      stock.productStock > 0 ? 'bg-green-500' : 'bg-red-300'
+                                    )}
+                                    title={stock.productStock > 0 ? 'Available' : 'Out of Stock'}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell
+                                colSpan={5}
+                                className="h-24 text-center text-muted-foreground"
+                              >
+                                No stock information available.
                               </TableCell>
                             </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell
-                              colSpan={5}
-                              className="h-24 text-center text-muted-foreground"
-                            >
-                              No stock information available.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </TabsContent>
               </div>
             </ScrollArea>

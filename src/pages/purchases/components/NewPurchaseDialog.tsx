@@ -3,7 +3,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { format } from 'date-fns'
-import { Plus, Trash2, Loader2, Package, CalendarIcon, Search, ChevronsUpDown } from 'lucide-react'
+import { Plus, Trash2, Loader2, Package, CalendarIcon, ChevronsUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -44,6 +44,8 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { purchasesService, productsService, partiesService, vatsService } from '@/api/services'
+import { storage } from '@/lib/storage'
+import { ProductLookup } from '@/components/shared/ProductLookup'
 import { useCurrency } from '@/hooks'
 import { calculatePurchaseTotals, buildCreatePurchaseRequest } from '../utils/purchaseCalculations'
 import type { Product, Party, Vat } from '@/types/api.types'
@@ -97,98 +99,8 @@ export interface NewPurchaseDialogProps {
 }
 
 // ============================================
-// Product Search Component
 // ============================================
-
-interface ProductSearchProps {
-  onSelect: (product: Product) => void
-  excludeIds: number[]
-}
-
-const ProductSearch = memo(function ProductSearch({ onSelect, excludeIds }: ProductSearchProps) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const [products, setProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      if (!search.trim() && products.length === 0) {
-        // Load initial products
-        setIsLoading(true)
-        try {
-          const response = await productsService.getList({ limit: 50 })
-          const data = response?.data
-          if (Array.isArray(data)) {
-            setProducts(data.filter((p) => !excludeIds.includes(p.id)))
-          } else if (data && typeof data === 'object' && 'data' in data) {
-            const items = (data as Record<string, unknown>).data as Product[]
-            setProducts(items.filter((p) => !excludeIds.includes(p.id)))
-          }
-        } catch (error) {
-          console.error('Failed to fetch products:', error)
-        } finally {
-          setIsLoading(false)
-        }
-      }
-    }
-    fetchProducts()
-  }, [excludeIds, products.length, search])
-
-  // Filter products by search
-  const filteredProducts = products.filter(
-    (p) =>
-      !excludeIds.includes(p.id) &&
-      (p.productName.toLowerCase().includes(search.toLowerCase()) ||
-        p.productCode?.toLowerCase().includes(search.toLowerCase()))
-  )
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" className="w-full justify-start">
-          <Search className="mr-2 h-4 w-4" />
-          Search and add product...
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0" align="start">
-        <Command>
-          <CommandInput
-            placeholder="Search by name or code..."
-            value={search}
-            onValueChange={setSearch}
-          />
-          <CommandList>
-            <CommandEmpty>{isLoading ? 'Loading...' : 'No products found.'}</CommandEmpty>
-            <CommandGroup>
-              {filteredProducts.map((product) => (
-                <CommandItem
-                  key={product.id}
-                  value={`${product.productName}-${product.id}`}
-                  onSelect={() => {
-                    onSelect(product)
-                    setOpen(false)
-                    setSearch('')
-                  }}
-                >
-                  <div className="flex flex-col">
-                    <span className="font-medium">{product.productName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      Code: {product.productCode || 'N/A'} | Stock: {product.productStock ?? 0}
-                    </span>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  )
-})
-
-// ============================================
-// Main Component
+// Form Schema
 // ============================================
 
 export const NewPurchaseDialog = memo(function NewPurchaseDialog({
@@ -316,9 +228,9 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
       // Generate invoice number
       const generateInvoice = async () => {
         try {
-          const response = await purchasesService.getNextInvoiceNumber()
-          if (response.data?.invoice_number) {
-            form.setValue('invoiceNumber', response.data.invoice_number)
+          const invoiceNumber = await purchasesService.getNextInvoiceNumber()
+          if (invoiceNumber) {
+            form.setValue('invoiceNumber', invoiceNumber)
           }
         } catch {
           // Use default format
@@ -365,6 +277,13 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
     setIsSubmitting(true)
     try {
       await purchasesService.create(buildCreatePurchaseRequest(values))
+
+      // Invalidate product cache since stock levels have changed
+      try {
+        await storage.products.clear()
+      } catch (err) {
+        console.warn('Failed to clear product cache:', err)
+      }
 
       toast.success('Purchase created successfully')
       onSuccess()
@@ -530,7 +449,12 @@ export const NewPurchaseDialog = memo(function NewPurchaseDialog({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="text-base font-semibold">Products</Label>
-                    <ProductSearch onSelect={handleAddProduct} excludeIds={excludeProductIds} />
+                    <ProductLookup
+                      onSelect={handleAddProduct}
+                      excludeIds={excludeProductIds}
+                      width="w-[400px]"
+                      showVariants={false}
+                    />
                   </div>
 
                   {fields.length === 0 ? (

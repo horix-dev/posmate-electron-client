@@ -483,10 +483,15 @@ export function POSPage() {
           const matchedVariant = p.variants.find(
             (v) => v.barcode?.toLowerCase() === normalizedBarcode
           )
-          if (matchedVariant && matchedVariant.stocks?.[0]) {
-            // Found variant by barcode - add to cart with variant selected
-            handleAddToCart(p, matchedVariant.stocks[0], matchedVariant)
-            return
+          if (matchedVariant) {
+            // Find the stock that belongs to this variant
+            const variantId = Number(matchedVariant.id)
+            const variantStock = p.stocks?.find((s) => Number(s.variant_id) === variantId)
+            if (variantStock) {
+              // Found variant by barcode - add to cart with variant selected
+              handleAddToCart(p, variantStock, matchedVariant)
+              return
+            }
           }
         }
       }

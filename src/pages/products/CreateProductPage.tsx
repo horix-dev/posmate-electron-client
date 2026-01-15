@@ -251,7 +251,7 @@ export default function CreateProductPage() {
       </header>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-10">
           {/* Card 1: Basic Info */}
           <div className="rounded-lg border bg-card p-6">
             <h3 className="mb-6 flex items-center gap-2 text-lg font-semibold">
@@ -288,8 +288,68 @@ export default function CreateProductPage() {
               </div>
 
               {/* Fields */}
-              <div className="flex-1 space-y-4">
+              <div className="flex-1 space-y-6">
                 <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="product_type"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <FormLabel>Product Type</FormLabel>
+                        <FormControl>
+                          <div className="flex gap-4">
+                            <div
+                              className={cn(
+                                'flex cursor-pointer items-center gap-2 rounded-lg border p-4 transition-colors hover:bg-muted/50',
+                                field.value === 'simple'
+                                  ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                                  : 'bg-card'
+                              )}
+                              onClick={() => field.onChange('simple')}
+                            >
+                              <div
+                                className={cn(
+                                  'h-4 w-4 rounded-full border border-primary',
+                                  field.value === 'simple' ? 'bg-primary' : 'bg-transparent'
+                                )}
+                              />
+                              <div className="space-y-1">
+                                <span className="font-medium leading-none">Simple Product</span>
+                                <p className="text-xs text-muted-foreground">
+                                  Standard item with single SKU
+                                </p>
+                              </div>
+                            </div>
+
+                            <div
+                              className={cn(
+                                'flex cursor-pointer items-center gap-2 rounded-lg border p-4 transition-colors hover:bg-muted/50',
+                                field.value === 'variable'
+                                  ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                                  : 'bg-card'
+                              )}
+                              onClick={() => field.onChange('variable')}
+                            >
+                              <div
+                                className={cn(
+                                  'h-4 w-4 rounded-full border border-primary',
+                                  field.value === 'variable' ? 'bg-primary' : 'bg-transparent'
+                                )}
+                              />
+                              <div className="space-y-1">
+                                <span className="font-medium leading-none">Variable Product</span>
+                                <p className="text-xs text-muted-foreground">
+                                  Has sizes, colors, or options
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <FormField
                     control={form.control}
                     name="productName"
@@ -310,20 +370,27 @@ export default function CreateProductPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Product Code / SKU</FormLabel>
-                        <div className="flex gap-2">
-                          <FormControl>
-                            <Input placeholder="e.g. WH-1000XM4" {...field} />
-                          </FormControl>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleGenerateSku}
-                          >
-                            Auto
-                          </Button>
-                        </div>
-                        <FormDescription>Leave blank to auto-generate</FormDescription>
+                        <FormControl>
+                          <div className="relative">
+                            <Input placeholder="e.g. WH-1000XM4" {...field} className="pr-16" />
+                            {!isVariableProduct && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-1 top-1 h-8 px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                                onClick={handleGenerateSku}
+                              >
+                                Generate
+                              </Button>
+                            )}
+                          </div>
+                        </FormControl>
+                        <FormDescription>
+                          {isVariableProduct
+                            ? 'Base code for generating variant SKUs'
+                            : 'Leave blank to auto-generate'}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -346,24 +413,23 @@ export default function CreateProductPage() {
                     />
                   )}
 
+                  {/* Removed old checkbox location */}
+
                   <FormField
                     control={form.control}
-                    name="product_type"
+                    name="is_batch_tracked"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border bg-muted/20 p-3">
                         <FormControl>
-                          <Checkbox
-                            checked={field.value === 'variable'}
-                            onCheckedChange={(checked) => {
-                              field.onChange(checked ? 'variable' : 'simple')
-                            }}
-                          />
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                         </FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel className="cursor-pointer font-semibold">
-                            Variable Product
+                            Batch/Lot Tracking
                           </FormLabel>
-                          <FormDescription>Has variations like Size, Color, etc.</FormDescription>
+                          <FormDescription>
+                            Track by batch number with expiry dates (e.g., food, medicine)
+                          </FormDescription>
                         </div>
                       </FormItem>
                     )}

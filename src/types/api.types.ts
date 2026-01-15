@@ -360,6 +360,7 @@ export interface Product {
   alert_qty?: number
   // Backend uses 'variant' for legacy batch products (batch/lot tracked by batch_no)
   product_type: 'simple' | 'variable' | 'variant'
+  is_batch_tracked?: boolean // New field: independent batch/lot tracking flag
   productPicture?: string
   stocks_sum_product_stock?: number
   category_id?: number

@@ -59,6 +59,8 @@ export const productFormSchema = z.object({
 
   product_type: z.enum(['simple', 'variable']).default('simple'),
 
+  is_batch_tracked: z.boolean().default(false),
+
   productPurchasePrice: z
     .string()
     .optional()
@@ -109,6 +111,7 @@ export const defaultProductFormValues: ProductFormData = {
   unit_id: '',
   alert_qty: '',
   product_type: 'simple',
+  is_batch_tracked: false,
   productPurchasePrice: '',
   productSalePrice: '',
   productStock: '',
@@ -127,6 +130,7 @@ export function productToFormData(product: {
   unit_id?: number | null
   alert_qty?: number | null
   product_type: 'simple' | 'variable' | 'variant' | 'single'
+  is_batch_tracked?: boolean
   description?: string | null
   stocks?: Array<{
     productPurchasePrice: number
@@ -183,6 +187,7 @@ export function productToFormData(product: {
     unit_id: product.unit_id?.toString() || '',
     alert_qty: product.alert_qty?.toString() || '',
     product_type: normalizedProductType,
+    is_batch_tracked: product.is_batch_tracked ?? false,
     productPurchasePrice: stock?.productPurchasePrice?.toString() || '',
     productSalePrice: stock?.productSalePrice?.toString() || '',
     productStock: stock?.productStock?.toString() || '',
@@ -226,6 +231,7 @@ export function formDataToFormData(
   }
 
   formData.append('product_type', data.product_type)
+  formData.append('is_batch_tracked', data.is_batch_tracked ? '1' : '0')
 
   if (data.productPurchasePrice) {
     formData.append('productPurchasePrice', data.productPurchasePrice)
@@ -255,6 +261,7 @@ export interface VariableProductPayload {
   unit_id?: number
   alert_qty?: number
   product_type: 'variable'
+  is_batch_tracked: boolean
   description?: string
   variants: VariantInputData[]
 }
@@ -277,6 +284,7 @@ export function formDataToVariableProductPayload(
     unit_id: data.unit_id ? parseInt(data.unit_id, 10) : undefined,
     alert_qty: data.alert_qty ? parseInt(data.alert_qty, 10) : undefined,
     product_type: 'variable',
+    is_batch_tracked: data.is_batch_tracked,
     description: data.description || undefined,
     variants: variants,
   }

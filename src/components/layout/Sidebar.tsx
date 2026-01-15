@@ -5,7 +5,6 @@ import {
   ShoppingCart,
   Package,
   Users,
-  FileText,
   BarChart3,
   Settings,
   ChevronLeft,
@@ -13,13 +12,13 @@ import {
   Wallet,
   Truck,
   Tags,
-  Warehouse,
   Receipt,
   ChevronDown,
   UserCheck,
   Building2,
   ClipboardList,
   PackageMinus,
+  Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -47,13 +46,21 @@ interface SubNavItem {
 const mainNavItems: NavItem[] = [
   { title: 'Dashboard', href: '/', icon: Home },
   { title: 'POS', href: '/pos', icon: ShoppingCart },
-  { title: 'Products', href: '/products', icon: Package },
+  {
+    title: 'Products',
+    href: '/products',
+    icon: Package,
+    children: [
+      { title: 'Add Product', href: '/products/create', icon: Plus },
+      { title: 'All Products', href: '/products', icon: Package },
+    ],
+  },
   {
     title: 'Sales',
     href: '/sales',
     icon: Receipt,
     children: [
-      { title: 'New Sales', href: '/sales?tab=sales', icon: Receipt },
+      { title: 'All Sales', href: '/sales?tab=sales', icon: Receipt },
       { title: 'Sales Returns', href: '/sales?tab=returns', icon: PackageMinus },
     ],
   },
@@ -62,6 +69,7 @@ const mainNavItems: NavItem[] = [
     href: '/purchases',
     icon: Truck,
     children: [
+      { title: 'Add Purchase', href: '/purchases/new', icon: Plus },
       { title: 'All Purchases', href: '/purchases?tab=purchases', icon: Package },
       { title: 'Purchase Returns', href: '/purchases?tab=returns', icon: PackageMinus },
     ],
@@ -83,9 +91,7 @@ const secondaryNavItems: NavItem[] = [
   { title: 'Stocks', href: '/stocks', icon: Package },
   { title: 'Product Settings', href: '/product-settings', icon: Tags },
   { title: 'Stock Adjustments', href: '/inventory/stock-adjustments', icon: ClipboardList },
-  { title: 'Warehouses', href: '/warehouses', icon: Warehouse },
   { title: 'Reports', href: '/reports', icon: BarChart3 },
-  { title: 'Invoices', href: '/invoices', icon: FileText },
 ]
 
 export function Sidebar() {
@@ -138,14 +144,14 @@ export function Sidebar() {
           onClick={handleClick}
           className={cn(
             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-            'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+            'hover:bg-sidebar-foreground/5 hover:text-sidebar-foreground',
             isActive || isChildActive
               ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'
               : 'text-sidebar-foreground/70',
             isCollapsed && 'justify-center px-2'
           )}
         >
-          <Icon className="h-5 w-5 shrink-0" />
+          <Icon className="h-5 w-5 shrink-0" strokeWidth={1.5} />
           {!isCollapsed && <span className="flex-1">{item.title}</span>}
           {!isCollapsed && item.badge !== undefined && (
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
@@ -154,6 +160,7 @@ export function Sidebar() {
           )}
           {!isCollapsed && hasChildren && (
             <ChevronDown
+              strokeWidth={1.5}
               className={cn(
                 'h-4 w-4 shrink-0 transition-transform duration-200',
                 isExpanded && 'rotate-180'
@@ -164,7 +171,7 @@ export function Sidebar() {
 
         {/* Sub-menu items */}
         {!isCollapsed && hasChildren && isExpanded && (
-          <div className="ml-6 mt-0.5 flex flex-col gap-0.5">
+          <div className="ml-8 mt-0.5 flex flex-col gap-0.5">
             {item.children?.map((child) => {
               const SubIcon = child.icon
               const childPath = child.href.split('?')[0]
@@ -177,14 +184,17 @@ export function Sidebar() {
                   key={child.href}
                   to={child.href}
                   className={cn(
-                    'flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
-                    'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    'group relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all',
+                    'hover:bg-sidebar-foreground/5 hover:text-sidebar-foreground',
                     isSubActive
-                      ? 'bg-primary/80 text-primary-foreground'
+                      ? 'bg-primary/10 font-semibold text-primary-foreground'
                       : 'text-sidebar-foreground/60'
                   )}
                 >
-                  <SubIcon className="h-3.5 w-3.5 shrink-0" />
+                  {isSubActive && (
+                    <div className="absolute left-0 h-full w-[2px] rounded-r-full bg-primary" />
+                  )}
+                  <SubIcon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                   <span>{child.title}</span>
                 </Link>
               )
@@ -203,14 +213,14 @@ export function Sidebar() {
                 to={item.href}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                  'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  'hover:bg-sidebar-foreground/5 hover:text-sidebar-foreground',
                   isActive || isChildActive
                     ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'
                     : 'text-sidebar-foreground/70',
                   'justify-center px-2'
                 )}
               >
-                <Icon className="h-5 w-5 shrink-0" />
+                <Icon className="h-5 w-5 shrink-0" strokeWidth={1.5} />
               </Link>
             </div>
           </TooltipTrigger>
@@ -255,7 +265,7 @@ export function Sidebar() {
       >
         <div className="relative z-10 flex h-full flex-col">
           {/* Logo / Business Name - Matches unified title bar height */}
-          <div className="flex h-12 items-center justify-between border-b border-sidebar-border bg-sidebar px-4">
+          <div className="mb-2 flex h-12 items-center justify-between border-b border-sidebar-border bg-sidebar px-4">
             {!isCollapsed && (
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -276,7 +286,11 @@ export function Sidebar() {
           </div>
 
           {/* Navigation */}
-          <ScrollArea className="flex-1 px-3 py-4">
+          <ScrollArea
+            className="flex-1 px-3 py-6"
+            scrollbarClassName="border-l-0 bg-transparent"
+            thumbClassName="bg-sidebar-foreground/15 hover:bg-sidebar-foreground/25"
+          >
             <nav className="flex flex-col gap-1">
               {mainNavItems.map((item) => (
                 <NavLink key={item.href} item={item} />
@@ -293,7 +307,7 @@ export function Sidebar() {
           </ScrollArea>
 
           {/* Footer - Sync Status, Settings & Toggle */}
-          <div className="border-t border-sidebar-border p-3">
+          <div className="border-t border-white/10 p-3">
             {/* Sync Status Indicator */}
             <div className="mb-2">
               <SyncStatusIndicator
@@ -310,15 +324,14 @@ export function Sidebar() {
 
             <Button
               variant="ghost"
-              size="sm"
               onClick={toggleSidebar}
-              className={cn('w-full', isCollapsed && 'px-2')}
+              className={cn('mt-2 h-10 w-full', isCollapsed && 'px-2')}
             >
               {isCollapsed ? (
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-5 w-5" strokeWidth={1.5} />
               ) : (
                 <>
-                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  <ChevronLeft className="mr-2 h-5 w-5" strokeWidth={1.5} />
                   Collapse
                 </>
               )}
