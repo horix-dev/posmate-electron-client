@@ -1,6 +1,6 @@
 /**
  * Image Cache Manager
- * 
+ *
  * Industry standard approach for caching images in Electron:
  * - Uses IndexedDB for metadata and small images
  * - Uses Electron's app.getPath('userData') for large files
@@ -79,10 +79,10 @@ class ImageCacheManager {
 
     // Check IndexedDB cache
     const cached = await this.db!.get('images', url)
-    
+
     if (cached) {
       const now = Date.now()
-      
+
       // Check if expired
       if (cached.expiresAt && cached.expiresAt < now) {
         await this.delete(url)
@@ -109,14 +109,32 @@ class ImageCacheManager {
    */
   private async fetchAndCache(url: string, ttl: number): Promise<string> {
     try {
-      const response = await fetch(url)
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.statusText}`)
+      let blob: Blob
+      let mimeType = 'image/jpeg'
+
+      // In Electron, proxy the request via main process to bypass renderer CORS.
+      if (window.electronAPI?.images?.fetch) {
+        const result = await window.electronAPI.images.fetch(url)
+        mimeType = result?.mimeType || mimeType
+        // IPC payload may be backed by SharedArrayBuffer; copy into ArrayBuffer to satisfy BlobPart typing.
+        const bytes =
+          result.data instanceof Uint8Array
+            ? result.data
+            : new Uint8Array(result.data as ArrayBuffer | SharedArrayBuffer)
+        const copy = new Uint8Array(bytes.byteLength)
+        copy.set(bytes)
+        blob = new Blob([copy.buffer], { type: mimeType })
+      } else {
+        const response = await fetch(url)
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.statusText}`)
+        }
+
+        blob = await response.blob()
+        mimeType = response.headers.get('content-type') || mimeType
       }
 
-      const blob = await response.blob()
-      const mimeType = response.headers.get('content-type') || 'image/jpeg'
       const now = Date.now()
 
       // Check cache size and evict if needed
@@ -139,7 +157,7 @@ class ImageCacheManager {
       // Create blob URL and store in memory
       const blobUrl = URL.createObjectURL(blob)
       this.memoryCache.set(url, blobUrl)
-      
+
       return blobUrl
     } catch (error) {
       console.error('[ImageCache] Failed to fetch and cache image:', url, error)
@@ -152,9 +170,9 @@ class ImageCacheManager {
    */
   async preloadImages(urls: string[], ttl: number = this.DEFAULT_TTL): Promise<void> {
     await this.init()
-    
-    const promises = urls.map(url => 
-      this.getImage(url, ttl).catch(err => {
+
+    const promises = urls.map((url) =>
+      this.getImage(url, ttl).catch((err) => {
         console.warn('[ImageCache] Failed to preload:', url, err)
         return null
       })
@@ -190,7 +208,7 @@ class ImageCacheManager {
     await this.init()
 
     // Revoke all memory blob URLs
-    this.memoryCache.forEach(blobUrl => URL.revokeObjectURL(blobUrl))
+    this.memoryCache.forEach((blobUrl) => URL.revokeObjectURL(blobUrl))
     this.memoryCache.clear()
 
     // Clear IndexedDB
@@ -207,13 +225,13 @@ class ImageCacheManager {
     const now = Date.now()
     const tx = this.db!.transaction('images', 'readwrite')
     const store = tx.objectStore('images')
-    
+
     let cursor = await store.openCursor()
     let deletedSize = 0
 
     while (cursor) {
       const { url, expiresAt, size } = cursor.value
-      
+
       if (expiresAt && expiresAt < now) {
         await cursor.delete()
         deletedSize += size
@@ -225,7 +243,7 @@ class ImageCacheManager {
           this.memoryCache.delete(url)
         }
       }
-      
+
       cursor = await cursor.continue()
     }
 
@@ -236,10 +254,14 @@ class ImageCacheManager {
     }
 
     const metadata = await this.db!.get('metadata', 'cleanup')
-    await this.db!.put('metadata', { 
-      totalSize: metadata?.totalSize || 0,
-      lastCleanup: now 
-    }, 'cleanup')
+    await this.db!.put(
+      'metadata',
+      {
+        totalSize: metadata?.totalSize || 0,
+        lastCleanup: now,
+      },
+      'cleanup'
+    )
   }
 
   /**
@@ -257,7 +279,7 @@ class ImageCacheManager {
     const tx = this.db!.transaction('images', 'readwrite')
     const store = tx.objectStore('images')
     const index = store.index('lastAccessed')
-    
+
     let cursor = await index.openCursor()
     let freedSize = 0
 
@@ -272,7 +294,7 @@ class ImageCacheManager {
         URL.revokeObjectURL(blobUrl)
         this.memoryCache.delete(url)
       }
-      
+
       cursor = await cursor.continue()
     }
 
@@ -291,10 +313,14 @@ class ImageCacheManager {
     const currentSize = metadata?.totalSize || 0
     const newSize = Math.max(0, currentSize + delta)
 
-    await this.db!.put('metadata', {
-      totalSize: newSize,
-      lastCleanup: metadata?.lastCleanup || Date.now(),
-    }, 'cache')
+    await this.db!.put(
+      'metadata',
+      {
+        totalSize: newSize,
+        lastCleanup: metadata?.lastCleanup || Date.now(),
+      },
+      'cache'
+    )
   }
 
   /**

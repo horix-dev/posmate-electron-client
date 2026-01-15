@@ -214,6 +214,14 @@ export interface ElectronAPI {
     ) => void
     removeUpdateListener?: () => void
   }
+
+  // Image Fetch Proxy (Electron only)
+  images?: {
+    fetch: (
+      url: string,
+      headers?: Record<string, string>
+    ) => Promise<{ mimeType: string; data: Uint8Array }>
+  }
 }
 
 export interface PlatformInfo {

@@ -616,10 +616,11 @@ Retrieves all products with stock information.
       "id": 1,
       "productName": "Product Name",
       "productCode": "PRD001",
+      "barcode": "PRD0011-1ABCD5-X9Z2",
       "productPurchasePrice": 100.00,
       "productStock": 50,
       "alert_qty": 10,
-      "product_type": "single",
+      "product_type": "simple",
       "productPicture": "path/to/image.jpg",
       "stocks_sum_product_stock": 50,
       "unit": {
@@ -697,7 +698,7 @@ Retrieves all products with stock information.
 }
 ```
 
-**Note:** For variable products (`product_type: 'variable'`), the `variants` array contains all attribute-based variants with their attribute combinations and stock information. For single and batch products, the `variants` array will be empty.
+**Note:** For variable products (`product_type: 'variable'`), the `variants` array contains all attribute-based variants with their attribute combinations and stock information. For simple and batch products, the `variants` array will be empty.
 
 ---
 
@@ -759,6 +760,45 @@ Retrieves a specific product by ID.
 **Endpoint:** `GET /products/{id}`  
 **Auth Required:** Yes
 
+**Response (simple product example):**
+```json
+{
+  "message": "Data fetched successfully.",
+  "data": {
+    "id": 189,
+    "productName": "Mouse",
+    "productCode": "MOU-1308",
+    "barcode": "MOU-13081-1ABCD5-X9Z2",
+    "product_type": "simple",
+    "productSalePrice": 2000,
+    "productPurchasePrice": 1500,
+    "productStock": 50,
+    "business_id": 1,
+    "unit": {
+      "id": 2,
+      "unitName": "Piece (pcs)"
+    },
+    "brand": {
+      "id": 8,
+      "brandName": "Apple"
+    },
+    "category": {
+      "id": 13,
+      "categoryName": "Computer"
+    },
+    "stocks": [
+      {
+        "id": 195,
+        "productStock": 50,
+        "productPurchasePrice": 1500,
+        "productSalePrice": 2000
+      }
+    ],
+    "variants": []
+  }
+}
+```
+
 **Response (variable product example):**
 ```json
 {
@@ -767,6 +807,7 @@ Retrieves a specific product by ID.
     "id": 24,
     "productName": "Premium T-Shirt",
     "productCode": "TSHIRT-PREM-001",
+    "barcode": "TSHIRT1-1ABCD5-X9Z2",
     "product_type": "variable",
     "stocks": [],
     "variants": [
@@ -868,6 +909,11 @@ Creates a new product. Supports three product types:
 
 Simple product with standard pricing and stock.
 
+**Barcode Note:**
+- `barcode` is **optional**. If not provided, it will be auto-generated using format: `{PRODUCTCODE}{BUSINESS_ID}-{TIMESTAMP_BASE36}-{RANDOM}`
+- Example auto-generated: `CHARGER0011-1ABCD5-X9Z2`
+- If provided manually, must be unique per business
+
 **Expiry/Batch Note:**
 - `mfg_date` and `expire_date` are optional. If `expire_date` is omitted/null, the stock is treated as **non-expiring**.
 - `batch_no` is not used for single products.
@@ -877,6 +923,7 @@ Simple product with standard pricing and stock.
 {
   "productName": "Laptop Charger",
   "productCode": "CHARGER-001",
+  "barcode": "8901234567890",
   "category_id": 5,
   "brand_id": 3,
   "product_type": "simple",
@@ -892,11 +939,49 @@ Simple product with standard pricing and stock.
 }
 ```
 
+**Request Body (without barcode - auto-generated):**
+```json
+{
+  "productName": "Laptop Charger",
+  "productCode": "CHARGER-001",
+  "category_id": 5,
+  "brand_id": 3,
+  "product_type": "simple",
+  "inventory_tracking_mode": "simple",
+  "productPurchasePrice": 800,
+  "productSalePrice": 1200,
+  "productStock": 100
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Data saved successfully.",
+  "data": {
+    "id": 189,
+    "productName": "Laptop Charger",
+    "productCode": "CHARGER-001",
+    "barcode": "CHARGER0011-1ABCD5-X9Z2",
+    "product_type": "simple",
+    "productSalePrice": 1200,
+    "productPurchasePrice": 800,
+    "productStock": 100,
+    "business_id": 1,
+    "created_at": "2026-01-15T10:30:00Z",
+    "updated_at": "2026-01-15T10:30:00Z"
+  },
+  "_server_timestamp": "2026-01-15T10:30:00Z"
+}
+```
+
 **cURL Example:**
 ```bash
 curl -X POST http://localhost:8000/api/v1/products \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "productName=Laptop Charger" \
+  -F "productCode=CHARGER-001" \
   -F "product_type=simple" \
   -F "productPurchasePrice=800" \
   -F "productSalePrice=1200" \

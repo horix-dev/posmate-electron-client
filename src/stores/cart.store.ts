@@ -56,7 +56,12 @@ interface CartState {
   changeAmount: number
 
   // Actions
-  addItem: (product: Product, stock: Stock, quantity?: number, variant?: ProductVariant | null) => void
+  addItem: (
+    product: Product,
+    stock: Stock,
+    quantity?: number,
+    variant?: ProductVariant | null
+  ) => void
   updateItemQuantity: (itemId: string, quantity: number) => void
   updateItemPrice: (itemId: string, price: number) => void
   updateItemDiscount: (itemId: string, discount: number, type: 'fixed' | 'percentage') => void
@@ -152,20 +157,18 @@ export const useCartStore = create<CartState>()(
         })
 
         if (existingItem) {
-          // Update quantity of existing item
+          // Update quantity and move to end (will appear at top when reversed in UI)
+          const updatedItem = {
+            ...existingItem,
+            quantity: existingItem.quantity + quantity,
+            total: calculateItemTotal({
+              ...existingItem,
+              quantity: existingItem.quantity + quantity,
+            }),
+          }
+
           set({
-            items: state.items.map((item) =>
-              item.id === existingItem.id
-                ? {
-                    ...item,
-                    quantity: item.quantity + quantity,
-                    total: calculateItemTotal({
-                      ...item,
-                      quantity: item.quantity + quantity,
-                    }),
-                  }
-                : item
-            ),
+            items: [...state.items.filter((item) => item.id !== existingItem.id), updatedItem],
           })
         } else {
           // Determine price: variant price > stock price
@@ -404,9 +407,7 @@ export const useCartStore = create<CartState>()(
 
         // Calculate discount amount
         const discountAmount =
-          state.discountType === 'percentage'
-            ? subtotal * (state.discount / 100)
-            : state.discount
+          state.discountType === 'percentage' ? subtotal * (state.discount / 100) : state.discount
 
         // Calculate VAT amount
         const taxableAmount = subtotal - discountAmount

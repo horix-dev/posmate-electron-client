@@ -11,17 +11,20 @@ import {
   Download,
   // DollarSign,
   Info,
+  Search,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/ui/input'
 import { useUIStore } from '@/stores'
-import { attributesService } from '@/api/services'
 import { useAppUpdater } from '@/hooks/useAppUpdater'
-import { AttributesSettings, CurrencySettings, BusinessSettingsForm } from './components'
-import type { Attribute } from '@/types/variant.types'
+import { CurrencySettings, BusinessSettingsForm } from './components'
+import { PaymentTypesTable } from '@/pages/product-settings/components/payment-types/PaymentTypesTable'
+import { PaymentTypeDialog } from '@/pages/product-settings/components/payment-types/PaymentTypeDialog'
+import type { PaymentType } from '@/types/api.types'
 
 type AppInfo = {
   name: string
@@ -30,8 +33,16 @@ type AppInfo = {
 }
 
 export function SettingsPage() {
-  const { theme, setTheme, soundEnabled, setSoundEnabled, autoPrintReceipt, setAutoPrintReceipt } =
-    useUIStore()
+  const {
+    theme,
+    setTheme,
+    soundEnabled,
+    setSoundEnabled,
+    autoPrintReceipt,
+    setAutoPrintReceipt,
+    smartTenderEnabled,
+    setSmartTenderEnabled,
+  } = useUIStore()
 
   const {
     updateStatus,
@@ -52,26 +63,13 @@ export function SettingsPage() {
   const supportsUpdater = Boolean(window.electronAPI?.updater?.checkForUpdates)
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
 
-  // Attributes state
-  const [attributes, setAttributes] = useState<Attribute[]>([])
-  const [attributesLoading, setAttributesLoading] = useState(false)
+  // Payment types state
+  const [isPaymentTypeOpen, setIsPaymentTypeOpen] = useState(false)
+  const [editingPaymentType, setEditingPaymentType] = useState<PaymentType | null>(null)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
 
-  // Fetch attributes
-  const fetchAttributes = async () => {
-    setAttributesLoading(true)
-    try {
-      const response = await attributesService.getAll()
-      setAttributes(response.data || [])
-    } catch (error) {
-      console.error('Failed to fetch attributes:', error)
-    } finally {
-      setAttributesLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchAttributes()
-  }, [])
+  const refresh = () => setRefreshTrigger((prev) => prev + 1)
 
   useEffect(() => {
     const loadAppInfo = async () => {
@@ -159,9 +157,9 @@ export function SettingsPage() {
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="business">Business</TabsTrigger>
-          <TabsTrigger value="attributes">
+          <TabsTrigger value="payment-types">
             <Tag className="mr-1 h-3 w-3" />
-            Attributes
+            Payment Types
           </TabsTrigger>
           {/* <TabsTrigger value="currency">
             <DollarSign className="mr-1 h-3 w-3" />
@@ -244,6 +242,16 @@ export function SettingsPage() {
                 </div>
                 <Switch checked={autoPrintReceipt} onCheckedChange={setAutoPrintReceipt} />
               </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Smart Tender</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Show Smart Tender before opening payment
+                  </p>
+                </div>
+                <Switch checked={smartTenderEnabled} onCheckedChange={setSmartTenderEnabled} />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -252,12 +260,47 @@ export function SettingsPage() {
           <BusinessSettingsForm />
         </TabsContent>
 
-        <TabsContent value="attributes" className="space-y-4">
-          <AttributesSettings
-            attributes={attributes}
-            isLoading={attributesLoading}
-            onRefresh={fetchAttributes}
-          />
+        <TabsContent value="payment-types" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Payment Types</CardTitle>
+                  <CardDescription>Manage available payment methods</CardDescription>
+                </div>
+                <Button
+                  onClick={() => {
+                    setEditingPaymentType(null)
+                    setIsPaymentTypeOpen(true)
+                  }}
+                >
+                  <Tag className="mr-2 h-4 w-4" />
+                  Add Payment Type
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <div className="relative max-w-md">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search payment types..."
+                    className="pl-10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+              </div>
+              <PaymentTypesTable
+                searchQuery={searchQuery}
+                refreshTrigger={refreshTrigger}
+                onEdit={(paymentType) => {
+                  setEditingPaymentType(paymentType)
+                  setIsPaymentTypeOpen(true)
+                }}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="currency" className="space-y-4">
@@ -455,6 +498,16 @@ export function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <PaymentTypeDialog
+        open={isPaymentTypeOpen}
+        onOpenChange={(open) => {
+          setIsPaymentTypeOpen(open)
+          if (!open) setEditingPaymentType(null)
+        }}
+        editData={editingPaymentType}
+        onSuccess={refresh}
+      />
     </div>
   )
 }

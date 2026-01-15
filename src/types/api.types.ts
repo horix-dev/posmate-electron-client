@@ -360,6 +360,7 @@ export interface Product {
   alert_qty?: number
   // Backend uses 'variant' for legacy batch products (batch/lot tracked by batch_no)
   product_type: 'simple' | 'variable' | 'variant'
+  is_batch_tracked?: boolean // New field: independent batch/lot tracking flag
   productPicture?: string
   stocks_sum_product_stock?: number
   category_id?: number
@@ -552,17 +553,22 @@ export type PartyType = 'Retailer' | 'Dealer' | 'Wholesaler' | 'Supplier'
 
 export interface Party {
   id: number
+  business_id: number
   name: string
   email?: string
   phone?: string
   address?: string
   type: PartyType
   due: number
-  wallet?: number
+  wallet: number
   credit_limit?: number
-  opening_balance?: number
-  opening_balance_type?: 'due' | 'advance'
+  opening_balance: number
+  opening_balance_type: 'due' | 'advance'
   image?: string
+  version: number
+  created_at: string
+  updated_at: string
+  deleted_at?: string
 }
 
 export interface CreatePartyRequest {
@@ -611,6 +617,8 @@ export interface PaymentType {
 
 export interface CreatePaymentTypeRequest {
   name: string
+  status?: boolean
+  is_credit?: boolean
 }
 
 // ============================================
@@ -716,8 +724,29 @@ export interface Purchase {
   purchaseDate: string
   totalAmount: number
   discountAmount?: number
+  discount_percent?: number
+  discount_type?: string
+  shipping_charge?: number
+  vat_amount?: number
+  vat_percent?: number
   paidAmount: number
   dueAmount?: number
+  change_amount?: number
+  isPaid?: boolean
+  paymentType?: string
+  created_at?: string
+  updated_at?: string
+  user?: {
+    id: number
+    name: string
+    role?: string
+  }
+  branch?: {
+    id: number
+    name: string
+    phone?: string
+    address?: string
+  }
   party?: Party
   details?: PurchaseDetail[]
   vat?: Vat
@@ -728,6 +757,7 @@ export interface Purchase {
 export interface PurchaseDetail {
   id: number
   product_id: number
+  variant_id?: number | null
   stock_id: number
   quantities: number
   productPurchasePrice: number
@@ -735,6 +765,7 @@ export interface PurchaseDetail {
   productDealerPrice?: number
   productWholeSalePrice?: number
   profit_percent?: number
+  subTotal?: number
   mfg_date?: string
   expire_date?: string
   product?: {
@@ -743,6 +774,21 @@ export interface PurchaseDetail {
     productCode?: string
     productPicture?: string
     image?: string
+    product_type?: string
+    category?: {
+      id: number
+      categoryName: string
+    }
+  }
+  variant?: {
+    id: number
+    variant_name: string
+  } | null
+  stock?: {
+    id: number
+    batch_no?: string
+    expire_date?: string
+    mfg_date?: string
   }
 }
 
@@ -755,8 +801,12 @@ export interface CreatePurchaseRequest {
   vat_amount?: number
   totalAmount: number
   discountAmount?: number
+  discount_percent?: number
+  discount_type?: string
+  shipping_charge?: number
   paidAmount: number
   dueAmount?: number
+  change_amount?: number
   products: PurchaseProductItem[]
 }
 

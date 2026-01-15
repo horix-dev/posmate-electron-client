@@ -39,7 +39,7 @@ export function useSuppliers() {
   })
 
   const createMutation = useMutation<ApiResponse<Party>, unknown, CreatePartyRequest>({
-    mutationFn: (payload: CreatePartyRequest) => partiesService.create({ ...payload, type: 'Supplier' }),
+    mutationFn: (payload: CreatePartyRequest) => partiesService.create(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] })
       toast.success('Supplier created successfully')
@@ -88,7 +88,9 @@ export function useSuppliers() {
     const q = query.trim().toLowerCase()
     if (!q) return suppliers
     return suppliers.filter((s) => {
-      return [s.name, s.email, s.phone, s.address].some((field) => (field || '').toString().toLowerCase().includes(q))
+      return [s.name, s.email, s.phone, s.address].some((field) =>
+        (field || '').toString().toLowerCase().includes(q)
+      )
     })
   }
 
@@ -98,7 +100,8 @@ export function useSuppliers() {
     isFetching: suppliersQuery.isFetching,
     isOnline,
     createSupplier: createMutation.mutateAsync,
-    updateSupplier: (id: number, payload: Partial<CreatePartyRequest>) => updateMutation.mutateAsync({ id, payload }),
+    updateSupplier: (id: number, payload: Partial<CreatePartyRequest>) =>
+      updateMutation.mutateAsync({ id, payload }),
     deleteSupplier: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,

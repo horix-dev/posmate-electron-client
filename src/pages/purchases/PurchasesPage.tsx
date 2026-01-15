@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { RefreshCw, Download, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
@@ -13,7 +13,6 @@ import {
   PurchasesTable,
   PurchaseDetailsDialog,
   DeletePurchaseDialog,
-  NewPurchaseDialog,
   PurchaseReturnsTable,
   PurchaseReturnDialog,
 } from './components'
@@ -31,6 +30,7 @@ const SEARCH_DEBOUNCE_MS = 300
 // ============================================
 
 export function PurchasesPage() {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<'purchases' | 'returns'>('purchases')
 
@@ -91,7 +91,6 @@ export function PurchasesPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [deletePurchaseState, setDeletePurchaseState] = useState<Purchase | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [isNewPurchaseOpen, setIsNewPurchaseOpen] = useState(false)
   const [returnPurchase, setReturnPurchase] = useState<Purchase | null>(null)
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false)
   const [returnsRefreshKey, setReturnsRefreshKey] = useState(0)
@@ -149,11 +148,6 @@ export function PurchasesPage() {
     console.log('Export purchases')
   }, [])
 
-  // New purchase success
-  const handleNewPurchaseSuccess = useCallback(() => {
-    refetch()
-  }, [refetch])
-
   const handleReturnSuccess = useCallback(() => {
     refetch()
     setReturnsRefreshKey((prev) => prev + 1)
@@ -172,10 +166,9 @@ export function PurchasesPage() {
             {activeTab === 'purchases' ? 'Purchases' : 'Purchase Returns'}
           </h1>
           <p className="text-muted-foreground">
-            {activeTab === 'purchases' 
+            {activeTab === 'purchases'
               ? `Manage your purchase orders and returns${stats.total > 0 ? ` (${stats.total} purchases)` : ''}`
-              : 'View and manage all purchase returns'
-            }
+              : 'View and manage all purchase returns'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -192,7 +185,7 @@ export function PurchasesPage() {
             Export
           </Button>
           {activeTab === 'purchases' && (
-            <Button onClick={() => setIsNewPurchaseOpen(true)}>
+            <Button onClick={() => navigate('/purchases/new')}>
               <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
               New Purchase
             </Button>
@@ -215,9 +208,10 @@ export function PurchasesPage() {
       )}
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => handleTabChange(value as 'purchases' | 'returns')}>
-        
-
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => handleTabChange(value as 'purchases' | 'returns')}
+      >
         <TabsContent value="purchases" className="space-y-4">
           {/* Stats Cards */}
           <PurchasesStatsCards stats={stats} isLoading={isLoading} />
@@ -261,13 +255,6 @@ export function PurchasesPage() {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
-      />
-
-      {/* New Purchase Dialog */}
-      <NewPurchaseDialog
-        open={isNewPurchaseOpen}
-        onOpenChange={setIsNewPurchaseOpen}
-        onSuccess={handleNewPurchaseSuccess}
       />
 
       {/* Purchase Return Dialog */}

@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Search, LayoutGrid } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CategoriesTable } from './components/categories/CategoriesTable'
 import { CategoryDialog } from './components/categories/CategoryDialog'
@@ -18,11 +17,12 @@ import { ShelvesTable } from './components/shelves/ShelvesTable'
 import { RackDialog } from './components/racks/RackDialog'
 import { ShelfDialog } from './components/shelves/ShelfDialog'
 import { PrintLabelsPage } from './components/print-labels/PrintLabelsPage'
-import { PaymentTypesTable } from './components/payment-types/PaymentTypesTable'
-import { PaymentTypeDialog } from './components/payment-types/PaymentTypeDialog'
 import { VatsTable } from './components/vats/VatsTable'
 import { VatDialog } from './components/vats/VatDialog'
-import type { Category, Brand, ProductModel, Unit, Rack, Shelf, PaymentType, Vat } from '@/types/api.types'
+import { AttributesSettings } from '@/pages/settings/components/AttributesSettings'
+import type { Category, Brand, ProductModel, Unit, Rack, Shelf, Vat } from '@/types/api.types'
+import type { Attribute } from '@/types/variant.types'
+import { attributesService } from '@/api/services'
 
 export function ProductSettingsPage() {
   const [searchParams] = useSearchParams()
@@ -60,8 +60,26 @@ export function ProductSettingsPage() {
   const [isVatOpen, setIsVatOpen] = useState(false)
   const [editingVat, setEditingVat] = useState<Vat | null>(null)
 
-  const [isPaymentTypeOpen, setIsPaymentTypeOpen] = useState(false)
-  const [editingPaymentType, setEditingPaymentType] = useState<PaymentType | null>(null)
+  // Attributes state
+  const [attributes, setAttributes] = useState<Attribute[]>([])
+  const [attributesLoading, setAttributesLoading] = useState(false)
+
+  // Fetch attributes
+  const fetchAttributes = async () => {
+    setAttributesLoading(true)
+    try {
+      const response = await attributesService.getAll()
+      setAttributes(response.data || [])
+    } catch (error) {
+      console.error('Failed to fetch attributes:', error)
+    } finally {
+      setAttributesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchAttributes()
+  }, [])
 
   const handleAdd = () => {
     if (activeTab === 'categories') {
@@ -85,9 +103,6 @@ export function ProductSettingsPage() {
     } else if (activeTab === 'tax-settings') {
       setEditingVat(null)
       setIsVatOpen(true)
-    } else if (activeTab === 'payment-types') {
-      setEditingPaymentType(null)
-      setIsPaymentTypeOpen(true)
     }
   }
 
@@ -100,7 +115,7 @@ export function ProductSettingsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Product Settings</h1>
           <p className="text-muted-foreground">Manage categories, brands, models and attributes</p>
         </div>
-        {activeTab !== 'print-labels' && (
+        {activeTab !== 'print-labels' && activeTab !== 'attributes' && (
           <Button onClick={handleAdd}>
             <Plus className="mr-2 h-4 w-4" />
             Add New{' '}
@@ -110,11 +125,9 @@ export function ProductSettingsPage() {
                 brands: 'Brand',
                 model: 'Model',
                 units: 'Unit',
-                attributes: 'Attribute',
                 racks: 'Rack',
                 shelfs: 'Shelf',
                 'tax-settings': 'Tax',
-                'payment-types': 'Payment Type',
               } as Record<string, string>
             )[activeTab] || 'Item'}
           </Button>
@@ -135,7 +148,6 @@ export function ProductSettingsPage() {
           <TabsTrigger value="racks">Racks</TabsTrigger>
           <TabsTrigger value="shelfs">Shelves</TabsTrigger>
           <TabsTrigger value="tax-settings">Tax Settings</TabsTrigger>
-          <TabsTrigger value="payment-types">Payment Types</TabsTrigger>
           <TabsTrigger value="print-labels">Print Labels</TabsTrigger>
         </ScrollableTabsList>
 
@@ -196,19 +208,12 @@ export function ProductSettingsPage() {
             />
           </TabsContent>
 
-          <TabsContent value="attributes" className="mt-0 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Attributes</CardTitle>
-              </CardHeader>
-              <CardContent className="flex h-96 items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <LayoutGrid className="mx-auto mb-4 h-12 w-12" />
-                  <p className="text-lg font-medium">Attributes</p>
-                  <p className="text-sm">Attributes will be displayed here</p>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="attributes" className="mt-6 space-y-4">
+            <AttributesSettings
+              attributes={attributes}
+              isLoading={attributesLoading}
+              onRefresh={fetchAttributes}
+            />
           </TabsContent>
 
           <TabsContent value="racks" className="mt-6 space-y-4">
@@ -240,17 +245,6 @@ export function ProductSettingsPage() {
               onEdit={(vat) => {
                 setEditingVat(vat)
                 setIsVatOpen(true)
-              }}
-            />
-          </TabsContent>
-
-          <TabsContent value="payment-types" className="mt-6 space-y-4">
-            <PaymentTypesTable
-              searchQuery={searchQuery}
-              refreshTrigger={refreshTrigger}
-              onEdit={(paymentType) => {
-                setEditingPaymentType(paymentType)
-                setIsPaymentTypeOpen(true)
               }}
             />
           </TabsContent>
@@ -319,16 +313,6 @@ export function ProductSettingsPage() {
           if (!open) setEditingVat(null)
         }}
         editData={editingVat}
-        onSuccess={refresh}
-      />
-
-      <PaymentTypeDialog
-        open={isPaymentTypeOpen}
-        onOpenChange={(open) => {
-          setIsPaymentTypeOpen(open)
-          if (!open) setEditingPaymentType(null)
-        }}
-        editData={editingPaymentType}
         onSuccess={refresh}
       />
     </div>

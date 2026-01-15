@@ -98,7 +98,7 @@ function BarChart({
     if (!Array.isArray(data)) return []
 
     // 1. FILTER: ensure date exists
-    const validData = data.filter(d => d.date)
+    const validData = data.filter((d) => d.date)
 
     // 2. SORT: oldest to newest
     const sorted = validData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -114,7 +114,7 @@ function BarChart({
 
   if (points.length === 0) {
     return (
-      <div className="flex h-[240px] items-center justify-center rounded-xl border border-dashed bg-muted/20 text-sm text-muted-foreground animate-in fade-in duration-500">
+      <div className="flex h-[240px] items-center justify-center rounded-xl border border-dashed bg-muted/20 text-sm text-muted-foreground duration-500 animate-in fade-in">
         <div className="flex flex-col items-center gap-2">
           <BarChart3 className="h-8 w-8 opacity-20" />
           <p>{emptyLabel}</p>
@@ -136,19 +136,21 @@ function BarChart({
             className="group relative flex h-full w-full flex-col justify-end gap-2"
           >
             {/* Tooltip */}
-            <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 transition-all duration-200 group-hover:-top-10 group-hover:opacity-100 z-10 pointer-events-none">
-              <div className="whitespace-nowrap rounded-md bg-popover px-2 py-1 text-xs font-semibold text-popover-foreground shadow-sm border animate-in zoom-in-95 duration-200">
+            <div className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 opacity-0 transition-all duration-200 group-hover:-top-10 group-hover:opacity-100">
+              <div className="whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs font-semibold text-popover-foreground shadow-sm duration-200 animate-in zoom-in-95">
                 {prefix}
                 {value.toLocaleString()}
               </div>
             </div>
 
-            <div className="relative h-full w-full flex items-end overflow-hidden hover:scale-[1.02] transition-transform duration-200">
+            <div className="relative flex h-full w-full items-end overflow-hidden transition-transform duration-200 hover:scale-[1.02]">
               <div
                 className={cn(
                   'w-full rounded-t-lg transition-all duration-700 ease-out animate-in slide-in-from-bottom-10',
                   colorClass,
-                  isPeak ? 'opacity-100 ring-2 ring-primary/20 ring-offset-2' : 'opacity-80 group-hover:opacity-100'
+                  isPeak
+                    ? 'opacity-100 ring-2 ring-primary/20 ring-offset-2'
+                    : 'opacity-80 group-hover:opacity-100'
                 )}
                 style={{
                   height: `${heightPct}%`,
@@ -156,7 +158,7 @@ function BarChart({
                 }}
               />
             </div>
-            <span className="text-center text-[10px] font-medium text-muted-foreground uppercase tracking-wider group-hover:text-foreground transition-colors">
+            <span className="text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground transition-colors group-hover:text-foreground">
               {formatShortDateLabel(point.date)}
             </span>
           </div>
@@ -178,8 +180,8 @@ function QuickActionButton({
   colorClass: string
 }) {
   // Extract the color name part from the bg- class (e.g., 'blue-600' from 'bg-blue-600')
-  const bgClass = colorClass.split(' ').find(c => c.startsWith('bg-'))
-  const textClass = colorClass.split(' ').find(c => c.startsWith('text-'))
+  const bgClass = colorClass.split(' ').find((c) => c.startsWith('bg-'))
+  const textClass = colorClass.split(' ').find((c) => c.startsWith('text-'))
 
   // Construct new classes manually to ensure compatibility
   // If bg-primary is passed, we want bg-primary/10. If bg-blue-600 is passed, we want bg-blue-600/10.
@@ -191,7 +193,7 @@ function QuickActionButton({
       variant="outline"
       onClick={onClick}
       className={cn(
-        "h-9 gap-2 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-dashed/0",
+        'border-dashed/0 h-9 gap-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md',
         bgWithOpacity,
         textClass,
         hoverBgWithOpacity
@@ -213,7 +215,9 @@ export function DashboardPage() {
   const [recentSales, setRecentSales] = useState<Sale[]>([])
   const [lowStockItems, setLowStockItems] = useState<Stock[]>([])
   const [expiredItems, setExpiredItems] = useState<Stock[]>([])
-  const [topProducts, setTopProducts] = useState<Array<{ name: string; revenue: number; qty: number }>>([])
+  const [topProducts, setTopProducts] = useState<
+    Array<{ name: string; revenue: number; qty: number }>
+  >([])
   const [loadingExtra, setLoadingExtra] = useState(false)
 
   const isOnline = useSyncStore((state) => state.isOnline)
@@ -334,7 +338,9 @@ export function DashboardPage() {
         // Fetch low stock items & expired items
         const stocksRes = await stocksListService.getAll({ limit: 100 })
         const stocks = Array.isArray(stocksRes?.data) ? stocksRes.data : []
-        const lowStock = stocks.filter((s: Stock) => s.productStock <= (s.product?.alert_qty || 10)).slice(0, 5)
+        const lowStock = stocks
+          .filter((s: Stock) => s.productStock <= (s.product?.alert_qty || 10))
+          .slice(0, 5)
         setLowStockItems(lowStock)
 
         // Calculate expired items
@@ -355,17 +361,13 @@ export function DashboardPage() {
             {}
           salesList.forEach((sale: Sale) => {
             // Check for details (standard) or items (legacy/alternative)
-            const items = Array.isArray(sale.details)
-              ? sale.details
-              : []
+            const items = Array.isArray(sale.details) ? sale.details : []
 
             items.forEach((item: SaleDetail) => {
               const key = item.product_id
               if (key) {
                 // Try to get name from nested product object first, then direct properties
-                const name =
-                  item.product?.productName ||
-                  'Unknown Product'
+                const name = item.product?.productName || 'Unknown Product'
 
                 // Try to get amount from subTotal, or calculate it
                 let amount = item.subTotal || 0
@@ -411,7 +413,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-6 duration-700">
+    <div className="mx-auto max-w-7xl duration-700 animate-in fade-in slide-in-from-bottom-6">
       {/* Header Section */}
       <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div className="space-y-1.5">
@@ -543,11 +545,9 @@ export function DashboardPage() {
           />
         </section>
 
-
-
         {/* Secondary Stats & Inventory Health */}
         <div className="grid gap-6 md:grid-cols-3">
-          <div className="md:col-span-2 grid gap-6">
+          <div className="grid gap-6 md:col-span-2">
             {/* Top Products */}
             <Card className="flex flex-col border-border/50 shadow-sm">
               <CardHeader className="pb-3">
@@ -561,9 +561,9 @@ export function DashboardPage() {
                 <div className="flex flex-col">
                   {loadingExtra ? (
                     [...Array(3)].map((_, i) => (
-                      <div key={i} className="flex items-center gap-4 p-4 border-b last:border-0">
+                      <div key={i} className="flex items-center gap-4 border-b p-4 last:border-0">
                         <Skeleton className="h-10 w-10 rounded-full" />
-                        <div className="space-y-2 flex-1">
+                        <div className="flex-1 space-y-2">
                           <Skeleton className="h-4 w-1/3" />
                           <Skeleton className="h-3 w-1/4" />
                         </div>
@@ -573,23 +573,25 @@ export function DashboardPage() {
                     topProducts.map((product, idx) => (
                       <div
                         key={idx}
-                        className="group flex items-center justify-between p-4 transition-colors hover:bg-muted/30 border-b last:border-0"
+                        className="group flex items-center justify-between border-b p-4 transition-colors last:border-0 hover:bg-muted/30"
                       >
                         <div className="flex items-center gap-3">
-                          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-bold text-muted-foreground mr-1">
+                          <span className="mr-1 flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-bold text-muted-foreground">
                             {idx + 1}
                           </span>
                           <div>
-                            <p className="font-medium text-sm text-foreground">{product.name}</p>
+                            <p className="text-sm font-medium text-foreground">{product.name}</p>
                             <p className="text-xs text-muted-foreground">{product.qty} sold</p>
                           </div>
                         </div>
-                        <div className="font-semibold text-sm">{formatCurrency(product.revenue)}</div>
+                        <div className="text-sm font-semibold">
+                          {formatCurrency(product.revenue)}
+                        </div>
                       </div>
                     ))
                   ) : (
                     <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                      <Package className="h-10 w-10 opacity-20 mb-2" />
+                      <Package className="mb-2 h-10 w-10 opacity-20" />
                       <p>No products sold yet</p>
                     </div>
                   )}
@@ -610,8 +612,8 @@ export function DashboardPage() {
                 <div className="flex flex-col">
                   {loadingExtra ? (
                     [...Array(3)].map((_, i) => (
-                      <div key={i} className="p-4 border-b last:border-0">
-                        <Skeleton className="h-6 w-full mb-2" />
+                      <div key={i} className="border-b p-4 last:border-0">
+                        <Skeleton className="mb-2 h-6 w-full" />
                         <Skeleton className="h-4 w-2/3" />
                       </div>
                     ))
@@ -619,12 +621,12 @@ export function DashboardPage() {
                     recentSales.map((sale: Sale, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between p-4 transition-colors hover:bg-muted/30 border-b last:border-0"
+                        className="flex items-center justify-between border-b p-4 transition-colors last:border-0 hover:bg-muted/30"
                         onClick={() => navigate(`/sales/${sale.id}`)}
                       >
                         <div className="flex flex-col gap-0.5">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">
+                            <span className="text-sm font-medium">
                               Invoice #{sale.invoiceNumber || String(sale.id).padStart(6, '0')}
                             </span>
                             <span className="inline-flex items-center rounded-full border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm">
@@ -638,7 +640,7 @@ export function DashboardPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm">
+                          <span className="text-sm font-semibold">
                             {formatCurrency(sale.totalAmount || 0)}
                           </span>
                           <ArrowRight className="h-3 w-3 text-muted-foreground opacity-50" />
@@ -647,7 +649,7 @@ export function DashboardPage() {
                     ))
                   ) : (
                     <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                      <CreditCard className="h-10 w-10 opacity-20 mb-2" />
+                      <CreditCard className="mb-2 h-10 w-10 opacity-20" />
                       <p>No transactions yet</p>
                     </div>
                   )}
@@ -695,39 +697,74 @@ export function DashboardPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-red-600">{formatCurrency(dashboardData?.total_due || 0)}</p>
+                    <p className="font-bold text-red-600">
+                      {formatCurrency(dashboardData?.total_due || 0)}
+                    </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Low Stock Alert */}
-            <Card className={cn("border-border/50 shadow-sm", lowStockItems.length > 0 && "border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20")}>
+            <Card
+              className={cn(
+                'border-border/50 shadow-sm',
+                lowStockItems.length > 0 &&
+                  'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20'
+              )}
+            >
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center justify-between text-base">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className={cn("h-4 w-4", lowStockItems.length > 0 ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground")} />
+                    <AlertTriangle
+                      className={cn(
+                        'h-4 w-4',
+                        lowStockItems.length > 0
+                          ? 'text-amber-600 dark:text-amber-500'
+                          : 'text-muted-foreground'
+                      )}
+                    />
                     <span>Low Stock</span>
                   </div>
-                  {lowStockItems.length > 0 && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700 dark:bg-amber-900 dark:text-amber-500">{lowStockItems.length}</span>}
+                  {lowStockItems.length > 0 && (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700 dark:bg-amber-900 dark:text-amber-500">
+                      {lowStockItems.length}
+                    </span>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {lowStockItems.length > 0 ? (
                   <div className="space-y-3">
                     {lowStockItems.slice(0, 4).map((item: Stock, idx) => (
-                      <div key={idx} className="flex items-center justify-between rounded-md bg-background/60 p-2 text-sm shadow-sm ring-1 ring-inset ring-border">
-                        <span className="truncate max-w-[120px] font-medium" title={item.product?.productName || item.product_name}>
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between rounded-md bg-background/60 p-2 text-sm shadow-sm ring-1 ring-inset ring-border"
+                      >
+                        <span
+                          className="max-w-[120px] truncate font-medium"
+                          title={item.product?.productName || item.product_name}
+                        >
                           {item.product?.productName || item.product_name || 'Unknown'}
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Qty: <span className="font-semibold text-foreground">{item.productStock}</span></span>
-                          <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                          <span className="text-xs text-muted-foreground">
+                            Qty:{' '}
+                            <span className="font-semibold text-foreground">
+                              {item.productStock}
+                            </span>
+                          </span>
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
                         </div>
                       </div>
                     ))}
                     {lowStockItems.length > 4 && (
-                      <Button variant="ghost" size="sm" className="w-full text-xs h-8" onClick={() => navigate('/stocks')}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-full text-xs"
+                        onClick={() => navigate('/stocks')}
+                      >
                         View all {lowStockItems.length} items
                       </Button>
                     )}
@@ -741,36 +778,72 @@ export function DashboardPage() {
             </Card>
 
             {/* Expired Products Alert */}
-            <Card className={cn("border-border/50 shadow-sm", expiredItems.length > 0 && "border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20")}>
+            <Card
+              className={cn(
+                'border-border/50 shadow-sm',
+                expiredItems.length > 0 &&
+                  'border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20'
+              )}
+            >
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center justify-between text-base">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className={cn("h-4 w-4", expiredItems.length > 0 ? "text-red-600 dark:text-red-500" : "text-muted-foreground")} />
+                    <AlertTriangle
+                      className={cn(
+                        'h-4 w-4',
+                        expiredItems.length > 0
+                          ? 'text-red-600 dark:text-red-500'
+                          : 'text-muted-foreground'
+                      )}
+                    />
                     <span>Expired Items</span>
                   </div>
-                  {expiredItems.length > 0 && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-[10px] font-bold text-red-700 dark:bg-red-900 dark:text-red-500">{expiredItems.length}</span>}
+                  {expiredItems.length > 0 && (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-[10px] font-bold text-red-700 dark:bg-red-900 dark:text-red-500">
+                      {expiredItems.length}
+                    </span>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {expiredItems.length > 0 ? (
                   <div className="space-y-3">
                     {expiredItems.slice(0, 4).map((item: Stock, idx) => (
-                      <div key={idx} className="flex items-center justify-between rounded-md bg-background/60 p-2 text-sm shadow-sm ring-1 ring-inset ring-border">
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between rounded-md bg-background/60 p-2 text-sm shadow-sm ring-1 ring-inset ring-border"
+                      >
                         <div className="flex flex-col">
-                          <span className="truncate max-w-[120px] font-medium" title={item.product?.productName || item.product_name}>
+                          <span
+                            className="max-w-[120px] truncate font-medium"
+                            title={item.product?.productName || item.product_name}
+                          >
                             {item.product?.productName || item.product_name || 'Unknown'}
                           </span>
-                          <span className="text-[10px] text-red-500 font-medium">
-                            Expired: {item.expire_date ? format(parseISO(item.expire_date), 'MMM dd') : 'N/A'}
+                          <span className="text-[10px] font-medium text-red-500">
+                            Expired:{' '}
+                            {item.expire_date
+                              ? format(parseISO(item.expire_date), 'MMM dd')
+                              : 'N/A'}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Qty: <span className="font-semibold text-foreground">{item.productStock}</span></span>
+                          <span className="text-xs text-muted-foreground">
+                            Qty:{' '}
+                            <span className="font-semibold text-foreground">
+                              {item.productStock}
+                            </span>
+                          </span>
                         </div>
                       </div>
                     ))}
                     {expiredItems.length > 4 && (
-                      <Button variant="ghost" size="sm" className="w-full text-xs h-8" onClick={() => navigate('/stocks')}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-full text-xs"
+                        onClick={() => navigate('/stocks')}
+                      >
                         View all {expiredItems.length} items
                       </Button>
                     )}
@@ -843,7 +916,5 @@ export function DashboardPage() {
     </div>
   )
 }
-
-
 
 export default DashboardPage

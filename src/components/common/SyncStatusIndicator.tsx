@@ -16,16 +16,8 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Progress } from '@/components/ui/progress'
 import { useSyncStore } from '@/stores/sync.store'
 import { useSyncQueue } from '@/hooks/useSyncQueue'
@@ -134,9 +126,7 @@ const PopoverContentView = memo(function PopoverContentView({
           ) : (
             <CloudOff className="h-5 w-5 text-destructive" />
           )}
-          <span className="font-semibold text-base">
-            {isOnline ? 'Connected' : 'Offline'}
-          </span>
+          <span className="text-base font-semibold">{isOnline ? 'Connected' : 'Offline'}</span>
         </div>
         <StatusBadge
           status={!isOnline ? 'offline' : isSyncing ? 'syncing' : 'idle'}
@@ -154,42 +144,30 @@ const PopoverContentView = memo(function PopoverContentView({
               {syncProgress.completed} / {syncProgress.total}
             </span>
           </div>
-          <Progress
-            value={(syncProgress.completed / syncProgress.total) * 100}
-            className="h-1.5"
-          />
+          <Progress value={(syncProgress.completed / syncProgress.total) * 100} className="h-1.5" />
         </div>
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 text-center py-2">
+      <div className="grid grid-cols-3 gap-3 py-2 text-center">
         <div className="rounded-lg bg-muted/50 p-3">
           <div className="text-2xl font-bold">{stats.pending}</div>
-          <div className="text-xs text-muted-foreground mt-1">Pending</div>
+          <div className="mt-1 text-xs text-muted-foreground">Pending</div>
         </div>
         <div className="rounded-lg bg-muted/50 p-3">
-          <div className="text-2xl font-bold text-destructive">
-            {stats.failed}
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">Failed</div>
+          <div className="text-2xl font-bold text-destructive">{stats.failed}</div>
+          <div className="mt-1 text-xs text-muted-foreground">Failed</div>
         </div>
         <div className="rounded-lg bg-muted/50 p-3">
-          <div className="text-2xl font-bold text-green-600">
-            {stats.completed}
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">Synced</div>
+          <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
+          <div className="mt-1 text-xs text-muted-foreground">Synced</div>
         </div>
       </div>
 
       {/* Actions */}
       <div className="flex flex-col gap-2 pt-1">
         {stats.pending > 0 && isOnline && (
-          <Button
-            size="sm"
-            onClick={onSyncNow}
-            disabled={isSyncing}
-            className="w-full h-9"
-          >
+          <Button size="sm" onClick={onSyncNow} disabled={isSyncing} className="h-9 w-full">
             {isSyncing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -210,7 +188,7 @@ const PopoverContentView = memo(function PopoverContentView({
             variant="outline"
             onClick={onRetryFailed}
             disabled={isSyncing}
-            className="w-full h-9"
+            className="h-9 w-full"
           >
             <AlertCircle className="mr-2 h-4 w-4" />
             Retry Failed ({stats.failed})
@@ -222,7 +200,7 @@ const PopoverContentView = memo(function PopoverContentView({
             size="sm"
             variant="ghost"
             onClick={onViewAll}
-            className="w-full justify-between h-9"
+            className="h-9 w-full justify-between"
           >
             View All Records
             <ChevronRight className="h-4 w-4" />
@@ -232,7 +210,7 @@ const PopoverContentView = memo(function PopoverContentView({
 
       {/* Offline message */}
       {!isOnline && (
-        <p className="text-xs text-muted-foreground text-center pt-2 pb-1">
+        <p className="pb-1 pt-2 text-center text-xs text-muted-foreground">
           Changes will sync when you're back online
         </p>
       )}
@@ -244,10 +222,7 @@ const PopoverContentView = memo(function PopoverContentView({
 // Main Component
 // ============================================
 
-function SyncStatusIndicatorComponent({
-  collapsed = false,
-  onViewAll,
-}: SyncStatusIndicatorProps) {
+function SyncStatusIndicatorComponent({ collapsed = false, onViewAll }: SyncStatusIndicatorProps) {
   const [open, setOpen] = useState(false)
 
   // Store state
@@ -276,7 +251,7 @@ function SyncStatusIndicatorComponent({
     if (stats.pending > 0) {
       return <RefreshCw className="h-5 w-5 text-muted-foreground" />
     }
-    return <Cloud className="h-5 w-5 text-green-500" />
+    return <Cloud className="h-5 w-5 text-muted-foreground" />
   }
 
   const getStatusLabel = () => {
@@ -293,10 +268,7 @@ function SyncStatusIndicatorComponent({
     <Button
       variant="ghost"
       size={collapsed ? 'icon' : 'sm'}
-      className={cn(
-        'relative',
-        collapsed ? 'h-10 w-10' : 'w-full justify-start gap-2'
-      )}
+      className={cn('relative', collapsed ? 'h-10 w-10' : 'w-full justify-start gap-2')}
       aria-label={`Sync status: ${getStatusLabel()}`}
     >
       <div className="relative">
@@ -307,7 +279,12 @@ function SyncStatusIndicatorComponent({
           </span>
         )}
       </div>
-      {!collapsed && <span>{getStatusLabel()}</span>}
+      {!collapsed && (
+        <span className="flex items-center gap-2">
+          <span>{getStatusLabel()}</span>
+          {getStatusLabel() === 'Synced' && <span className="h-2 w-2 rounded-full bg-green-500" />}
+        </span>
+      )}
     </Button>
   )
 
@@ -322,7 +299,7 @@ function SyncStatusIndicatorComponent({
             <p>{getStatusLabel()}</p>
           </TooltipContent>
         </Tooltip>
-        <PopoverContent side="right" align="start" className="p-4 w-auto min-w-max">
+        <PopoverContent side="right" align="start" className="w-auto min-w-max p-4">
           <PopoverContentView
             stats={stats}
             isOnline={isOnline}
@@ -340,7 +317,7 @@ function SyncStatusIndicatorComponent({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{triggerContent}</PopoverTrigger>
-      <PopoverContent side="right" align="start" className="p-4 w-auto min-w-max">
+      <PopoverContent side="right" align="start" className="w-auto min-w-max p-4">
         <PopoverContentView
           stats={stats}
           isOnline={isOnline}

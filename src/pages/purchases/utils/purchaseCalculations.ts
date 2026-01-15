@@ -4,6 +4,9 @@ export type PurchaseLineForTotals = Pick<PurchaseProductItem, 'quantities' | 'pr
 
 export interface PurchaseTotals {
   subtotal: number
+  discountAmount: number
+  vatAmount: number
+  shippingCharge: number
   totalAmount: number
   dueAmount: number
 }
@@ -15,8 +18,14 @@ const toNumber = (value: unknown): number => {
 
 export function calculatePurchaseTotals(
   lines: PurchaseLineForTotals[],
-  discountAmount: number = 0,
-  paidAmount: number = 0
+  options: {
+    discountAmount?: number
+    discountPercent?: number
+    discountType?: string
+    vatPercent?: number
+    shippingCharge?: number
+    paidAmount?: number
+  } = {}
 ): PurchaseTotals {
   const subtotal = lines.reduce((sum, line) => {
     const qty = Math.max(0, toNumber(line.quantities))
@@ -24,13 +33,27 @@ export function calculatePurchaseTotals(
     return sum + qty * price
   }, 0)
 
-  const discount = Math.max(0, toNumber(discountAmount))
-  const paid = Math.max(0, toNumber(paidAmount))
+  // Calculate discount
+  let discountAmount = 0
+  if (options.discountType === 'percentage' && options.discountPercent) {
+    discountAmount = (subtotal * toNumber(options.discountPercent)) / 100
+  } else {
+    discountAmount = Math.max(0, toNumber(options.discountAmount))
+  }
 
-  const totalAmount = Math.max(0, subtotal - discount)
+  const afterDiscount = Math.max(0, subtotal - discountAmount)
+
+  // Calculate VAT
+  const vatAmount = options.vatPercent ? (afterDiscount * toNumber(options.vatPercent)) / 100 : 0
+
+  // Add shipping
+  const shippingCharge = Math.max(0, toNumber(options.shippingCharge))
+
+  const totalAmount = Math.max(0, afterDiscount + vatAmount + shippingCharge)
+  const paid = Math.max(0, toNumber(options.paidAmount))
   const dueAmount = Math.max(0, totalAmount - paid)
 
-  return { subtotal, totalAmount, dueAmount }
+  return { subtotal, discountAmount, vatAmount, shippingCharge, totalAmount, dueAmount }
 }
 
 export interface PurchaseFormLikeValues {
@@ -40,7 +63,11 @@ export interface PurchaseFormLikeValues {
   payment_type_id?: number
   vat_id?: number
   vat_amount?: number
+  vat_percent?: number
   discountAmount?: number
+  discount_percent?: number
+  discount_type?: string
+  shipping_charge?: number
   paidAmount: number
   products: Array<{
     product_id: number
@@ -58,11 +85,14 @@ export interface PurchaseFormLikeValues {
 }
 
 export function buildCreatePurchaseRequest(values: PurchaseFormLikeValues): CreatePurchaseRequest {
-  const totals = calculatePurchaseTotals(
-    values.products,
-    values.discountAmount ?? 0,
-    values.paidAmount
-  )
+  const totals = calculatePurchaseTotals(values.products, {
+    discountAmount: values.discountAmount,
+    discountPercent: values.discount_percent,
+    discountType: values.discount_type,
+    vatPercent: values.vat_percent,
+    shippingCharge: values.shipping_charge,
+    paidAmount: values.paidAmount,
+  })
 
   return {
     party_id: values.party_id,
@@ -70,9 +100,12 @@ export function buildCreatePurchaseRequest(values: PurchaseFormLikeValues): Crea
     purchaseDate: values.purchaseDate || undefined,
     payment_type_id: values.payment_type_id,
     vat_id: values.vat_id,
-    vat_amount: values.vat_amount,
+    vat_amount: totals.vatAmount || values.vat_amount,
     totalAmount: totals.totalAmount,
-    discountAmount: values.discountAmount,
+    discountAmount: totals.discountAmount,
+    discount_percent: values.discount_percent,
+    discount_type: values.discount_type,
+    shipping_charge: totals.shippingCharge,
     paidAmount: values.paidAmount,
     dueAmount: totals.dueAmount,
     products: values.products.map((p) => ({
