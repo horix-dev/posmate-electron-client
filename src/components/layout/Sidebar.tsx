@@ -88,7 +88,10 @@ const mainNavItems: NavItem[] = [
 
 const secondaryNavItems: NavItem[] = [
   { title: 'Finance', href: '/finance', icon: Wallet },
+  { title: 'Reports', href: '/reports', icon: BarChart3 },
   { title: 'Stocks', href: '/stocks', icon: Package },
+  // { title: 'Invoices', href: '/invoices', icon: FileText },
+  // { title: 'Warehouses', href: '/warehouses', icon: Warehouse },
   { title: 'Product Settings', href: '/product-settings', icon: Tags },
   { title: 'Stock Adjustments', href: '/inventory/stock-adjustments', icon: ClipboardList },
   { title: 'Reports', href: '/reports', icon: BarChart3 },

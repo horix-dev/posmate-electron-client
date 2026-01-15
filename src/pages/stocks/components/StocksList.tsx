@@ -174,6 +174,7 @@ export function StocksList({
                 const productName = stock.product?.productName || stock.product_name || '-'
                 const productCode = stock.product?.productCode || stock.product_code || stock.batch_no || '-'
                 const categoryName = stock.category?.categoryName || stock.category_name || (stock.product as { category?: { categoryName?: string } })?.category?.categoryName || '-'
+                const variantName = stock.variant?.variant_name || stock.variant_name
                 const formattedExpiry = stock.expire_date
                   ? format(new Date(stock.expire_date), 'MMM dd, yyyy')
                   : '-'
@@ -191,7 +192,14 @@ export function StocksList({
                       />
                     </TableCell>
                     <TableCell className="font-medium text-sm">#{stock.product_id}</TableCell>
-                    <TableCell className="font-medium">{productName}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-col">
+                        <span>{productName}</span>
+                        {variantName && (
+                          <span className="text-xs text-muted-foreground">{variantName}</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{productCode}</TableCell>
                     <TableCell className="text-muted-foreground">{categoryName}</TableCell>
                     <TableCell className="text-muted-foreground">{formatCurrency(stock.productPurchasePrice)}</TableCell>

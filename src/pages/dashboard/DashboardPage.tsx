@@ -335,24 +335,14 @@ export function DashboardPage() {
         const salesList = Array.isArray(salesRes?.data) ? salesRes.data : []
         setRecentSales(salesList.slice(0, 5))
 
-        // Fetch low stock items & expired items
-        const stocksRes = await stocksListService.getAll({ limit: 100 })
-        const stocks = Array.isArray(stocksRes?.data) ? stocksRes.data : []
-        const lowStock = stocks
-          .filter((s: Stock) => s.productStock <= (s.product?.alert_qty || 10))
-          .slice(0, 5)
+        // Fetch low stock items using API filter (includes products & variants)
+        const lowStockRes = await stocksListService.getLowStocks({ limit: 100 })
+        const lowStock = Array.isArray(lowStockRes?.data) ? lowStockRes.data.slice(0, 5) : []
         setLowStockItems(lowStock)
 
-        // Calculate expired items
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const expired = stocks
-          .filter((s: Stock) => {
-            if (!s.expire_date) return false
-            const expDate = new Date(s.expire_date)
-            return expDate < today
-          })
-          .slice(0, 5)
+        // Fetch expired items using API filter (includes products & variants)
+        const expiredRes = await stocksListService.getExpiredStocks({ limit: 100 })
+        const expired = Array.isArray(expiredRes?.data) ? expiredRes.data.slice(0, 5) : []
         setExpiredItems(expired)
 
         // Calculate top products by revenue
@@ -736,28 +726,38 @@ export function DashboardPage() {
               <CardContent>
                 {lowStockItems.length > 0 ? (
                   <div className="space-y-3">
-                    {lowStockItems.slice(0, 4).map((item: Stock, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between rounded-md bg-background/60 p-2 text-sm shadow-sm ring-1 ring-inset ring-border"
-                      >
-                        <span
-                          className="max-w-[120px] truncate font-medium"
-                          title={item.product?.productName || item.product_name}
+                    {lowStockItems.slice(0, 4).map((item: Stock, idx) => {
+                      const variantName = item.variant?.variant_name || item.variant_name
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between rounded-md bg-background/60 p-2 text-sm shadow-sm ring-1 ring-inset ring-border"
                         >
-                          {item.product?.productName || item.product_name || 'Unknown'}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            Qty:{' '}
-                            <span className="font-semibold text-foreground">
-                              {item.productStock}
+                          <div className="flex flex-col">
+                            <span
+                              className="max-w-[120px] truncate font-medium"
+                              title={item.product?.productName || item.product_name}
+                            >
+                              {item.product?.productName || item.product_name || 'Unknown'}
                             </span>
-                          </span>
-                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+                            {variantName && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {variantName}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              Qty:{' '}
+                              <span className="font-semibold text-foreground">
+                                {item.productStock}
+                              </span>
+                            </span>
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                     {lowStockItems.length > 4 && (
                       <Button
                         variant="ghost"
@@ -808,35 +808,43 @@ export function DashboardPage() {
               <CardContent>
                 {expiredItems.length > 0 ? (
                   <div className="space-y-3">
-                    {expiredItems.slice(0, 4).map((item: Stock, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between rounded-md bg-background/60 p-2 text-sm shadow-sm ring-1 ring-inset ring-border"
-                      >
-                        <div className="flex flex-col">
-                          <span
-                            className="max-w-[120px] truncate font-medium"
-                            title={item.product?.productName || item.product_name}
-                          >
-                            {item.product?.productName || item.product_name || 'Unknown'}
-                          </span>
-                          <span className="text-[10px] font-medium text-red-500">
-                            Expired:{' '}
-                            {item.expire_date
-                              ? format(parseISO(item.expire_date), 'MMM dd')
-                              : 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            Qty:{' '}
-                            <span className="font-semibold text-foreground">
-                              {item.productStock}
+                    {expiredItems.slice(0, 4).map((item: Stock, idx) => {
+                      const variantName = item.variant?.variant_name || item.variant_name
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between rounded-md bg-background/60 p-2 text-sm shadow-sm ring-1 ring-inset ring-border"
+                        >
+                          <div className="flex flex-col">
+                            <span
+                              className="max-w-[120px] truncate font-medium"
+                              title={item.product?.productName || item.product_name}
+                            >
+                              {item.product?.productName || item.product_name || 'Unknown'}
                             </span>
-                          </span>
+                            {variantName && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {variantName}
+                              </span>
+                            )}
+                            <span className="text-[10px] font-medium text-red-500">
+                              Expired:{' '}
+                              {item.expire_date
+                                ? format(parseISO(item.expire_date), 'MMM dd')
+                                : 'N/A'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              Qty:{' '}
+                              <span className="font-semibold text-foreground">
+                                {item.productStock}
+                              </span>
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                     {expiredItems.length > 4 && (
                       <Button
                         variant="ghost"
