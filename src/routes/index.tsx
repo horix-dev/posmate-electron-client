@@ -16,8 +16,10 @@ const OtpPage = lazy(() => import('@/pages/auth/OtpPage'))
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'))
 const POSPage = lazy(() => import('@/pages/pos/POSPage'))
 const ProductsPage = lazy(() => import('@/pages/products/ProductsPage'))
+const ProductFormPage = lazy(() => import('@/pages/products/ProductFormPage'))
 const SalesPage = lazy(() => import('@/pages/sales/SalesPage'))
 const PurchasesPage = lazy(() => import('@/pages/purchases/PurchasesPage'))
+const NewPurchasePage = lazy(() => import('@/pages/purchases/NewPurchasePage'))
 const FinancePage = lazy(() => import('@/pages/finance/FinancePage'))
 const DuePage = lazy(() => import('@/pages/Due/DuePage'))
 const CustomersPage = lazy(() => import('@/pages/customers/CustomersPage'))
@@ -116,6 +118,22 @@ const router = routerCreator([
         ),
       },
       {
+        path: 'products/create',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <ProductFormPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'products/:id/edit',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <ProductFormPage />
+          </Suspense>
+        ),
+      },
+      {
         path: 'sales',
         element: (
           <Suspense fallback={<PageLoader />}>
@@ -128,6 +146,14 @@ const router = routerCreator([
         element: (
           <Suspense fallback={<PageLoader />}>
             <PurchasesPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'purchases/new',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <NewPurchasePage />
           </Suspense>
         ),
       },

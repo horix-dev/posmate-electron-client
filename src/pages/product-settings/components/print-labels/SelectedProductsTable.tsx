@@ -7,6 +7,8 @@ interface SelectedProduct {
   product_id: number
   product_name: string
   product_code: string
+  barcode?: string
+  variant_name?: string
   unit_price?: number
   stock?: number
   quantity: number
@@ -33,7 +35,7 @@ export function SelectedProductsTable({
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead className="w-[300px] font-semibold text-foreground">Items</TableHead>
-            <TableHead className="font-semibold text-foreground">Code</TableHead>
+            <TableHead className="font-semibold text-foreground">Barcode</TableHead>
             <TableHead className="font-semibold text-foreground">Batch</TableHead>
             <TableHead className="font-semibold text-foreground">Available Stock</TableHead>
             <TableHead className="font-semibold text-foreground">Qty / No Of Label</TableHead>
@@ -45,7 +47,7 @@ export function SelectedProductsTable({
           {products.map((product) => (
             <TableRow key={product.product_id}>
               <TableCell className="font-medium align-middle">{product.product_name}</TableCell>
-              <TableCell className="text-sm text-muted-foreground align-middle">{product.product_code}</TableCell>
+              <TableCell className="text-sm text-muted-foreground align-middle font-mono">{product.barcode || product.product_code}</TableCell>
               <TableCell className="align-middle">{product.batch_id || '-'}</TableCell>
               <TableCell className="align-middle">{product.stock || 0}</TableCell>
               <TableCell className="align-middle">

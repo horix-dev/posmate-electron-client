@@ -145,7 +145,7 @@ describe('UI Store', () => {
     it('should increment notification count', () => {
       localStorage.clear()
       const initialCount = useUIStore.getState().notificationCount
-      
+
       act(() => {
         useUIStore.getState().incrementNotificationCount()
         useUIStore.getState().incrementNotificationCount()
@@ -237,6 +237,16 @@ describe('UI Store', () => {
 
       expect(useUIStore.getState().posProductsPerPage).toBe(50)
     })
+
+    it('should enable/disable Smart Tender', () => {
+      expect(useUIStore.getState().smartTenderEnabled).toBe(true)
+
+      act(() => {
+        useUIStore.getState().setSmartTenderEnabled(false)
+      })
+
+      expect(useUIStore.getState().smartTenderEnabled).toBe(false)
+    })
   })
 
   describe('persistence', () => {
@@ -245,6 +255,7 @@ describe('UI Store', () => {
         useUIStore.getState().setTheme('dark')
         useUIStore.getState().setSoundEnabled(true)
         useUIStore.getState().setAutoPrintReceipt(true)
+        useUIStore.getState().setSmartTenderEnabled(false)
         useUIStore.getState().setPosViewMode('list')
       })
 
@@ -252,6 +263,7 @@ describe('UI Store', () => {
       expect(state.theme).toBe('dark')
       expect(state.soundEnabled).toBe(true)
       expect(state.autoPrintReceipt).toBe(true)
+      expect(state.smartTenderEnabled).toBe(false)
       expect(state.posViewMode).toBe('list')
     })
   })

@@ -25,6 +25,7 @@ import {
   CustomerSelectDialog,
   ShortcutsHelpDialog,
   VariantSelectionDialog,
+  SmartTender,
 } from './components'
 
 // Hooks
@@ -54,6 +55,7 @@ export function POSPage() {
   // Store & Data
   // ----------------------------------------
   const autoPrintReceipt = useUIStore((state) => state.autoPrintReceipt)
+  const smartTenderEnabled = useUIStore((state) => state.smartTenderEnabled)
   const business = useBusinessStore((state) => state.business)
 
   // Cart store
@@ -98,6 +100,7 @@ export function POSPage() {
   const [customersLoading, setCustomersLoading] = useState(false)
   const [variantDialogProduct, setVariantDialogProduct] = useState<Product | null>(null)
   const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false)
+  const [showSmartTender, setShowSmartTender] = useState(false)
 
   // ----------------------------------------
   // Data Fetching
@@ -162,10 +165,37 @@ export function POSPage() {
 
   const handleRemoveItem = useCallback(
     (itemId: string) => {
+      const item = cartItems.find((i) => i.id === itemId)
+      if (!item) return
+
+      // Store removed item for undo
+      const removedItem = { ...item }
+
+      // Remove from cart
       removeItem(itemId)
-      toast.info('Item removed from cart')
+
+      // Show undo toast
+      const name = item.variant?.sku
+        ? `${item.product.productName} (${item.variant.sku})`
+        : item.product.productName
+
+      toast.info(`${name} removed`, {
+        duration: 5000,
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            addItem(
+              removedItem.product,
+              removedItem.stock,
+              removedItem.quantity,
+              removedItem.variant
+            )
+            toast.success('Item restored')
+          },
+        },
+      })
     },
-    [removeItem]
+    [cartItems, removeItem, addItem]
   )
 
   const handleClearCart = useCallback(() => {
@@ -287,8 +317,29 @@ export function POSPage() {
       toast.warning('Cart is empty')
       return
     }
+    if (smartTenderEnabled) {
+      // Show SmartTender first for quick cash transactions
+      setShowSmartTender(true)
+      return
+    }
     openDialog('payment')
-  }, [cartItems.length, openDialog])
+  }, [cartItems.length, openDialog, smartTenderEnabled])
+
+  const handleSmartTenderSelect = useCallback(() => {
+    // Auto-select cash payment type if available
+    const cashPaymentType = paymentTypes?.find((pt) => pt.name.toLowerCase() === 'cash')
+    if (cashPaymentType) {
+      setPaymentType(cashPaymentType)
+    }
+    // Hide SmartTender and open payment dialog with the selected amount
+    // TODO: Pass amount to payment dialog for pre-filling
+    setShowSmartTender(false)
+    openDialog('payment')
+  }, [paymentTypes, setPaymentType, openDialog])
+
+  const handleCancelSmartTender = useCallback(() => {
+    setShowSmartTender(false)
+  }, [])
 
   const handlePaymentTypeChange = useCallback(
     (pt: PaymentType) => {
@@ -432,10 +483,15 @@ export function POSPage() {
           const matchedVariant = p.variants.find(
             (v) => v.barcode?.toLowerCase() === normalizedBarcode
           )
-          if (matchedVariant && matchedVariant.stocks?.[0]) {
-            // Found variant by barcode - add to cart with variant selected
-            handleAddToCart(p, matchedVariant.stocks[0], matchedVariant)
-            return
+          if (matchedVariant) {
+            // Find the stock that belongs to this variant
+            const variantId = Number(matchedVariant.id)
+            const variantStock = p.stocks?.find((s) => Number(s.variant_id) === variantId)
+            if (variantStock) {
+              // Found variant by barcode - add to cart with variant selected
+              handleAddToCart(p, variantStock, matchedVariant)
+              return
+            }
           }
         }
       }
@@ -582,51 +638,62 @@ export function POSPage() {
   // Render
   // ----------------------------------------
   return (
-    <div className="relative h-[calc(100vh-6rem)] bg-muted/30 p-4 pr-[28rem]">
-      {/* Products Section */}
-      <div className="h-full min-w-0 overflow-hidden rounded-xl border bg-background p-4 shadow-sm">
-        <ProductGrid
-          products={filteredProducts}
-          categories={categories}
-          selectedCategoryId={filters.categoryId}
-          searchQuery={filters.search}
-          isLoading={isLoading}
-          viewMode={viewMode}
-          onCategoryChange={handleCategoryChange}
-          onSearchChange={handleSearchChange}
-          onAddToCart={handleAddToCart}
-          onSelectVariant={handleOpenVariantSelection}
-          onViewModeChange={setViewMode}
-        />
-      </div>
+    <div className="h-full bg-muted/30">
+      {/* Two-column layout: Cart 60% | Products 40% */}
+      <div className="grid h-full grid-cols-5">
+        {/* Cart Panel (60%) */}
+        <aside className="col-span-3 min-h-0 border-r bg-background">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <CartSidebar
+              items={adaptedCartItems}
+              customer={customer}
+              paymentType={paymentType}
+              totals={cartTotals}
+              vatPercentage={vatPercentage}
+              heldCartsCount={heldCarts.length}
+              invoiceNumber={invoiceNumber || 'Loading...'}
+              onUpdateQuantity={(productId, quantity) => {
+                const item = cartItems.find((i) => i.product.id === productId)
+                if (item) handleUpdateQuantity(item.id, quantity)
+              }}
+              onRemoveItem={(productId) => {
+                const item = cartItems.find((i) => i.product.id === productId)
+                if (item) handleRemoveItem(item.id)
+              }}
+              onClearCart={handleClearCart}
+              onHoldCart={handleHoldCart}
+              onOpenHeldCarts={handleOpenHeldCarts}
+              onSelectCustomer={handleOpenCustomerDialog}
+              onPayment={handleOpenPayment}
+            />
+          </div>
+        </aside>
 
-      {/* Fixed Cart Panel (Right) */}
-      <aside className="fixed bottom-0 right-0 top-12 z-30 w-[28rem] border-l bg-background">
-        <div className="flex h-full flex-col overflow-hidden">
-          <CartSidebar
-            items={adaptedCartItems}
-            customer={customer}
-            paymentType={paymentType}
-            totals={cartTotals}
-            vatPercentage={vatPercentage}
-            heldCartsCount={heldCarts.length}
-            invoiceNumber={invoiceNumber || 'Loading...'}
-            onUpdateQuantity={(productId, quantity) => {
-              const item = cartItems.find((i) => i.product.id === productId)
-              if (item) handleUpdateQuantity(item.id, quantity)
-            }}
-            onRemoveItem={(productId) => {
-              const item = cartItems.find((i) => i.product.id === productId)
-              if (item) handleRemoveItem(item.id)
-            }}
-            onClearCart={handleClearCart}
-            onHoldCart={handleHoldCart}
-            onOpenHeldCarts={handleOpenHeldCarts}
-            onSelectCustomer={handleOpenCustomerDialog}
-            onPayment={handleOpenPayment}
-          />
-        </div>
-      </aside>
+        {/* Products Section (40%) */}
+        <section className="col-span-2 min-w-0 overflow-hidden border bg-background p-4 shadow-sm">
+          {showSmartTender ? (
+            <SmartTender
+              totalAmount={totalAmount}
+              onAmountSelect={handleSmartTenderSelect}
+              onCancel={handleCancelSmartTender}
+            />
+          ) : (
+            <ProductGrid
+              products={filteredProducts}
+              categories={categories}
+              selectedCategoryId={filters.categoryId}
+              searchQuery={filters.search}
+              isLoading={isLoading}
+              viewMode={viewMode}
+              onCategoryChange={handleCategoryChange}
+              onSearchChange={handleSearchChange}
+              onAddToCart={handleAddToCart}
+              onSelectVariant={handleOpenVariantSelection}
+              onViewModeChange={setViewMode}
+            />
+          )}
+        </section>
+      </div>
 
       {/* Keyboard Shortcuts Button */}
       <TooltipProvider>

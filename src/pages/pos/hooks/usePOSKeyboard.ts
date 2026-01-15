@@ -35,7 +35,7 @@ export interface UsePOSKeyboardOptions {
 // ============================================
 
 export const POS_SHORTCUT_KEYS = {
-  PAY: 'F12',
+  PAY: ' ',
   HOLD: 'F9',
   RECALL: 'F10',
   CLEAR: 'Escape',
@@ -53,10 +53,7 @@ export const POS_SHORTCUT_KEYS = {
  * Hook to handle POS keyboard shortcuts.
  * Provides common shortcuts for POS operations.
  */
-export function usePOSKeyboard({
-  shortcuts,
-  enabled = true,
-}: UsePOSKeyboardOptions): void {
+export function usePOSKeyboard({ shortcuts, enabled = true }: UsePOSKeyboardOptions): void {
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (!enabled) return
@@ -64,9 +61,7 @@ export function usePOSKeyboard({
       // Don't trigger shortcuts when typing in inputs (except function keys)
       const target = event.target as HTMLElement
       const isInputElement =
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
+        target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
 
       const isFunctionKey = event.key.startsWith('F') && event.key.length <= 3
 

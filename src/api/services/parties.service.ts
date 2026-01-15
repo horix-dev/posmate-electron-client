@@ -32,15 +32,22 @@ export const partiesService = {
 
   /**
    * Update existing party
+   * Uses POST with _method=PUT for Laravel method spoofing (required for multipart/form-data)
    */
   update: async (
     id: number,
     partyData: Partial<CreatePartyRequest> | FormData
   ): Promise<ApiResponse<Party>> => {
     const formData = partyData instanceof FormData ? partyData : buildPartyFormData(partyData)
-    const { data } = await api.put<ApiResponse<Party>>(API_ENDPOINTS.PARTIES.UPDATE(id), formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    // Add _method field for Laravel method spoofing
+    formData.append('_method', 'PUT')
+    const { data } = await api.post<ApiResponse<Party>>(
+      API_ENDPOINTS.PARTIES.UPDATE(id),
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }
+    )
     return data
   },
 

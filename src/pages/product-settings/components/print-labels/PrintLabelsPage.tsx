@@ -15,24 +15,37 @@ import {
 import { type BarcodeBatchItem } from '@/api/services/barcodes.service'
 import { type LabelPayload } from '@/api/services/print-labels.service'
 import { productsService } from '@/api/services/products.service'
+import { useCurrency } from '@/hooks/useCurrency'
+import { useBusinessStore } from '@/stores'
 
 import { LabelConfiguration } from './LabelConfiguration'
 import { SelectedProductsTable } from './SelectedProductsTable'
 import { BarcodePreview } from './BarcodePreview'
 
+// Type for Electron print API response
+type PrintResult = {
+  success: boolean
+  error?: string
+}
+
 // Replace SearchProductResult with a local option type (minimal fields we render)
 type ProductOption = {
-  id: number
+  optionValue: string
+  id: number // parent product id
   productName: string
   productCode: string
+  barcode?: string
   productSalePrice?: number
   productDealerPrice?: number
   productStock?: number
+  isVariant?: boolean
+  variantId?: number
 }
 
 interface SelectedProduct extends BarcodeBatchItem {
   product_name: string
   product_code: string
+  barcode?: string
   unit_price?: number
   stock?: number
 }
@@ -52,6 +65,9 @@ type BwipJs = {
 const bwip: BwipJs = bwipjs as unknown as BwipJs
 
 export function PrintLabelsPage() {
+  const { format: formatCurrency } = useCurrency()
+  const business = useBusinessStore((state) => state.business)
+
   type BarcodeTypeOpt = { value: string; label: string }
   type PaperSettingOpt = { value: string; label: string; name: string; dimensions?: string }
   const [settings, setSettings] = useState<{
@@ -64,9 +80,9 @@ export function PrintLabelsPage() {
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([])
 
   // Product dropdown options
-  const [productOptions, setProductOptions] = useState<ProductOption[]>([]) // <-- type updated
+  const [productOptions, setProductOptions] = useState<ProductOption[]>([])
   const [productOptionsLoading, setProductOptionsLoading] = useState(false)
-  const [selectedProductId, setSelectedProductId] = useState<string>('')
+  const [selectedOptionValue, setSelectedOptionValue] = useState<string>('')
   const [productSearch, setProductSearch] = useState('')
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
 
@@ -138,7 +154,9 @@ export function PrintLabelsPage() {
 
   // Helper to normalize product list response
   const normalizeItems = (products: unknown[]): ProductOption[] => {
-    return products.map((p: unknown) => {
+    const options: ProductOption[] = []
+
+    products.forEach((p: unknown) => {
       const product = p as Record<string, unknown>
       // Extract sale price: try root level, then stocks array
       let salePrice: number | undefined =
@@ -178,15 +196,80 @@ export function PrintLabelsPage() {
         }, 0)
       }
 
-      return {
+      // Extract barcode directly from API response (barcode field added to backend)
+      const baseBarcode: string = String(
+        product.barcode ?? product.productCode ?? product.code ?? ''
+      ).trim()
+
+      const baseOption: ProductOption = {
+        optionValue: `product-${product.id}`,
         id: Number(product.id),
         productName: String(product.productName ?? product.name ?? ''),
         productCode: String(product.productCode ?? product.code ?? ''),
-        productSalePrice: salePrice ? Number(salePrice) : 0,
-        productDealerPrice: dealerPrice ? Number(dealerPrice) : 0,
-        productStock: stock ? Number(stock) : 0,
+        barcode: baseBarcode || undefined,
+        productSalePrice: salePrice !== undefined ? Number(salePrice) : undefined,
+        productDealerPrice: dealerPrice !== undefined ? Number(dealerPrice) : undefined,
+        productStock: stock !== undefined ? Number(stock) : undefined,
+      }
+
+      options.push(baseOption)
+
+      if (Array.isArray(product.variants)) {
+        product.variants.forEach((v: unknown) => {
+          const variant = v as Record<string, unknown>
+          // Build variant name from attribute_values (matches ProductDetailsDialog logic)
+          let variantName = ''
+          if (variant.attribute_values && Array.isArray(variant.attribute_values)) {
+            variantName = (variant.attribute_values as Array<Record<string, unknown>>)
+              .map((av) => av.value)
+              .join(' / ')
+          }
+          // Fallback to variant_name from API if available
+          if (!variantName) {
+            variantName = String(variant.variant_name ?? '')
+          }
+          // Fallback to attributes_map if neither above is available
+          if (
+            !variantName &&
+            variant.attributes_map &&
+            typeof variant.attributes_map === 'object'
+          ) {
+            const attrMap = variant.attributes_map as Record<string, string>
+            variantName = Object.values(attrMap).join(' / ')
+          }
+
+          const variantBarcode = String(variant.barcode ?? variant.sku ?? '').trim()
+          const variantOption: ProductOption = {
+            optionValue: `variant-${product.id}-${variant.id}`,
+            id: Number(product.id),
+            variantId: Number(variant.id),
+            isVariant: true,
+            productName:
+              `${String(product.productName ?? product.name ?? '')} : ${variantName}`.trim(),
+            productCode:
+              String(variant.sku ?? variant.barcode ?? '').trim() || baseOption.productCode,
+            barcode: variantBarcode || baseBarcode || undefined,
+            productSalePrice:
+              variant.price !== undefined
+                ? Number(variant.price)
+                : salePrice !== undefined
+                  ? Number(salePrice)
+                  : undefined,
+            productDealerPrice: dealerPrice !== undefined ? Number(dealerPrice) : undefined,
+            productStock:
+              variant.total_stock !== undefined
+                ? Number(variant.total_stock)
+                : stock !== undefined
+                  ? Number(stock)
+                  : undefined,
+          }
+
+          options.push(variantOption)
+        })
       }
     })
+
+    return options
   }
 
   // Load initial product options for dropdown (server)
@@ -260,14 +343,14 @@ export function PrintLabelsPage() {
         // Duplicate labels based on quantity
         for (let i = 0; i < qty; i++) {
           // Generate placeholder barcode SVG (simple code128-like representation)
-          const barcodeValue = String(product.product_code)
+          const barcodeValue = String(product.barcode || product.product_code)
           const barcodeSvg = generateBarcodeSVG(barcodeValue, barcodeType)
 
           const label: LabelPayload = {
             barcode_svg: barcodeSvg,
             packing_date: product.packing_date || null,
             product_name: product.product_name,
-            business_name: 'Horix', // Default business name
+            business_name: business?.companyName || 'Business Name',
             product_code: product.product_code,
             product_price: product.unit_price || 0,
             product_stock: product.stock || 0,
@@ -352,9 +435,9 @@ export function PrintLabelsPage() {
         text: text,
         scale: 3,
         height: 10,
-        includetext: false,
+        includetext: true,
         textxalign: 'center',
-        backgroundcolor: 'ffffff'
+        backgroundcolor: 'ffffff',
       })
 
       return svg
@@ -383,14 +466,14 @@ export function PrintLabelsPage() {
       const qty = Number(product.quantity || 1)
 
       for (let i = 0; i < qty; i++) {
-        const barcodeValue = String(product.product_code || product.product_id)
+        const barcodeValue = String(product.barcode || product.product_code)
         const barcodeSvg = generateBarcodeSVG(barcodeValue, barcodeType)
 
         const label: LabelPayload = {
           barcode_svg: barcodeSvg,
           packing_date: product.packing_date || null,
           product_name: product.product_name,
-          business_name: 'Horix',
+          business_name: business?.companyName || 'KC',
           product_code: product.product_code,
           product_price: product.unit_price || 0,
           product_stock: product.stock || 0,
@@ -409,10 +492,13 @@ export function PrintLabelsPage() {
       }
     }
 
-    const paperSettings: Record<string, { width: string; height: string; cols: number }> = {
-      '1': { width: '38mm', height: '25mm', cols: 4 },
-      '2': { width: '50mm', height: '25mm', cols: 3 },
-      '3': { width: '50.8mm', height: '31.75mm', cols: 4 },
+    const paperSettings: Record<
+      string,
+      { width: string; height: string; labelHeight: string; gap: string; cols: number }
+    > = {
+      '1': { width: '38mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 4 },
+      '2': { width: '50mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 3 },
+      '3': { width: '50.8mm', height: '31.75mm', labelHeight: '31.75mm', gap: '10mm', cols: 4 },
     }
     const dims = paperSettings[barcodeSetting] || paperSettings['1']
 
@@ -425,12 +511,8 @@ export function PrintLabelsPage() {
           : `data:image/png;base64,${barcode.barcode_svg}`
         return `
       <div class="label" style="width: ${dims.width}; height: ${dims.height};">
-        ${barcode.show_business_name && barcode.business_name ? `<div class="business-name" style="font-size: ${convertPtToPixels(barcode.business_name_size)}px;">${barcode.business_name}</div>` : ''}
-        ${barcode.show_product_name && barcode.product_name ? `<div class="product-name" style="font-size: ${convertPtToPixels(barcode.product_name_size)}px;">${barcode.product_name}</div>` : ''}
-        ${barcode.show_product_price && typeof barcode.product_price === 'number' ? `<div class="price" style="font-size: ${convertPtToPixels(barcode.product_price_size)}px;">Price: $${barcode.product_price.toFixed(2)}</div>` : ''}
+        ${barcode.show_product_price && typeof barcode.product_price === 'number' ? `<div class="price" style="font-size: ${convertPtToPixels(barcode.product_price_size)}px;">Price: ${formatCurrency(barcode.product_price)}</div>` : ''}
         <div class="barcode"><img src="${svgSrc}" alt="barcode"/></div>
-        ${barcode.show_product_code && barcode.product_code ? `<div class="product-code" style="font-size: ${convertPtToPixels(barcode.product_code_size)}px;">${barcode.product_code}</div>` : ''}
-        ${barcode.show_pack_date && barcode.packing_date ? `<div class="pack-date" style="font-size: ${convertPtToPixels(barcode.pack_date_size)}px;">${barcode.packing_date}</div>` : ''}
       </div>
     `
       })
@@ -454,9 +536,9 @@ export function PrintLabelsPage() {
               background-color: white;
             }
             
-            /* Page Setup */
+            /* Page Setup - page height = label (25mm) + gap (10mm) = 35mm total */
             @page {
-              ${isSheet ? 'size: A4; margin: 0.25in;' : `size: ${dims.width} ${dims.height}; margin: 0;`}
+              ${isSheet ? 'size: A4; margin: 0.25in;' : `size: 50mm 35mm landscape; margin: 0; padding: 0;`}
             }
 
             .container { 
@@ -467,23 +549,21 @@ export function PrintLabelsPage() {
                   : 'display: block;'
               }
             }
-            
+
             .label { 
               width: ${dims.width}; 
-              height: ${dims.height}; 
+              height: ${dims.labelHeight}; 
               border: 1px dotted #ccc; 
               display: flex; 
               flex-direction: column; 
-              justify-content: center; 
+              justify-content: space-between; 
               align-items: center; 
-              padding: 2px; 
+              padding: 0px 0px 0px 0px; 
               text-align: center; 
               overflow: hidden; 
               background: white;
               position: relative;
-              /* Force page break for rolls */
-              ${!isSheet ? 'page-break-after: always; break-after: page;' : ''}
-              margin-bottom: ${!isSheet ? '0' : '0.125in'};
+              ${!isSheet ? `page-break-after: always; break-after: page;` : `margin-bottom: 0.125in;`}
             }
             
             /* Hide border for print */
@@ -494,7 +574,6 @@ export function PrintLabelsPage() {
               .label:last-child { 
                 page-break-after: auto; 
                 break-after: auto; 
-                margin-bottom: 0;
               }
               .container {
                 /* Ensure grid works on print */
@@ -547,24 +626,84 @@ export function PrintLabelsPage() {
 
     setPreviewLoading(true)
     try {
+      // Get current paper settings
+      const paperSettings: Record<
+        string,
+        { width: string; height: string; labelHeight: string; gap: string; cols: number }
+      > = {
+        '1': { width: '38mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 4 },
+        '2': { width: '50mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 3 },
+        '3': { width: '50.8mm', height: '31.75mm', labelHeight: '31.75mm', gap: '10mm', cols: 4 },
+      }
+      const dims = paperSettings[barcodeSetting] || paperSettings['1']
+
       const printHTML = generatePrintHTML()
-      const printWindow = window.open('', '_blank', 'width=800,height=600')
 
-      if (printWindow) {
-        printWindow.document.write(printHTML)
-        printWindow.document.close()
+      // Convert mm to microns for page size (1mm = 1000 microns)
+      // Page height = label height + gap between stickers
+      const widthMm = parseInt(dims.width)
+      const gapMm = 10 // 10mm gap between stickers
+      const heightMm = parseInt(dims.labelHeight) + gapMm
+      const pageWidth = Math.round(widthMm * 1000) // 50mm = 50,000 microns
+      const pageHeight = Math.round(heightMm * 1000) // 28mm = 28,000 microns
 
-        // Wait for images to load before printing
-        printWindow.onload = () => {
-          // We can print automatically or let the user see the preview first
-          setTimeout(() => {
-            printWindow.print()
-          }, 500)
+      // If running inside Electron, prefer the native silent-print path
+      // exposed via the preload as `electronAPI.print.receiptHTMLWithPageSize`.
+      // Fallback to opening a new window for browser environments.
+      try {
+        const electronWindow = window as unknown as {
+          electronAPI?: {
+            print?: {
+              receiptHTMLWithPageSize?: (
+                html: string,
+                pageSize: { width: number; height: number }
+              ) => Promise<PrintResult>
+              receiptHTML?: (html: string) => Promise<PrintResult>
+            }
+          }
         }
 
-        toast.success('Print window opened')
-      } else {
-        toast.error('Failed to open print window')
+        if (
+          typeof window !== 'undefined' &&
+          electronWindow.electronAPI?.print?.receiptHTMLWithPageSize
+        ) {
+          const result = await electronWindow.electronAPI.print.receiptHTMLWithPageSize(printHTML, {
+            width: pageWidth,
+            height: pageHeight,
+          })
+          if (result && result.success) {
+            toast.success('Sent to printer')
+          } else {
+            toast.error('Printer error: ' + (result?.error || ''))
+          }
+        } else if (
+          typeof window !== 'undefined' &&
+          electronWindow.electronAPI?.print?.receiptHTML
+        ) {
+          const result = await electronWindow.electronAPI.print.receiptHTML(printHTML)
+          if (result && result.success) {
+            toast.success('Sent to printer')
+          } else {
+            toast.error('Printer error')
+          }
+        } else {
+          const printWindow = window.open('', '_blank', 'width=800,height=600')
+          if (printWindow) {
+            printWindow.document.write(printHTML)
+            printWindow.document.close()
+            printWindow.onload = () => {
+              setTimeout(() => {
+                printWindow.print()
+              }, 500)
+            }
+            toast.success('Print window opened')
+          } else {
+            toast.error('Failed to open print window')
+          }
+        }
+      } catch (err) {
+        console.error('Print invocation failed:', err)
+        toast.error('Failed to invoke print')
       }
     } catch (err) {
       toast.error('Failed to generate labels')
@@ -611,8 +750,8 @@ export function PrintLabelsPage() {
                       <span className="flex items-center gap-2 truncate text-left">
                         <Search className="h-4 w-4 text-muted-foreground" />
                         <span className="truncate">
-                          {selectedProductId
-                            ? productOptions.find((p) => String(p.id) === selectedProductId)
+                          {selectedOptionValue
+                            ? productOptions.find((p) => p.optionValue === selectedOptionValue)
                                 ?.productName
                             : productOptionsLoading
                               ? 'Loading products...'
@@ -659,11 +798,30 @@ export function PrintLabelsPage() {
                                     const displayPrice = p.productSalePrice ?? p.productDealerPrice
                                     return (
                                       <CommandItem
-                                        key={p.id}
-                                        value={String(p.id)}
+                                        key={p.optionValue}
+                                        value={p.optionValue}
                                         onSelect={async () => {
-                                          setSelectedProductId(String(p.id))
+                                          setSelectedOptionValue(p.optionValue)
                                           setProductPopoverOpen(false)
+
+                                          // For variants, we already have the needed values; no extra fetch required.
+                                          if (p.isVariant && p.variantId) {
+                                            handleAddProduct({
+                                              product_id: p.variantId,
+                                              product_name: p.productName,
+                                              product_code: p.productCode,
+                                              barcode: p.barcode,
+                                              unit_price: p.productSalePrice ?? 0,
+                                              stock: p.productStock ?? 0,
+                                              quantity: 1,
+                                              batch_id: null,
+                                              packing_date: null,
+                                            })
+                                            setSelectedOptionValue('')
+                                            setProductSearch('')
+                                            return
+                                          }
+
                                           try {
                                             const detailResp = await productsService.getById(p.id)
                                             const d = ((detailResp &&
@@ -709,17 +867,26 @@ export function PrintLabelsPage() {
                                                   | undefined) ?? undefined
                                             }
 
+                                            const barcodeValue = String(
+                                              d.barcode ??
+                                                p.barcode ??
+                                                d.productCode ??
+                                                d.code ??
+                                                ''
+                                            )
+
                                             handleAddProduct({
                                               product_id: p.id,
                                               product_name: String(d.productName ?? d.name ?? ''),
                                               product_code: String(d.productCode ?? d.code ?? ''),
+                                              barcode: barcodeValue,
                                               unit_price: salePrice ? Number(salePrice) : 0,
                                               stock: stock ? Number(stock) : 0,
                                               quantity: 1,
                                               batch_id: null,
                                               packing_date: null,
                                             })
-                                            setSelectedProductId('')
+                                            setSelectedOptionValue('')
                                             setProductSearch('')
                                           } catch (err) {
                                             console.error('Failed to fetch product details:', err)
@@ -730,7 +897,7 @@ export function PrintLabelsPage() {
                                         <div className="flex w-full flex-col text-left">
                                           <span className="font-medium">{p.productName}</span>
                                           <div className="mt-0.5 flex justify-between text-xs text-muted-foreground">
-                                            <span>Code: {p.productCode}</span>
+                                            <span>Barcode: {p.barcode || '-'}</span>
                                             <span>Price: {displayPrice ?? '-'}</span>
                                             <span>Stock: {p.productStock ?? 0}</span>
                                           </div>

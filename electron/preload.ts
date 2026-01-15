@@ -32,6 +32,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
         })
       })
     },
+    receiptHTMLWithPageSize: (htmlContent: string, pageSize: { width: number; height: number }) => {
+      return new Promise((resolve) => {
+        // Send print request with page size
+        ipcRenderer.send('print-receipt-html-with-page-size', htmlContent, pageSize)
+        
+        // Listen for reply (one-time)
+        ipcRenderer.once('print-receipt-html-result', (_event, result) => {
+          resolve(result)
+        })
+      })
+    },
   },
 
   // SQLite Database
@@ -164,6 +175,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     removeUpdateListener: () => {
       ipcRenderer.removeAllListeners('update-status')
     },
+  },
+
+  // Image Fetch (proxy through main process to bypass renderer CORS)
+  images: {
+    fetch: (url: string, headers?: Record<string, string>) =>
+      ipcRenderer.invoke('fetch-image', { url, headers }),
   },
 
   // Event listeners

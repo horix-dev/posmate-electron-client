@@ -6,6 +6,16 @@ import Store from 'electron-store'
 import { sqliteService } from './sqlite.service'
 import { initAutoUpdater, getAutoUpdater } from './autoUpdater'
 
+type FetchImageRequest = {
+  url: string
+  headers?: Record<string, string>
+}
+
+type FetchImageResponse = {
+  mimeType: string
+  data: Uint8Array
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Initialize electron-store for secure settings
@@ -53,18 +63,25 @@ process.env.APP_ROOT = path.join(__dirname, '..')
 // .env.development - for QA/testers (built dev releases from CI/CD)
 // .env.production - for production releases
 
+// For packaged apps, use app.isPackaged as the source of truth
+// In packaged mode: assume production/stable (latest)
+// In dev mode: allow reading from .env files
+const isProductionRuntime = app.isPackaged || process.env.NODE_ENV === 'production'
+
 // Try .env.local first (local development override)
 // NOTE: `.env.local` should override anything set earlier in dev runs.
 loadEnvFile('.env.local', { overrideExisting: true })
 
 // If not found, try environment-specific file
 if (!process.env.UPDATE_CHANNEL) {
-  loadEnvFile(process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development')
+  loadEnvFile(isProductionRuntime ? '.env.production' : '.env.development')
 }
 
 if (!process.env.UPDATE_CHANNEL) {
   // Fallback: set default based on build type
-  process.env.UPDATE_CHANNEL = process.env.NODE_ENV === 'production' ? 'latest' : 'beta'
+  // In packaged app (app.isPackaged=true) → production/stable (latest)
+  // In dev mode → beta for testing
+  process.env.UPDATE_CHANNEL = app.isPackaged ? 'latest' : 'beta'
 }
 
 // Helpful startup log to confirm which channel is resolved at runtime
@@ -96,7 +113,7 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
+    icon: path.join(process.env.VITE_PUBLIC, 'posmate.png'),
     title: 'POSMATE',
     show: false, // Show when ready to prevent visual flash
     frame: false, // Hide native title bar and frame
@@ -303,7 +320,190 @@ ipcMain.handle('secure-store-clear', () => {
   return true
 })
 
-// Silent printing handler
+// ============================================
+// Image Fetch Proxy (Bypass Renderer CORS)
+// ============================================
+
+function getAllowedImageHosts(): Set<string> {
+  const allowed = new Set<string>()
+
+  const addHostFromUrl = (value: string | undefined) => {
+    if (!value) return
+    try {
+      allowed.add(new URL(value).host)
+    } catch {
+      // ignore invalid URL
+    }
+  }
+
+  // Primary API base (present in .env.* and loaded by loadEnvFile)
+  addHostFromUrl(process.env.VITE_API_BASE_URL)
+
+  // Fallback production host used in src/lib/utils.ts
+  addHostFromUrl('https://api.posmate.app')
+
+  return allowed
+}
+
+function resolveRequestedUrl(rawUrl: string): URL {
+  // Support relative URLs by resolving against the API base.
+  if (rawUrl.startsWith('/')) {
+    const base = process.env.VITE_API_BASE_URL
+    if (!base) {
+      throw new Error('Cannot resolve relative URL: missing VITE_API_BASE_URL')
+    }
+    return new URL(rawUrl, base)
+  }
+  return new URL(rawUrl)
+}
+
+function sanitizeHeaders(headers: Record<string, string> | undefined): Record<string, string> {
+  if (!headers) return {}
+
+  // Very small allowlist; expand only if necessary.
+  const allowedKeys = new Set(['authorization', 'accept'])
+  const out: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(headers)) {
+    const normalizedKey = key.toLowerCase().trim()
+    if (!allowedKeys.has(normalizedKey)) continue
+    if (typeof value !== 'string') continue
+    // Basic size guard
+    if (value.length > 8192) continue
+    out[normalizedKey] = value
+  }
+
+  return out
+}
+
+async function fetchWithRedirectChecks(
+  initialUrl: URL,
+  init: RequestInit,
+  allowedHosts: Set<string>,
+  maxRedirects = 5
+): Promise<Response> {
+  let currentUrl = initialUrl
+
+  for (let i = 0; i <= maxRedirects; i++) {
+    const res = await fetch(currentUrl, { ...init, redirect: 'manual' })
+    const location = res.headers.get('location')
+
+    if (res.status >= 300 && res.status < 400 && location) {
+      const nextUrl = new URL(location, currentUrl)
+      if (!allowedHosts.has(nextUrl.host)) {
+        throw new Error(`Redirect blocked to untrusted host: ${nextUrl.host}`)
+      }
+      currentUrl = nextUrl
+      continue
+    }
+
+    return res
+  }
+
+  throw new Error('Too many redirects')
+}
+
+async function readBodyWithLimit(response: Response, maxBytes: number, onTooLarge: () => void): Promise<Uint8Array> {
+  const contentLength = response.headers.get('content-length')
+  if (contentLength) {
+    const length = Number(contentLength)
+    if (Number.isFinite(length) && length > maxBytes) {
+      onTooLarge()
+      throw new Error('Image too large')
+    }
+  }
+
+  const body: any = response.body
+  const reader = body?.getReader?.()
+  if (!reader) {
+    const ab = await response.arrayBuffer()
+    const bytes = new Uint8Array(ab)
+    if (bytes.byteLength > maxBytes) {
+      onTooLarge()
+      throw new Error('Image too large')
+    }
+    return bytes
+  }
+
+  const chunks: Uint8Array[] = []
+  let received = 0
+  let done = false
+
+  while (!done) {
+    const result = await reader.read()
+    done = result.done
+    const value = result.value
+    if (done) break
+    if (!(value instanceof Uint8Array)) continue
+
+    received += value.byteLength
+    if (received > maxBytes) {
+      onTooLarge()
+      throw new Error('Image too large')
+    }
+
+    chunks.push(value)
+  }
+
+  const out = new Uint8Array(received)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return out
+}
+
+ipcMain.handle('fetch-image', async (_event, request: FetchImageRequest): Promise<FetchImageResponse> => {
+  const allowedHosts = getAllowedImageHosts()
+
+  const requestedUrl = resolveRequestedUrl(request?.url)
+  if (requestedUrl.protocol !== 'http:' && requestedUrl.protocol !== 'https:') {
+    throw new Error('Only http/https URLs are allowed')
+  }
+
+  if (!allowedHosts.has(requestedUrl.host)) {
+    throw new Error(`Blocked image host: ${requestedUrl.host}`)
+  }
+
+  const controller = new AbortController()
+  const timeoutMs = 15000
+  const maxBytes = 10 * 1024 * 1024 // 10MB
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const headers = sanitizeHeaders(request?.headers)
+
+    const res = await fetchWithRedirectChecks(
+      requestedUrl,
+      {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+      },
+      allowedHosts
+    )
+
+    if (!res.ok) {
+      throw new Error(`Failed to fetch image (${res.status})`)
+    }
+
+    const contentType = res.headers.get('content-type') || ''
+    if (!contentType.toLowerCase().startsWith('image/')) {
+      throw new Error(`Unexpected content-type: ${contentType || 'unknown'}`)
+    }
+
+    const bytes = await readBodyWithLimit(res, maxBytes, () => controller.abort())
+    return {
+      mimeType: contentType || 'image/jpeg',
+      data: bytes,
+    }
+  } finally {
+    clearTimeout(timer)
+  }
+})
+
+// Silent printing handler (URL-based)
 ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
   try {
     // Create hidden window to load and print the invoice
@@ -346,6 +546,147 @@ ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     }
+  }
+})
+
+// Silent printing handler (HTML-based) - EXACT copy of working hpos client
+ipcMain.on('print-receipt-html', async (event, htmlContent: string) => {
+  console.log('🖨️ Print receipt requested')
+  
+  const printWindow = new BrowserWindow({
+    width: 800,
+    height: 1200,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'print-preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: false, // CRITICAL: Must be false for silent printing to work
+      sandbox: false,
+    },
+  })
+
+  try {
+    // Load HTML content
+    await printWindow.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`
+    )
+    console.log('🖨️ Receipt HTML loaded')
+
+    // Wait for content to render
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    // Get printers
+    const printers = await printWindow.webContents.getPrintersAsync()
+    const defaultPrinter = printers.find((p) => p.isDefault)
+    
+    if (!defaultPrinter) {
+      console.error('🖨️ No default printer found')
+      printWindow.close()
+      event.reply('print-receipt-html-result', { success: false, error: 'No default printer found' })
+      return
+    }
+
+    console.log('🖨️ Printing to:', defaultPrinter.name)
+    console.log('🖨️ Available printers:', printers.map(p => `${p.name}${p.isDefault ? ' (default)' : ''}`).join(', '))
+
+    // Print silently
+    printWindow.webContents.print(
+      {
+        silent: true,
+        printBackground: true,
+        deviceName: defaultPrinter.name,
+        margins: { marginType: 'none' },
+        pageSize: { width: 72000, height: 297000 },
+        scaleFactor: 100,
+      },
+      (success, errorType) => {
+        if (success) {
+          console.log('🖨️ Print successful')
+          event.reply('print-receipt-html-result', { success: true })
+        } else {
+          console.error('🖨️ Print failed:', errorType)
+          event.reply('print-receipt-html-result', { success: false, error: errorType })
+        }
+        printWindow.close()
+      }
+    )
+  } catch (error) {
+    console.error('🖨️ Print receipt failed:', error)
+    printWindow.close()
+    event.reply('print-receipt-html-result', { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// Silent printing handler with custom page size for labels
+ipcMain.on('print-receipt-html-with-page-size', async (event, htmlContent: string, pageSize: { width: number; height: number }) => {
+  console.log('🖨️ Print labels requested with custom page size:', pageSize)
+  
+  const printWindow = new BrowserWindow({
+    width: 800,
+    height: 1200,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'print-preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: false, // CRITICAL: Must be false for silent printing to work
+      sandbox: false,
+    },
+  })
+
+  try {
+    // Load HTML content
+    await printWindow.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`
+    )
+    console.log('🖨️ Label HTML loaded')
+
+    // Wait for content to render
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    // Get printers
+    const printers = await printWindow.webContents.getPrintersAsync()
+    const defaultPrinter = printers.find((p) => p.isDefault)
+    
+    if (!defaultPrinter) {
+      console.error('🖨️ No default printer found')
+      printWindow.close()
+      event.reply('print-receipt-html-result', { success: false, error: 'No default printer found' })
+      return
+    }
+
+    console.log('🖨️ Printing to:', defaultPrinter.name)
+
+    // Print silently with custom page size
+    printWindow.webContents.print(
+      {
+        silent: true,
+        printBackground: true,
+        deviceName: defaultPrinter.name,
+        margins: { marginType: 'none' },
+        pageSize: pageSize, // Use custom page size (width/height in microns)
+        scaleFactor: 100,
+      },
+      (success, errorType) => {
+        if (success) {
+          console.log('🖨️ Label print successful')
+          event.reply('print-receipt-html-result', { success: true })
+        } else {
+          console.error('🖨️ Label print failed:', errorType)
+          event.reply('print-receipt-html-result', { success: false, error: errorType })
+        }
+        printWindow.close()
+      }
+    )
+  } catch (error) {
+    console.error('🖨️ Label print failed:', error)
+    printWindow.close()
+    event.reply('print-receipt-html-result', { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
   }
 })
 
