@@ -17,6 +17,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { storage } from '@/lib/storage'
 import type { Product, Stock, PaymentType, Party as Customer } from '@/types/api.types'
 import type { ProductVariant } from '@/types/variant.types'
+import type { LocalProduct } from '@/lib/db/schema'
 
 // Components
 import {
