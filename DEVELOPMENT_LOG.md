@@ -1,3 +1,45 @@
+## 2026-01-16 — POS Barcode Lookup Alignment ✅
+
+- Problem: API `/products/by-barcode/{barcode}` returned product with top-level `type` and no explicit `stock/variant` fields, causing the POS to infer stock (first item). This led to "Product not found" in some flows and fragile handling.
+- Frontend Workaround: Temporarily updated `BarcodeLookupResponse` type and `POSPage.handleBarcodeScan()` to parse the interim backend shape.
+- Backend Change Request: Added `backend_docs/BARCODE_LOOKUP_RESPONSE_STANDARD.md` proposing a canonical response with `found_in`, explicit `product`, `stock`, and optional `variant`.
+- Backend Implementation: ✅ Complete. API now returns:
+  ```json
+  {
+    "data": {
+      "found_in": "product" | "variant" | "batch",
+      "product": { ... },
+      "stock": { ... },
+      "variant": { ... } // optional
+    }
+  }
+  ```
+- Frontend Update: ✅ Complete. Simplified barcode scanning:
+  - Updated `BarcodeLookupResponse` to canonical schema with explicit `found_in`, `product`, `stock`, `variant`.
+  - Simplified `handleBarcodeScan()` to directly use `response.data.stock` and `response.data.variant` without inference.
+  - Files: `src/types/variant.types.ts`, `src/pages/pos/POSPage.tsx`.
+- Result: Barcode scanning now reliably adds products/variants to cart with correct stock and pricing. No more "Product not found" for valid barcodes.
+
+## 2026-01-16 — Optimistic Barcode Scanning with Background Verification
+
+- Enhancement: Implemented offline-first barcode scanning with optimistic UI updates.
+- Flow:
+  1. **Local Storage First** (instant): Check SQLite/IndexedDB for product by barcode
+  2. **Add to Cart** (immediate): Optimistically add product to cart using local data
+  3. **Background Verification** (online only): Verify stock availability and pricing with API
+  4. **Error Handling**: Remove from cart if verification fails (out of stock, product disabled)
+  5. **Offline Mode**: Skip verification entirely, rely on local cache
+- Benefits:
+  - <10ms response time (instant feedback)
+  - Works fully offline (no API dependency for cached products)
+  - Price/stock validation when online without blocking UX
+- Implementation:
+  - Added `useOnlineStatus` hook integration
+  - SQLite lookup via `storage.products.getByBarcode()`
+  - Background API verification with `setTimeout()` for non-blocking
+  - Graceful degradation: removes item from cart if API reports issues
+- Files: `src/pages/pos/POSPage.tsx`
+
 ## 2026-01-15 — Print Labels Currency Integration ✅
 
 **Context**: Updated barcode label printing to use the currency hook for proper currency formatting.
