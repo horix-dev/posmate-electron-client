@@ -64,7 +64,7 @@ jobs:
       - name: Build app (Production)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VITE_API_BASE_URL: http://146.190.6.102:8001
+          VITE_API_BASE_URL: http://146.190.6.102:8000
           UPDATE_CHANNEL: latest
         run: npm run build
 
