@@ -424,15 +424,17 @@ export interface VariantStockSummaryResponse {
 
 /**
  * Barcode lookup response - universal barcode search
+ * Canonical schema with explicit product, stock, and optional variant
  */
 export interface BarcodeLookupResponse {
   message: string
   data: {
     found_in: 'product' | 'variant' | 'batch'
     product: import('./api.types').Product
+    stock: import('./api.types').Stock
     variant?: ProductVariant
-    stock?: import('./api.types').Stock
   } | null
+  _server_timestamp?: string
 }
 
 /**
