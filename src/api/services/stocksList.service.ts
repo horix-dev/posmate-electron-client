@@ -37,7 +37,9 @@ export const stocksListService = {
   /**
    * Get low stock items
    */
-  getLowStocks: async (params?: Omit<GetStocksParams, 'stock_status'>): Promise<PaginatedApiResponse<Stock[]>> => {
+  getLowStocks: async (
+    params?: Omit<GetStocksParams, 'stock_status'>
+  ): Promise<PaginatedApiResponse<Stock[]>> => {
     const { data } = await api.get<PaginatedApiResponse<Stock[]>>(API_ENDPOINTS.STOCKS.LIST, {
       params: {
         ...params,
@@ -50,7 +52,9 @@ export const stocksListService = {
   /**
    * Get expired stock items
    */
-  getExpiredStocks: async (params?: Omit<GetStocksParams, 'expiry_status'>): Promise<PaginatedApiResponse<Stock[]>> => {
+  getExpiredStocks: async (
+    params?: Omit<GetStocksParams, 'expiry_status'>
+  ): Promise<PaginatedApiResponse<Stock[]>> => {
     const { data } = await api.get<PaginatedApiResponse<Stock[]>>(API_ENDPOINTS.STOCKS.LIST, {
       params: {
         ...params,
@@ -63,7 +67,9 @@ export const stocksListService = {
   /**
    * Get expiring soon stocks
    */
-  getExpiringStocks: async (params?: Omit<GetStocksParams, 'expiry_status'> & { days?: number }): Promise<PaginatedApiResponse<Stock[]>> => {
+  getExpiringStocks: async (
+    params?: Omit<GetStocksParams, 'expiry_status'> & { days?: number }
+  ): Promise<PaginatedApiResponse<Stock[]>> => {
     const { data } = await api.get<PaginatedApiResponse<Stock[]>>(API_ENDPOINTS.STOCKS.LIST, {
       params: {
         ...params,
@@ -76,7 +82,10 @@ export const stocksListService = {
   /**
    * Search stocks by product name, code, or batch number
    */
-  search: async (query: string, params?: Omit<GetStocksParams, 'search'>): Promise<PaginatedApiResponse<Stock[]>> => {
+  search: async (
+    query: string,
+    params?: Omit<GetStocksParams, 'search'>
+  ): Promise<PaginatedApiResponse<Stock[]>> => {
     const { data } = await api.get<PaginatedApiResponse<Stock[]>>(API_ENDPOINTS.STOCKS.LIST, {
       params: {
         ...params,
