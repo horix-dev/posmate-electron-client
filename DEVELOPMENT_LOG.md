@@ -1,3 +1,15 @@
+## 2026-01-15 — Low Stocks & Expired API alignment
+
+Problem: Low Stocks tab showed 0 items, Expired tab used outdated `expiry_status` param.
+
+Solution: 
+- Updated `stocksList.service.ts#getLowStocks` to request `stock_status=low_stock` (includes products + variants).
+- Updated `stocksList.service.ts#getExpiredStocks` to request `stock_status=expired` (includes products + variants).
+
+Files Modified:
+- `src/api/services/stocksList.service.ts`
+
+Notes: `useStocks` already consumes both services; UI (`StocksList`) shows variant name beneath product name and expiry date when available. Both tabs now include variant products.
 ## 2026-01-17 — Dashboard Custom Date Filter Implementation ✅
 
 **Enhancement**: Implemented proper dashboard date filtering with custom date range support.
