@@ -63,18 +63,25 @@ process.env.APP_ROOT = path.join(__dirname, '..')
 // .env.development - for QA/testers (built dev releases from CI/CD)
 // .env.production - for production releases
 
+// For packaged apps, use app.isPackaged as the source of truth
+// In packaged mode: assume production/stable (latest)
+// In dev mode: allow reading from .env files
+const isProductionRuntime = app.isPackaged || process.env.NODE_ENV === 'production'
+
 // Try .env.local first (local development override)
 // NOTE: `.env.local` should override anything set earlier in dev runs.
 loadEnvFile('.env.local', { overrideExisting: true })
 
 // If not found, try environment-specific file
 if (!process.env.UPDATE_CHANNEL) {
-  loadEnvFile(process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development')
+  loadEnvFile(isProductionRuntime ? '.env.production' : '.env.development')
 }
 
 if (!process.env.UPDATE_CHANNEL) {
   // Fallback: set default based on build type
-  process.env.UPDATE_CHANNEL = process.env.NODE_ENV === 'production' ? 'latest' : 'beta'
+  // In packaged app (app.isPackaged=true) → production/stable (latest)
+  // In dev mode → beta for testing
+  process.env.UPDATE_CHANNEL = app.isPackaged ? 'latest' : 'beta'
 }
 
 // Helpful startup log to confirm which channel is resolved at runtime
@@ -553,7 +560,7 @@ ipcMain.on('print-receipt-html', async (event, htmlContent: string) => {
     webPreferences: {
       preload: path.join(__dirname, 'print-preload.cjs'),
       nodeIntegration: false,
-      contextIsolation: false, // CRITICAL: Must be false
+      contextIsolation: false, // CRITICAL: Must be false for silent printing to work
       sandbox: false,
     },
   })
@@ -624,7 +631,7 @@ ipcMain.on('print-receipt-html-with-page-size', async (event, htmlContent: strin
     webPreferences: {
       preload: path.join(__dirname, 'print-preload.cjs'),
       nodeIntegration: false,
-      contextIsolation: false,
+      contextIsolation: false, // CRITICAL: Must be false for silent printing to work
       sandbox: false,
     },
   })

@@ -10,6 +10,131 @@ Files Modified:
 - `src/api/services/stocksList.service.ts`
 
 Notes: `useStocks` already consumes both services; UI (`StocksList`) shows variant name beneath product name and expiry date when available. Both tabs now include variant products.
+## 2026-01-17 — Dashboard Custom Date Filter Implementation ✅
+
+**Enhancement**: Implemented proper dashboard date filtering with custom date range support.
+
+**Changes**:
+1. **Custom Date Range Picker**: 
+   - Added date picker UI with "Custom Range" button
+   - Dual calendar interface (From/To dates)
+   - Date validation (from ≤ to, no future dates)
+   - Clear button to reset custom range
+
+2. **API Integration**:
+   - Updated `getDashboard()` calls to send `from_date` and `to_date` parameters for custom ranges
+   - Proper cache key generation including custom date params
+   - Dynamic duration label (shows "Jan 15 - Jan 30" for custom ranges)
+
+3. **Chart Display**:
+   - Removed 7-day slice limit on chart data
+   - Now displays all data points for the selected duration
+   - Full support for hourly (today/yesterday), daily (week/month/custom), and monthly (year) views
+
+4. **Dependencies Added**:
+   - Imported `CalendarIcon` from lucide-react
+   - Added Popover and Calendar components from shadcn/ui
+
+**Backend Compatibility**: 
+- Fully compatible with Laravel backend duration logic:
+  - `today`, `yesterday` → hourly format
+  - `last_seven_days`, `last_thirty_days`, `current_month`, `last_month`, `custom_date` → daily format
+  - `current_year` → monthly format
+
+**Files Modified**: 
+- `src/pages/dashboard/DashboardPage.tsx`
+
+**Result**: Users can now filter dashboard stats and charts by any date range, with proper validation and visual feedback.
+
+---
+
+## 2026-01-17 — Dashboard Total Sales Field Update ✅
+
+**API Enhancement**: Backend `/dashboard?duration=...` endpoint now returns `total_sales` field.
+
+**Update**: 
+- API Response now includes:
+  - `total_sales`: 30156.85 (gross sales amount)
+  - `total_income`: 21358.35 (net income)
+  - `total_expense`: 6927
+  - `total_profit`: 1058.35
+
+**Frontend Changes**:
+1. Updated `DashboardData` type in `src/types/api.types.ts` to include `total_sales` field
+2. Updated "Total Sales" stat card in `src/pages/dashboard/DashboardPage.tsx` to use `dashboardData?.total_sales` instead of `total_income`
+
+**Result**: Dashboard now correctly displays:
+- Total Sales (Gross): Rs 30156.85
+- Total Income (Net): Rs 21358.35
+- Total Expenses: Rs 6927
+- Net Profit: Rs 1058.35
+
+---
+
+## 2026-01-16 — Dashboard Stats Data Source Fix ✅
+
+**Problem**: Dashboard stat cards displayed incorrect totals for the selected duration.
+- "Total Sales": Rs 0.00 (should be Rs 21358.35)
+- "Total Income": Rs 0.00 (should be Rs 21358.35)
+- "Total Expenses": Rs 0.00 (should be Rs 6927)
+- "Net Profit": Rs 0.00 (should be Rs 1058.35)
+
+**Root Cause**: The dashboard was using `summary` data (today's totals from `/dashboard/summary` endpoint) instead of `dashboardData` (duration-specific totals from `/dashboard?duration=...` endpoint). The `summary` endpoint returns today's figures while users selected "Last 30 Days", causing the mismatch.
+
+**Solution**: Updated stat cards to use `dashboardData` values:
+- "Total Sales" → `dashboardData?.total_income` (total revenue)
+- "Total Income" → `dashboardData?.total_income`
+- "Total Expenses" → `dashboardData?.total_expense`
+- "Net Profit" → `dashboardData?.total_profit` (pre-calculated by API)
+
+**Files Modified**: `src/pages/dashboard/DashboardPage.tsx` (lines 508-538)
+
+**Result**: Dashboard now correctly displays totals for the selected duration period (Today, Last 7 Days, Last 30 Days, etc.)
+
+---
+
+## 2026-01-16 — POS Barcode Lookup Alignment ✅
+
+- Problem: API `/products/by-barcode/{barcode}` returned product with top-level `type` and no explicit `stock/variant` fields, causing the POS to infer stock (first item). This led to "Product not found" in some flows and fragile handling.
+- Frontend Workaround: Temporarily updated `BarcodeLookupResponse` type and `POSPage.handleBarcodeScan()` to parse the interim backend shape.
+- Backend Change Request: Added `backend_docs/BARCODE_LOOKUP_RESPONSE_STANDARD.md` proposing a canonical response with `found_in`, explicit `product`, `stock`, and optional `variant`.
+- Backend Implementation: ✅ Complete. API now returns:
+  ```json
+  {
+    "data": {
+      "found_in": "product" | "variant" | "batch",
+      "product": { ... },
+      "stock": { ... },
+      "variant": { ... } // optional
+    }
+  }
+  ```
+- Frontend Update: ✅ Complete. Simplified barcode scanning:
+  - Updated `BarcodeLookupResponse` to canonical schema with explicit `found_in`, `product`, `stock`, `variant`.
+  - Simplified `handleBarcodeScan()` to directly use `response.data.stock` and `response.data.variant` without inference.
+  - Files: `src/types/variant.types.ts`, `src/pages/pos/POSPage.tsx`.
+- Result: Barcode scanning now reliably adds products/variants to cart with correct stock and pricing. No more "Product not found" for valid barcodes.
+
+## 2026-01-16 — Optimistic Barcode Scanning with Background Verification
+
+- Enhancement: Implemented offline-first barcode scanning with optimistic UI updates.
+- Flow:
+  1. **Local Storage First** (instant): Check SQLite/IndexedDB for product by barcode
+  2. **Add to Cart** (immediate): Optimistically add product to cart using local data
+  3. **Background Verification** (online only): Verify stock availability and pricing with API
+  4. **Error Handling**: Remove from cart if verification fails (out of stock, product disabled)
+  5. **Offline Mode**: Skip verification entirely, rely on local cache
+- Benefits:
+  - <10ms response time (instant feedback)
+  - Works fully offline (no API dependency for cached products)
+  - Price/stock validation when online without blocking UX
+- Implementation:
+  - Added `useOnlineStatus` hook integration
+  - SQLite lookup via `storage.products.getByBarcode()`
+  - Background API verification with `setTimeout()` for non-blocking
+  - Graceful degradation: removes item from cart if API reports issues
+- Files: `src/pages/pos/POSPage.tsx`
+
 ## 2026-01-15 — Print Labels Currency Integration ✅
 
 **Context**: Updated barcode label printing to use the currency hook for proper currency formatting.

@@ -40,30 +40,6 @@ export function BarcodePreview({ barcodes, paperSetting }: BarcodePreviewProps) 
               }}
             >
               <CardContent className="flex h-full flex-col items-center justify-center gap-0.5 overflow-hidden p-1 text-center">
-                {/* Business Name */}
-                {barcode.show_business_name && barcode.business_name && (
-                  <div
-                    className="w-full truncate font-semibold leading-tight"
-                    style={{
-                      fontSize: `${convertPtToPixels(barcode.business_name_size)}px`,
-                    }}
-                  >
-                    {barcode.business_name}
-                  </div>
-                )}
-
-                {/* Product Name */}
-                {barcode.show_product_name && barcode.product_name && (
-                  <div
-                    className="w-full truncate leading-tight"
-                    style={{
-                      fontSize: `${convertPtToPixels(barcode.product_name_size)}px`,
-                    }}
-                  >
-                    {barcode.product_name}
-                  </div>
-                )}
-
                 {/* Price Line */}
                 {barcode.show_product_price && typeof barcode.product_price === 'number' && (
                   <div
@@ -78,9 +54,13 @@ export function BarcodePreview({ barcodes, paperSetting }: BarcodePreviewProps) 
 
                 {/* Barcode Image */}
                 {barcode.barcode_svg && (
-                  <div className="my-0.5 flex min-h-0 w-full flex-1 items-center justify-center">
+                  <div
+                    className="flex w-full items-center justify-center"
+                    style={{ height: '12mm' }}
+                  >
                     <img
-                      className="max-h-full max-w-full object-contain"
+                      className="object-contain"
+                      style={{ height: '12mm', maxWidth: '90%' }}
                       src={
                         barcode.barcode_svg.startsWith('<svg')
                           ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(barcode.barcode_svg)))}`

@@ -511,8 +511,6 @@ export function PrintLabelsPage() {
           : `data:image/png;base64,${barcode.barcode_svg}`
         return `
       <div class="label" style="width: ${dims.width}; height: ${dims.height};">
-        ${barcode.show_business_name && barcode.business_name ? `<div class="business-name" style="font-size: ${convertPtToPixels(barcode.business_name_size)}px;">${barcode.business_name}</div>` : ''}
-        ${barcode.show_product_name && barcode.product_name ? `<div class="product-name" style="font-size: ${convertPtToPixels(barcode.product_name_size)}px;">${barcode.product_name}</div>` : ''}
         ${barcode.show_product_price && typeof barcode.product_price === 'number' ? `<div class="price" style="font-size: ${convertPtToPixels(barcode.product_price_size)}px;">Price: ${formatCurrency(barcode.product_price)}</div>` : ''}
         <div class="barcode"><img src="${svgSrc}" alt="barcode"/></div>
       </div>
@@ -560,7 +558,7 @@ export function PrintLabelsPage() {
               flex-direction: column; 
               justify-content: space-between; 
               align-items: center; 
-              padding: 1px 1px 1px 1px; 
+              padding: 0px 0px 0px 0px; 
               text-align: center; 
               overflow: hidden; 
               background: white;

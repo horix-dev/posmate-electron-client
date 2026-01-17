@@ -13,8 +13,11 @@ import { productsService } from '@/api/services/products.service'
 import { getApiErrorMessage } from '@/api/axios'
 import { printReceipt } from '@/lib/receipt-generator'
 import { useBusinessStore } from '@/stores/business.store'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { storage } from '@/lib/storage'
 import type { Product, Stock, PaymentType, Party as Customer } from '@/types/api.types'
 import type { ProductVariant } from '@/types/variant.types'
+import type { LocalProduct } from '@/lib/db/schema'
 
 // Components
 import {
@@ -57,6 +60,7 @@ export function POSPage() {
   const autoPrintReceipt = useUIStore((state) => state.autoPrintReceipt)
   const smartTenderEnabled = useUIStore((state) => state.smartTenderEnabled)
   const business = useBusinessStore((state) => state.business)
+  const { isOnline } = useOnlineStatus()
 
   // Cart store
   const {
@@ -468,27 +472,108 @@ export function POSPage() {
     async (barcode: string) => {
       const normalizedBarcode = barcode.toLowerCase()
 
-      // First, try to find by product code in local cache (simple products)
+      // Step 1: Check local storage FIRST (instant)
+      try {
+        const localProduct = await storage.products.getByBarcode(barcode)
+
+        if (localProduct) {
+          // Convert LocalProduct to Product format
+          const product: Product = {
+            id: localProduct.id,
+            productName: localProduct.productName,
+            productCode: localProduct.productCode,
+            barcode: localProduct.barcode,
+            product_type: localProduct.product_type,
+            productPicture: localProduct.productPicture,
+            vat_id: localProduct.vat_id,
+            vat_type: localProduct.vat_type,
+            category_id: localProduct.category_id,
+            has_variants: localProduct.has_variants,
+            stocks: localProduct.stocks || [],
+            variants: localProduct.variants || [],
+          } as Product
+
+          // Get stock
+          const stock = product.stocks?.[0]
+          if (!stock) {
+            toast.error('No stock available')
+            return
+          }
+
+          // Optimistically add to cart
+          addItem(product, stock, 1)
+
+          // Generate the same item ID that would be in cart
+          const cartItemId = `${stock.id}`
+
+          // Step 2: If online, verify with API in background
+          if (isOnline) {
+            setTimeout(async () => {
+              try {
+                const apiResponse = await productsService.getByBarcode(barcode)
+
+                if (!apiResponse.data) {
+                  // Product not found in API - remove from cart
+                  removeItem(cartItemId)
+                  toast.error('Product no longer available', {
+                    description: 'This item has been removed from your cart',
+                  })
+                  return
+                }
+
+                const { stock: apiStock } = apiResponse.data
+
+                // Verify stock availability
+                if (apiStock.productStock <= 0) {
+                  removeItem(cartItemId)
+                  toast.error('Product out of stock', {
+                    description: 'This item has been removed from your cart',
+                  })
+                  return
+                }
+
+                // Check for price changes (notify but don't remove)
+                if (apiStock.productSalePrice !== stock.productSalePrice) {
+                  toast.info('Price updated', {
+                    description: `Price changed from ${stock.productSalePrice} to ${apiStock.productSalePrice}`,
+                  })
+                }
+
+                // Silently update cart with fresh data from API
+                // The cart will use the local data but verification passed
+              } catch (error) {
+                // API verification failed - keep the item but log the error
+                console.warn('[POS] Background verification failed:', error)
+              }
+            }, 100) // Small delay to not block UI
+          }
+
+          toast.success('Added to cart')
+          return
+        }
+      } catch (error) {
+        console.error('[POS] Local storage lookup failed:', error)
+        // Continue to API lookup
+      }
+
+      // Step 3: Not in local cache - try in-memory products array
       const product = products.find((p) => p.productCode?.toLowerCase() === normalizedBarcode)
 
-      // If found as simple product, add to cart
       if (product && product.product_type === 'simple' && product.stocks?.[0]) {
         handleAddToCart(product, product.stocks[0])
         return
       }
 
-      // Search in local variant barcodes (for variable products in cache)
+      // Search in local variant barcodes
       for (const p of products) {
         if (p.product_type === 'variable' && p.variants) {
           const matchedVariant = p.variants.find(
             (v) => v.barcode?.toLowerCase() === normalizedBarcode
           )
           if (matchedVariant) {
-            // Find the stock that belongs to this variant
             const variantId = Number(matchedVariant.id)
             const variantStock = p.stocks?.find((s) => Number(s.variant_id) === variantId)
             if (variantStock) {
-              // Found variant by barcode - add to cart with variant selected
               handleAddToCart(p, variantStock, matchedVariant)
               return
             }
@@ -496,37 +581,62 @@ export function POSPage() {
         }
       }
 
-      // If not found locally, try API barcode lookup (searches products, variants, batches)
-      try {
-        const response = await productsService.getByBarcode(barcode)
-
-        if (response.data) {
-          const { found_in, product: foundProduct, variant, stock } = response.data
-
-          if (found_in === 'variant' && variant && stock) {
-            // Found as variant - add with variant info
-            handleAddToCart(foundProduct, stock, variant)
-            toast.success(`Added variant: ${variant.variant_name || variant.sku}`)
-            return
-          } else if (found_in === 'product' && stock) {
-            // Found as simple product
-            handleAddToCart(foundProduct, stock)
-            return
-          } else if (found_in === 'batch' && stock) {
-            // Found as batch number
-            handleAddToCart(foundProduct, stock)
-            return
-          }
-        }
-
-        // Not found anywhere
-        toast.error(`Product not found: ${barcode}`)
-      } catch {
-        // API failed (likely offline) - show not found for barcodes not in local cache
-        toast.error(`Product not found: ${barcode}`)
+      // Step 4: Not found locally - fetch from API (only if online)
+      if (!isOnline) {
+        toast.error(`Product not found: ${barcode}`, {
+          description: 'Currently offline - product not in local cache',
+        })
+        return
       }
+
+      // Fetch from API and add optimistically
+      productsService
+        .getByBarcode(barcode)
+        .then(async (response) => {
+          if (response.data) {
+            const { found_in, product, stock, variant } = response.data
+
+            // Cache product to local storage for next scan
+            try {
+              const localProduct: LocalProduct = {
+                id: product.id,
+                productName: product.productName,
+                productCode: product.productCode,
+                barcode: product.barcode || product.productCode,
+                product_type: product.product_type,
+                productPicture: product.productPicture,
+                vat_id: product.vat_id,
+                vat_type: product.vat_type,
+                category_id: product.category_id,
+                has_variants: product.has_variants || false,
+                stocks: product.stocks || [stock],
+                variants: product.variants || [],
+                stock,
+                lastSyncedAt: new Date().toISOString(),
+              }
+              await storage.products.bulkUpsert([localProduct])
+            } catch (error) {
+              console.warn('[POS] Failed to cache product:', error)
+            }
+
+            if (found_in === 'variant' && variant) {
+              handleAddToCart(product, stock, variant)
+              toast.success(`Added variant: ${variant.variant_name || variant.sku}`)
+            } else if (found_in === 'product' || found_in === 'batch') {
+              handleAddToCart(product, stock)
+              toast.success('Added to cart')
+            }
+          } else {
+            toast.error(`Product not found: ${barcode}`)
+          }
+        })
+        .catch(() => {
+          toast.error(`Product not found: ${barcode}`)
+        })
+
+      // Don't await - let it resolve in background
     },
-    [products, handleAddToCart]
+    [products, handleAddToCart, isOnline, addItem, removeItem]
   )
 
   useBarcodeScanner({ onScan: handleBarcodeScan, enabled: !dialogs.payment })

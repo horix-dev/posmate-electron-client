@@ -260,7 +260,7 @@ function ProductGridComponent({
   }, [products])
 
   const gridClassName = useMemo(
-    () => cn('grid', viewMode === 'grid' ? 'grid-cols-4 gap-3' : 'grid-cols-1 gap-2'),
+    () => cn('grid', viewMode === 'grid' ? 'grid-cols-3 gap-4' : 'grid-cols-1 gap-2'),
     [viewMode]
   )
 
