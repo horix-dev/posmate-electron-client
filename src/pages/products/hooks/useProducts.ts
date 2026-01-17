@@ -6,6 +6,7 @@ import type { LocalProduct, LocalCategory } from '@/lib/db/schema'
 import { setCache, getCache, removeCache, CacheKeys } from '@/lib/cache'
 import { imageCache } from '@/lib/cache/imageCache'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { useIncrementalSync } from '@/hooks/useIncrementalSync'
 import { NoDataAvailableError, createAppError } from '@/lib/errors'
 import type { Product, Category, Brand, Unit, Stock } from '@/types/api.types'
 import type { VariableProductPayload } from '../schemas'
@@ -311,7 +312,7 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
 
     try {
       const [productsRes, categoriesRes, brandsRes, unitsRes] = await Promise.all([
-        productsService.getAll(),
+        productsService.getAll(10000), // Get up to 10,000 products (supports large catalogs)
         categoriesService.getList({ limit: 1000, status: true }),
         brandsService.getList({ limit: 1000, status: true }),
         unitsService.getList({ limit: 1000, status: true }),
@@ -376,10 +377,39 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
     },
   })
 
+  // Incremental sync hook
+  const { performSync } = useIncrementalSync()
+
   // Initial fetch
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Phase 2: Incremental sync polling (30-second intervals)
+  // Check for changes using /sync/changes endpoint, only fetch deltas
+  useEffect(() => {
+    // Only poll when online
+    if (!navigator.onLine) return
+
+    const interval = setInterval(async () => {
+      try {
+        // Perform incremental sync for products and categories
+        const hasChanges = await performSync(['products', 'categories'])
+
+        if (hasChanges) {
+          // Reload cached data to reflect the changes in UI
+          await loadCachedData()
+          console.log('[useProducts] Incremental sync applied changes')
+        }
+      } catch (error) {
+        // Fallback to full fetch on sync error
+        console.warn('[useProducts] Incremental sync failed, fetching all data:', error)
+        await fetchData()
+      }
+    }, 30000) // Poll every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [performSync, loadCachedData, fetchData])
 
   // Filtered products with memoization
   const filteredProducts = useMemo(() => {

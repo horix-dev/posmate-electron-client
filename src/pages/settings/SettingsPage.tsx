@@ -12,6 +12,8 @@ import {
   // DollarSign,
   Info,
   Search,
+  Trash2,
+  Database,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -21,9 +23,11 @@ import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { useUIStore } from '@/stores'
 import { useAppUpdater } from '@/hooks/useAppUpdater'
+import { useQueryClient } from '@tanstack/react-query'
 import { CurrencySettings, BusinessSettingsForm } from './components'
 import { PaymentTypesTable } from '@/pages/product-settings/components/payment-types/PaymentTypesTable'
 import { PaymentTypeDialog } from '@/pages/product-settings/components/payment-types/PaymentTypeDialog'
+import { clearAllCache, getCacheStats } from '@/lib/cache/clearCache'
 import type { PaymentType } from '@/types/api.types'
 
 type AppInfo = {
@@ -43,6 +47,8 @@ export function SettingsPage() {
     smartTenderEnabled,
     setSmartTenderEnabled,
   } = useUIStore()
+
+  const queryClient = useQueryClient()
 
   const {
     updateStatus,
@@ -69,6 +75,17 @@ export function SettingsPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Cache management state
+  const [isClearingCache, setIsClearingCache] = useState(false)
+  const [cacheStats, setCacheStats] = useState<{
+    localStorage: number
+    products: number
+    categories: number
+    offlineSales: number
+    syncQueue: number
+    images: number
+  } | null>(null)
+
   const refresh = () => setRefreshTrigger((prev) => prev + 1)
 
   useEffect(() => {
@@ -83,12 +100,50 @@ export function SettingsPage() {
           })
         }
       } catch (error) {
-        console.error('Failed to load app info', error)
+        console.error('Failed to load app info:', error)
       }
     }
-
     loadAppInfo()
   }, [])
+
+  // Load cache stats
+  useEffect(() => {
+    const loadCacheStats = async () => {
+      try {
+        const stats = await getCacheStats()
+        setCacheStats(stats)
+      } catch (error) {
+        console.error('Failed to load cache stats:', error)
+      }
+    }
+    loadCacheStats()
+  }, [])
+
+  const handleClearCache = async () => {
+    if (
+      !window.confirm(
+        'This will clear all cached data including products, categories, and offline sales. The app will reload and fetch fresh data. Continue?'
+      )
+    ) {
+      return
+    }
+
+    setIsClearingCache(true)
+    try {
+      await clearAllCache(queryClient, { all: true })
+      toast.success('Cache cleared successfully')
+      // Reload stats
+      const stats = await getCacheStats()
+      setCacheStats(stats)
+      // Reload page to fetch fresh data
+      setTimeout(() => window.location.reload(), 1000)
+    } catch (error) {
+      console.error('Failed to clear cache:', error)
+      toast.error('Failed to clear cache. Some data may remain.')
+    } finally {
+      setIsClearingCache(false)
+    }
+  }
 
   useEffect(() => {
     if (!manualUpdateCheckRequested) {
@@ -160,6 +215,10 @@ export function SettingsPage() {
           <TabsTrigger value="payment-types">
             <Tag className="mr-1 h-3 w-3" />
             Payment Types
+          </TabsTrigger>
+          <TabsTrigger value="cache">
+            <Database className="mr-1 h-3 w-3" />
+            Cache
           </TabsTrigger>
           {/* <TabsTrigger value="currency">
             <DollarSign className="mr-1 h-3 w-3" />
@@ -299,6 +358,110 @@ export function SettingsPage() {
                   setIsPaymentTypeOpen(true)
                 }}
               />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="cache" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Cache Management
+              </CardTitle>
+              <CardDescription>
+                Manage cached data and force fresh data synchronization
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Cache Statistics */}
+              {cacheStats && (
+                <div className="rounded-lg border bg-muted/50 p-4">
+                  <h4 className="mb-3 font-semibold">Cache Statistics</h4>
+                  <div className="grid gap-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Products:</span>
+                      <span className="font-medium">{cacheStats.products} items</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Categories:</span>
+                      <span className="font-medium">{cacheStats.categories} items</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Offline Sales:</span>
+                      <span className="font-medium">{cacheStats.offlineSales} items</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Sync Queue:</span>
+                      <span className="font-medium">{cacheStats.syncQueue} pending</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Images:</span>
+                      <span className="font-medium">{cacheStats.images} cached</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">LocalStorage:</span>
+                      <span className="font-medium">{cacheStats.localStorage} entries</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Clear Cache Section */}
+              <div className="space-y-3">
+                <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4">
+                  <div className="flex items-start gap-3">
+                    <Trash2 className="mt-0.5 h-5 w-5 text-destructive" />
+                    <div className="flex-1 space-y-1">
+                      <h4 className="font-semibold text-destructive">Clear All Cache</h4>
+                      <p className="text-sm text-muted-foreground">
+                        This will remove all cached data including products, categories, images, and
+                        offline sales. The application will reload and fetch fresh data from the
+                        server.
+                      </p>
+                      {cacheStats && cacheStats.syncQueue > 0 && (
+                        <p className="text-sm font-medium text-amber-600">
+                          ⚠️ Warning: You have {cacheStats.syncQueue} pending sync operations that
+                          will be lost!
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    className="mt-4 w-full"
+                    onClick={handleClearCache}
+                    disabled={isClearingCache}
+                  >
+                    {isClearingCache ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Clearing Cache...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Clear All Cache & Reload
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Info Section */}
+                <div className="rounded-lg border bg-blue-50 p-4 dark:bg-blue-950/20">
+                  <h4 className="mb-2 flex items-center gap-2 font-semibold text-blue-900 dark:text-blue-100">
+                    <Info className="h-4 w-4" />
+                    When to clear cache?
+                  </h4>
+                  <ul className="space-y-1 text-sm text-blue-800 dark:text-blue-200">
+                    <li>• Data appears outdated or incorrect</li>
+                    <li>• After major backend updates</li>
+                    <li>• Product images not loading</li>
+                    <li>• Sync errors persist</li>
+                    <li>• Application behaving unexpectedly</li>
+                  </ul>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

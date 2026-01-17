@@ -1,6 +1,6 @@
 /**
  * Enhanced Sync Service
- * 
+ *
  * Processes sync queue using backend batch sync API.
  * Features:
  * - Batch processing (multiple operations in one request)
@@ -11,8 +11,19 @@
  */
 
 import { syncQueueRepository, saleRepository, productRepository } from '../repositories'
-import { db, type SyncQueueItem, type LocalProduct, type LocalCategory, type LocalParty } from '../schema'
-import { syncApiService, type BatchOperation, type BatchOperationResult, type EntityChanges } from '@/api/services/sync.service'
+import {
+  db,
+  type SyncQueueItem,
+  type LocalProduct,
+  type LocalCategory,
+  type LocalParty,
+} from '../schema'
+import {
+  syncApiService,
+  type BatchOperation,
+  type BatchOperationResult,
+  type EntityChanges,
+} from '@/api/services/sync.service'
 
 // ============================================
 // Types
@@ -91,7 +102,14 @@ export class EnhancedSyncService {
 
     try {
       // Phase 1: Upload pending operations
-      this.notifyProgress({ phase: 'uploading', total: 0, completed: 0, failed: 0, conflicts: 0, message: 'Uploading offline changes...' })
+      this.notifyProgress({
+        phase: 'uploading',
+        total: 0,
+        completed: 0,
+        failed: 0,
+        conflicts: 0,
+        message: 'Uploading offline changes...',
+      })
       await this.uploadPendingOperations(result)
 
       if (this.abortController?.signal.aborted) {
@@ -99,12 +117,24 @@ export class EnhancedSyncService {
       }
 
       // Phase 2: Download server changes
-      this.notifyProgress({ phase: 'downloading', total: 0, completed: 0, failed: 0, conflicts: 0, message: 'Downloading updates...' })
+      this.notifyProgress({
+        phase: 'downloading',
+        total: 0,
+        completed: 0,
+        failed: 0,
+        conflicts: 0,
+        message: 'Downloading updates...',
+      })
       await this.downloadChanges(result)
 
       // Complete
-      this.notifyProgress({ phase: 'complete', total: result.upload.total, completed: result.upload.success, failed: result.upload.failed, conflicts: result.upload.conflicts })
-
+      this.notifyProgress({
+        phase: 'complete',
+        total: result.upload.total,
+        completed: result.upload.success,
+        failed: result.upload.failed,
+        conflicts: result.upload.conflicts,
+      })
     } catch (error) {
       result.success = false
       this.notifyProgress({
@@ -163,7 +193,7 @@ export class EnhancedSyncService {
    */
   private async processBatch(items: SyncQueueItem[], result: EnhancedSyncResult): Promise<void> {
     // Convert queue items to batch operations
-    const operations: BatchOperation[] = items.map(item => ({
+    const operations: BatchOperation[] = items.map((item) => ({
       idempotency_key: item.idempotencyKey,
       entity: this.mapEntityType(item.entity),
       action: item.operation.toLowerCase() as 'create' | 'update' | 'delete',
@@ -176,7 +206,7 @@ export class EnhancedSyncService {
 
       // Process results
       for (const opResult of response.results) {
-        const item = items.find(i => i.idempotencyKey === opResult.idempotency_key)
+        const item = items.find((i) => i.idempotencyKey === opResult.idempotency_key)
         if (!item || !item.id) continue
 
         switch (opResult.status) {
@@ -186,7 +216,7 @@ export class EnhancedSyncService {
           case 'skipped':
             result.upload.success++
             await syncQueueRepository.markAsCompleted(item.id)
-            
+
             // Update local entity with server ID
             if (opResult.server_id) {
               await this.updateLocalEntityWithServerId(item, opResult)
@@ -221,12 +251,11 @@ export class EnhancedSyncService {
       }
 
       result.serverTimestamp = response.server_timestamp
-
     } catch (error) {
       // If batch fails completely, mark all items as failed
       console.error('[EnhancedSync] Batch sync failed:', error)
       const errorMessage = error instanceof Error ? error.message : 'Batch sync failed'
-      
+
       for (const item of items) {
         if (item.id) {
           result.upload.failed++
@@ -260,14 +289,17 @@ export class EnhancedSyncService {
   /**
    * Update local entity with server-assigned ID
    */
-  private async updateLocalEntityWithServerId(item: SyncQueueItem, result: BatchOperationResult): Promise<void> {
+  private async updateLocalEntityWithServerId(
+    item: SyncQueueItem,
+    result: BatchOperationResult
+  ): Promise<void> {
     if (!result.server_id) return
 
     switch (item.entity) {
       case 'sale':
         if (typeof item.entityId === 'number') {
           await saleRepository.markAsSynced(item.entityId, result.server_id)
-          
+
           // Also update invoice number if provided
           if (result.invoice_number) {
             await db.sales.update(item.entityId, { invoiceNumber: result.invoice_number })
@@ -279,7 +311,7 @@ export class EnhancedSyncService {
       case 'customer':
         // Update local party with server ID
         if (typeof item.entityId === 'number') {
-          await db.parties.update(item.entityId, { 
+          await db.parties.update(item.entityId, {
             id: result.server_id,
             lastSyncedAt: new Date().toISOString(),
           })
@@ -338,9 +370,15 @@ export class EnhancedSyncService {
 
     // Process products
     if (response.data.products) {
-      const products: LocalProduct[] = response.data.products.map(p => ({
+      const products: LocalProduct[] = response.data.products.map((p) => ({
         ...p,
-        stock: p.stocks?.[0] || { id: p.id, product_id: p.id, productStock: 0, productPurchasePrice: 0, productSalePrice: 0 },
+        stock: p.stocks?.[0] || {
+          id: p.id,
+          product_id: p.id,
+          productStock: 0,
+          productPurchasePrice: 0,
+          productSalePrice: 0,
+        },
         lastSyncedAt: new Date().toISOString(),
         version: (p as any).version || 1,
       })) as LocalProduct[]
@@ -351,7 +389,7 @@ export class EnhancedSyncService {
 
     // Process categories
     if (response.data.categories) {
-      const categories: LocalCategory[] = response.data.categories.map(c => ({
+      const categories: LocalCategory[] = response.data.categories.map((c) => ({
         ...c,
         lastSyncedAt: new Date().toISOString(),
         version: (c as any).version || 1,
@@ -363,7 +401,7 @@ export class EnhancedSyncService {
 
     // Process parties
     if (response.data.parties) {
-      const parties: LocalParty[] = response.data.parties.map(p => ({
+      const parties: LocalParty[] = response.data.parties.map((p) => ({
         ...p,
         lastSyncedAt: new Date().toISOString(),
         version: (p as any).version || 1,
@@ -380,7 +418,11 @@ export class EnhancedSyncService {
    * Download incremental sync data
    */
   private async downloadIncrementalSync(result: EnhancedSyncResult): Promise<void> {
-    const response = await syncApiService.getChanges(undefined, ['products', 'categories', 'parties'])
+    const response = await syncApiService.getChanges(undefined, [
+      'products',
+      'categories',
+      'parties',
+    ])
 
     // Process product changes
     if (response.data.products) {
@@ -389,7 +431,11 @@ export class EnhancedSyncService {
 
     // Process category changes
     if (response.data.categories) {
-      await this.applyEntityChanges('categories', response.data.categories, result.download.categories)
+      await this.applyEntityChanges(
+        'categories',
+        response.data.categories,
+        result.download.categories
+      )
     }
 
     // Process party changes
@@ -411,7 +457,7 @@ export class EnhancedSyncService {
     const timestamp = new Date().toISOString()
 
     // Handle created items
-    for (const item of changes.created) {
+    for (const item of changes.added) {
       const localItem = {
         ...item,
         lastSyncedAt: timestamp,
@@ -495,7 +541,7 @@ export class EnhancedSyncService {
         await db.syncQueue.update(queueItemId, {
           status: 'pending',
           attempts: 0,
-          data: { ...item.data as object, _force_update: true },
+          data: { ...(item.data as object), _force_update: true },
         })
         break
 
@@ -503,7 +549,7 @@ export class EnhancedSyncService {
       case 'discard':
         // Mark as completed (server version wins)
         await syncQueueRepository.markAsCompleted(queueItemId)
-        
+
         // If server_wins, update local entity with server data
         if (resolution === 'server_wins' && item.conflictData) {
           await this.updateLocalWithServerData(item)
@@ -512,7 +558,7 @@ export class EnhancedSyncService {
     }
 
     // Remove from conflicts list
-    this.conflicts = this.conflicts.filter(c => c.queueItemId !== queueItemId)
+    this.conflicts = this.conflicts.filter((c) => c.queueItemId !== queueItemId)
   }
 
   /**
@@ -550,7 +596,7 @@ export class EnhancedSyncService {
    * Notify progress
    */
   private notifyProgress(progress: EnhancedSyncProgress): void {
-    this.progressCallbacks.forEach(cb => {
+    this.progressCallbacks.forEach((cb) => {
       try {
         cb(progress)
       } catch (e) {
