@@ -312,4 +312,9 @@ export const API_ENDPOINTS = {
     TOP_SELLING: '/reports/variants/top-selling',
     SLOW_MOVING: '/reports/variants/slow-moving',
   },
+
+  // Sync (Incremental sync for offline-first)
+  SYNC: {
+    CHANGES: '/sync/changes',
+  },
 } as const

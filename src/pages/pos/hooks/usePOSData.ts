@@ -10,6 +10,7 @@ import { storage } from '@/lib/storage'
 import type { LocalProduct, LocalCategory } from '@/lib/db/schema'
 import { setCache, getCache, CacheKeys } from '@/lib/cache'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { useIncrementalSync } from '@/hooks/useIncrementalSync'
 import { NoDataAvailableError, createAppError } from '@/lib/errors'
 import type { Product, Category, PaymentType, Vat, Stock } from '@/types/api.types'
 
@@ -64,6 +65,9 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
   const [isLoading, setIsLoading] = useState(true)
   const [isProductsLoading, setIsProductsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+
+  // Incremental sync hook
+  const { performSync } = useIncrementalSync()
 
   // Load cached data from local storage (SQLite in Electron, IndexedDB otherwise)
   const loadCachedData = useCallback(async (): Promise<boolean> => {
@@ -152,7 +156,7 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
 
       try {
         const [productsRes, categoriesRes, paymentTypesRes, vatsRes] = await Promise.all([
-          productsService.getAll(),
+          productsService.getAll(10000), // Get up to 10,000 products (supports large catalogs)
           categoriesService.getList({ limit: 1000, status: true }), // ✅ Use getList for flat array
           paymentTypesService.getAll(),
           vatsService.getAll({ status: 'active' }),
@@ -265,6 +269,29 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
     initialize()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Empty deps - only run on mount
+
+  // Poll for fresh data every 30 seconds (Phase 2: Incremental Sync - bandwidth efficient)
+  useEffect(() => {
+    // Don't poll if offline
+    if (!navigator.onLine) return
+
+    // Use incremental sync instead of full fetch (only downloads changes)
+    const pollInterval = setInterval(async () => {
+      console.log('[POS Polling] Checking for changes via incremental sync...')
+      try {
+        const hasChanges = await performSync(['products', 'categories'])
+        if (hasChanges) {
+          // Changes were applied - reload from cache to update UI
+          await loadCachedData()
+        }
+      } catch (error) {
+        console.warn('[POS Polling] Incremental sync failed, falling back to full fetch:', error)
+        fetchData(false) // Fallback to full fetch
+      }
+    }, 30 * 1000) // 30 seconds
+
+    return () => clearInterval(pollInterval)
+  }, [fetchData, performSync, loadCachedData])
 
   // Filter products based on search and category
   const filteredProducts = useMemo(() => {

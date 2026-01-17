@@ -1,7 +1,7 @@
 /**
  * Sync API Service
  * Handles all synchronization with backend /sync/* endpoints
- * 
+ *
  * Endpoints:
  * - POST /sync/register - Register device
  * - GET /sync/health - Health check
@@ -11,15 +11,15 @@
  */
 
 import api from '@/api/axios'
-import type { 
-  Product, 
-  Category, 
-  Brand, 
-  Unit, 
-  Party, 
-  Vat, 
+import type {
+  Product,
+  Category,
+  Brand,
+  Unit,
+  Party,
+  Vat,
   PaymentType,
-  Warehouse 
+  Warehouse,
 } from '@/types/api.types'
 
 // ============================================
@@ -78,7 +78,7 @@ export interface FullSyncResponse {
 
 /** Entity change set for incremental sync */
 export interface EntityChanges<T> {
-  created: T[]
+  added: T[]
   updated: T[]
   deleted: number[]
 }
@@ -234,6 +234,16 @@ class SyncApiService {
   }
 
   /**
+   * Clear sync state (forces full sync next time)
+   */
+  clearLastServerTimestamp(): void {
+    this.syncToken = null
+    this.lastServerTimestamp = null
+    localStorage.removeItem('sync_token')
+    localStorage.removeItem('last_server_timestamp')
+  }
+
+  /**
    * Store sync token and timestamp
    */
   private storeSyncState(syncToken: string, serverTimestamp: string): void {
@@ -261,7 +271,7 @@ class SyncApiService {
   async registerDevice(deviceName?: string): Promise<DeviceRegistrationResponse> {
     await this.initialize()
 
-    const appInfo = window.electronAPI?.getAppInfo 
+    const appInfo = window.electronAPI?.getAppInfo
       ? await window.electronAPI.getAppInfo()
       : { name: 'POSMATE', version: '1.0.0', platform: 'web' as NodeJS.Platform }
 
@@ -383,7 +393,9 @@ class SyncApiService {
   /**
    * Check if response is a version conflict
    */
-  isVersionConflict(error: unknown): error is { response: { status: 409; data: ConflictResponse } } {
+  isVersionConflict(
+    error: unknown
+  ): error is { response: { status: 409; data: ConflictResponse } } {
     return (
       typeof error === 'object' &&
       error !== null &&
@@ -397,7 +409,7 @@ class SyncApiService {
    */
   needsFullSync(): boolean {
     if (!this.lastServerTimestamp) return true
-    
+
     // Consider stale after 1 hour
     const lastSync = new Date(this.lastServerTimestamp)
     const hourAgo = new Date(Date.now() - 60 * 60 * 1000)
