@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useState, useEffect } from 'react'
 import {
   Cloud,
   CloudOff,
@@ -28,6 +28,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { printReceipt } from '@/lib/receipt-generator'
+import { useBusinessStore } from '@/stores/business.store'
 import { toast } from 'sonner'
 import { useCurrency } from '@/hooks'
 import type { Sale } from '@/types/api.types'
@@ -77,6 +79,16 @@ const InfoRow = memo(function InfoRow({ icon: Icon, label, value }: InfoRowProps
 
 function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDialogProps) {
   const { format: formatCurrencyAmount } = useCurrency()
+  const business = useBusinessStore((state) => state.business)
+  const fetchBusiness = useBusinessStore((state) => state.fetchBusiness)
+  const [isPrinting, setIsPrinting] = useState(false)
+
+  // Fetch business data when component mounts if not already loaded
+  useEffect(() => {
+    if (!business) {
+      fetchBusiness()
+    }
+  }, [business, fetchBusiness])
 
   if (!sale) return null
 
@@ -86,10 +98,40 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
   const showPaymentBreakdown = hasNewPaymentFields(sale) && paymentBreakdown.dueCollections > 0
 
   const handlePrintReceipt = async () => {
-    // The new receipt-generator API requires structured data, not sale alone
-    // For now, we'll show a message that printing is only available from POS page
-    toast.info('Use POS page to print receipts with silent printing')
-    return
+    if (isPrinting) return
+
+    setIsPrinting(true)
+    console.log('[SaleDetails] Print button clicked, sale:', sale.invoiceNumber)
+
+    try {
+      // Find customer from sale data
+      const customer = sale.party || null
+
+      console.log('[SaleDetails] Calling printReceipt with:', {
+        sale: sale.invoiceNumber,
+        business: business?.companyName,
+        customer: customer?.name,
+      })
+
+      const success = await printReceipt({
+        sale,
+        business,
+        customer,
+      })
+
+      if (success) {
+        toast.success('Receipt sent to printer')
+        console.log('[SaleDetails] Print successful')
+      } else {
+        toast.error('Failed to print receipt. Please check your printer.')
+        console.error('[SaleDetails] Print failed')
+      }
+    } catch (error) {
+      console.error('[SaleDetails] Print error:', error)
+      toast.error('Error printing receipt')
+    } finally {
+      setIsPrinting(false)
+    }
   }
 
   return (
@@ -434,9 +476,9 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
         {/* Footer with Print Button */}
         {sale.invoice_url && (
           <DialogFooter className="mt-6">
-            <Button onClick={handlePrintReceipt} variant="default">
+            <Button onClick={handlePrintReceipt} variant="default" disabled={isPrinting}>
               <Printer className="mr-2 h-4 w-4" />
-              Print Receipt
+              {isPrinting ? 'Printing...' : 'Print Receipt'}
             </Button>
           </DialogFooter>
         )}
