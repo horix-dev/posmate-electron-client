@@ -63,8 +63,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
       font-family: Arial, Helvetica, sans-serif;
       font-size: 14px;
       line-height: 1.3;
-      padding: 15px;
-      padding-top: 1px;
+      padding: 5px;
       max-width: 70mm;
       margin: 0 auto;
       margin-left: 0px;
@@ -187,10 +186,10 @@ export function generateReceiptHTML(data: ReceiptData): string {
     
     @media print {
       body {
-        padding: 3mm 3mm;
+        padding: 3mm;
       }
       
-      @page {s
+      @page {
         margin: 0;
         size: 80mm auto;
       }
@@ -201,7 +200,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
   <div class="receipt">
     <!-- Header -->
     <div class="header">
-      <img src="http://146.190.6.102:8000/uploads/26/01/1767390851-931.jpeg" alt="Logo" class="logo" />
+      ${business?.invoice_logo ? `<img src="${business.invoice_logo}" alt="Logo" class="logo" />` : ''}
       <div class="business-name">${business?.companyName || 'Horix'}</div>
       <div class="receipt-title">Cash Receipt</div>
       <div class="invoice-number">#${sale.invoiceNumber}</div>
