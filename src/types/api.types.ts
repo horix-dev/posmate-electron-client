@@ -1025,7 +1025,6 @@ export type DashboardDuration =
   | 'custom_date'
 
 export interface DashboardData {
-  total_sales: number
   total_expense: number
   total_income: number
   total_items: number

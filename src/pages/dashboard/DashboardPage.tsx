@@ -8,6 +8,7 @@ import {
   Package,
   Users,
   WifiOff,
+  Calendar,
   Download,
   AlertTriangle,
   Zap,
@@ -16,14 +17,15 @@ import {
   CreditCard,
   Wallet,
   Clock,
-  CalendarIcon,
-  X,
-  Check,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Calendar as CalendarComponent } from '@/components/ui/calendar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/components/common/StatCard'
 import { dashboardService, stocksListService, partiesService, salesService } from '@/api/services'
@@ -31,16 +33,7 @@ import { useSyncStore } from '@/stores'
 import { useCurrency } from '@/hooks'
 import { getCache, setCache, CacheKeys } from '@/lib/cache'
 import { cn } from '@/lib/utils'
-import {
-  format,
-  parseISO,
-  subDays,
-  startOfMonth,
-  endOfMonth,
-  startOfYear,
-  subMonths,
-} from 'date-fns'
-import type { DateRange } from 'react-day-picker'
+import { format, parseISO } from 'date-fns'
 import type {
   ChartDataPoint,
   DashboardData,
@@ -90,207 +83,6 @@ function formatShortDateLabel(isoDate: string) {
   }
 }
 
-function getDateRangeForDuration(duration: DashboardDuration): DateRange | undefined {
-  const today = new Date()
-  switch (duration) {
-    case 'today':
-      return { from: today, to: today }
-    case 'yesterday': {
-      const yest = subDays(today, 1)
-      return { from: yest, to: yest }
-    }
-    case 'last_seven_days':
-      return { from: subDays(today, 6), to: today }
-    case 'last_thirty_days':
-      return { from: subDays(today, 29), to: today }
-    case 'current_month':
-      return { from: startOfMonth(today), to: endOfMonth(today) }
-    case 'last_month': {
-      const lastMonth = subMonths(today, 1)
-      return { from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) }
-    }
-    case 'current_year':
-      return { from: startOfYear(today), to: today }
-    default:
-      return undefined
-  }
-}
-
-function DateRangeFilter({
-  currentDuration,
-  currentDateRange,
-  onApply,
-}: {
-  currentDuration: DashboardDuration
-  currentDateRange: { from: Date | undefined; to: Date | undefined }
-  onApply: (
-    duration: DashboardDuration,
-    range: { from: Date | undefined; to: Date | undefined }
-  ) => void
-}) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [selectedPreset, setSelectedPreset] = useState<DashboardDuration>(currentDuration)
-  const [date, setDate] = useState<DateRange | undefined>({
-    from: currentDateRange.from,
-    to: currentDateRange.to,
-  })
-
-  // Initialize state when opening
-  useEffect(() => {
-    if (isOpen) {
-      setSelectedPreset(currentDuration)
-      if (currentDuration === 'custom_date') {
-        setDate({ from: currentDateRange.from, to: currentDateRange.to })
-      } else {
-        setDate(getDateRangeForDuration(currentDuration))
-      }
-    }
-  }, [isOpen, currentDuration, currentDateRange])
-
-  const handlePresetSelect = (preset: DashboardDuration) => {
-    setSelectedPreset(preset)
-    if (preset === 'custom_date') {
-      // Keep existing date or clear if undefined?
-      // Usually keep existing for valid transition
-    } else {
-      const range = getDateRangeForDuration(preset)
-      if (range) setDate(range)
-    }
-  }
-
-  const handleDateSelect = (range: DateRange | undefined) => {
-    setDate(range)
-    setSelectedPreset('custom_date')
-  }
-
-  const handleApply = () => {
-    onApply(selectedPreset, { from: date?.from, to: date?.to })
-    setIsOpen(false)
-  }
-
-  const getButtonLabel = () => {
-    if (currentDuration === 'custom_date') {
-      if (currentDateRange.from) {
-        if (currentDateRange.to) {
-          return `${format(currentDateRange.from, 'MMM dd, yyyy')} - ${format(currentDateRange.to, 'MMM dd, yyyy')}`
-        }
-        return format(currentDateRange.from, 'MMM dd, yyyy')
-      }
-      return 'Select Dates'
-    }
-    return DASHBOARD_DURATION_LABELS[currentDuration]
-  }
-
-  return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            'h-9 gap-2 border-dashed',
-            currentDuration === 'custom_date' && 'border-primary bg-primary/5 text-primary'
-          )}
-        >
-          <CalendarIcon className="h-4 w-4" />
-          <span className="whitespace-nowrap font-medium">{getButtonLabel()}</span>
-          {currentDuration === 'custom_date' && (
-            <span
-              role="button"
-              className="ml-1 rounded-full p-0.5 hover:bg-background/20 hover:text-foreground/70"
-              onClick={(e) => {
-                e.stopPropagation()
-                onApply('last_thirty_days', { from: undefined, to: undefined })
-              }}
-            >
-              <X className="h-3 w-3" />
-            </span>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="end">
-        <div className="flex h-full flex-col sm:flex-row">
-          {/* Sidebar */}
-          <div className="flex min-w-[150px] flex-col border-b bg-muted/10 p-2 sm:border-b-0 sm:border-r">
-            <div className="mb-2 px-2 py-1 text-xs font-semibold text-muted-foreground">
-              Quick Select
-            </div>
-            <div className="flex flex-col gap-1">
-              {(Object.keys(DASHBOARD_DURATION_LABELS) as DashboardDuration[])
-                .filter((k) => k !== 'custom_date')
-                .map((key) => (
-                  <Button
-                    key={key}
-                    variant="ghost"
-                    size="sm"
-                    className={cn(
-                      'h-8 justify-start px-2 font-normal',
-                      selectedPreset === key && 'bg-primary/10 font-medium text-primary'
-                    )}
-                    onClick={() => handlePresetSelect(key)}
-                  >
-                    {DASHBOARD_DURATION_LABELS[key]}
-                    {selectedPreset === key && <Check className="ml-auto h-3 w-3 opacity-50" />}
-                  </Button>
-                ))}
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  'h-8 justify-start px-2 font-normal',
-                  selectedPreset === 'custom_date' && 'bg-primary/10 font-medium text-primary'
-                )}
-                onClick={() => handlePresetSelect('custom_date')}
-              >
-                Custom Range
-                {selectedPreset === 'custom_date' && (
-                  <Check className="ml-auto h-3 w-3 opacity-50" />
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div className="flex flex-col p-3">
-            <div className="mb-3 flex flex-col gap-1 px-1">
-              <span className="text-sm font-semibold">
-                {selectedPreset === 'custom_date'
-                  ? 'Select Range'
-                  : DASHBOARD_DURATION_LABELS[selectedPreset]}
-              </span>
-              <span className="text-xs font-normal text-muted-foreground">
-                {date?.from ? (
-                  <>
-                    {format(date.from, 'MMM dd, yyyy')} -{' '}
-                    {date.to ? format(date.to, 'MMM dd, yyyy') : '...'}
-                  </>
-                ) : (
-                  'Pick a date range'
-                )}
-              </span>
-            </div>
-            <CalendarComponent
-              mode="range"
-              defaultMonth={date?.from}
-              selected={date}
-              onSelect={handleDateSelect}
-              numberOfMonths={2}
-              className="rounded-md border p-0"
-            />
-            <div className="mt-4 flex items-center justify-end gap-2 border-t pt-3">
-              <Button variant="outline" size="sm" onClick={() => setIsOpen(false)}>
-                Cancel
-              </Button>
-              <Button size="sm" onClick={handleApply}>
-                Apply
-              </Button>
-            </div>
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
 function BarChart({
   data,
   colorClass,
@@ -311,8 +103,8 @@ function BarChart({
     // 2. SORT: oldest to newest
     const sorted = validData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-    // 3. Show all data points (removed the slice to show full range)
-    return sorted
+    // 3. SLICE: Show last 7 days for readability on dashboard
+    return sorted.slice(-7)
   }, [data])
 
   const max = useMemo(() => {
@@ -420,8 +212,6 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [isOfflineData, setIsOfflineData] = useState(false)
   const [duration, setDuration] = useState<DashboardDuration>('last_thirty_days')
-  const [fromDate, setFromDate] = useState<Date | undefined>(undefined)
-  const [toDate, setToDate] = useState<Date | undefined>(undefined)
   const [recentSales, setRecentSales] = useState<Sale[]>([])
   const [lowStockItems, setLowStockItems] = useState<Stock[]>([])
   const [expiredItems, setExpiredItems] = useState<Stock[]>([])
@@ -434,15 +224,8 @@ export function DashboardPage() {
   const currencyData = useCurrency()
   const { format: formatCurrency, symbol: currencySymbol } = currencyData
 
-  const dashboardCacheKey = useMemo(
-    () =>
-      getDashboardCacheKey(
-        duration,
-        fromDate ? format(fromDate, 'yyyy-MM-dd') : undefined,
-        toDate ? format(toDate, 'yyyy-MM-dd') : undefined
-      ),
-    [duration, fromDate, toDate]
-  )
+  const durationLabel = DASHBOARD_DURATION_LABELS[duration]
+  const dashboardCacheKey = useMemo(() => getDashboardCacheKey(duration), [duration])
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -462,11 +245,7 @@ export function DashboardPage() {
       try {
         const [summaryRes, dashboardRes] = await Promise.all([
           dashboardService.getSummary(),
-          dashboardService.getDashboard(
-            duration,
-            fromDate ? format(fromDate, 'yyyy-MM-dd') : undefined,
-            toDate ? format(toDate, 'yyyy-MM-dd') : undefined
-          ),
+          dashboardService.getDashboard(duration),
         ])
 
         let dashboardDataResult = dashboardRes.data
@@ -542,7 +321,7 @@ export function DashboardPage() {
     }
 
     fetchDashboardData()
-  }, [isOnline, duration, fromDate, toDate, dashboardCacheKey])
+  }, [isOnline, duration, dashboardCacheKey])
 
   // Fetch additional data for recent sales, low stock, and top products
   useEffect(() => {
@@ -655,20 +434,31 @@ export function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <DateRangeFilter
-            currentDuration={duration}
-            currentDateRange={{ from: fromDate, to: toDate }}
-            onApply={(newDuration, newRange) => {
-              setDuration(newDuration)
-              if (newDuration === 'custom_date') {
-                setFromDate(newRange.from)
-                setToDate(newRange.to)
-              } else {
-                setFromDate(undefined)
-                setToDate(undefined)
-              }
-            }}
-          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2 border-dashed">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">{durationLabel}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px]">
+              {(
+                [
+                  'today',
+                  'yesterday',
+                  'last_seven_days',
+                  'last_thirty_days',
+                  'current_month',
+                  'last_month',
+                  'current_year',
+                ] as DashboardDuration[]
+              ).map((d) => (
+                <DropdownMenuItem key={d} onClick={() => setDuration(d)}>
+                  {DASHBOARD_DURATION_LABELS[d]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button
             variant="default"
@@ -721,7 +511,7 @@ export function DashboardPage() {
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Sales"
-            value={formatCurrency(dashboardData?.total_sales || 0)}
+            value={formatCurrency(summary?.sales || 0)}
             icon={ShoppingCart}
             iconContainerClassName="bg-primary/10 text-primary ring-1 ring-primary/20"
             iconClassName="text-primary"
@@ -729,7 +519,7 @@ export function DashboardPage() {
           />
           <StatCard
             title="Total Income"
-            value={formatCurrency(dashboardData?.total_income || 0)}
+            value={formatCurrency(summary?.income || 0)}
             icon={DollarSign}
             iconContainerClassName="bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20"
             iconClassName="text-emerald-500"
@@ -737,7 +527,7 @@ export function DashboardPage() {
           />
           <StatCard
             title="Total Expenses"
-            value={formatCurrency(dashboardData?.total_expense || 0)}
+            value={formatCurrency(summary?.expense || 0)}
             icon={TrendingDown}
             iconContainerClassName="bg-rose-500/10 text-rose-500 ring-1 ring-rose-500/20"
             iconClassName="text-rose-500"
@@ -745,7 +535,9 @@ export function DashboardPage() {
           />
           <StatCard
             title="Net Profit"
-            value={formatCurrency(dashboardData?.total_profit || 0)}
+            value={formatCurrency(
+              (summary?.income || 0) + (summary?.sales || 0) - (summary?.expense || 0)
+            )}
             icon={TrendingUp}
             iconContainerClassName="bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20"
             iconClassName="text-blue-500"
