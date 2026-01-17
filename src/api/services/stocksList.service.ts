@@ -41,7 +41,7 @@ export const stocksListService = {
     const { data } = await api.get<PaginatedApiResponse<Stock[]>>(API_ENDPOINTS.STOCKS.LIST, {
       params: {
         ...params,
-        stock_status: 'out_of_stock',
+        stock_status: 'low_stock',
       },
     })
     return data
@@ -54,7 +54,7 @@ export const stocksListService = {
     const { data } = await api.get<PaginatedApiResponse<Stock[]>>(API_ENDPOINTS.STOCKS.LIST, {
       params: {
         ...params,
-        expiry_status: 'expired',
+        stock_status: 'expired',
       },
     })
     return data
