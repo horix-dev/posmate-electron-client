@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback } from 'react'
+import { memo, useMemo, useCallback, useState } from 'react'
 import {
   ShoppingCart,
   Pause,
@@ -49,6 +49,10 @@ export interface CartSidebarProps {
   heldCartsCount: number
   /** Invoice number */
   invoiceNumber: string
+  /** Discount value */
+  discountValue: number
+  /** Discount type */
+  discountType: 'fixed' | 'percentage'
   /** Callback to update item quantity */
   onUpdateQuantity: (productId: number, quantity: number) => void
   /** Callback to remove item */
@@ -61,6 +65,8 @@ export interface CartSidebarProps {
   onOpenHeldCarts: () => void
   /** Callback to select customer */
   onSelectCustomer: () => void
+  /** Callback to change discount */
+  onDiscountChange: (value: number, type: 'fixed' | 'percentage') => void
   /** Callback to open payment dialog */
   onPayment: () => void
 }
@@ -135,23 +141,201 @@ const CartHeader = memo(function CartHeader({
 interface CartTotalsSectionProps {
   totals: CartTotals
   vatPercentage: number
+  discountValue: number
+  discountType: 'fixed' | 'percentage'
+  onDiscountChange: (value: number, type: 'fixed' | 'percentage') => void
 }
 
 const CartTotalsSection = memo(function CartTotalsSection({
   totals,
   vatPercentage,
+  discountValue,
+  discountType,
+  onDiscountChange,
 }: CartTotalsSectionProps) {
   const { format: formatCurrency } = useCurrency()
+  const [isEditingDiscount, setIsEditingDiscount] = useState(false)
+  const [tempDiscount, setTempDiscount] = useState(discountValue.toString())
+  const [tempDiscountType, setTempDiscountType] = useState<'fixed' | 'percentage'>(discountType)
+  const inputRef = useCallback(
+    (input: HTMLInputElement) => {
+      if (input && isEditingDiscount) {
+        setTimeout(() => input.focus(), 0)
+      }
+    },
+    [isEditingDiscount]
+  )
+
+  const handleDiscountClick = useCallback(() => {
+    setIsEditingDiscount(true)
+    setTempDiscount(discountValue.toString())
+    setTempDiscountType(discountType)
+  }, [discountValue, discountType])
+
+  const handleDiscountSave = useCallback(() => {
+    const value = parseFloat(tempDiscount) || 0
+    if (value >= 0) {
+      onDiscountChange(value, tempDiscountType)
+      setIsEditingDiscount(false)
+    }
+  }, [tempDiscount, tempDiscountType, onDiscountChange])
+
+  const handleDiscountCancel = useCallback(() => {
+    setIsEditingDiscount(false)
+  }, [])
+
+  const handleClearDiscount = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      onDiscountChange(0, 'fixed')
+      setIsEditingDiscount(false)
+    },
+    [onDiscountChange]
+  )
+
+  const handleQuickDiscount = useCallback(
+    (value: number, type: 'fixed' | 'percentage') => {
+      onDiscountChange(value, type)
+      setIsEditingDiscount(false)
+    },
+    [onDiscountChange]
+  )
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        handleDiscountSave()
+      } else if (e.key === 'Escape') {
+        handleDiscountCancel()
+      }
+    },
+    [handleDiscountSave, handleDiscountCancel]
+  )
+
   return (
-    <div className="shrink-0 space-y-2 border-t-2 border-primary/10 bg-primary/5 px-4 py-3 dark:bg-sidebar">
+    <div className="shrink-0 space-y-3 border-t-2 border-primary/10 bg-primary/5 px-4 py-3 dark:bg-sidebar">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Subtotal</span>
-        <span>{formatCurrency(totals.subtotal)}</span>
+        <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
       </div>
-      {totals.discountAmount > 0 && (
-        <div className="flex justify-between text-sm text-green-600">
-          <span>Discount</span>
-          <span>-{formatCurrency(totals.discountAmount)}</span>
+
+      {/* Discount Section */}
+      {isEditingDiscount ? (
+        <div className="space-y-2 rounded-lg bg-background/50 p-3 transition-all dark:bg-sidebar/50">
+          {/* Type Selector */}
+          <div className="flex gap-2">
+            <Button
+              variant={tempDiscountType === 'fixed' ? 'default' : 'outline'}
+              size="sm"
+              className="flex-1 text-xs font-semibold"
+              onClick={() => setTempDiscountType('fixed')}
+            >
+              Fixed Amount
+            </Button>
+            <Button
+              variant={tempDiscountType === 'percentage' ? 'default' : 'outline'}
+              size="sm"
+              className="flex-1 text-xs font-semibold"
+              onClick={() => setTempDiscountType('percentage')}
+            >
+              Percentage
+            </Button>
+          </div>
+
+          {/* Input Row */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                ref={inputRef}
+                type="number"
+                value={tempDiscount}
+                onChange={(e) => setTempDiscount(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="0"
+                min="0"
+                step="0.01"
+                className="h-10 pr-8 text-center text-sm font-semibold"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                {tempDiscountType === 'percentage' ? '%' : '฿'}
+              </span>
+            </div>
+            <Button size="sm" className="h-10 px-4 font-semibold" onClick={handleDiscountSave}>
+              Apply
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-10 px-3"
+              onClick={handleDiscountCancel}
+            >
+              ✕
+            </Button>
+          </div>
+
+          {/* Quick Presets */}
+          {tempDiscountType === 'percentage' && (
+            <div className="grid grid-cols-4 gap-1.5">
+              {[5, 10, 15, 20].map((preset) => (
+                <Button
+                  key={preset}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs font-semibold"
+                  onClick={() => handleQuickDiscount(preset, 'percentage')}
+                >
+                  {preset}%
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          className="group flex cursor-pointer items-center justify-between rounded-lg bg-background/50 px-3 py-2 transition-all hover:bg-green-50 dark:bg-sidebar/50 dark:hover:bg-green-950/20"
+          onClick={handleDiscountClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              handleDiscountClick()
+            }
+          }}
+        >
+          <div className="flex flex-col">
+            <span
+              className={`text-sm font-medium transition-colors ${discountValue > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}
+            >
+              Discount
+            </span>
+            {discountValue > 0 && (
+              <span className="text-xs text-green-600/70 dark:text-green-400/70">
+                {discountType === 'percentage'
+                  ? `${discountValue}% off`
+                  : `${formatCurrency(discountValue)} off`}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-right text-sm font-bold transition-colors ${discountValue > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}
+            >
+              {totals.discountAmount > 0
+                ? `-${formatCurrency(totals.discountAmount)}`
+                : 'No discount'}
+            </span>
+            {discountValue > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={handleClearDiscount}
+                title="Clear discount"
+              >
+                ✕
+              </Button>
+            )}
+          </div>
         </div>
       )}
       <div className="flex justify-between text-sm">
@@ -198,6 +382,8 @@ function CartSidebarComponent({
   items,
   customer,
   totals,
+  discountValue,
+  discountType,
   vatPercentage,
   heldCartsCount,
   invoiceNumber,
@@ -207,6 +393,7 @@ function CartSidebarComponent({
   onHoldCart,
   onOpenHeldCarts,
   onSelectCustomer,
+  onDiscountChange,
   onPayment,
 }: CartSidebarProps) {
   const { format: formatCurrency } = useCurrency()
@@ -385,7 +572,13 @@ function CartSidebarComponent({
         {!isEmpty && (
           <>
             <Separator className="shrink-0" />
-            <CartTotalsSection totals={totals} vatPercentage={vatPercentage} />
+            <CartTotalsSection
+              totals={totals}
+              vatPercentage={vatPercentage}
+              discountValue={discountValue}
+              discountType={discountType}
+              onDiscountChange={onDiscountChange}
+            />
           </>
         )}
 

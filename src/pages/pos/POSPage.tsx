@@ -68,6 +68,8 @@ export function POSPage() {
     customer,
     paymentType,
     vat,
+    discount,
+    discountType,
     subtotal,
     discountAmount,
     vatAmount,
@@ -79,6 +81,7 @@ export function POSPage() {
     clearCart,
     setCustomer,
     setPaymentType,
+    setDiscount,
     holdCart,
     recallCart,
     setInvoiceNumber,
@@ -311,6 +314,16 @@ export function POSPage() {
       }
     },
     [setCustomer]
+  )
+
+  // ----------------------------------------
+  // Discount Handlers
+  // ----------------------------------------
+  const handleDiscountChange = useCallback(
+    (value: number, type: 'fixed' | 'percentage') => {
+      setDiscount(value, type)
+    },
+    [setDiscount]
   )
 
   // ----------------------------------------
@@ -759,6 +772,8 @@ export function POSPage() {
               customer={customer}
               paymentType={paymentType}
               totals={cartTotals}
+              discountValue={discount}
+              discountType={discountType}
               vatPercentage={vatPercentage}
               heldCartsCount={heldCarts.length}
               invoiceNumber={invoiceNumber || 'Loading...'}
@@ -774,6 +789,7 @@ export function POSPage() {
               onHoldCart={handleHoldCart}
               onOpenHeldCarts={handleOpenHeldCarts}
               onSelectCustomer={handleOpenCustomerDialog}
+              onDiscountChange={handleDiscountChange}
               onPayment={handleOpenPayment}
             />
           </div>
