@@ -108,6 +108,7 @@ export function POSPage() {
   const [variantDialogProduct, setVariantDialogProduct] = useState<Product | null>(null)
   const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false)
   const [showSmartTender, setShowSmartTender] = useState(false)
+  const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null)
 
   // ----------------------------------------
   // Data Fetching
@@ -156,7 +157,27 @@ export function POSPage() {
         toast.error('No stock information available')
         return
       }
+
       addItem(product, effectiveStock, 1, variant)
+
+      // After adding, find the last item added
+      // If it's a variant, find the item with matching variantId
+      // If it's a product, find the item with matching stock.id
+      setTimeout(() => {
+        const cartNow = useCartStore.getState().items
+        let addedItem
+
+        if (variant) {
+          addedItem = cartNow.find((item) => item.variantId === variant.id)
+        } else {
+          addedItem = cartNow.find((item) => !item.variantId && item.stock.id === effectiveStock.id)
+        }
+
+        if (addedItem) {
+          setLastAddedItemId(addedItem.id)
+        }
+      }, 0)
+
       const name = variant ? `${product.productName} (${variant.sku})` : product.productName
       toast.success(`Added ${name} to cart`)
     },
@@ -655,6 +676,33 @@ export function POSPage() {
   useBarcodeScanner({ onScan: handleBarcodeScan, enabled: !dialogs.payment })
 
   // ----------------------------------------
+  // Quantity Adjustment Handlers
+  // ----------------------------------------
+  const handleIncrementLastItem = useCallback(() => {
+    if (!lastAddedItemId) {
+      toast.warning('No item to increment')
+      return
+    }
+    const item = cartItems.find((i) => i.id === lastAddedItemId)
+    if (item) {
+      handleUpdateQuantity(lastAddedItemId, item.quantity + 1)
+    }
+  }, [lastAddedItemId, cartItems, handleUpdateQuantity])
+
+  const handleDecrementLastItem = useCallback(() => {
+    if (!lastAddedItemId) {
+      toast.warning('No item to decrement')
+      return
+    }
+    const item = cartItems.find((i) => i.id === lastAddedItemId)
+    if (item && item.quantity > 1) {
+      handleUpdateQuantity(lastAddedItemId, item.quantity - 1)
+    } else if (item && item.quantity === 1) {
+      handleRemoveItem(lastAddedItemId)
+    }
+  }, [lastAddedItemId, cartItems, handleUpdateQuantity, handleRemoveItem])
+
+  // ----------------------------------------
   // Keyboard Shortcuts
   // ----------------------------------------
   const shortcuts: KeyboardShortcut[] = useMemo(
@@ -663,6 +711,7 @@ export function POSPage() {
         key: POS_SHORTCUT_KEYS.PAY,
         action: handleOpenPayment,
         description: 'Open payment',
+        preventDefault: true,
       },
       {
         key: POS_SHORTCUT_KEYS.HOLD,
@@ -689,6 +738,18 @@ export function POSPage() {
         action: closeAllDialogs,
         description: 'Close dialogs',
       },
+      {
+        key: POS_SHORTCUT_KEYS.INCREMENT_QTY,
+        action: handleIncrementLastItem,
+        description: 'Increment quantity',
+        preventDefault: true,
+      },
+      {
+        key: POS_SHORTCUT_KEYS.DECREMENT_QTY,
+        action: handleDecrementLastItem,
+        description: 'Decrement quantity',
+        preventDefault: true,
+      },
     ],
     [
       handleOpenPayment,
@@ -697,6 +758,8 @@ export function POSPage() {
       handleOpenCustomerDialog,
       handleClearCart,
       closeAllDialogs,
+      handleIncrementLastItem,
+      handleDecrementLastItem,
     ]
   )
 

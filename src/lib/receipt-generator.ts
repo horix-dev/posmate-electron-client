@@ -209,7 +209,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
   <div class="receipt">
     <!-- Header -->
     <div class="header">
-      ${business?.invoice_logo ? `<img src="${business.invoice_logo}" alt="Logo" class="logo" />` : ''}
+      <!-- ${business?.invoice_logo ? `<img src="${business.invoice_logo}" alt="Logo" class="logo" />` : ''} -->
       <div class="business-name">${business?.companyName || 'Kutties Choice'}</div>
       <div class="receipt-title">Cash Receipt</div>
       <div class="invoice-number">#${sale.invoiceNumber}</div>
@@ -255,7 +255,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
         sale.discountAmount && sale.discountAmount > 0
           ? `
       <div class="total-row">
-        <span class="label">Sale</span>
+        <span class="label">Discount</span>
         <span class="amount">-${formatCurrencyUtil(sale.discountAmount)}</span>
       </div>
       `
