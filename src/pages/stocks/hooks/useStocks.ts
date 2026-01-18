@@ -72,11 +72,13 @@ export function useStocks(filters: StocksFilters): UseStocksReturn {
 
   // Fetch all stocks
   const fetchAllStocks = useCallback(async () => {
+    console.log('[useStocks] fetchAllStocks called, isOnline:', isOnline)
     setIsLoading(true)
     setError(null)
 
     try {
       if (!isOnline) {
+        console.log('[useStocks] Skipping fetch - offline')
         setAllStocks([])
         setIsLoading(false)
         return
@@ -212,6 +214,22 @@ export function useStocks(filters: StocksFilters): UseStocksReturn {
   useEffect(() => {
     fetchExpiredStocks()
   }, [fetchExpiredStocks])
+
+  // Poll for fresh stock data every 30 seconds (Phase 1: Product Stock Freshness)
+  useEffect(() => {
+    // Don't poll if offline
+    if (!isOnline) return
+
+    // Poll every 30 seconds for fresh stock data
+    const pollInterval = setInterval(() => {
+      console.log('[Stock Polling] Checking for stock updates...')
+      fetchAllStocks()
+      fetchLowStocks()
+      fetchExpiredStocks()
+    }, 30 * 1000) // 30 seconds
+
+    return () => clearInterval(pollInterval)
+  }, [isOnline, fetchAllStocks, fetchLowStocks, fetchExpiredStocks])
 
   // Filtered products with memoization
   const filteredAllStocks = useMemo(() => {

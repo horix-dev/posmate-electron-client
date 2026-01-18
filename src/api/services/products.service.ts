@@ -24,7 +24,9 @@ export const productsService = {
   /**
    * Get products list (for POS, dropdowns)
    * Returns flat array with optional limit
-   * Use ?limit=1000 to get all products without pagination
+   * IMPORTANT: For catalogs with >1000 products, increase limit parameter
+   * Example: getList({ limit: 5000 }) for large catalogs
+   * Note: Backend may have max_limit. Check API documentation for limits.
    */
   getList: async (params?: { limit?: number; status?: boolean }): Promise<ProductsListResponse> => {
     const { data } = await api.get<ProductsListResponse>(API_ENDPOINTS.PRODUCTS.LIST, { params })
@@ -32,12 +34,14 @@ export const productsService = {
   },
 
   /**
-   * Get all products with stock info (legacy - use getList instead)
-   * @deprecated Use getList({ limit: 1000 }) instead
+   * Get all products with stock info
+   * Supports large catalogs by using high limit
+   * Uses 10,000 as default to accommodate most businesses
+   * For very large catalogs (>10k products), consider implementing pagination
    */
-  getAll: async (): Promise<ProductsListResponse> => {
+  getAll: async (limit: number = 10000): Promise<ProductsListResponse> => {
     const { data } = await api.get<ProductsListResponse>(API_ENDPOINTS.PRODUCTS.LIST, {
-      params: { limit: 1000 },
+      params: { limit },
     })
     return data
   },

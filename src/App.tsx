@@ -22,8 +22,8 @@ const queryClient = new QueryClient({
       // Keep data in cache for 60 minutes after last use
       gcTime: 60 * 60 * 1000, // 60 minutes
 
-      // Respect staleTime cache (don't refetch on tab focus within 30 min)
-      refetchOnWindowFocus: false,
+      // Refetch when user focuses window (Phase 1: Product Stock Freshness)
+      refetchOnWindowFocus: true,
 
       // Refetch when network reconnects (offline-first recovery)
       refetchOnReconnect: true,
