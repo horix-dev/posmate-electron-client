@@ -43,6 +43,8 @@ export const POS_SHORTCUT_KEYS = {
   DISCOUNT: 'F5',
   NEW_SALE: 'F2',
   SEARCH_FOCUS: 'F3',
+  INCREMENT_QTY: '+',
+  DECREMENT_QTY: '-',
 } as const
 
 // ============================================
@@ -62,10 +64,16 @@ export function usePOSKeyboard({ shortcuts, enabled = true }: UsePOSKeyboardOpti
       const target = event.target as HTMLElement
       const isInputElement =
         target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+      const isButton = target.tagName === 'BUTTON'
 
       const isFunctionKey = event.key.startsWith('F') && event.key.length <= 3
 
       if (isInputElement && !isFunctionKey && event.key !== 'Escape') {
+        return
+      }
+
+      // Don't trigger space shortcut when a button has focus (prevents double-action)
+      if (isButton && event.key === ' ') {
         return
       }
 

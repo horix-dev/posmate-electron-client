@@ -112,6 +112,40 @@ Display Mode:
 - ✅ No type errors
 
 **Result**: Users can now easily apply fixed or percentage discounts to sales via clickable discount UI in the cart sidebar.
+## 2026-01-19 — Sync Queue IndexedDB Constraint Error Fix
+
+**Problem**: Sync queue was failing with `ConstraintError: Key already exists in the object store` when syncing Sale ID 87.
+
+**Root Cause**: 
+The sync process was attempting to update the **primary key** (`id`) of existing IndexedDB records. IndexedDB doesn't allow changing primary keys - this violates the database constraint and causes the error. This happened in two places:
+
+1. `saleRepository.markAsSynced()` - Trying to change local sale `id` to server `id`
+2. `enhancedSync.service.ts` - Updating party record by changing its `id` field
+
+**Solution**: 
+Store server-assigned IDs in a **separate `serverId` field** instead of trying to overwrite the primary key:
+
+1. Added `serverId?: number` field to:
+   - `LocalSale` interface in `src/lib/db/schema.ts`
+   - `LocalParty` interface in `src/lib/db/schema.ts`
+   - `LocalCategory` interface in `src/lib/db/schema.ts`
+
+2. Updated sync logic to use `serverId` field:
+   - `src/lib/db/repositories/sale.repository.ts` - Changed `markAsSynced()` to set `serverId` instead of `id`
+   - `src/lib/db/services/enhancedSync.service.ts` - Changed party update to use `serverId` instead of `id`
+
+**Files Modified**:
+- `src/lib/db/schema.ts` - Added `serverId` fields to local entities
+- `src/lib/db/repositories/sale.repository.ts` - Fixed `markAsSynced()` method
+- `src/lib/db/services/enhancedSync.service.ts` - Fixed `updateLocalEntityWithServerId()` method
+
+**Why This Matters**:
+- Local IDs (auto-generated) identify records in the device database
+- Server IDs (from backend) identify records on the server
+- These should never be conflated - they serve different purposes
+- IndexedDB enforces this by preventing primary key changes
+
+**Testing**: The sync queue should now successfully process sales without constraint errors. Failed sync items (like Sale ID 87) should retry and succeed.
 
 ---
 
@@ -127,6 +161,123 @@ Files Modified:
 - `src/api/services/stocksList.service.ts`
 
 Notes: `useStocks` already consumes both services; UI (`StocksList`) shows variant name beneath product name and expiry date when available. Both tabs now include variant products.
+## 2026-01-17 — POS Discount UI Redesign ✅
+
+**Enhancement**: Completely redesigned discount UI for better UX and visual hierarchy.
+
+**Previous Issues**:
+- Cluttered inline edit mode with cramped controls
+- Basic edit/cancel buttons without visual clarity
+- No quick presets for common discount percentages
+- Limited visual feedback
+
+**New Design Features**:
+1. **Tab-Style Type Selection**:
+   - "Fixed Amount" and "Percentage" as prominent toggle buttons
+   - Visual indication of selected type (default vs outline)
+   - Clearer than dropdown select
+
+2. **Enhanced Input Layout**:
+   - Larger, centered text input with better readability
+   - Currency/percentage symbol displayed inline (฿ or %)
+   - Separate "Apply" button with better visual weight
+   - Close button (✕) for quick cancel
+
+3. **Quick Preset Buttons**:
+   - Common percentage discounts: 5%, 10%, 15%, 20%
+   - Grid layout (4 columns) for easy access
+   - Only shows for percentage mode to avoid clutter
+   - One-click application
+
+4. **Display Mode Improvements**:
+   - Elevated card design with rounded corners and background
+   - Hover effect highlights green with smooth transitions
+   - "No discount" placeholder text
+   - Clear discount badge (✕) appears on hover for quick removal
+   - Better typography hierarchy (bold amount)
+
+5. **Dark Mode Support**:
+   - Proper color transitions (green-400 in dark mode)
+   - Consistent background opacity
+   - Better contrast for accessibility
+
+6. **UX Enhancements**:
+   - Keyboard shortcuts still work (Enter to save, Escape to cancel)
+   - Input auto-focuses when editing
+   - Clear button with event propagation prevention
+   - Smooth state transitions with `transition-all`
+
+**Visual Design**:
+```
+Edit Mode:
+┌─ Fixed Amount ┬─ Percentage ─┐
+├─ [  5  ] [฿] Apply [✕] ────┤
+└─ Quick: [ 5% ] [ 10% ] [ 15% ] [ 20% ] ─┘
+
+Display Mode:
+┌─ Discount                    -500.00 [✕] ─┐
+└─ 10% off (hover to clear)                 ┘
+```
+
+**Files Modified**:
+- `src/pages/pos/components/CartSidebar.tsx` - Complete CartTotalsSection redesign
+
+**Testing**:
+- ✅ TypeScript compilation (no errors)
+- ✅ ESLint validation (no warnings)
+- ✅ All keyboard shortcuts functional
+- ✅ Dark mode support tested
+
+**Result**: Discount UI is now more intuitive, modern, and accessible with better visual feedback and quick presets for common use cases.
+
+---
+
+## 2026-01-17 — POS Discount UI Implementation ✅
+
+**Enhancement**: Added interactive discount controls to POS cart sidebar for fixed and percentage-based discounts.
+
+**Problem**:
+- Discount feature existed in cart store but had no UI for users to set/modify discounts
+- Users couldn't apply discounts to their sales
+
+**Solution**:
+1. **Discount Input UI**: 
+   - Added interactive discount line in CartTotalsSection
+   - Click to edit discount value and type (Fixed or Percentage)
+   - Keyboard shortcuts: Enter to save, Escape to cancel
+   - Real-time total calculation with discount applied
+
+2. **Component Updates**:
+   - `CartSidebar.tsx`: Added discount state management and interactive UI
+   - Updated `CartTotalsSectionProps` to accept `discountValue`, `discountType`, and `onDiscountChange`
+   - Added edit mode with Input, select dropdown, Save/Cancel buttons
+   - Display mode shows discount icon and amount in green when active
+
+3. **Integration**:
+   - `POSPage.tsx`: Extracted `discount`, `discountType`, `setDiscount` from cart store
+   - Added `handleDiscountChange` callback
+   - Passed discount props to `CartSidebar` component
+
+4. **Features**:
+   - Fixed amount discount: Deducts fixed value from total
+   - Percentage discount: Deducts percentage from subtotal
+   - Visual feedback: Green text when discount is active
+   - Hover effect for discoverability (shows "Click to edit")
+   - Preserves discount through cart hold/recall operations (stored in cart store)
+
+**Files Modified**:
+- `src/pages/pos/components/CartSidebar.tsx` - Added discount UI and state management
+- `src/pages/pos/POSPage.tsx` - Connected cart store discount state and handlers
+
+**Testing**:
+- ✅ TypeScript compilation
+- ✅ ESLint validation
+- ✅ No type errors
+
+**Result**: Users can now easily apply fixed or percentage discounts to sales via clickable discount UI in the cart sidebar.
+
+---
+
 ## 2026-01-17 — Dashboard Custom Date Filter Implementation ✅
 
 **Enhancement**: Implemented proper dashboard date filtering with custom date range support.
