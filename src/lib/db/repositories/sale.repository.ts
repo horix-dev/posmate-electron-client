@@ -34,10 +34,7 @@ export class SaleRepository extends BaseRepository<LocalSale, number> {
    * Get sales by date range
    */
   async getByDateRange(startDate: string, endDate: string): Promise<LocalSale[]> {
-    return await this.table
-      .where('createdAt')
-      .between(startDate, endDate, true, true)
-      .toArray()
+    return await this.table.where('createdAt').between(startDate, endDate, true, true).toArray()
   }
 
   /**
@@ -73,8 +70,8 @@ export class SaleRepository extends BaseRepository<LocalSale, number> {
   async markAsSynced(id: number, serverId?: number): Promise<void> {
     await this.update(id, {
       isSynced: true,
+      serverId: serverId, // Store server ID separately, don't try to change primary key
       lastSyncedAt: new Date().toISOString(),
-      ...(serverId && { id: serverId }), // Update with server ID if provided
     } as Partial<LocalSale>)
   }
 

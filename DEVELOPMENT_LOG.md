@@ -1,3 +1,40 @@
+## 2026-01-19 — Sync Queue IndexedDB Constraint Error Fix
+
+**Problem**: Sync queue was failing with `ConstraintError: Key already exists in the object store` when syncing Sale ID 87.
+
+**Root Cause**: 
+The sync process was attempting to update the **primary key** (`id`) of existing IndexedDB records. IndexedDB doesn't allow changing primary keys - this violates the database constraint and causes the error. This happened in two places:
+
+1. `saleRepository.markAsSynced()` - Trying to change local sale `id` to server `id`
+2. `enhancedSync.service.ts` - Updating party record by changing its `id` field
+
+**Solution**: 
+Store server-assigned IDs in a **separate `serverId` field** instead of trying to overwrite the primary key:
+
+1. Added `serverId?: number` field to:
+   - `LocalSale` interface in `src/lib/db/schema.ts`
+   - `LocalParty` interface in `src/lib/db/schema.ts`
+   - `LocalCategory` interface in `src/lib/db/schema.ts`
+
+2. Updated sync logic to use `serverId` field:
+   - `src/lib/db/repositories/sale.repository.ts` - Changed `markAsSynced()` to set `serverId` instead of `id`
+   - `src/lib/db/services/enhancedSync.service.ts` - Changed party update to use `serverId` instead of `id`
+
+**Files Modified**:
+- `src/lib/db/schema.ts` - Added `serverId` fields to local entities
+- `src/lib/db/repositories/sale.repository.ts` - Fixed `markAsSynced()` method
+- `src/lib/db/services/enhancedSync.service.ts` - Fixed `updateLocalEntityWithServerId()` method
+
+**Why This Matters**:
+- Local IDs (auto-generated) identify records in the device database
+- Server IDs (from backend) identify records on the server
+- These should never be conflated - they serve different purposes
+- IndexedDB enforces this by preventing primary key changes
+
+**Testing**: The sync queue should now successfully process sales without constraint errors. Failed sync items (like Sale ID 87) should retry and succeed.
+
+---
+
 ## 2026-01-15 — Low Stocks & Expired API alignment
 
 Problem: Low Stocks tab showed 0 items, Expired tab used outdated `expiry_status` param.

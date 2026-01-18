@@ -317,6 +317,7 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
         const query = filters.search.toLowerCase().trim()
         const matchesName = product.productName.toLowerCase().includes(query)
         const matchesCode = product.productCode?.toLowerCase().includes(query)
+        const matchesBarcode = product.barcode?.toLowerCase().includes(query)
 
         // Also search in variant barcodes and SKUs for variable products
         const matchesVariant = product.variants?.some((variant) => {
@@ -326,7 +327,7 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
           return matchesSku || matchesBarcode || matchesVariantName
         })
 
-        if (!matchesName && !matchesCode && !matchesVariant) return false
+        if (!matchesName && !matchesCode && !matchesBarcode && !matchesVariant) return false
       }
 
       // Category filter
