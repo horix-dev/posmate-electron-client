@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { useDebounce } from '@/hooks'
 import type { Sale } from '@/types/api.types'
+import { SaleDetailsDialog } from '@/components/shared'
 
 // Local imports
 import {
   SalesStatsCards,
   SalesFiltersBar,
   SalesTable,
-  SaleDetailsDialog,
   DeleteSaleDialog,
   SaleReturnsTable,
   SaleReturnDialog,

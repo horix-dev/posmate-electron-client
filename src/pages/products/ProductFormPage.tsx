@@ -1,11 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Package, Loader2, Layers, ArrowLeft, Save, Plus, Barcode } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import {
@@ -66,6 +65,7 @@ export default function ProductFormPage() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [variants, setVariants] = useState<VariantInputData[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Dialog states
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false)
@@ -149,6 +149,8 @@ export default function ProductFormPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    console.log('[ProductForm] Image selected:', file.name, file.size, file.type)
+
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
       toast.error('Invalid file type. Please upload a JPEG, PNG, or WebP image.')
       return
@@ -161,8 +163,25 @@ export default function ProductFormPage() {
 
     setImageFile(file)
     const reader = new FileReader()
-    reader.onloadend = () => setImagePreview(reader.result as string)
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string)
+      console.log('[ProductForm] Image preview generated')
+    }
+    reader.onerror = () => {
+      toast.error('Failed to read image file')
+      console.error('[ProductForm] FileReader error')
+    }
     reader.readAsDataURL(file)
+
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [])
+
+  // Handle image box click for accessibility
+  const handleImageBoxClick = useCallback(() => {
+    fileInputRef.current?.click()
   }, [])
 
   // Handle SKU generation
@@ -341,27 +360,43 @@ export default function ProductFormPage() {
               {/* Image Upload */}
               <div className="flex-shrink-0">
                 <div className="flex flex-col items-center gap-3">
-                  <div className="relative flex h-40 w-40 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-muted transition-all hover:bg-muted/80">
+                  <div
+                    onClick={handleImageBoxClick}
+                    className="group relative flex h-40 w-40 cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted transition-all hover:border-primary hover:bg-primary/5"
+                  >
                     {imagePreview ? (
-                      <img
-                        src={imagePreview}
-                        alt="Preview"
-                        className="h-full w-full object-cover"
-                      />
+                      <>
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                          <span className="text-xs font-medium text-white">Change Image</span>
+                        </div>
+                      </>
                     ) : (
-                      <Package className="h-12 w-12 text-muted-foreground/40" />
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground transition-colors group-hover:text-primary">
+                        <Package className="h-12 w-12" />
+                        <span className="text-xs font-medium">Click to upload</span>
+                      </div>
                     )}
                     <Input
+                      ref={fileInputRef}
                       type="file"
                       accept={ACCEPTED_IMAGE_TYPES.join(',')}
-                      className="absolute inset-0 cursor-pointer opacity-0"
+                      className="hidden"
                       onChange={handleImageChange}
+                      aria-label="Upload product image"
                     />
                   </div>
-                  <Label className="cursor-pointer text-sm font-medium text-primary hover:underline">
-                    {imagePreview ? 'Change Image' : 'Upload Image'}
-                  </Label>
-                  <span className="text-xs text-muted-foreground">Max 2MB</span>
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">
+                      PNG, JPG, or WebP
+                      <br />
+                      Max 2MB
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -741,6 +776,7 @@ export default function ProductFormPage() {
                 attributesLoading={attributesLoading}
                 variants={variants}
                 onVariantsChange={handleVariantsChange}
+                isEditMode={isEditMode}
               />
 
               <Separator className="my-6" />

@@ -85,7 +85,7 @@ export function useStocks(filters: StocksFilters): UseStocksReturn {
       }
 
       const params: GetStocksParams = {
-        limit: 100,
+        limit: 5000,
       }
 
       if (debouncedSearch) {

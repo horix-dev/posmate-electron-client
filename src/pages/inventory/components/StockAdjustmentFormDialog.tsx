@@ -6,6 +6,7 @@
 import { memo, useEffect, useCallback, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { toast } from 'sonner'
 import { Loader2, Package, AlertCircle } from 'lucide-react'
 import {
   Dialog,
@@ -37,7 +38,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { ProductLookup } from '@/components/shared/ProductLookup'
-import { ADJUSTMENT_REASONS } from '@/types/stockAdjustment.types'
+import { ADJUSTMENT_REASONS_BY_TYPE } from '@/types/stockAdjustment.types'
 import type { Batch } from '@/types/stockAdjustment.types'
 import type { Product } from '@/types/api.types'
 import type { ProductVariant } from '@/types/variant.types'
@@ -86,6 +87,7 @@ function StockAdjustmentFormDialogComponent({
   const [batches, setBatches] = useState<Batch[]>([])
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null)
   const [loadingBatches, setLoadingBatches] = useState(false)
+  const [customReason, setCustomReason] = useState('')
   const { isOnline } = useOnlineStatus()
 
   const isDialogBlocked = open && (isSaving || loadingVariants || loadingBatches)
@@ -98,6 +100,17 @@ function StockAdjustmentFormDialogComponent({
 
   const adjustmentType = form.watch('type')
   const quantity = form.watch('quantity')
+  const currentReason = form.watch('reason')
+
+  // Reset reason and custom reason when type changes
+  useEffect(() => {
+    // Clear reason if it's not valid for the new type
+    const validReasons = ADJUSTMENT_REASONS_BY_TYPE[adjustmentType]
+    if (currentReason && !validReasons.includes(currentReason as never)) {
+      form.setValue('reason', '')
+      setCustomReason('')
+    }
+  }, [adjustmentType, currentReason, form])
 
   // Get current stock from product, variant, or batch
   const getCurrentStock = (
@@ -259,6 +272,9 @@ function StockAdjustmentFormDialogComponent({
         adjustmentDate: new Date().toISOString().split('T')[0],
       })
 
+      // Reset custom reason
+      setCustomReason('')
+
       // Preselect product if provided
       if (preselectedProductId) {
         const product = products.find((p) => p.id === preselectedProductId)
@@ -330,12 +346,22 @@ function StockAdjustmentFormDialogComponent({
         return
       }
 
-      await onSave({
+      // Validate custom reason if "Other" is selected
+      if (data.reason === 'Other' && !customReason.trim()) {
+        toast.error('Please enter a custom reason')
+        return
+      }
+
+      // Use custom reason if "Other" is selected
+      const finalData = {
         ...data,
+        reason: data.reason === 'Other' && customReason.trim() ? customReason.trim() : data.reason,
         currentStock: getCurrentStock(selectedProduct, selectedVariant, selectedBatch),
         variantId: selectedVariant?.id,
         batchNo: selectedBatch?.batch_no ?? selectedBatch?.batch_number ?? null,
-      })
+      }
+
+      await onSave(finalData)
 
       onOpenChange(false)
     },
@@ -348,6 +374,7 @@ function StockAdjustmentFormDialogComponent({
       form,
       loadingVariants,
       loadingBatches,
+      customReason,
     ]
   )
 
@@ -647,9 +674,9 @@ function StockAdjustmentFormDialogComponent({
 
                 {/* Warning for negative stock */}
                 {wouldBeNegative && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
+                  <Alert className="border-yellow-300 bg-yellow-50">
+                    <AlertCircle className="h-4 w-4 text-yellow-600" />
+                    <AlertDescription className="text-yellow-800">
                       This adjustment would result in negative stock ({newStock}). Please reduce the
                       quantity or change the type.
                     </AlertDescription>
@@ -670,7 +697,7 @@ function StockAdjustmentFormDialogComponent({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {ADJUSTMENT_REASONS.map((reason) => (
+                          {ADJUSTMENT_REASONS_BY_TYPE[adjustmentType].map((reason) => (
                             <SelectItem key={reason} value={reason}>
                               {reason}
                             </SelectItem>
@@ -687,15 +714,16 @@ function StockAdjustmentFormDialogComponent({
 
                 {/* Custom Reason (if Other selected) */}
                 {form.watch('reason') === 'Other' && (
-                  <FormItem>
-                    <FormLabel>Custom Reason</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter custom reason"
-                        onChange={(e) => form.setValue('reason', e.target.value || 'Other')}
-                      />
-                    </FormControl>
-                  </FormItem>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Custom Reason
+                    </label>
+                    <Input
+                      placeholder="Enter custom reason"
+                      value={customReason}
+                      onChange={(e) => setCustomReason(e.target.value)}
+                    />
+                  </div>
                 )}
 
                 <div className="grid gap-4 md:grid-cols-2">

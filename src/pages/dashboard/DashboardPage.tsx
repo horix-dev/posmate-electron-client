@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { SaleDetailsDialog } from '@/components/shared'
 import { StatCard } from '@/components/common/StatCard'
 import { dashboardService, stocksListService, partiesService, salesService } from '@/api/services'
 import { useSyncStore } from '@/stores'
@@ -429,6 +430,8 @@ export function DashboardPage() {
     Array<{ name: string; revenue: number; qty: number }>
   >([])
   const [loadingExtra, setLoadingExtra] = useState(false)
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
+  const [saleDetailsOpen, setSaleDetailsOpen] = useState(false)
 
   const isOnline = useSyncStore((state) => state.isOnline)
   const currencyData = useCurrency()
@@ -624,7 +627,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl duration-700 animate-in fade-in slide-in-from-bottom-6">
+    <div className="space-y-6">
       {/* Header Section */}
       <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div className="space-y-1.5">
@@ -819,8 +822,11 @@ export function DashboardPage() {
                     recentSales.map((sale: Sale, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between border-b p-4 transition-colors last:border-0 hover:bg-muted/30"
-                        onClick={() => navigate(`/sales/${sale.id}`)}
+                        className="flex cursor-pointer items-center justify-between border-b p-4 transition-colors last:border-0 hover:bg-muted/30"
+                        onClick={() => {
+                          setSelectedSale(sale)
+                          setSaleDetailsOpen(true)
+                        }}
                       >
                         <div className="flex flex-col gap-0.5">
                           <div className="flex items-center gap-2">
@@ -1129,6 +1135,13 @@ export function DashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* Sale Details Dialog */}
+      <SaleDetailsDialog
+        sale={selectedSale}
+        open={saleDetailsOpen}
+        onOpenChange={setSaleDetailsOpen}
+      />
     </div>
   )
 }

@@ -53,6 +53,7 @@ export interface VariantManagerProps {
   attributesLoading: boolean
   variants: VariantInputData[]
   onVariantsChange: (variants: VariantInputData[]) => void
+  isEditMode?: boolean
 }
 
 interface AttributeSelectorProps {
@@ -157,6 +158,7 @@ interface VariantTableProps {
   attributes: Attribute[]
   onUpdateVariant: (index: number, updates: Partial<VariantInputData>) => void
   onDeleteVariant: (index: number) => void
+  isEditMode?: boolean
 }
 
 const VariantTable = memo(function VariantTable({
@@ -164,6 +166,7 @@ const VariantTable = memo(function VariantTable({
   attributes,
   onUpdateVariant,
   onDeleteVariant,
+  isEditMode = false,
 }: VariantTableProps) {
   const { symbol: currencySymbol } = useCurrency()
   const valueMap = useMemo(() => {
@@ -222,7 +225,9 @@ const VariantTable = memo(function VariantTable({
             <TableHead className="w-[15%] min-w-[120px] bg-muted/50">Variant</TableHead>
             <TableHead className="min-w-[160px] bg-muted/50">SKU</TableHead>
             <TableHead className="min-w-[160px] bg-muted/50">Barcode</TableHead>
-            <TableHead className="min-w-[100px] bg-muted/50 text-right">Stock</TableHead>
+            {!isEditMode && (
+              <TableHead className="min-w-[100px] bg-muted/50 text-right">Stock</TableHead>
+            )}
             <TableHead className="min-w-[100px] bg-muted/50 text-right">
               Cost ({currencySymbol})
             </TableHead>
@@ -314,21 +319,23 @@ const VariantTable = memo(function VariantTable({
                   <Barcode className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" />
                 </div>
               </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={variant.initial_stock ?? ''}
-                  onChange={(e) =>
-                    onUpdateVariant(index, {
-                      initial_stock: e.target.value ? parseInt(e.target.value, 10) : undefined,
-                    })
-                  }
-                  placeholder="0"
-                  className="h-8 text-right text-sm"
-                />
-              </TableCell>
+              {!isEditMode && (
+                <TableCell>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={variant.initial_stock ?? ''}
+                    onChange={(e) =>
+                      onUpdateVariant(index, {
+                        initial_stock: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                      })
+                    }
+                    placeholder="0"
+                    className="h-8 text-right text-sm"
+                  />
+                </TableCell>
+              )}
               <TableCell>
                 <CurrencyInput
                   type="number"
@@ -460,6 +467,7 @@ function VariantManagerComponent({
   attributesLoading,
   variants,
   onVariantsChange,
+  isEditMode = false,
 }: VariantManagerProps) {
   const [selectedValues, setSelectedValues] = useState<Map<number, Set<number>>>(new Map())
   const [loadedProductId, setLoadedProductId] = useState<number | null>(null)
@@ -467,6 +475,11 @@ function VariantManagerComponent({
   const [bulkCostPrice, setBulkCostPrice] = useState<string>('')
   const [bulkSalePrice, setBulkSalePrice] = useState<string>('')
   const [bulkStock, setBulkStock] = useState<string>('')
+
+  // DEBUG: Log isEditMode
+  useEffect(() => {
+    console.log('[VariantManager] isEditMode:', isEditMode, 'variants.length:', variants.length)
+  }, [isEditMode, variants.length])
 
   const valueMap = useMemo(() => {
     const map = new Map<number, AttributeValue>()
@@ -796,15 +809,17 @@ function VariantManagerComponent({
               Bulk Edit:
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <Input
-                type="number"
-                min="0"
-                step="1"
-                placeholder="Stock"
-                className="h-9 w-24 bg-background text-right"
-                value={bulkStock}
-                onChange={(e) => setBulkStock(e.target.value)}
-              />
+              {!isEditMode && (
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Stock"
+                  className="h-9 w-24 bg-background text-right"
+                  value={bulkStock}
+                  onChange={(e) => setBulkStock(e.target.value)}
+                />
+              )}
               <CurrencyInput
                 type="number"
                 min="0"
@@ -840,6 +855,7 @@ function VariantManagerComponent({
           attributes={attributes}
           onUpdateVariant={handleUpdateVariant}
           onDeleteVariant={handleDeleteVariant}
+          isEditMode={isEditMode}
         />
       </div>
 

@@ -225,11 +225,6 @@ const CartTotalsSection = memo(function CartTotalsSection({
     handlePercentChange(pct.toString())
   }
 
-  const handleFlat50 = () => {
-    // "Flat 50" -> Amount 50
-    handleAmountChange('50')
-  }
-
   const handleClearDiscount = (e: React.MouseEvent) => {
     e.stopPropagation()
     onDiscountChange(0, 'fixed')
@@ -320,7 +315,7 @@ const CartTotalsSection = memo(function CartTotalsSection({
               </div>
 
               <div className="grid grid-cols-4 gap-2">
-                {[5, 10, 20].map((pct) => (
+                {[5, 10, 15, 20].map((pct) => (
                   <Button
                     key={pct}
                     variant="outline"
@@ -331,14 +326,6 @@ const CartTotalsSection = memo(function CartTotalsSection({
                     {pct}%
                   </Button>
                 ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleFlat50}
-                  className="h-8 text-xs font-medium"
-                >
-                  Flat 50
-                </Button>
               </div>
 
               <div className="flex justify-end pt-2">
