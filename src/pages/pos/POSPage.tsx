@@ -156,6 +156,22 @@ export function POSPage() {
   // ----------------------------------------
   // Cart Handlers
   // ----------------------------------------
+  const getCartQuantity = useCallback(
+    (productId: number, variantId?: number | null) => {
+      return cartItems.reduce((total, item) => {
+        if (variantId != null) {
+          return item.variantId === variantId ? total + item.quantity : total
+        }
+        // Simple products: match by product id when no variant
+        if (!item.variantId && item.product.id === productId) {
+          return total + item.quantity
+        }
+        return total
+      }, 0)
+    },
+    [cartItems]
+  )
+
   const handleAddToCart = useCallback(
     (product: Product, stock: Stock | null, variant?: ProductVariant | null) => {
       // For variants, use variant stock if available
@@ -164,11 +180,21 @@ export function POSPage() {
         toast.error('No stock information available')
         return
       }
+
+      const availableQty = effectiveStock.productStock ?? 0
+      const currentQty = getCartQuantity(product.id, variant?.id ?? null)
+
+      if (availableQty <= 0 || currentQty >= availableQty) {
+        const itemName = variant ? `${product.productName} (${variant.sku})` : product.productName
+        toast.error(`Stock limit reached for ${itemName}. Available: ${availableQty}. In cart: ${currentQty}.`)
+        return
+      }
+
       addItem(product, effectiveStock, 1, variant)
       const name = variant ? `${product.productName} (${variant.sku})` : product.productName
       toast.success(`Added ${name} to cart`)
     },
-    [addItem]
+    [addItem, getCartQuantity]
   )
 
   const handleUpdateQuantity = useCallback(
