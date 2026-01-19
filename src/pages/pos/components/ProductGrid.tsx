@@ -14,6 +14,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { ProductCard } from './ProductCard'
+import { useAvailableStock } from '../hooks/useAvailableStock'
 import type { Product, Category, Stock } from '@/types/api.types'
 
 // ============================================
@@ -245,11 +246,14 @@ function ProductGridComponent({
   onSelectVariant,
   onViewModeChange,
 }: ProductGridProps) {
+  // Hook to calculate available stock (total - cart quantity)
+  const { getAvailableStock, getCartQuantity } = useAvailableStock()
+
   // Sort products: in-stock first, out-of-stock at the end
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => {
-      const aStock = a.stocks_sum_product_stock ?? a.productStock ?? 0
-      const bStock = b.stocks_sum_product_stock ?? b.productStock ?? 0
+      const aStock = getAvailableStock(a)
+      const bStock = getAvailableStock(b)
       const aOutOfStock = aStock <= 0
       const bOutOfStock = bStock <= 0
 
@@ -257,7 +261,7 @@ function ProductGridComponent({
       if (!aOutOfStock && bOutOfStock) return -1
       return 0
     })
-  }, [products])
+  }, [products, getAvailableStock])
 
   const gridClassName = useMemo(
     () => cn('grid', viewMode === 'grid' ? 'grid-cols-3 gap-4' : 'grid-cols-1 gap-2'),
@@ -298,6 +302,8 @@ function ProductGridComponent({
                 onAddToCart={onAddToCart}
                 onSelectVariant={onSelectVariant}
                 viewMode={viewMode}
+                availableStock={getAvailableStock(product)}
+                cartQuantity={getCartQuantity(product.id)}
               />
             ))}
           </div>

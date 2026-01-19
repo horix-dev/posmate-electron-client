@@ -1,3 +1,174 @@
+## 2026-01-19  Real-time Available Stock Display 
+
+**Enhancement**: Product grid now displays real-time available stock (total stock - cart quantity) instead of just database stock.
+
+**Problem**:
+- When adding products to cart, the ProductGrid continued showing total database stock
+- Example: Product with 5 pieces would still show 5 even after adding 3 to cart
+- This created confusion and potential overselling risk
+- No visual indication of how many items were already in cart
+
+**Industry Standard Clarification**:
+- **Database stock**: Only updated on sale completion (payment confirmed)
+- **UI available stock**: Shows real-time availability (total - cart quantity)
+- This prevents overselling while multiple users work simultaneously
+- Abandoned carts don't affect database stock
+
+**Solution Implemented**:
+
+1. **New Hook - useAvailableStock** (src/pages/pos/hooks/useAvailableStock.ts)
+   - Subscribes to cart store changes
+   - Calculates available stock = total stock - cart quantity
+   - Supports both simple products and variable products with variants
+   - Memoized for performance
+
+2. **ProductGrid Updates** (src/pages/pos/components/ProductGrid.tsx)
+   - Uses useAvailableStock hook
+   - Passes availableStock and cartQuantity to each ProductCard
+   - Sorting now based on available stock (out-of-stock items at bottom)
+
+3. **ProductCard Enhancements** (src/pages/pos/components/ProductCard.tsx)
+   - Accepts availableStock and cartQuantity props
+   - Displays available stock instead of total stock
+   - Shows (X in cart) label when items are in cart
+   - Low stock and out-of-stock badges based on available stock
+
+**Example Flow**:
+```
+Product X: Total Stock = 5
+1. Initial display: Stock: 5
+2. Add 2 to cart: Stock: 3 (2 in cart)
+3. Add 2 more: Stock: 1 (4 in cart)
+4. Try to add more: Toast error Stock limit reached
+```
+
+**Benefits**:
+-  Real-time stock visibility
+-  Prevents overselling in UI
+-  Clear indication of cart contents
+-  No backend changes required
+-  Maintains data integrity (DB updates only on sale completion)
+
+**Files Modified**:
+- Created: src/pages/pos/hooks/useAvailableStock.ts
+- Modified: src/pages/pos/components/ProductGrid.tsx
+- Modified: src/pages/pos/components/ProductCard.tsx
+
+---
+## 2026-01-17 — POS Discount UI Redesign ✅
+
+**Enhancement**: Completely redesigned discount UI for better UX and visual hierarchy.
+
+**Previous Issues**:
+- Cluttered inline edit mode with cramped controls
+- Basic edit/cancel buttons without visual clarity
+- No quick presets for common discount percentages
+- Limited visual feedback
+
+**New Design Features**:
+1. **Tab-Style Type Selection**:
+   - "Fixed Amount" and "Percentage" as prominent toggle buttons
+   - Visual indication of selected type (default vs outline)
+   - Clearer than dropdown select
+
+2. **Enhanced Input Layout**:
+   - Larger, centered text input with better readability
+   - Currency/percentage symbol displayed inline (฿ or %)
+   - Separate "Apply" button with better visual weight
+   - Close button (✕) for quick cancel
+
+3. **Quick Preset Buttons**:
+   - Common percentage discounts: 5%, 10%, 15%, 20%
+   - Grid layout (4 columns) for easy access
+   - Only shows for percentage mode to avoid clutter
+   - One-click application
+
+4. **Display Mode Improvements**:
+   - Elevated card design with rounded corners and background
+   - Hover effect highlights green with smooth transitions
+   - "No discount" placeholder text
+   - Clear discount badge (✕) appears on hover for quick removal
+   - Better typography hierarchy (bold amount)
+
+5. **Dark Mode Support**:
+   - Proper color transitions (green-400 in dark mode)
+   - Consistent background opacity
+   - Better contrast for accessibility
+
+6. **UX Enhancements**:
+   - Keyboard shortcuts still work (Enter to save, Escape to cancel)
+   - Input auto-focuses when editing
+   - Clear button with event propagation prevention
+   - Smooth state transitions with `transition-all`
+
+**Visual Design**:
+```
+Edit Mode:
+┌─ Fixed Amount ┬─ Percentage ─┐
+├─ [  5  ] [฿] Apply [✕] ────┤
+└─ Quick: [ 5% ] [ 10% ] [ 15% ] [ 20% ] ─┘
+
+Display Mode:
+┌─ Discount                    -500.00 [✕] ─┐
+└─ 10% off (hover to clear)                 ┘
+```
+
+**Files Modified**:
+- `src/pages/pos/components/CartSidebar.tsx` - Complete CartTotalsSection redesign
+
+**Testing**:
+- ✅ TypeScript compilation (no errors)
+- ✅ ESLint validation (no warnings)
+- ✅ All keyboard shortcuts functional
+- ✅ Dark mode support tested
+
+**Result**: Discount UI is now more intuitive, modern, and accessible with better visual feedback and quick presets for common use cases.
+
+---
+
+## 2026-01-17 — POS Discount UI Implementation ✅
+
+**Enhancement**: Added interactive discount controls to POS cart sidebar for fixed and percentage-based discounts.
+
+**Problem**:
+- Discount feature existed in cart store but had no UI for users to set/modify discounts
+- Users couldn't apply discounts to their sales
+
+**Solution**:
+1. **Discount Input UI**: 
+   - Added interactive discount line in CartTotalsSection
+   - Click to edit discount value and type (Fixed or Percentage)
+   - Keyboard shortcuts: Enter to save, Escape to cancel
+   - Real-time total calculation with discount applied
+
+2. **Component Updates**:
+   - `CartSidebar.tsx`: Added discount state management and interactive UI
+   - Updated `CartTotalsSectionProps` to accept `discountValue`, `discountType`, and `onDiscountChange`
+   - Added edit mode with Input, select dropdown, Save/Cancel buttons
+   - Display mode shows discount icon and amount in green when active
+
+3. **Integration**:
+   - `POSPage.tsx`: Extracted `discount`, `discountType`, `setDiscount` from cart store
+   - Added `handleDiscountChange` callback
+   - Passed discount props to `CartSidebar` component
+
+4. **Features**:
+   - Fixed amount discount: Deducts fixed value from total
+   - Percentage discount: Deducts percentage from subtotal
+   - Visual feedback: Green text when discount is active
+   - Hover effect for discoverability (shows "Click to edit")
+   - Preserves discount through cart hold/recall operations (stored in cart store)
+
+**Files Modified**:
+- `src/pages/pos/components/CartSidebar.tsx` - Added discount UI and state management
+- `src/pages/pos/POSPage.tsx` - Connected cart store discount state and handlers
+
+**Testing**:
+- ✅ TypeScript compilation
+- ✅ ESLint validation
+- ✅ No type errors
+
+**Result**: Users can now easily apply fixed or percentage discounts to sales via clickable discount UI in the cart sidebar.
 ## 2026-01-19 — Sync Queue IndexedDB Constraint Error Fix
 
 **Problem**: Sync queue was failing with `ConstraintError: Key already exists in the object store` when syncing Sale ID 87.
@@ -13388,3 +13559,4 @@ await storage.syncQueue.enqueue({ ... })
 **Files Updated**:
 - [src/components/layout/Sidebar.tsx](src/components/layout/Sidebar.tsx)
 - [src/components/common/SyncStatusIndicator.tsx](src/components/common/SyncStatusIndicator.tsx)
+
