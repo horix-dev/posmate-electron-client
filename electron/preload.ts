@@ -21,9 +21,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Receipt Printing
   print: {
     receipt: (invoiceUrl: string) => ipcRenderer.invoke('print-receipt', invoiceUrl),
-    receiptHTML: (htmlContent: string) => ipcRenderer.invoke('print-receipt-html', htmlContent),
-    receiptHTMLWithPageSize: (htmlContent: string, pageSize: { width: number; height: number }) => 
-      ipcRenderer.invoke('print-receipt-html-with-page-size', htmlContent, pageSize),
+    receiptHTML: (htmlContent: string) => {
+      return new Promise((resolve) => {
+        // Send print request
+        ipcRenderer.send('print-receipt-html', htmlContent)
+        
+        // Listen for reply (one-time)
+        ipcRenderer.once('print-receipt-html-result', (_event, result) => {
+          resolve(result)
+        })
+      })
+    },
+    receiptHTMLWithPageSize: (htmlContent: string, pageSize: { width: number; height: number }) => {
+      return new Promise((resolve) => {
+        // Send print request with page size
+        ipcRenderer.send('print-receipt-html-with-page-size', htmlContent, pageSize)
+        
+        // Listen for reply (one-time)
+        ipcRenderer.once('print-receipt-html-result', (_event, result) => {
+          resolve(result)
+        })
+      })
+    },
   },
 
   // SQLite Database

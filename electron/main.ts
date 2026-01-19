@@ -330,7 +330,9 @@ function getAllowedImageHosts(): Set<string> {
   const addHostFromUrl = (value: string | undefined) => {
     if (!value) return
     try {
-      allowed.add(new URL(value).host)
+      const url = new URL(value)
+      allowed.add(url.host) // Includes port if specified
+      allowed.add(url.hostname) // Just hostname without port
     } catch {
       // ignore invalid URL
     }
@@ -340,7 +342,28 @@ function getAllowedImageHosts(): Set<string> {
   addHostFromUrl(process.env.VITE_API_BASE_URL)
 
   // Fallback production host used in src/lib/utils.ts
-  addHostFromUrl('https://api.posmate.app')
+  addHostFromUrl('http://146.190.6.102:8000')
+
+  // Add common image server ports for the API hostname
+  if (process.env.VITE_API_BASE_URL) {
+    try {
+      const apiUrl = new URL(process.env.VITE_API_BASE_URL)
+      const hostname = apiUrl.hostname
+      if (hostname) {
+        allowed.add(`${hostname}:8001`)
+        allowed.add(`${hostname}:8000`)
+        allowed.add(`${hostname}:8700`) // Local Laravel API server
+      }
+    } catch {
+      // ignore invalid URL
+    }
+  }
+
+  // Always allow localhost for local development
+  allowed.add('localhost:8700')
+  allowed.add('localhost:8001')
+  allowed.add('127.0.0.1:8700')
+  allowed.add('127.0.0.1:8001')
 
   return allowed
 }
@@ -462,6 +485,11 @@ ipcMain.handle('fetch-image', async (_event, request: FetchImageRequest): Promis
     throw new Error('Only http/https URLs are allowed')
   }
 
+  // Debug logging
+  console.log('[fetch-image] Requested host:', requestedUrl.host)
+  console.log('[fetch-image] Allowed hosts:', Array.from(allowedHosts))
+  console.log('[fetch-image] API Base URL:', process.env.VITE_API_BASE_URL)
+
   if (!allowedHosts.has(requestedUrl.host)) {
     throw new Error(`Blocked image host: ${requestedUrl.host}`)
   }
@@ -549,17 +577,14 @@ ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
   }
 })
 
-// Silent printing handler (HTML-based)
-ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
-  console.log('🖨️ [PRINT] Receipt print requested, HTML length:', htmlContent.length)
+// Silent printing handler (HTML-based) - EXACT copy of working hpos client
+ipcMain.on('print-receipt-html', async (event, htmlContent: string) => {
+  console.log('🖨️ Print receipt requested')
   
-  // Debug mode: show the window to see what's being printed
-  const debugMode = process.env.DEBUG_PRINT === 'true' || !app.isPackaged
-  
-  let printWindow: BrowserWindow | null = new BrowserWindow({
+  const printWindow = new BrowserWindow({
     width: 800,
     height: 1200,
-    show: debugMode, // Show window in debug mode
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'print-preload.cjs'),
       nodeIntegration: false,
@@ -570,111 +595,64 @@ ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
 
   try {
     // Load HTML content
-    console.log('🖨️ [PRINT] Loading HTML content...')
     await printWindow.loadURL(
       `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`
     )
-    console.log('🖨️ [PRINT] HTML loaded successfully')
+    console.log('🖨️ Receipt HTML loaded')
 
     // Wait for content to render
-    console.log('🖨️ [PRINT] Waiting for content to render...')
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    await new Promise((resolve) => setTimeout(resolve, 1500))
 
     // Get printers
-    console.log('🖨️ [PRINT] Getting available printers...')
     const printers = await printWindow.webContents.getPrintersAsync()
-    console.log('🖨️ [PRINT] Found', printers.length, 'printer(s)')
-    
     const defaultPrinter = printers.find((p) => p.isDefault)
     
     if (!defaultPrinter) {
-      console.error('🖨️ [PRINT] ❌ No default printer found!')
-      console.log('🖨️ [PRINT] Available printers:', printers.map(p => p.name).join(', '))
+      console.error('🖨️ No default printer found')
       printWindow.close()
-      return { success: false, error: 'No default printer found. Please set a default printer in Windows.' }
+      event.reply('print-receipt-html-result', { success: false, error: 'No default printer found' })
+      return
     }
 
-    console.log('🖨️ [PRINT] ✓ Default printer:', defaultPrinter.name)
-    console.log('🖨️ [PRINT] Printer details:', {
-      name: defaultPrinter.name,
-      displayName: defaultPrinter.displayName,
-      description: defaultPrinter.description,
-      status: defaultPrinter.status,
-      isDefault: defaultPrinter.isDefault,
-    })
+    console.log('🖨️ Printing to:', defaultPrinter.name)
+    console.log('🖨️ Available printers:', printers.map(p => `${p.name}${p.isDefault ? ' (default)' : ''}`).join(', '))
 
-    // Try silent print first, with fallback to dialog
-    console.log('🖨️ [PRINT] Starting print job...')
-    
-    const printResult = await new Promise<{ success: boolean; error?: string }>((resolve) => {
-      printWindow?.webContents.print(
-        {
-          silent: true, // Try silent first
-          printBackground: true,
-          deviceName: defaultPrinter.name,
-          margins: { marginType: 'none' },
-          pageSize: { width: 80000, height: 297000 }, // 80mm width for thermal printers
-          scaleFactor: 100,
-        },
-        (success, errorType) => {
-          if (success) {
-            console.log('🖨️ [PRINT] ✅ Print job sent successfully!')
-            resolve({ success: true })
-          } else {
-            console.error('🖨️ [PRINT] ❌ Print failed with error:', errorType)
-            console.log('🖨️ [PRINT] Attempting fallback with print dialog...')
-            
-            // Fallback: Try with dialog (not silent)
-            printWindow?.webContents.print(
-              {
-                silent: false, // Show dialog as fallback
-                printBackground: true,
-                deviceName: defaultPrinter.name,
-              },
-              (success2, errorType2) => {
-                if (success2) {
-                  console.log('🖨️ [PRINT] ✅ Print dialog shown successfully')
-                  resolve({ success: true })
-                } else {
-                  console.error('🖨️ [PRINT] ❌ Fallback print also failed:', errorType2)
-                  resolve({ success: false, error: errorType2 || errorType || 'Print failed' })
-                }
-              }
-            )
-          }
+    // Print silently
+    printWindow.webContents.print(
+      {
+        silent: true,
+        printBackground: true,
+        deviceName: defaultPrinter.name,
+        margins: { marginType: 'none' },
+        pageSize: { width: 72000, height: 297000 },
+        scaleFactor: 100,
+      },
+      (success, errorType) => {
+        if (success) {
+          console.log('🖨️ Print successful')
+          event.reply('print-receipt-html-result', { success: true })
+        } else {
+          console.error('🖨️ Print failed:', errorType)
+          event.reply('print-receipt-html-result', { success: false, error: errorType })
         }
-      )
-    })
-
-    // Wait a bit before closing to ensure print job is queued
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    // Close window after print completes
-    console.log('🖨️ [PRINT] Closing print window...')
-    if (printWindow && !printWindow.isDestroyed()) {
-      printWindow.close()
-    }
-    printWindow = null
-
-    console.log('🖨️ [PRINT] Final result:', printResult)
-    return printResult
+        printWindow.close()
+      }
+    )
   } catch (error) {
-    console.error('🖨️ [PRINT] ❌ Exception during print:', error)
-    if (printWindow && !printWindow.isDestroyed()) {
-      printWindow.close()
-    }
-    return { 
+    console.error('🖨️ Print receipt failed:', error)
+    printWindow.close()
+    event.reply('print-receipt-html-result', { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error'
-    }
+    })
   }
 })
 
 // Silent printing handler with custom page size for labels
-ipcMain.handle('print-receipt-html-with-page-size', async (_event, htmlContent: string, pageSize: { width: number; height: number }) => {
+ipcMain.on('print-receipt-html-with-page-size', async (event, htmlContent: string, pageSize: { width: number; height: number }) => {
   console.log('🖨️ Print labels requested with custom page size:', pageSize)
   
-  let printWindow: BrowserWindow | null = new BrowserWindow({
+  const printWindow = new BrowserWindow({
     width: 800,
     height: 1200,
     show: false,
@@ -702,50 +680,41 @@ ipcMain.handle('print-receipt-html-with-page-size', async (_event, htmlContent: 
     
     if (!defaultPrinter) {
       console.error('🖨️ No default printer found')
-      console.log('🖨️ Available printers:', printers.map(p => p.name).join(', '))
       printWindow.close()
-      return { success: false, error: 'No default printer found' }
+      event.reply('print-receipt-html-result', { success: false, error: 'No default printer found' })
+      return
     }
 
     console.log('🖨️ Printing to:', defaultPrinter.name)
 
-    // Print silently with custom page size - wrap in promise to wait for completion
-    const printResult = await new Promise<{ success: boolean; error?: string }>((resolve) => {
-      printWindow?.webContents.print(
-        {
-          silent: true,
-          printBackground: true,
-          deviceName: defaultPrinter.name,
-          margins: { marginType: 'none' },
-          pageSize: pageSize, // Use custom page size (width/height in microns)
-          scaleFactor: 100,
-        },
-        (success, errorType) => {
-          if (success) {
-            console.log('🖨️ Label print successful')
-            resolve({ success: true })
-          } else {
-            console.error('🖨️ Label print failed:', errorType)
-            resolve({ success: false, error: errorType })
-          }
+    // Print silently with custom page size
+    printWindow.webContents.print(
+      {
+        silent: true,
+        printBackground: true,
+        deviceName: defaultPrinter.name,
+        margins: { marginType: 'none' },
+        pageSize: pageSize, // Use custom page size (width/height in microns)
+        scaleFactor: 100,
+      },
+      (success, errorType) => {
+        if (success) {
+          console.log('🖨️ Label print successful')
+          event.reply('print-receipt-html-result', { success: true })
+        } else {
+          console.error('🖨️ Label print failed:', errorType)
+          event.reply('print-receipt-html-result', { success: false, error: errorType })
         }
-      )
-    })
-
-    // Close window after print completes
-    printWindow.close()
-    printWindow = null
-
-    return printResult
+        printWindow.close()
+      }
+    )
   } catch (error) {
     console.error('🖨️ Label print failed:', error)
-    if (printWindow && !printWindow.isDestroyed()) {
-      printWindow.close()
-    }
-    return { 
+    printWindow.close()
+    event.reply('print-receipt-html-result', { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error'
-    }
+    })
   }
 })
 
