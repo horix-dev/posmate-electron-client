@@ -21,13 +21,17 @@ export interface ProductCardProps {
   onAddToCart: (product: Product, stock: Stock) => void
   /** Callback when variable product is clicked to open variant selection */
   onSelectVariant?: (product: Product) => void
+  /** Available stock (total - cart quantity) - passed from parent */
+  availableStock?: number
+  /** Quantity currently in cart - passed from parent */
+  cartQuantity?: number
 }
 
 // ============================================
 // Helpers
 // ============================================
 
-function getStockInfo(product: Product) {
+function getStockInfo(product: Product, availableStock?: number) {
   const isVariable = product.product_type === 'variable'
   const isBatchProduct = product.product_type === 'variant' // Legacy batch products
 
@@ -54,10 +58,13 @@ function getStockInfo(product: Product) {
       0
   }
 
+  // Use provided available stock or fall back to total stock
+  const displayStock = availableStock !== undefined ? availableStock : totalStock
+
   const stock = product.stocks?.[0]
   const salePrice = stock?.productSalePrice ?? 0
-  const isLowStock = totalStock > 0 && totalStock <= (product.alert_qty ?? 5)
-  const isOutOfStock = totalStock <= 0
+  const isLowStock = displayStock > 0 && displayStock <= (product.alert_qty ?? 5)
+  const isOutOfStock = displayStock <= 0
 
   // For variable products with variants, get price range
   let priceDisplay = salePrice
@@ -88,6 +95,7 @@ function getStockInfo(product: Product) {
   return {
     stock,
     totalStock,
+    displayStock, // Available stock to display
     salePrice: priceDisplay,
     isLowStock,
     isOutOfStock,
@@ -116,11 +124,13 @@ function ProductCardComponent({
   viewMode = 'grid',
   onAddToCart,
   onSelectVariant,
+  availableStock,
+  cartQuantity,
 }: ProductCardProps) {
   const { format: formatCurrency } = useCurrency()
   const {
     stock,
-    totalStock,
+    displayStock,
     salePrice,
     isLowStock,
     isOutOfStock,
@@ -129,7 +139,7 @@ function ProductCardComponent({
     hasPriceRange,
     variantCount,
     batchInfo,
-  } = getStockInfo(product)
+  } = getStockInfo(product, availableStock)
   const imageUrl = getImageUrl(product.productPicture)
   const isList = viewMode === 'list'
 
@@ -328,8 +338,13 @@ function ProductCardComponent({
                       : 'text-green-600'
                 )}
               >
-                {totalStock}
+                {displayStock}
               </span>
+              {cartQuantity !== undefined && cartQuantity > 0 && (
+                <span className="ml-1 font-normal text-muted-foreground">
+                  ({cartQuantity} in cart)
+                </span>
+              )}
             </div>
           </div>
 

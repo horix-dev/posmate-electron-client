@@ -1,3 +1,60 @@
+## 2026-01-19  Real-time Available Stock Display 
+
+**Enhancement**: Product grid now displays real-time available stock (total stock - cart quantity) instead of just database stock.
+
+**Problem**:
+- When adding products to cart, the ProductGrid continued showing total database stock
+- Example: Product with 5 pieces would still show 5 even after adding 3 to cart
+- This created confusion and potential overselling risk
+- No visual indication of how many items were already in cart
+
+**Industry Standard Clarification**:
+- **Database stock**: Only updated on sale completion (payment confirmed)
+- **UI available stock**: Shows real-time availability (total - cart quantity)
+- This prevents overselling while multiple users work simultaneously
+- Abandoned carts don't affect database stock
+
+**Solution Implemented**:
+
+1. **New Hook - useAvailableStock** (src/pages/pos/hooks/useAvailableStock.ts)
+   - Subscribes to cart store changes
+   - Calculates available stock = total stock - cart quantity
+   - Supports both simple products and variable products with variants
+   - Memoized for performance
+
+2. **ProductGrid Updates** (src/pages/pos/components/ProductGrid.tsx)
+   - Uses useAvailableStock hook
+   - Passes availableStock and cartQuantity to each ProductCard
+   - Sorting now based on available stock (out-of-stock items at bottom)
+
+3. **ProductCard Enhancements** (src/pages/pos/components/ProductCard.tsx)
+   - Accepts availableStock and cartQuantity props
+   - Displays available stock instead of total stock
+   - Shows (X in cart) label when items are in cart
+   - Low stock and out-of-stock badges based on available stock
+
+**Example Flow**:
+```
+Product X: Total Stock = 5
+1. Initial display: Stock: 5
+2. Add 2 to cart: Stock: 3 (2 in cart)
+3. Add 2 more: Stock: 1 (4 in cart)
+4. Try to add more: Toast error Stock limit reached
+```
+
+**Benefits**:
+-  Real-time stock visibility
+-  Prevents overselling in UI
+-  Clear indication of cart contents
+-  No backend changes required
+-  Maintains data integrity (DB updates only on sale completion)
+
+**Files Modified**:
+- Created: src/pages/pos/hooks/useAvailableStock.ts
+- Modified: src/pages/pos/components/ProductGrid.tsx
+- Modified: src/pages/pos/components/ProductCard.tsx
+
+---
 ## 2026-01-17 — POS Discount UI Redesign ✅
 
 **Enhancement**: Completely redesigned discount UI for better UX and visual hierarchy.
@@ -13502,3 +13559,4 @@ await storage.syncQueue.enqueue({ ... })
 **Files Updated**:
 - [src/components/layout/Sidebar.tsx](src/components/layout/Sidebar.tsx)
 - [src/components/common/SyncStatusIndicator.tsx](src/components/common/SyncStatusIndicator.tsx)
+
