@@ -60,7 +60,6 @@ export function POSPage() {
   const autoPrintReceipt = useUIStore((state) => state.autoPrintReceipt)
   const smartTenderEnabled = useUIStore((state) => state.smartTenderEnabled)
   const business = useBusinessStore((state) => state.business)
-  const fetchBusiness = useBusinessStore((state) => state.fetchBusiness)
   const { isOnline } = useOnlineStatus()
 
   // Cart store
@@ -109,18 +108,12 @@ export function POSPage() {
   const [variantDialogProduct, setVariantDialogProduct] = useState<Product | null>(null)
   const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false)
   const [showSmartTender, setShowSmartTender] = useState(false)
+  const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null)
 
   // ----------------------------------------
   // Data Fetching
   // ----------------------------------------
   const { products, categories, paymentTypes, isLoading, filteredProducts } = usePOSData(filters)
-
-  // Fetch business data on mount
-  useEffect(() => {
-    if (!business) {
-      fetchBusiness()
-    }
-  }, [business, fetchBusiness])
 
   // Fetch invoice number on mount
   useEffect(() => {
@@ -191,6 +184,25 @@ export function POSPage() {
       }
 
       addItem(product, effectiveStock, 1, variant)
+
+      // After adding, find the last item added
+      // If it's a variant, find the item with matching variantId
+      // If it's a product, find the item with matching stock.id
+      setTimeout(() => {
+        const cartNow = useCartStore.getState().items
+        let addedItem
+
+        if (variant) {
+          addedItem = cartNow.find((item) => item.variantId === variant.id)
+        } else {
+          addedItem = cartNow.find((item) => !item.variantId && item.stock.id === effectiveStock.id)
+        }
+
+        if (addedItem) {
+          setLastAddedItemId(addedItem.id)
+        }
+      }, 0)
+
       const name = variant ? `${product.productName} (${variant.sku})` : product.productName
       toast.success(`Added ${name} to cart`)
     },
@@ -448,11 +460,8 @@ export function POSPage() {
         }
 
         // Print receipt if auto-print is enabled (works offline)
-        console.log('[POS] autoPrintReceipt setting:', autoPrintReceipt)
         if (autoPrintReceipt) {
           console.log('[POS] Auto-print enabled, generating receipt...')
-          console.log('[POS] Business data:', business ? business.companyName : 'NOT LOADED')
-          console.log('[POS] Sale data:', result.data.invoiceNumber)
 
           try {
             const printSuccess = await printReceipt({
@@ -461,19 +470,18 @@ export function POSPage() {
               customer,
             })
 
+            // Only show error if print truly failed
+            // In dev mode, print dialog may show but still succeed
             if (!printSuccess) {
               console.warn('[POS] Print may have failed or shown dialog')
-              toast.warning('Receipt print may have failed - check printer')
+              // Don't show error toast - user may have printed via dialog
             } else {
               console.log('[POS] Receipt printed to printer')
-              toast.success('Receipt sent to printer')
             }
           } catch (error) {
             console.error('[POS] Receipt print error:', error)
-            toast.error('Failed to print receipt')
+            // Silently log error but don't show toast
           }
-        } else {
-          console.log('[POS] Auto-print is disabled in settings')
         }
 
         clearCart()
@@ -693,6 +701,33 @@ export function POSPage() {
   useBarcodeScanner({ onScan: handleBarcodeScan, enabled: !dialogs.payment })
 
   // ----------------------------------------
+  // Quantity Adjustment Handlers
+  // ----------------------------------------
+  const handleIncrementLastItem = useCallback(() => {
+    if (!lastAddedItemId) {
+      toast.warning('No item to increment')
+      return
+    }
+    const item = cartItems.find((i) => i.id === lastAddedItemId)
+    if (item) {
+      handleUpdateQuantity(lastAddedItemId, item.quantity + 1)
+    }
+  }, [lastAddedItemId, cartItems, handleUpdateQuantity])
+
+  const handleDecrementLastItem = useCallback(() => {
+    if (!lastAddedItemId) {
+      toast.warning('No item to decrement')
+      return
+    }
+    const item = cartItems.find((i) => i.id === lastAddedItemId)
+    if (item && item.quantity > 1) {
+      handleUpdateQuantity(lastAddedItemId, item.quantity - 1)
+    } else if (item && item.quantity === 1) {
+      handleRemoveItem(lastAddedItemId)
+    }
+  }, [lastAddedItemId, cartItems, handleUpdateQuantity, handleRemoveItem])
+
+  // ----------------------------------------
   // Keyboard Shortcuts
   // ----------------------------------------
   const shortcuts: KeyboardShortcut[] = useMemo(
@@ -701,6 +736,7 @@ export function POSPage() {
         key: POS_SHORTCUT_KEYS.PAY,
         action: handleOpenPayment,
         description: 'Open payment',
+        preventDefault: true,
       },
       {
         key: POS_SHORTCUT_KEYS.HOLD,
@@ -727,6 +763,18 @@ export function POSPage() {
         action: closeAllDialogs,
         description: 'Close dialogs',
       },
+      {
+        key: POS_SHORTCUT_KEYS.INCREMENT_QTY,
+        action: handleIncrementLastItem,
+        description: 'Increment quantity',
+        preventDefault: true,
+      },
+      {
+        key: POS_SHORTCUT_KEYS.DECREMENT_QTY,
+        action: handleDecrementLastItem,
+        description: 'Decrement quantity',
+        preventDefault: true,
+      },
     ],
     [
       handleOpenPayment,
@@ -735,6 +783,8 @@ export function POSPage() {
       handleOpenCustomerDialog,
       handleClearCart,
       closeAllDialogs,
+      handleIncrementLastItem,
+      handleDecrementLastItem,
     ]
   )
 

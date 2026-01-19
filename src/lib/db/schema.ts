@@ -78,6 +78,7 @@ export interface LocalProduct extends Product {
  * Local category
  */
 export interface LocalCategory extends Category {
+  serverId?: number // Server-assigned ID (separate from local ID)
   lastSyncedAt: string
   version?: number // For optimistic locking
 }
@@ -86,6 +87,7 @@ export interface LocalCategory extends Category {
  * Local party (customer/supplier)
  */
 export interface LocalParty extends Party {
+  serverId?: number // Server-assigned ID (separate from local ID)
   lastSyncedAt: string
   version: number // For optimistic locking
 }
@@ -112,6 +114,7 @@ export interface LocalSale extends Sale {
   isOffline: boolean // True if created while offline
   isSynced: boolean // True if synced to server
   tempId?: string // Temporary ID for offline sales
+  serverId?: number // Server-assigned ID (separate from local ID)
   lastSyncedAt?: string
   syncError?: string
 }

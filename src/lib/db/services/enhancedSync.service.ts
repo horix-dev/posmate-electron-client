@@ -309,12 +309,12 @@ export class EnhancedSyncService {
 
       case 'party':
       case 'customer':
-        // Update local party with server ID
+        // Update local party with server ID (stored separately, not as primary key)
         if (typeof item.entityId === 'number') {
           await db.parties.update(item.entityId, {
-            id: result.server_id,
+            serverId: result.server_id,
             lastSyncedAt: new Date().toISOString(),
-          })
+          } as any)
         }
         break
     }
