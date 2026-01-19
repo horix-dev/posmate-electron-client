@@ -105,7 +105,8 @@ function StockAdjustmentFormDialogComponent({
   // Reset reason and custom reason when type changes
   useEffect(() => {
     // Clear reason if it's not valid for the new type
-    if (currentReason && !ADJUSTMENT_REASONS_BY_TYPE[adjustmentType].includes(currentReason as string)) {
+    const validReasons = ADJUSTMENT_REASONS_BY_TYPE[adjustmentType]
+    if (currentReason && !validReasons.includes(currentReason as never)) {
       form.setValue('reason', '')
       setCustomReason('')
     }
