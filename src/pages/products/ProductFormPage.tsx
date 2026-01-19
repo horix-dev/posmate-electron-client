@@ -776,6 +776,7 @@ export default function ProductFormPage() {
                 attributesLoading={attributesLoading}
                 variants={variants}
                 onVariantsChange={handleVariantsChange}
+                isEditMode={isEditMode}
               />
 
               <Separator className="my-6" />
