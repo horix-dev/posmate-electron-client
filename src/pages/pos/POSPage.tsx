@@ -109,6 +109,7 @@ export function POSPage() {
   const [variantDialogProduct, setVariantDialogProduct] = useState<Product | null>(null)
   const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false)
   const [showSmartTender, setShowSmartTender] = useState(false)
+  const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null)
 
   // ----------------------------------------
   // Data Fetching
@@ -156,6 +157,22 @@ export function POSPage() {
   // ----------------------------------------
   // Cart Handlers
   // ----------------------------------------
+  const getCartQuantity = useCallback(
+    (productId: number, variantId?: number | null) => {
+      return cartItems.reduce((total, item) => {
+        if (variantId != null) {
+          return item.variantId === variantId ? total + item.quantity : total
+        }
+        // Simple products: match by product id when no variant
+        if (!item.variantId && item.product.id === productId) {
+          return total + item.quantity
+        }
+        return total
+      }, 0)
+    },
+    [cartItems]
+  )
+
   const handleAddToCart = useCallback(
     (product: Product, stock: Stock | null, variant?: ProductVariant | null) => {
       // For variants, use variant stock if available
@@ -164,11 +181,42 @@ export function POSPage() {
         toast.error('No stock information available')
         return
       }
+
+      const availableQty = effectiveStock.productStock ?? 0
+      const currentQty = getCartQuantity(product.id, variant?.id ?? null)
+
+      if (availableQty <= 0 || currentQty >= availableQty) {
+        const itemName = variant ? `${product.productName} (${variant.sku})` : product.productName
+        toast.error(
+          `Stock limit reached for ${itemName}. Available: ${availableQty}. In cart: ${currentQty}.`
+        )
+        return
+      }
+
       addItem(product, effectiveStock, 1, variant)
+
+      // After adding, find the last item added
+      // If it's a variant, find the item with matching variantId
+      // If it's a product, find the item with matching stock.id
+      setTimeout(() => {
+        const cartNow = useCartStore.getState().items
+        let addedItem
+
+        if (variant) {
+          addedItem = cartNow.find((item) => item.variantId === variant.id)
+        } else {
+          addedItem = cartNow.find((item) => !item.variantId && item.stock.id === effectiveStock.id)
+        }
+
+        if (addedItem) {
+          setLastAddedItemId(addedItem.id)
+        }
+      }, 0)
+
       const name = variant ? `${product.productName} (${variant.sku})` : product.productName
       toast.success(`Added ${name} to cart`)
     },
-    [addItem]
+    [addItem, getCartQuantity]
   )
 
   const handleUpdateQuantity = useCallback(
@@ -667,6 +715,33 @@ export function POSPage() {
   useBarcodeScanner({ onScan: handleBarcodeScan, enabled: !dialogs.payment })
 
   // ----------------------------------------
+  // Quantity Adjustment Handlers
+  // ----------------------------------------
+  const handleIncrementLastItem = useCallback(() => {
+    if (!lastAddedItemId) {
+      toast.warning('No item to increment')
+      return
+    }
+    const item = cartItems.find((i) => i.id === lastAddedItemId)
+    if (item) {
+      handleUpdateQuantity(lastAddedItemId, item.quantity + 1)
+    }
+  }, [lastAddedItemId, cartItems, handleUpdateQuantity])
+
+  const handleDecrementLastItem = useCallback(() => {
+    if (!lastAddedItemId) {
+      toast.warning('No item to decrement')
+      return
+    }
+    const item = cartItems.find((i) => i.id === lastAddedItemId)
+    if (item && item.quantity > 1) {
+      handleUpdateQuantity(lastAddedItemId, item.quantity - 1)
+    } else if (item && item.quantity === 1) {
+      handleRemoveItem(lastAddedItemId)
+    }
+  }, [lastAddedItemId, cartItems, handleUpdateQuantity, handleRemoveItem])
+
+  // ----------------------------------------
   // Keyboard Shortcuts
   // ----------------------------------------
   const shortcuts: KeyboardShortcut[] = useMemo(
@@ -675,6 +750,7 @@ export function POSPage() {
         key: POS_SHORTCUT_KEYS.PAY,
         action: handleOpenPayment,
         description: 'Open payment',
+        preventDefault: true,
       },
       {
         key: POS_SHORTCUT_KEYS.HOLD,
@@ -701,6 +777,18 @@ export function POSPage() {
         action: closeAllDialogs,
         description: 'Close dialogs',
       },
+      {
+        key: POS_SHORTCUT_KEYS.INCREMENT_QTY,
+        action: handleIncrementLastItem,
+        description: 'Increment quantity',
+        preventDefault: true,
+      },
+      {
+        key: POS_SHORTCUT_KEYS.DECREMENT_QTY,
+        action: handleDecrementLastItem,
+        description: 'Decrement quantity',
+        preventDefault: true,
+      },
     ],
     [
       handleOpenPayment,
@@ -709,6 +797,8 @@ export function POSPage() {
       handleOpenCustomerDialog,
       handleClearCart,
       closeAllDialogs,
+      handleIncrementLastItem,
+      handleDecrementLastItem,
     ]
   )
 

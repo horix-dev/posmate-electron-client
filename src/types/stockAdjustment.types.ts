@@ -107,7 +107,20 @@ export interface BatchMovement {
   created_at: string
 }
 
-// Stock adjustment reasons
+// Stock adjustment reasons by type
+export const ADJUSTMENT_REASONS_BY_TYPE = {
+  in: [
+    'Initial Stock',
+    'Found in Inventory Count',
+    'Supplier Return',
+    'Transfer In',
+    'Returned by Customer',
+    'Other',
+  ],
+  out: ['Damaged/Expired', 'Lost/Stolen', 'Transfer Out', 'Other'],
+} as const
+
+// All adjustment reasons
 export const ADJUSTMENT_REASONS = [
   'Damaged/Expired',
   'Lost/Stolen',

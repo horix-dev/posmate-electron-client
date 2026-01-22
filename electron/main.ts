@@ -330,7 +330,9 @@ function getAllowedImageHosts(): Set<string> {
   const addHostFromUrl = (value: string | undefined) => {
     if (!value) return
     try {
-      allowed.add(new URL(value).host)
+      const url = new URL(value)
+      allowed.add(url.host) // Includes port if specified
+      allowed.add(url.hostname) // Just hostname without port
     } catch {
       // ignore invalid URL
     }
@@ -340,7 +342,28 @@ function getAllowedImageHosts(): Set<string> {
   addHostFromUrl(process.env.VITE_API_BASE_URL)
 
   // Fallback production host used in src/lib/utils.ts
-  addHostFromUrl('https://api.posmate.app')
+  addHostFromUrl('http://146.190.6.102:8000')
+
+  // Add common image server ports for the API hostname
+  if (process.env.VITE_API_BASE_URL) {
+    try {
+      const apiUrl = new URL(process.env.VITE_API_BASE_URL)
+      const hostname = apiUrl.hostname
+      if (hostname) {
+        allowed.add(`${hostname}:8001`)
+        allowed.add(`${hostname}:8000`)
+        allowed.add(`${hostname}:8700`) // Local Laravel API server
+      }
+    } catch {
+      // ignore invalid URL
+    }
+  }
+
+  // Always allow localhost for local development
+  allowed.add('localhost:8700')
+  allowed.add('localhost:8001')
+  allowed.add('127.0.0.1:8700')
+  allowed.add('127.0.0.1:8001')
 
   return allowed
 }
@@ -461,6 +484,11 @@ ipcMain.handle('fetch-image', async (_event, request: FetchImageRequest): Promis
   if (requestedUrl.protocol !== 'http:' && requestedUrl.protocol !== 'https:') {
     throw new Error('Only http/https URLs are allowed')
   }
+
+  // Debug logging
+  console.log('[fetch-image] Requested host:', requestedUrl.host)
+  console.log('[fetch-image] Allowed hosts:', Array.from(allowedHosts))
+  console.log('[fetch-image] API Base URL:', process.env.VITE_API_BASE_URL)
 
   if (!allowedHosts.has(requestedUrl.host)) {
     throw new Error(`Blocked image host: ${requestedUrl.host}`)

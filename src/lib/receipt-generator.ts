@@ -211,7 +211,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
   <div class="receipt">
     <!-- Header -->
     <div class="header">
-      ${business?.invoice_logo ? `<img src="${business.invoice_logo}" alt="Logo" class="logo" />` : ''}
+      // ${business?.invoice_logo ? `<img src="${business.invoice_logo}" alt="Logo" class="logo" />` : ''}
       <div class="business-name">${business?.companyName || 'Horix'}</div>
       <div class="receipt-title">Cash Receipt</div>
       <div class="invoice-number">#${sale.invoiceNumber}</div>
