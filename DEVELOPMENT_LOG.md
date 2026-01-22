@@ -1,3 +1,51 @@
+## 2026-01-22 — Dashboard Returns Display & Default Filter
+
+**Enhancement**: Implemented best-practice returns tracking on dashboard with today as default filter.
+
+**Features**:
+1. **Separate Returns Metric**
+   - New stat card displays total return amount and return count
+   - Visual distinction with orange color (separate from sales reduction)
+   - Shows return impact clearly for business transparency
+
+2. **Returns Chart**
+   - New "Returns Overview" chart alongside Sales and Purchases
+   - Visualizes return amount trends over selected period
+   - Helps identify return patterns and patterns
+
+3. **Today as Default Filter**
+   - Dashboard now defaults to "today" instead of "last_thirty_days"
+   - Provides daily performance snapshot on dashboard load
+   - Users can still change filter using date range picker
+
+4. **Return Logic**
+   - Returns displayed **separately** not deducted from sales
+   - Total Sales = All paid invoices (original sales only)
+   - Total Returns = Sum of all return amounts (as separate metric)
+   - Net Sales = can be calculated as Total Sales - Returns
+
+**Business Benefits**:
+- ✅ **Transparency**: Clear visibility of return volume and patterns
+- ✅ **Analytics**: Easy to track return rate (Returns ÷ Total Sales)
+- ✅ **Accountability**: All returns auditable and trackable
+- ✅ **Compliance**: Meets industry standards for POS audit trails
+- ✅ **Insight**: Quick identification of problem products/periods
+
+**Files Modified/Created**:
+- Modified: src/types/api.types.ts (added total_returns, total_return_amount, returns chart data)
+- Modified: src/pages/dashboard/DashboardPage.tsx (default filter to 'today', added Returns card and chart)
+
+**Implementation Details**:
+- DashboardData type now includes:
+  - `total_returns: number` - count of returns
+  - `total_return_amount: number` - sum of return amounts
+  - `returns?: ChartDataPoint[]` - time-series return data for chart
+- StatCard updated with `subtitle` prop to show return count
+- Returns chart uses orange color (#orange-500) for visual distinction
+- Chart grid expanded from 2 to 3 columns (MD) to accommodate Returns chart
+
+---
+
 ## 2026-01-19  Real-time Available Stock Display 
 
 **Enhancement**: Product grid now displays real-time available stock (total stock - cart quantity) instead of just database stock.

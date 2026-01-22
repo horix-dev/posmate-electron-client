@@ -420,7 +420,7 @@ export function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [isOfflineData, setIsOfflineData] = useState(false)
-  const [duration, setDuration] = useState<DashboardDuration>('last_thirty_days')
+  const [duration, setDuration] = useState<DashboardDuration>('today')
   const [fromDate, setFromDate] = useState<Date | undefined>(undefined)
   const [toDate, setToDate] = useState<Date | undefined>(undefined)
   const [recentSales, setRecentSales] = useState<Sale[]>([])
@@ -517,6 +517,17 @@ export function DashboardPage() {
           }
         } catch (err) {
           console.warn('Failed to calculate total due:', err)
+        }
+
+        // Calculate net profit: Total Sales - Total Returns - Total Expenses
+        // This ensures returns are factored in correctly
+        const calculatedNetProfit =
+          (dashboardDataResult?.total_sales || 0) -
+          (dashboardDataResult?.total_return_amount || 0) -
+          (dashboardDataResult?.total_expense || 0)
+        dashboardDataResult = {
+          ...dashboardDataResult,
+          total_profit: calculatedNetProfit,
         }
 
         setSummary(summaryRes.data)
@@ -711,13 +722,29 @@ export function DashboardPage() {
         </section>
 
         {/* Primary Stats */}
-        <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <StatCard
             title="Total Sales"
             value={formatCurrency(dashboardData?.total_sales || 0)}
             icon={ShoppingCart}
             iconContainerClassName="bg-primary/10 text-primary ring-1 ring-primary/20"
             iconClassName="text-primary"
+            loading={loading}
+          />
+          <StatCard
+            title="Total Returns"
+            value={formatCurrency(dashboardData?.total_return_amount || 0)}
+            icon={TrendingDown}
+            iconContainerClassName="bg-orange-500/10 text-orange-500 ring-1 ring-orange-500/20"
+            iconClassName="text-orange-500"
+            loading={loading}
+          />
+          <StatCard
+            title="Net Profit"
+            value={formatCurrency(dashboardData?.total_profit || 0)}
+            icon={TrendingUp}
+            iconContainerClassName="bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20"
+            iconClassName="text-blue-500"
             loading={loading}
           />
           <StatCard
@@ -734,14 +761,6 @@ export function DashboardPage() {
             icon={TrendingDown}
             iconContainerClassName="bg-rose-500/10 text-rose-500 ring-1 ring-rose-500/20"
             iconClassName="text-rose-500"
-            loading={loading}
-          />
-          <StatCard
-            title="Net Profit"
-            value={formatCurrency(dashboardData?.total_profit || 0)}
-            icon={TrendingUp}
-            iconContainerClassName="bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20"
-            iconClassName="text-blue-500"
             loading={loading}
           />
         </section>
@@ -1081,7 +1100,7 @@ export function DashboardPage() {
         </div>
 
         {/* Charts Section */}
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <Card className="overflow-hidden border-border/50 shadow-sm transition-all hover:shadow-md">
             <CardHeader className="border-b bg-muted/20 px-6 py-4">
               <div className="flex items-center justify-between">
@@ -1128,6 +1147,32 @@ export function DashboardPage() {
                   data={dashboardData?.purchases || []}
                   colorClass="bg-gradient-to-t from-blue-500/60 to-blue-500"
                   emptyLabel="No purchase data available"
+                  prefix={currencySymbol}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden border-border/50 shadow-sm transition-all hover:shadow-md">
+            <CardHeader className="border-b bg-muted/20 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-semibold">Returns Overview</CardTitle>
+                  <CardDescription className="mt-1 text-xs">
+                    Return amount impact over time
+                  </CardDescription>
+                </div>
+                <TrendingDown className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {loading ? (
+                <Skeleton className="h-[240px] w-full rounded-xl" />
+              ) : (
+                <BarChart
+                  data={dashboardData?.returns || []}
+                  colorClass="bg-gradient-to-t from-orange-500/60 to-orange-500"
+                  emptyLabel="No returns data available"
                   prefix={currencySymbol}
                 />
               )}
