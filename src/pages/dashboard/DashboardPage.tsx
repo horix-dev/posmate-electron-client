@@ -740,7 +740,7 @@ export function DashboardPage() {
             loading={loading}
           />
           <StatCard
-            title="Net Profit"
+            title="Net Total"
             value={formatCurrency(dashboardData?.total_profit || 0)}
             icon={TrendingUp}
             iconContainerClassName="bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20"
