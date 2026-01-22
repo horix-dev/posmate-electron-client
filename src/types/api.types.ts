@@ -673,6 +673,11 @@ export interface SaleDetail {
   lossProfit?: number
   mfg_date?: string
   expire_date?: string
+  // Individual product discount fields (from backend)
+  discount_type?: 'percentage' | 'fixed' | null
+  discount_value?: number
+  discount_amount?: number
+  final_price?: number
   // product?: Product
   product?: {
     id: number
@@ -712,6 +717,9 @@ export interface SaleProductItem {
   lossProfit: number
   variant_id?: number
   variant_name?: string
+  // Individual product discount fields
+  discount_type?: 'percentage' | 'fixed'
+  discount_value?: number
 }
 
 // ============================================
