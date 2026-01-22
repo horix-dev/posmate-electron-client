@@ -106,6 +106,7 @@ export function PrintLabelsPage() {
   const [barcodeType, setBarcodeType] = useState('')
   const [barcodeSetting, setBarcodeSetting] = useState('')
   const [vatType, setVatType] = useState<'inclusive' | 'exclusive'>('inclusive')
+  const [numberOfCopies, setNumberOfCopies] = useState(1)
 
   // Preview
   const [previewBarcodes, setPreviewBarcodes] = useState<LabelPayload[]>([])
@@ -346,12 +347,13 @@ export function PrintLabelsPage() {
           const barcodeValue = String(product.barcode || product.product_code)
           const barcodeSvg = generateBarcodeSVG(barcodeValue, barcodeType)
 
+          // console.log('product => ', product);
           const label: LabelPayload = {
             barcode_svg: barcodeSvg,
             packing_date: product.packing_date || null,
             product_name: product.product_name,
             business_name: business?.companyName || 'Business Name',
-            product_code: product.product_code,
+            product_code: product.barcode || product.product_code,
             product_price: product.unit_price || 0,
             product_stock: product.stock || 0,
             show_product_name: showProductName,
@@ -370,9 +372,20 @@ export function PrintLabelsPage() {
         }
       }
 
-      setPreviewBarcodes(barcodes)
+      // Duplicate all labels by numberOfCopies
+      const finalBarcodes: LabelPayload[] = []
+      for (let copy = 0; copy < numberOfCopies; copy++) {
+        finalBarcodes.push(...barcodes)
+      }
+
+      setPreviewBarcodes(finalBarcodes)
       setShowPreview(true)
-      toast.success(`Preview generated: ${barcodes.length} labels`)
+      const totalLabels = finalBarcodes.length
+      const labelText =
+        numberOfCopies > 1
+          ? `${totalLabels} labels (${numberOfCopies} copies)`
+          : `${totalLabels} labels`
+      toast.success(`Preview generated: ${labelText}`)
     } catch (err) {
       toast.error('Failed to generate preview')
       console.error('Preview error:', err)
@@ -474,7 +487,7 @@ export function PrintLabelsPage() {
           packing_date: product.packing_date || null,
           product_name: product.product_name,
           business_name: business?.companyName || 'KC',
-          product_code: product.product_code,
+          product_code: product.barcode || product.product_code,
           product_price: product.unit_price || 0,
           product_stock: product.stock || 0,
           show_product_name: showProductName,
@@ -492,27 +505,46 @@ export function PrintLabelsPage() {
       }
     }
 
+    // Duplicate all labels by numberOfCopies
+    const finalBarcodes: LabelPayload[] = []
+    for (let copy = 0; copy < numberOfCopies; copy++) {
+      finalBarcodes.push(...barcodes)
+    }
+
     const paperSettings: Record<
       string,
       { width: string; height: string; labelHeight: string; gap: string; cols: number }
     > = {
-      '1': { width: '38mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 4 },
-      '2': { width: '50mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 3 },
-      '3': { width: '50.8mm', height: '31.75mm', labelHeight: '31.75mm', gap: '10mm', cols: 4 },
+      '1': { width: '38mm', height: '25mm', labelHeight: '25mm', gap: '3.2mm', cols: 4 },
+      '2': { width: '50mm', height: '25mm', labelHeight: '25mm', gap: '3.2mm', cols: 3 },
+      '3': { width: '50.8mm', height: '31.75mm', labelHeight: '31.75mm', gap: '3.2mm', cols: 4 },
     }
     const dims = paperSettings[barcodeSetting] || paperSettings['1']
 
     const convertPtToPixels = (pt: number): number => (pt * 96) / 72
 
-    const labelHTML = barcodes
+    const labelHTML = finalBarcodes
       .map((barcode) => {
         const svgSrc = barcode.barcode_svg.startsWith('<svg')
           ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(barcode.barcode_svg)))}`
           : `data:image/png;base64,${barcode.barcode_svg}`
+
+        const barcodeNumber = String(barcode.product_code || '')
+
+        // console.log('barcodeNumber => ', barcodes)
         return `
       <div class="label" style="width: ${dims.width}; height: ${dims.height};">
-        ${barcode.show_product_price && typeof barcode.product_price === 'number' ? `<div class="price" style="font-size: ${convertPtToPixels(barcode.product_price_size)}px;">Price: ${formatCurrency(barcode.product_price)}</div>` : ''}
-        <div class="barcode"><img src="${svgSrc}" alt="barcode"/></div>
+        ${barcode.show_product_name ? `<div class="product-name-top" style="font-size: ${convertPtToPixels(barcode.business_name_size)}px;">${barcode.product_name}</div>` : ''}
+        <div class="main-content">
+          <div class="left-content">
+            ${barcode.show_product_price && typeof barcode.product_price === 'number' ? `<div class="price" style="font-size: ${convertPtToPixels(barcode.product_price_size)}px;">${formatCurrency(barcode.product_price)}</div>` : ''}
+            <div class="barcode-area">
+              <div class="barcode"><img src="${svgSrc}" alt="barcode"/></div>
+              ${barcode.show_product_code && barcodeNumber ? `<div class="barcode-number" style="font-size: ${convertPtToPixels(barcode.product_code_size)}px;">${barcodeNumber}</div>` : ''}
+            </div>
+          </div>
+          ${barcode.show_business_name ? `<div class="business-name-rotated" style="font-size: ${convertPtToPixels(barcode.product_name_size)}px;">${barcode.business_name}</div>` : ''}
+        </div>
       </div>
     `
       })
@@ -556,25 +588,20 @@ export function PrintLabelsPage() {
               border: 1px dotted #ccc; 
               display: flex; 
               flex-direction: column; 
-              justify-content: space-between; 
+              justify-content: flex-start; 
               align-items: center; 
-              padding: 0px 0px 0px 0px; 
+              padding: 2mm 1mm; 
               text-align: center; 
               overflow: hidden; 
               background: white;
               position: relative;
-              ${!isSheet ? `page-break-after: always; break-after: page;` : `margin-bottom: 0.125in;`}
+              ${!isSheet ? `margin-bottom: ${dims.gap};` : `margin-bottom: 0.125in;`}
             }
-            
+            ${console.log(dims)}
             /* Hide border for print */
             @media print {
               body { margin: 0; padding: 0; }
               .label { border: none; }
-              /* Prevent extra page at end */
-              .label:last-child { 
-                page-break-after: auto; 
-                break-after: auto; 
-              }
               .container {
                 /* Ensure grid works on print */
                  ${isSheet ? `display: grid; grid-template-columns: repeat(${dims.cols}, 1fr); gap: 0.125in;` : ''}
@@ -582,23 +609,80 @@ export function PrintLabelsPage() {
             }
 
             /* Content Styles */
-            .business-name { font-weight: bold; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-            .product-name { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-            .price { font-weight: bold; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-            
-            .barcode { 
-              flex: 1; 
-              width: 100%; 
-              display: flex; 
-              align-items: center; 
-              justify-content: center; 
-              min-height: 0; 
-              margin: 2px 0; 
+            .product-name-top {
+              width: 100%;
+              font-weight: bold;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              line-height: 1.2;
+              padding-right: 2mm;
             }
-            .barcode img { 
-              max-height: 100%; 
-              max-width: 100%; 
-              object-fit: contain; 
+            
+            .main-content {
+              position: relative;
+              display: flex;
+              width: 100%;
+              height: 100%;
+              flex: 1;
+            }
+            
+            .left-content {
+              display: flex;
+              flex: 1;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              padding-right: 2mm;
+            }
+            
+            .price {
+              font-weight: bold;
+              white-space: nowrap;
+              line-height: 1.2;
+              text-align: center;
+            }
+            
+            .barcode-area {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              width: 100%;
+            }
+            
+            .barcode {
+              width: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            
+            .barcode img {
+              max-height: 8mm;
+              max-width: 100%;
+              min-width: 70%;
+              object-fit: cover;
+            }
+            
+            .barcode-number {
+              text-align: center;
+              white-space: nowrap;
+              line-height: 1.1;
+              width: 100%;
+            }
+            
+            .business-name-rotated {
+              position: absolute;
+              right: 0;
+              top: 50%;
+              transform: translateY(-50%) rotate(180deg);
+              writing-mode: vertical-rl;
+              text-orientation: mixed;
+              white-space: nowrap;
+              max-width: ${dims.labelHeight};
+              overflow: hidden;
+              text-overflow: ellipsis;
+              padding-left: 1mm;
             }
             
             .product-code { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
@@ -631,9 +715,9 @@ export function PrintLabelsPage() {
         string,
         { width: string; height: string; labelHeight: string; gap: string; cols: number }
       > = {
-        '1': { width: '38mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 4 },
-        '2': { width: '50mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 3 },
-        '3': { width: '50.8mm', height: '31.75mm', labelHeight: '31.75mm', gap: '10mm', cols: 4 },
+        '1': { width: '38mm', height: '25mm', labelHeight: '25mm', gap: '3.2mm', cols: 4 },
+        '2': { width: '50mm', height: '25mm', labelHeight: '25mm', gap: '3.2mm', cols: 3 },
+        '3': { width: '50.8mm', height: '31.75mm', labelHeight: '31.75mm', gap: '3.2mm', cols: 4 },
       }
       const dims = paperSettings[barcodeSetting] || paperSettings['1']
 
@@ -997,6 +1081,25 @@ export function PrintLabelsPage() {
               selectedPaperSetting={barcodeSetting}
               onPaperSettingChange={setBarcodeSetting}
             />
+
+            {/* Number of Copies */}
+            <div className="mt-6 flex items-center justify-center gap-4 border-t pt-6">
+              <label htmlFor="numberOfCopies" className="text-sm font-medium">
+                Number of Copies:
+              </label>
+              <input
+                id="numberOfCopies"
+                type="number"
+                min="1"
+                max="100"
+                value={numberOfCopies}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 1
+                  setNumberOfCopies(Math.max(1, Math.min(100, value)))
+                }}
+                className="h-9 w-20 rounded-md border border-input bg-background px-3 text-center text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              />
+            </div>
 
             <div className="flex justify-center pt-8">
               <Button

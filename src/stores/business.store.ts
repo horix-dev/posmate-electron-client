@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Business } from '@/types/api.types'
-import { businessService } from '@/api/services'
+import { businessService, settingsService } from '@/api/services'
 
 interface BusinessState {
   // State
@@ -30,7 +30,23 @@ export const useBusinessStore = create<BusinessState>()(
         set({ isLoading: true, error: null })
         try {
           const response = await businessService.getBusiness()
-          set({ business: response.data, isLoading: false })
+          // Fetch business settings to get gratitude_message and other settings
+          try {
+            const settingsResponse = await settingsService.getBusinessSettings()
+            // Merge business data with settings data
+            set({
+              business: {
+                ...response.data,
+                gratitude_message: settingsResponse.data.gratitude_message || '',
+                sale_rounding_option: settingsResponse.data.sale_rounding_option,
+                invoice_logo: settingsResponse.data.invoice_logo || '',
+              },
+              isLoading: false,
+            })
+          } catch {
+            // If settings fetch fails, just use business data
+            set({ business: response.data, isLoading: false })
+          }
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : 'Failed to fetch business'
           set({ error: message, isLoading: false })

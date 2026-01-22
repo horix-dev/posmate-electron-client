@@ -40,10 +40,15 @@ function formatDate(dateString: string): string {
 export function generateReceiptHTML(data: ReceiptData): string {
   const { sale, business, customer } = data
 
+  console.log('sale => ', sale)
   // Calculate totals (handle both old and new due collection fields)
   const totalPaid = sale.total_paid_amount ?? sale.paidAmount
   const totalDue = sale.remaining_due_amount ?? sale.dueAmount ?? 0
-  const changeAmount = sale.change_amount ?? 0
+  const changeAmount = sale.change_amount
+    ? sale.change_amount
+    : sale.paidAmount > sale.totalAmount
+      ? sale.paidAmount - sale.totalAmount
+      : 0
 
   return `
 <!DOCTYPE html>
@@ -140,6 +145,12 @@ export function generateReceiptHTML(data: ReceiptData): string {
       vertical-align: top;
     }
     
+    .items-table .item-qty {
+      text-align: left;
+      width: 15%;
+      white-space: nowrap;
+    }
+    
     .items-table .item-name {
       text-align: left;
       width: 60%;
@@ -148,7 +159,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
     
     .items-table .item-price {
       text-align: right;
-      width: 40%;
+      width: 30%;
       white-space: nowrap;
     }
     
@@ -222,15 +233,21 @@ export function generateReceiptHTML(data: ReceiptData): string {
     
     <!-- Items -->
     <table class="items-table">
-      ${(sale.details || [])
-        .map(
-          (item) => `
+    <tr>
+      <th class="item-qty">Qty</th>
+      <th class="item-name">Item</th>
+      <th class="item-price">Price</th>
+    </tr>
+    ${(sale.details || [])
+      .map(
+        (item) => `
       <tr>
+        <td class="item-qty">${item.quantities} x </td>
         <td class="item-name">${item.product?.productName || 'Product'}${item.variant_name ? ' (' + item.variant_name + ')' : ''}</td>
         <td class="item-price">${formatCurrencyUtil(item.subTotal || item.quantities * item.price)}</td>
       </tr>`
-        )
-        .join('')}
+      )
+      .join('')}
     </table>
     
     <hr class="divider">
@@ -238,7 +255,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
     <!-- Totals -->
     <table class="totals-table">
       <tr>
-        <td class="label">Price</td>
+        <td class="label">Sub Total</td>
         <td class="amount">${formatCurrencyUtil(sale.totalAmount - (sale.vat_amount || 0) + (sale.discountAmount || 0))}</td>
       </tr>
       
@@ -318,7 +335,9 @@ export function generateReceiptHTML(data: ReceiptData): string {
     }
     
     <!-- Footer -->
-    <div class="footer">*** Thank you for shopping ***</div>
+    <div class="footer">*** Thank you for shopping ***
+    ${business?.gratitude_message ? `<br />*** ${business.gratitude_message} ***` : ''}
+    </div>
   </div>
   
   <script>
@@ -385,7 +404,7 @@ export async function printReceipt(data: ReceiptData): Promise<boolean> {
       console.log('[PrintReceipt] Calling Electron print API...')
       const result = await window.electronAPI?.print?.receiptHTML(html)
       console.log('[PrintReceipt] Electron API returned:', result)
-      return result?.success ?? false
+      // return result?.success ?? false
     }
 
     // Not in Electron - cannot print silently

@@ -717,7 +717,8 @@ ipcMain.handle('print-receipt-html-with-page-size', async (_event, htmlContent: 
           printBackground: true,
           deviceName: defaultPrinter.name,
           margins: { marginType: 'none' },
-          pageSize: pageSize, // Use custom page size (width/height in microns)
+          // Let CSS @page size take precedence - don't override with pageSize
+          // The pageSize property doesn't accept custom dimensions in microns format
           scaleFactor: 100,
         },
         (success, errorType) => {

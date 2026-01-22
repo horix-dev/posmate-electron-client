@@ -300,6 +300,7 @@ export interface Business {
   invoice_size?: InvoiceSize
   branch_count?: number
   addons?: BusinessAddons
+  gratitude_message?: string
 }
 
 export interface BusinessAddons {

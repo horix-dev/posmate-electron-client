@@ -1,3 +1,262 @@
+## 2026-01-21 — Fixed Paper Size Not Changing & Left Margin Issues ✅
+
+**Problem**: Different paper sizes (50mm, 38mm) were printing at the same size, and there was unwanted space on the left side of labels.
+
+**Root Causes**:
+1. **Landscape orientation forced** - `@page` was using `landscape` which ignored actual dimensions
+2. **Fixed page dimensions** - Page size wasn't changing based on selected paper preset
+3. **Default browser margins** - Browser was adding left margin despite `margin: 0`
+4. **Duplicate padding** - Padding applied both in inline style and CSS causing spacing issues
+
+**Fixes Applied**:
+
+1. **Dynamic @page sizing**:
+   ```css
+   /* OLD - Always landscape, same size */
+   @page { size: 50mm 35mm landscape; }
+   
+   /* NEW - Exact size per paper type */
+   @page { size: 38mm 35mm; }  /* For 38mm labels */
+   @page { size: 50mm 35mm; }  /* For 50mm labels */
+   @page { size: 210mm 297mm; } /* For A4 sheets */
+   ```
+
+2. **Removed landscape orientation**:
+   - Labels now print in correct portrait orientation
+   - Width and height respect actual paper dimensions
+   - Each preset (38mm, 50mm, A4) gets proper @page size
+
+3. **Eliminated left margins**:
+   ```css
+   html { margin: 0; padding: 0; }
+   body { margin: 0 !important; padding: 0 !important; }
+   .container { margin: 0; padding: 0; }
+   @media print {
+     html, body { margin: 0 !important; padding: 0 !important; }
+   }
+   ```
+
+4. **Fixed padding application**:
+   - Moved padding from inline style to CSS class
+   - Padding now only in `.label` CSS rule (not duplicated)
+   - User margins applied once via CSS
+
+5. **Proper dimension calculation**:
+   - **Option 1 (38mm)**: Page = 38mm × (25mm label + 10mm gap) = 38mm × 35mm
+   - **Option 2 (50mm)**: Page = 50mm × (25mm label + 10mm gap) = 50mm × 35mm  
+   - **Option 3 (A4)**: Page = 210mm × 297mm
+   - **Custom**: Page = user width × user height (or 99999mm if roll mode)
+
+**Technical Details**:
+- Removed `landscape` keyword from @page rule
+- Added explicit page dimensions for each preset in if/else logic
+- Applied `!important` to body margins to override browser defaults
+- Consolidated padding to single CSS location (no inline duplication)
+- Width: 100% ensures container uses full page width
+
+**Result**: 
+- ✅ 38mm labels print at 38mm width
+- ✅ 50mm labels print at 50mm width  
+- ✅ No left margin/spacing
+- ✅ Each paper size option produces different physical output
+
+**Status**: ✅ Completed
+
+---
+
+## 2026-01-21 — Fixed Label Print Size Accuracy Issues ✅
+
+**Problem**: Labels were printing larger than actual size (50mm x 25mm stickers were overflowing), barcode too large, content going out of bounds.
+
+**Root Causes Identified**:
+1. **Barcode dimensions too large** - Default height (10mm) and width scale (3) were oversized for small labels
+2. **Font size conversion issue** - Converting pt to px was creating inconsistent sizing across different systems
+3. **Box-sizing not specified** - Padding was adding to label dimensions instead of being included
+4. **No max constraints** - Barcode image could exceed label bounds
+5. **Default settings too large** - All font sizes set to 7pt were too big for compact labels
+
+**Fixes Applied**:
+1. **Reduced default barcode dimensions**:
+   - Height: 10mm → 8mm
+   - Width scale: 3 → 2
+   - Now properly fits within 25mm height labels
+
+2. **Fixed font sizing**:
+   - Removed px conversion, using **pt units directly** (matches print standards)
+   - Reduced default font sizes:
+     - Business name: 7pt → 6pt
+     - Product name: 7pt → 7pt (kept)
+     - Price: 7pt → 8pt (slight increase for emphasis)
+     - Product code: 7pt → 5pt
+     - Pack date: 7pt → 5pt
+   - Product code & pack date now default to hidden
+
+3. **Fixed CSS box model**:
+   - Added `box-sizing: border-box` to labels
+   - Padding now included in width/height (doesn't add to size)
+   - Added max-width and max-height constraints
+   - Changed justify-content to `center` for better balance
+
+4. **Constrained barcode image**:
+   - `max-height: ${barcodeHeight}mm` - exact height control
+   - `max-width: 100%` - fits label width
+   - `height: auto; width: auto` - maintains aspect ratio
+   - `object-fit: contain` - prevents distortion
+
+5. **Improved text rendering**:
+   - Reduced line-height from 1.2 to 1.0/1.1 for compact layout
+   - Removed bottom margins, using consistent 1px spacing
+   - Added `.label-content` wrapper for better content grouping
+   - Overflow hidden with text ellipsis for long text
+
+**Technical Details**:
+- Font sizes now in **pt (points)** instead of converted px - this matches standard print measurement units
+- Box-sizing ensures: `total width = width` (not `width + padding + border`)
+- Barcode image constrained to exact mm dimensions prevents overflow
+- All margins consolidated to prevent spacing issues
+
+**Result**: Labels now print at exact specified dimensions (50mm x 25mm), matching output from other professional label printing systems. ✅
+
+**Status**: ✅ Completed
+
+---
+
+## 2026-01-21 — Advanced Barcode Label Printing UI Redesign ✅
+
+**Enhancement**: Complete UI redesign with advanced layout controls matching professional label printing software standards.
+
+**New Professional Features**:
+
+1. **Advanced Layout Panel** 📐
+   - **Paper size dropdown** with preset sizes and custom option
+   - **Page width/height controls** for custom paper (separate from label dimensions)
+   - **Print on roll paper checkbox** (unlimited height mode)
+   - **Visual margin controls** in cross pattern (Top, Right, Bottom, Left in millimeters)
+   - **Columns slider** (1-6 columns) for multi-column sheet layouts
+   - **Label dimensions** (width/height) separate from page size
+   - **Row and column spacing** controls for precise label positioning
+
+2. **Enhanced Display Section** 🎨
+   - **Two-column checkbox layout** (Product name, Company Name, Price, Barcode)
+   - **Tax inclusive price checkbox** (replacing dropdown)
+   - **Borders toggle** to show/hide label borders
+   - **Barcode type dropdown** with all 12 supported formats
+   - **Size sliders** (replacing number inputs):
+     - Product name size slider (4-24pt) with live value display
+     - Price size slider (4-24pt) with live value display
+     - Barcode height slider (5-50mm) with live value display
+   - Green checkboxes for better visual feedback
+   - Barcode always enabled (cannot be disabled)
+
+3. **Professional Layout Structure**:
+   - Section headers with borders ("Layout" and "Display")
+   - Cleaner spacing and visual hierarchy
+   - Responsive grid layouts
+   - Better label grouping and organization
+   - Disabled page height when "Print on roll" is enabled
+
+4. **Print Logic Enhancements**:
+   - Margins applied to each label via padding
+   - Borders conditionally rendered based on checkbox
+   - Tax type displayed in price label (Inc./Exc. Tax)
+   - Multi-column grid support with configurable columns
+   - Roll paper mode with unlimited height (99999mm)
+   - Custom dimensions properly integrated into print generation
+
+**Technical Implementation**:
+- Added 11 new state variables: `labelWidth`, `labelHeight`, `marginTop`, `marginBottom`, `marginLeft`, `marginRight`, `columns`, `printOnRoll`, `showBorders`, `taxInclusive`
+- Replaced number inputs with HTML5 range sliders for better UX
+- Implemented cross-pattern margin control UI
+- Dynamic grid template columns based on columns setting
+- Conditional page height for roll vs sheet printing
+- Border styles applied via inline styles on labels
+- Green accent color (#10b981) for active checkboxes
+
+**Files Modified**:
+1. `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx`
+   - Added 11 new state variables
+   - Updated paperSettings to use labelWidth/labelHeight for custom
+   - Enhanced label HTML with margins, borders, and tax type
+   - Updated CSS grid to support multiple columns
+   - Roll paper mode support (unlimited height)
+2. `src/pages/product-settings/components/print-labels/LabelConfiguration.tsx`
+   - Complete UI redesign with Layout and Display sections
+   - Added margin controls in cross pattern
+   - Columns slider implementation
+   - Size controls converted to range sliders
+   - Green checkbox styling
+   - Page height disabled when roll mode active
+
+**User Benefits**:
+- Professional-grade label printing interface
+- Full control over page layout and margins
+- Support for multi-column sheet labels
+- Roll paper mode for continuous label printers
+- Visual feedback with sliders showing current values
+- Cleaner, more organized configuration interface
+
+**Status**: ✅ Completed
+
+---
+
+## 2026-01-21 — Barcode Label Printing Advanced Configuration ✅
+
+**Enhancement**: Added comprehensive barcode customization options including barcode dimensions, spacing controls, and custom paper size support.
+
+**New Features**:
+
+1. **Barcode Dimensions Control**:
+   - Barcode Height (mm): Adjustable from 5-50mm (default: 10mm)
+   - Barcode Width (Scale): Adjustable scale factor 1-10 (default: 3)
+   - Direct control over barcode appearance and readability
+
+2. **Spacing Controls**:
+   - Row Spacing (mm): Control vertical spacing between labels (0-20mm, default: 2mm)
+   - Column Spacing (mm): Control horizontal spacing for sheet layouts (0-20mm, default: 2mm)
+   - Applies to both roll and sheet label formats
+
+3. **Custom Paper Size Option**:
+   - New "Custom Size (Manual)" option in paper settings dropdown
+   - Manual width input: 10-300mm (default: 50mm)
+   - Manual height input: 10-300mm (default: 25mm)
+   - Enables support for any non-standard label size
+
+4. **Enhanced Label Rendering**:
+   - All label elements now properly rendered (business name, product name, code, pack date, price)
+   - Each element respects its individual show/hide toggle and font size
+   - Dynamic row spacing applied to label margins
+   - Dynamic column spacing for grid layouts
+
+**Technical Implementation**:
+- Added state variables: `barcodeHeight`, `barcodeWidth`, `rowSpacing`, `columnSpacing`, `customPaperWidth`, `customPaperHeight`
+- Updated `generateBarcodeSVG()` to use dynamic dimensions instead of hardcoded values
+- Enhanced `generatePrintHTML()` to support custom paper sizes and apply all spacing controls
+- Added CSS styles for product code and pack date elements with proper overflow handling
+- Conditional UI section for custom paper dimensions (only shows when "Custom Size" selected)
+
+**User Benefits**:
+- Full control over barcode appearance for different printer types
+- Support for any label printer with custom paper sizes
+- Better label layout control for professional appearance
+- Improved compatibility with thermal printers, label makers, and sheet printers
+
+**Files Modified**:
+1. `src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx`
+   - Added 6 new state variables for dimensions and spacing
+   - Updated barcode generation to use dynamic dimensions
+   - Added custom paper size to paper settings array
+   - Enhanced label HTML generation with all display fields
+   - Applied dynamic spacing to CSS grid and label margins
+2. `src/pages/product-settings/components/print-labels/LabelConfiguration.tsx`
+   - Extended interface with 10 new props for barcode/spacing/custom size controls
+   - Added 5 new input fields: Barcode Height, Barcode Width, Row Spacing, Column Spacing
+   - Added conditional custom paper size inputs (width and height)
+   - Maintained consistent UI patterns with existing configuration controls
+
+**Status**: ✅ Completed
+
+---
+
 ## 2026-01-17 — POS Discount UI Redesign ✅
 
 **Enhancement**: Completely redesigned discount UI for better UX and visual hierarchy.

@@ -16,6 +16,7 @@ const paperDimensions: Record<string, { width: string; height: string; cols: num
 export function BarcodePreview({ barcodes, paperSetting }: BarcodePreviewProps) {
   const dims = paperDimensions[paperSetting] || paperDimensions['1']
 
+  // console.log('barcodes => ', barcodes);
   const convertPtToPixels = (pt: number): number => {
     return (pt * 96) / 72 // Approximate conversion: pt to px
   }
@@ -30,73 +31,117 @@ export function BarcodePreview({ barcodes, paperSetting }: BarcodePreviewProps) 
 
       <ScrollArea className="h-96 rounded-lg border bg-muted/50 p-4">
         <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${dims.cols}, 1fr)` }}>
-          {barcodes.map((barcode, idx) => (
-            <Card
-              key={idx}
-              className="flex flex-col overflow-hidden bg-white"
-              style={{
-                width: dims.width,
-                height: dims.height,
-              }}
-            >
-              <CardContent className="flex h-full flex-col items-center justify-center gap-0.5 overflow-hidden p-1 text-center">
-                {/* Price Line */}
-                {barcode.show_product_price && typeof barcode.product_price === 'number' && (
-                  <div
-                    className="font-semibold leading-tight"
-                    style={{
-                      fontSize: `${convertPtToPixels(barcode.product_price_size)}px`,
-                    }}
-                  >
-                    Price: ${barcode.product_price.toFixed(2)}
-                  </div>
-                )}
+          {barcodes.map((barcode, idx) => {
+            const barcodeNumber = String(barcode.product_code || '')
 
-                {/* Barcode Image */}
-                {barcode.barcode_svg && (
-                  <div
-                    className="flex w-full items-center justify-center"
-                    style={{ height: '12mm' }}
-                  >
-                    <img
-                      className="object-contain"
-                      style={{ height: '12mm', maxWidth: '90%' }}
-                      src={
-                        barcode.barcode_svg.startsWith('<svg')
-                          ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(barcode.barcode_svg)))}`
-                          : `data:image/png;base64,${barcode.barcode_svg}`
-                      }
-                      alt={barcode.product_code || 'barcode'}
-                    />
-                  </div>
-                )}
+            return (
+              <Card
+                key={idx}
+                className="flex flex-col overflow-hidden bg-white"
+                style={{
+                  width: dims.width,
+                  height: dims.height,
+                  padding: '2px',
+                }}
+              >
+                <CardContent className="relative flex h-full flex-col items-center justify-start gap-0.5 overflow-hidden p-1 text-center">
+                  {/* Business Name */}
+                  {barcode.show_product_name && barcode.product_name && (
+                    <div
+                      className="w-full truncate pr-2 font-bold leading-tight"
+                      style={{
+                        fontSize: `${convertPtToPixels(barcode.business_name_size)}px`,
+                      }}
+                    >
+                      {barcode.product_name}
+                    </div>
+                  )}
 
-                {/* Product Code (always below barcode) */}
-                {/* {barcode.show_product_code && barcode.product_code && (
-                  <div
-                    className="w-full truncate leading-tight"
-                    style={{
-                      fontSize: `${convertPtToPixels(barcode.product_code_size)}px`,
-                    }}
-                  >
-                    {barcode.product_code}
-                  </div>
-                )} */}
+                  {/* Main Content Layout */}
+                  <div className="relative flex h-full w-full flex-1">
+                    {/* Left Section: Price + Barcode */}
+                    <div className="flex flex-1 flex-col items-center justify-around pr-2">
+                      {/* Price */}
+                      {barcode.show_product_price && typeof barcode.product_price === 'number' && (
+                        <div
+                          className="text-center font-semibold leading-tight"
+                          style={{
+                            fontSize: `${convertPtToPixels(barcode.product_price_size)}px`,
+                          }}
+                        >
+                          ${barcode.product_price.toFixed(2)}
+                        </div>
+                      )}
 
-                {/* Packing Date */}
-                {barcode.show_pack_date && barcode.packing_date && (
-                  <div
-                    className="leading-tight text-muted-foreground"
-                    style={{
-                      fontSize: `${convertPtToPixels(barcode.pack_date_size)}px`,
-                    }}
-                  >
-                    {barcode.packing_date}
+                      {/* Barcode and Number */}
+                      <div className="flex flex-col items-start" style={{ width: '90%' }}>
+                        {/* Barcode Image */}
+                        <>
+                          {barcode.barcode_svg && (
+                            <div className="flex w-full items-center justify-around">
+                              <img
+                                className="object-cover"
+                                style={{ maxHeight: '8mm', maxWidth: '100%', minWidth: '85%' }}
+                                src={
+                                  barcode.barcode_svg.startsWith('<svg')
+                                    ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(barcode.barcode_svg)))}`
+                                    : `data:image/png;base64,${barcode.barcode_svg}`
+                                }
+                                alt={barcode.product_code || 'barcode'}
+                              />
+                            </div>
+                          )}
+                          {/* {console.log(' => ', barcodeNumber)} */}
+                          {/* Barcode Number */}
+                          {barcode.show_product_code && barcodeNumber && (
+                            <div
+                              className="w-full text-center leading-tight"
+                              style={{
+                                fontSize: `${Math.max(6, convertPtToPixels(barcode.product_code_size))}px`,
+                              }}
+                            >
+                              {barcodeNumber}
+                            </div>
+                          )}
+                        </>
+                      </div>
+                    </div>
+
+                    {/* Right Section: Product Description (Rotated) */}
+                    {barcode.show_business_name && barcode.business_name && (
+                      <div
+                        className="absolute right-0 top-1/2 whitespace-nowrap"
+                        style={{
+                          fontSize: `${convertPtToPixels(barcode.product_name_size)}px`,
+                          transform: 'translateY(-50%) rotate(180deg)',
+                          writingMode: 'vertical-rl',
+                          textOrientation: 'mixed',
+                          maxWidth: dims.height,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          paddingLeft: '1mm',
+                        }}
+                      >
+                        {barcode.business_name}
+                      </div>
+                    )}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+
+                  {/* Packing Date (if shown, at the bottom) */}
+                  {barcode.show_pack_date && barcode.packing_date && (
+                    <div
+                      className="w-full truncate text-xs leading-tight text-muted-foreground"
+                      style={{
+                        fontSize: `${convertPtToPixels(barcode.pack_date_size)}px`,
+                      }}
+                    >
+                      {barcode.packing_date}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       </ScrollArea>
 

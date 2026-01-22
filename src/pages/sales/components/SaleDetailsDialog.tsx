@@ -83,6 +83,9 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
   const fetchBusiness = useBusinessStore((state) => state.fetchBusiness)
   const [isPrinting, setIsPrinting] = useState(false)
 
+  console.log('[SaleDetails] business from store =>', business)
+  console.log('[SaleDetails] gratitude_message =>', business?.gratitude_message)
+
   // Fetch business data when component mounts if not already loaded
   useEffect(() => {
     if (!business) {
