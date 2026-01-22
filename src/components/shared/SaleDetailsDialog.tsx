@@ -96,6 +96,20 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
 
   if (!sale) return null
 
+  // Debug: Log sale details to see what discount data we're receiving
+  console.log('[SaleDetailsDialog] Sale data:', {
+    invoiceNumber: sale.invoiceNumber,
+    details: sale.details?.map((d) => ({
+      product: d.product?.productName,
+      price: d.price,
+      subTotal: d.subTotal,
+      discount_type: d.discount_type,
+      discount_value: d.discount_value,
+      discount_amount: d.discount_amount,
+      final_price: d.final_price,
+    })),
+  })
+
   const paymentBadge = getPaymentStatusBadge(sale)
   const paymentBreakdown = formatPaymentBreakdown(sale)
   const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
@@ -209,6 +223,7 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
                     <TableHead>Product</TableHead>
                     <TableHead className="text-center">Qty</TableHead>
                     <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Discount</TableHead>
                     <TableHead className="text-right">Subtotal</TableHead>
                     <TableHead className="text-center">Status</TableHead>
                   </TableRow>
@@ -227,20 +242,82 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
                     const isFullyReturned = returnedQty >= detail.quantities
                     const isPartiallyReturned = returnedQty > 0 && !isFullyReturned
 
+                    // Calculate discount information
+                    // Check if backend sent discount fields
+                    const hasDiscountFields =
+                      (detail.discount_amount ?? 0) > 0 || detail.discount_type
+
+                    // Calculate values
+                    const originalSubtotal = detail.price * detail.quantities
+                    const actualSubtotal = detail.subTotal ?? originalSubtotal
+
+                    // If no explicit discount fields, try to infer from price difference
+                    const inferredDiscount = originalSubtotal - actualSubtotal
+                    const hasInferredDiscount = inferredDiscount > 0.01 // Account for rounding
+
+                    const hasDiscount = hasDiscountFields || hasInferredDiscount
+                    const discountAmount = hasDiscountFields
+                      ? (detail.discount_amount ?? 0) * detail.quantities
+                      : inferredDiscount
+
+                    const finalSubtotal = detail.final_price
+                      ? detail.final_price * detail.quantities
+                      : actualSubtotal
+
                     return (
                       <TableRow
                         key={detail.id || index}
                         className={` ${isFullyReturned ? 'bg-red-50 dark:bg-red-950/20' : ''} ${isPartiallyReturned ? 'bg-yellow-50 dark:bg-yellow-950/20' : ''} `}
                       >
                         <TableCell className="font-medium">
-                          {detail.product?.productName || 'Product'}
+                          <div className="flex flex-col">
+                            <span>{detail.product?.productName || 'Product'}</span>
+                            {detail.variant_name && (
+                              <span className="text-xs text-muted-foreground">
+                                {detail.variant_name}
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-center">{detail.quantities}</TableCell>
                         <TableCell className="text-right">
-                          {formatCurrencyAmount(detail.price)}
+                          <div className="flex flex-col items-end">
+                            <span>{formatCurrencyAmount(detail.price)}</span>
+                            {hasDiscount && detail.final_price && (
+                              <span className="text-xs text-muted-foreground line-through">
+                                {formatCurrencyAmount(detail.price)}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {hasDiscount ? (
+                            <div className="flex flex-col items-end">
+                              {hasDiscountFields ? (
+                                <>
+                                  <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                                    {detail.discount_type === 'percentage'
+                                      ? `${detail.discount_value}%`
+                                      : detail.discount_type === 'fixed'
+                                        ? `₹${detail.discount_value}`
+                                        : 'Discount'}
+                                  </span>
+                                  <span className="text-xs text-green-600 dark:text-green-400">
+                                    -{formatCurrencyAmount(discountAmount)}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                                  -{formatCurrencyAmount(discountAmount)}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {formatCurrencyAmount(detail.price * detail.quantities)}
+                          {formatCurrencyAmount(finalSubtotal)}
                         </TableCell>
                         <TableCell className="text-center">
                           {isFullyReturned && (
@@ -274,24 +351,50 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
 
         {/* Summary */}
         <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Subtotal</span>
-            <span>{formatCurrencyAmount(sale.totalAmount ?? 0)}</span>
-          </div>
-          {(sale.discountAmount ?? 0) > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Discount</span>
-              <span className="text-red-500">
-                -{formatCurrencyAmount(sale.discountAmount ?? 0)}
-              </span>
-            </div>
-          )}
-          {(sale.vat_amount ?? 0) > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">VAT ({sale.vat?.name || 'Tax'})</span>
-              <span>{formatCurrencyAmount(sale.vat_amount ?? 0)}</span>
-            </div>
-          )}
+          {(() => {
+            // Calculate product-level discounts
+            const productDiscounts =
+              sale.details?.reduce((sum, detail) => {
+                return sum + (detail.discount_amount ?? 0) * detail.quantities
+              }, 0) ?? 0
+
+            // Calculate subtotal before any discounts
+            const subtotalBeforeDiscounts =
+              sale.details?.reduce((sum, detail) => {
+                return sum + detail.price * detail.quantities
+              }, 0) ?? sale.totalAmount
+
+            return (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal (before discounts)</span>
+                  <span>{formatCurrencyAmount(subtotalBeforeDiscounts)}</span>
+                </div>
+                {productDiscounts > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Product Discounts</span>
+                    <span className="text-green-600 dark:text-green-400">
+                      -{formatCurrencyAmount(productDiscounts)}
+                    </span>
+                  </div>
+                )}
+                {(sale.discountAmount ?? 0) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Cart Discount</span>
+                    <span className="text-green-600 dark:text-green-400">
+                      -{formatCurrencyAmount(sale.discountAmount ?? 0)}
+                    </span>
+                  </div>
+                )}
+                {(sale.vat_amount ?? 0) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">VAT ({sale.vat?.name || 'Tax'})</span>
+                    <span>{formatCurrencyAmount(sale.vat_amount ?? 0)}</span>
+                  </div>
+                )}
+              </>
+            )
+          })()}
           <Separator />
           <div className="flex justify-between text-lg font-medium">
             <span>Total</span>
