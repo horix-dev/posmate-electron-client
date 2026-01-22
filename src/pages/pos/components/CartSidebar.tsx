@@ -12,7 +12,6 @@ import {
   Package,
   X,
   Percent,
-  Tag,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -24,6 +23,7 @@ import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { CachedImage } from '@/components/common/CachedImage'
+import { toast } from 'sonner'
 import { useCurrency } from '@/hooks'
 import { cn, getImageUrl } from '@/lib/utils'
 import type { CartItemDisplay } from './CartItem'
@@ -364,6 +364,7 @@ const CartTotalsSection = memo(function CartTotalsSection({
 interface CartItemRowProps {
   item: CartItemDisplay
   isHero?: boolean
+  showDiscountColumn?: boolean
   onUpdateQuantity: (productId: number, quantity: number) => void
   onUpdateDiscount?: (itemId: string, discount: number, type: 'fixed' | 'percentage') => void
   onRemoveItem: (productId: number) => void
@@ -372,6 +373,7 @@ interface CartItemRowProps {
 const CartItemRow = memo(function CartItemRow({
   item,
   isHero = false,
+  showDiscountColumn = false,
   onUpdateQuantity,
   onUpdateDiscount,
   onRemoveItem,
@@ -393,6 +395,7 @@ const CartItemRow = memo(function CartItemRow({
   const [discountOpen, setDiscountOpen] = useState(false)
   const [amountStr, setAmountStr] = useState('')
   const [percentStr, setPercentStr] = useState('')
+  const [activeDiscountType, setActiveDiscountType] = useState<'fixed' | 'percentage'>('percentage')
 
   // Sync local state when popover opens
   useEffect(() => {
@@ -400,9 +403,11 @@ const CartItemRow = memo(function CartItemRow({
       if (itemDiscount === 0 && discountAmount === 0) {
         setAmountStr('')
         setPercentStr('')
+        setActiveDiscountType('percentage')
         return
       }
 
+      setActiveDiscountType(itemDiscountType)
       if (itemDiscountType === 'fixed') {
         setAmountStr(itemDiscount.toString())
         const pct = item.salePrice > 0 ? (itemDiscount / item.salePrice) * 100 : 0
@@ -417,53 +422,72 @@ const CartItemRow = memo(function CartItemRow({
   }, [discountOpen])
 
   const handleDiscountAmountChange = (val: string) => {
-    if (!onUpdateDiscount) return
-
     setAmountStr(val)
+    setActiveDiscountType('fixed')
     const num = parseFloat(val)
 
     if (isNaN(num)) {
       setPercentStr('')
-      if (val === '') onUpdateDiscount(item.id, 0, 'fixed')
       return
     }
 
-    // Update percentage local state
+    // Update percentage local state only (don't apply yet)
     const pct = item.salePrice > 0 ? (num / item.salePrice) * 100 : 0
     setPercentStr(pct.toFixed(2))
-
-    // Update store
-    onUpdateDiscount(item.id, num, 'fixed')
   }
 
   const handleDiscountPercentChange = (val: string) => {
-    if (!onUpdateDiscount) return
-
     setPercentStr(val)
+    setActiveDiscountType('percentage')
     const num = parseFloat(val)
 
     if (isNaN(num)) {
       setAmountStr('')
-      if (val === '') onUpdateDiscount(item.id, 0, 'percentage')
       return
     }
 
-    // Update amount local state
+    // Update amount local state only (don't apply yet)
     const amt = (item.salePrice * num) / 100
     setAmountStr(amt.toFixed(2))
-
-    // Update store
-    onUpdateDiscount(item.id, num, 'percentage')
   }
 
   const handleDiscountPreset = (pct: number) => {
     handleDiscountPercentChange(pct.toString())
   }
 
-  const handleClearDiscount = (e: React.MouseEvent) => {
+  const handleApplyDiscount = () => {
     if (!onUpdateDiscount) return
-    e.stopPropagation()
+
+    // Apply the discount based on the active discount type
+    if (activeDiscountType === 'percentage' && percentStr && parseFloat(percentStr) > 0) {
+      const num = parseFloat(percentStr)
+      // Validate percentage doesn't exceed 100%
+      if (num > 100) {
+        toast.error('Discount cannot exceed 100%')
+        return
+      }
+      onUpdateDiscount(item.id, num, 'percentage')
+    } else if (activeDiscountType === 'fixed' && amountStr && parseFloat(amountStr) > 0) {
+      const num = parseFloat(amountStr)
+      // Validate fixed discount doesn't exceed product price
+      if (num > item.salePrice) {
+        toast.error(`Discount cannot exceed product price (${formatCurrency(item.salePrice)})`)
+        return
+      }
+      onUpdateDiscount(item.id, num, 'fixed')
+    } else {
+      // Clear discount if both are empty
+      onUpdateDiscount(item.id, 0, 'fixed')
+    }
+
+    setDiscountOpen(false)
+  }
+
+  const handleClearDiscount = () => {
+    if (!onUpdateDiscount) return
     onUpdateDiscount(item.id, 0, 'fixed')
+    setAmountStr('')
+    setPercentStr('')
     setDiscountOpen(false)
   }
 
@@ -507,17 +531,6 @@ const CartItemRow = memo(function CartItemRow({
                 Batch: {item.batchNo}
               </span>
             )}
-            {hasDiscount && (
-              <div className="flex items-center gap-1 text-[11px] font-medium text-green-600 dark:text-green-400">
-                <Tag className="h-3 w-3" />
-                <span>
-                  {itemDiscountType === 'percentage'
-                    ? `${itemDiscount}%`
-                    : formatCurrency(itemDiscount)}{' '}
-                  off
-                </span>
-              </div>
-            )}
           </div>
         </div>
       </td>
@@ -560,16 +573,23 @@ const CartItemRow = memo(function CartItemRow({
           </Button>
         </div>
       </td>
-      <td className="px-2 py-2 text-right">
-        <div className="flex flex-col items-end">
-          <span className="tabular-nums">{formatCurrency(item.salePrice)}</span>
-          {hasDiscount && (
-            <span className="text-[10px] text-green-600 line-through dark:text-green-400">
-              {formatCurrency(subtotal)}
-            </span>
+      <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(item.salePrice)}</td>
+      {showDiscountColumn && (
+        <td className="px-3 py-2 text-right">
+          {hasDiscount ? (
+            <div className="flex flex-col items-end tabular-nums">
+              <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                {formatCurrency(discountAmount)}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                ({itemDiscountType === 'percentage' ? `${itemDiscount}%` : 'Fixed'})
+              </span>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">-</span>
           )}
-        </div>
-      </td>
+        </td>
+      )}
       <td className="px-3 py-2 text-right font-semibold tabular-nums text-foreground">
         {formatCurrency(lineTotal)}
       </td>
@@ -583,31 +603,31 @@ const CartItemRow = memo(function CartItemRow({
                   variant={hasDiscount ? 'default' : 'ghost'}
                   size="icon"
                   className={cn(
-                    'h-6 w-6 transition-opacity',
+                    'h-6 w-6',
                     hasDiscount
                       ? 'bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600'
-                      : 'text-muted-foreground opacity-0 hover:bg-primary/10 group-hover:opacity-100'
+                      : 'text-muted-foreground hover:bg-primary/10'
                   )}
                   aria-label={`Set discount for ${item.productName}`}
                 >
                   <Percent className="h-3 w-3" aria-hidden="true" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-72 p-4" align="end" side="left">
+              <PopoverContent
+                className="w-72 p-4"
+                align="end"
+                side="left"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleApplyDiscount()
+                  }
+                }}
+              >
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="font-semibold">Item Discount</h4>
-                    {hasDiscount && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-1 text-destructive hover:bg-destructive/10"
-                        onClick={handleClearDiscount}
-                      >
-                        <X className="mr-1 h-3 w-3" />
-                        Clear
-                      </Button>
-                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -708,6 +728,27 @@ const CartItemRow = memo(function CartItemRow({
                       </div>
                     </div>
                   )}
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 border-t pt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={handleClearDiscount}
+                      disabled={!hasDiscount}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="flex-1"
+                      onClick={handleApplyDiscount}
+                    >
+                      Apply
+                    </Button>
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
@@ -717,7 +758,7 @@ const CartItemRow = memo(function CartItemRow({
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-destructive opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100"
+            className="h-6 w-6 text-destructive hover:bg-destructive/10"
             onClick={() => onRemoveItem(item.productId)}
             aria-label={`Remove ${item.productName} from cart`}
           >
@@ -775,6 +816,9 @@ function CartSidebarComponent({
 }: CartSidebarProps) {
   const itemCount = useMemo(() => items.reduce((acc, item) => acc + item.quantity, 0), [items])
 
+  // Check if any item has a discount
+  const hasAnyDiscount = useMemo(() => items.some((item) => (item.discount ?? 0) > 0), [items])
+
   // Reverse items to show newest first (Hero row at top)
   const reversedItems = useMemo(() => [...items].reverse(), [items])
 
@@ -821,9 +865,12 @@ function CartSidebarComponent({
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">Item</th>
                     <th className="px-2 py-2 text-center font-medium">Qty</th>
-                    <th className="px-2 py-2 text-right font-medium">Price</th>
+                    <th className="px-3 py-2 text-right font-medium">Price</th>
+                    {hasAnyDiscount && (
+                      <th className="px-3 py-2 text-right font-medium">Discount</th>
+                    )}
                     <th className="px-3 py-2 text-right font-medium">Total</th>
-                    <th className="w-8 px-2 py-2"></th>
+                    <th className="w-16 px-2 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -832,6 +879,7 @@ function CartSidebarComponent({
                       key={item.id}
                       item={item}
                       isHero={index === 0}
+                      showDiscountColumn={hasAnyDiscount}
                       onUpdateQuantity={onUpdateQuantity}
                       onUpdateDiscount={onUpdateItemDiscount}
                       onRemoveItem={onRemoveItem}
