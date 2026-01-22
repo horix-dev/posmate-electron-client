@@ -12,6 +12,7 @@ import {
   Package,
   X,
   Percent,
+  Tag,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -60,6 +61,8 @@ export interface CartSidebarProps {
   discountType: 'fixed' | 'percentage'
   /** Callback to update item quantity */
   onUpdateQuantity: (productId: number, quantity: number) => void
+  /** Callback to update item discount */
+  onUpdateItemDiscount?: (itemId: string, discount: number, type: 'fixed' | 'percentage') => void
   /** Callback to remove item */
   onRemoveItem: (productId: number) => void
   /** Callback to clear cart */
@@ -354,6 +357,378 @@ const CartTotalsSection = memo(function CartTotalsSection({
   )
 })
 
+// ============================================
+// Cart Item Row with Discount Support
+// ============================================
+
+interface CartItemRowProps {
+  item: CartItemDisplay
+  isHero?: boolean
+  onUpdateQuantity: (productId: number, quantity: number) => void
+  onUpdateDiscount?: (itemId: string, discount: number, type: 'fixed' | 'percentage') => void
+  onRemoveItem: (productId: number) => void
+}
+
+const CartItemRow = memo(function CartItemRow({
+  item,
+  isHero = false,
+  onUpdateQuantity,
+  onUpdateDiscount,
+  onRemoveItem,
+}: CartItemRowProps) {
+  const { format: formatCurrency } = useCurrency()
+
+  // Calculate discount and line total
+  const itemDiscount = item.discount ?? 0
+  const itemDiscountType = item.discountType ?? 'fixed'
+  const subtotal = item.quantity * item.salePrice
+  const discountAmount =
+    itemDiscountType === 'percentage'
+      ? subtotal * (itemDiscount / 100)
+      : itemDiscount * item.quantity
+  const lineTotal = Math.max(0, subtotal - discountAmount)
+  const hasDiscount = discountAmount > 0
+
+  // Discount popover state
+  const [discountOpen, setDiscountOpen] = useState(false)
+  const [amountStr, setAmountStr] = useState('')
+  const [percentStr, setPercentStr] = useState('')
+
+  // Sync local state when popover opens
+  useEffect(() => {
+    if (discountOpen) {
+      if (itemDiscount === 0 && discountAmount === 0) {
+        setAmountStr('')
+        setPercentStr('')
+        return
+      }
+
+      if (itemDiscountType === 'fixed') {
+        setAmountStr(itemDiscount.toString())
+        const pct = item.salePrice > 0 ? (itemDiscount / item.salePrice) * 100 : 0
+        setPercentStr(pct.toFixed(2))
+      } else {
+        setPercentStr(itemDiscount.toString())
+        const amt = (item.salePrice * itemDiscount) / 100
+        setAmountStr(amt.toFixed(2))
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discountOpen])
+
+  const handleDiscountAmountChange = (val: string) => {
+    if (!onUpdateDiscount) return
+
+    setAmountStr(val)
+    const num = parseFloat(val)
+
+    if (isNaN(num)) {
+      setPercentStr('')
+      if (val === '') onUpdateDiscount(item.id, 0, 'fixed')
+      return
+    }
+
+    // Update percentage local state
+    const pct = item.salePrice > 0 ? (num / item.salePrice) * 100 : 0
+    setPercentStr(pct.toFixed(2))
+
+    // Update store
+    onUpdateDiscount(item.id, num, 'fixed')
+  }
+
+  const handleDiscountPercentChange = (val: string) => {
+    if (!onUpdateDiscount) return
+
+    setPercentStr(val)
+    const num = parseFloat(val)
+
+    if (isNaN(num)) {
+      setAmountStr('')
+      if (val === '') onUpdateDiscount(item.id, 0, 'percentage')
+      return
+    }
+
+    // Update amount local state
+    const amt = (item.salePrice * num) / 100
+    setAmountStr(amt.toFixed(2))
+
+    // Update store
+    onUpdateDiscount(item.id, num, 'percentage')
+  }
+
+  const handleDiscountPreset = (pct: number) => {
+    handleDiscountPercentChange(pct.toString())
+  }
+
+  const handleClearDiscount = (e: React.MouseEvent) => {
+    if (!onUpdateDiscount) return
+    e.stopPropagation()
+    onUpdateDiscount(item.id, 0, 'fixed')
+    setDiscountOpen(false)
+  }
+
+  return (
+    <tr
+      className={cn(
+        'group border-b transition-colors duration-1000 ease-out',
+        isHero
+          ? 'bg-green-100/80 hover:bg-primary/5 dark:bg-green-900/40 dark:hover:bg-blue-900/50'
+          : 'hover:bg-muted/50'
+      )}
+      role="row"
+    >
+      <td className="px-3 py-2">
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-primary/5">
+            {getImageUrl(item.productImage) ? (
+              <CachedImage
+                src={getImageUrl(item.productImage)!}
+                alt={item.productName}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <Package className="h-5 w-5 text-primary/40" aria-hidden="true" />
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col">
+            <span className="line-clamp-2 font-medium leading-tight">{item.productName}</span>
+            <span className="font-mono text-[10px] text-muted-foreground/90">
+              {item.productCode}
+            </span>
+            {item.variantName && (
+              <span className="text-[11px] font-normal leading-relaxed text-muted-foreground">
+                {item.variantName}
+              </span>
+            )}
+            {item.batchNo && (
+              <span className="text-[11px] font-normal leading-3 text-muted-foreground">
+                Batch: {item.batchNo}
+              </span>
+            )}
+            {hasDiscount && (
+              <div className="flex items-center gap-1 text-[11px] font-medium text-green-600 dark:text-green-400">
+                <Tag className="h-3 w-3" />
+                <span>
+                  {itemDiscountType === 'percentage'
+                    ? `${itemDiscount}%`
+                    : formatCurrency(itemDiscount)}{' '}
+                  off
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </td>
+      <td className="px-2 py-2">
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => onUpdateQuantity(item.productId, item.quantity - 1)}
+            disabled={item.quantity <= 1}
+            aria-label={`Decrease ${item.productName} quantity`}
+          >
+            <Minus className="h-3 w-3" aria-hidden="true" />
+          </Button>
+          <Input
+            type="number"
+            value={item.quantity}
+            onChange={(e) => {
+              const newQty = parseInt(e.target.value, 10)
+              if (!isNaN(newQty) && newQty >= 1 && newQty <= item.maxStock) {
+                onUpdateQuantity(item.productId, newQty)
+              }
+            }}
+            onFocus={(e) => e.target.select()}
+            min={1}
+            max={item.maxStock}
+            className="h-6 w-12 cursor-pointer text-center text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            aria-label={`${item.productName} quantity`}
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => onUpdateQuantity(item.productId, item.quantity + 1)}
+            disabled={item.quantity >= item.maxStock}
+            aria-label={`Increase ${item.productName} quantity`}
+          >
+            <Plus className="h-3 w-3" aria-hidden="true" />
+          </Button>
+        </div>
+      </td>
+      <td className="px-2 py-2 text-right">
+        <div className="flex flex-col items-end">
+          <span className="tabular-nums">{formatCurrency(item.salePrice)}</span>
+          {hasDiscount && (
+            <span className="text-[10px] text-green-600 line-through dark:text-green-400">
+              {formatCurrency(subtotal)}
+            </span>
+          )}
+        </div>
+      </td>
+      <td className="px-3 py-2 text-right font-semibold tabular-nums text-foreground">
+        {formatCurrency(lineTotal)}
+      </td>
+      <td className="px-2 py-2">
+        <div className="flex items-center gap-1">
+          {/* Discount Button */}
+          {onUpdateDiscount && (
+            <Popover open={discountOpen} onOpenChange={setDiscountOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={hasDiscount ? 'default' : 'ghost'}
+                  size="icon"
+                  className={cn(
+                    'h-6 w-6 transition-opacity',
+                    hasDiscount
+                      ? 'bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600'
+                      : 'text-muted-foreground opacity-0 hover:bg-primary/10 group-hover:opacity-100'
+                  )}
+                  aria-label={`Set discount for ${item.productName}`}
+                >
+                  <Percent className="h-3 w-3" aria-hidden="true" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-4" align="end" side="left">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">Item Discount</h4>
+                    {hasDiscount && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-1 text-destructive hover:bg-destructive/10"
+                        onClick={handleClearDiscount}
+                      >
+                        <X className="mr-1 h-3 w-3" />
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor={`amount-${item.id}`} className="text-xs">
+                        Amount (per unit)
+                      </Label>
+                      <CurrencyInput
+                        id={`amount-${item.id}`}
+                        type="number"
+                        value={amountStr}
+                        onChange={(e) => handleDiscountAmountChange(e.target.value)}
+                        className="h-9 text-sm"
+                        placeholder="0.00"
+                        min="0"
+                        max={item.salePrice}
+                        currencySymbol="Rs"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`percent-${item.id}`} className="text-xs">
+                        Percentage
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id={`percent-${item.id}`}
+                          type="number"
+                          value={percentStr}
+                          onChange={(e) => handleDiscountPercentChange(e.target.value)}
+                          className="h-9 pr-7 text-sm"
+                          placeholder="0"
+                          min="0"
+                          max="100"
+                        />
+                        <Percent className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Quick Discount</Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[5, 10, 15, 20].map((pct) => (
+                        <Button
+                          key={pct}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => handleDiscountPreset(pct)}
+                        >
+                          {pct}%
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {hasDiscount && (
+                    <div className="rounded-md bg-green-50 p-2 dark:bg-green-950/30">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Unit Price:</span>
+                        <span>{formatCurrency(item.salePrice)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Discount (per unit):</span>
+                        <span className="text-green-600 dark:text-green-400">
+                          -
+                          {formatCurrency(
+                            itemDiscountType === 'percentage'
+                              ? (item.salePrice * itemDiscount) / 100
+                              : itemDiscount
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-t border-green-200 pt-1 text-xs font-semibold dark:border-green-900">
+                        <span>Final Unit Price:</span>
+                        <span>
+                          {formatCurrency(
+                            Math.max(
+                              0,
+                              item.salePrice -
+                                (itemDiscountType === 'percentage'
+                                  ? (item.salePrice * itemDiscount) / 100
+                                  : itemDiscount)
+                            )
+                          )}
+                        </span>
+                      </div>
+                      <div className="mt-2 border-t border-green-200 pt-1 dark:border-green-900">
+                        <div className="flex justify-between text-xs font-bold">
+                          <span>Total Discount:</span>
+                          <span className="text-green-600 dark:text-green-400">
+                            -{formatCurrency(discountAmount)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">× {item.quantity} units</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* Remove Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-destructive opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100"
+            onClick={() => onRemoveItem(item.productId)}
+            aria-label={`Remove ${item.productName} from cart`}
+          >
+            <Trash2 className="h-3 w-3" aria-hidden="true" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  )
+})
+
 interface EmptyCartProps {
   heldCartsCount: number
   onOpenHeldCarts: () => void
@@ -389,6 +764,7 @@ function CartSidebarComponent({
   heldCartsCount,
   invoiceNumber,
   onUpdateQuantity,
+  onUpdateItemDiscount,
   onRemoveItem,
   onClearCart,
   onHoldCart,
@@ -397,7 +773,6 @@ function CartSidebarComponent({
   onDiscountChange,
   onPayment,
 }: CartSidebarProps) {
-  const { format: formatCurrency } = useCurrency()
   const itemCount = useMemo(() => items.reduce((acc, item) => acc + item.quantity, 0), [items])
 
   // Reverse items to show newest first (Hero row at top)
@@ -452,115 +827,16 @@ function CartSidebarComponent({
                   </tr>
                 </thead>
                 <tbody>
-                  {reversedItems.map((item, index) => {
-                    const lineTotal = item.quantity * item.salePrice
-                    const isHero = index === 0
-
-                    return (
-                      <tr
-                        key={item.id}
-                        className={cn(
-                          'border-b transition-colors duration-1000 ease-out',
-                          isHero
-                            ? 'bg-green-100/80 hover:bg-primary/5 dark:bg-green-900/40 dark:hover:bg-blue-900/50'
-                            : 'hover:bg-muted/50'
-                        )}
-                        role="row"
-                      >
-                        <td className="px-3 py-2">
-                          <div className="flex items-start gap-3">
-                            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-primary/5">
-                              {getImageUrl(item.productImage) ? (
-                                <CachedImage
-                                  src={getImageUrl(item.productImage)!}
-                                  alt={item.productName}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-full items-center justify-center">
-                                  <Package className="h-5 w-5 text-primary/40" aria-hidden="true" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="line-clamp-2 font-medium leading-tight">
-                                {item.productName}
-                              </span>
-                              <span className="font-mono text-[10px] text-muted-foreground/90">
-                                {item.productCode}
-                              </span>
-                              {item.variantName && (
-                                <span className="text-[11px] font-normal leading-relaxed text-muted-foreground">
-                                  {item.variantName}
-                                </span>
-                              )}
-                              {item.batchNo && (
-                                <span className="text-[11px] font-normal leading-3 text-muted-foreground">
-                                  Batch: {item.batchNo}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => onUpdateQuantity(item.productId, item.quantity - 1)}
-                              disabled={item.quantity <= 1}
-                              aria-label={`Decrease ${item.productName} quantity`}
-                            >
-                              <Minus className="h-3 w-3" aria-hidden="true" />
-                            </Button>
-                            <Input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => {
-                                const newQty = parseInt(e.target.value, 10)
-                                if (!isNaN(newQty) && newQty >= 1 && newQty <= item.maxStock) {
-                                  onUpdateQuantity(item.productId, newQty)
-                                }
-                              }}
-                              onFocus={(e) => e.target.select()}
-                              min={1}
-                              max={item.maxStock}
-                              className="h-6 w-12 cursor-pointer text-center text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                              aria-label={`${item.productName} quantity`}
-                            />
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => onUpdateQuantity(item.productId, item.quantity + 1)}
-                              disabled={item.quantity >= item.maxStock}
-                              aria-label={`Increase ${item.productName} quantity`}
-                            >
-                              <Plus className="h-3 w-3" aria-hidden="true" />
-                            </Button>
-                          </div>
-                        </td>
-                        <td className="px-2 py-2 text-right tabular-nums">
-                          {formatCurrency(item.salePrice)}
-                        </td>
-                        <td className="px-3 py-2 text-right font-semibold tabular-nums text-foreground">
-                          {formatCurrency(lineTotal)}
-                        </td>
-                        <td className="px-2 py-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                            onClick={() => onRemoveItem(item.productId)}
-                            aria-label={`Remove ${item.productName} from cart`}
-                          >
-                            <Trash2 className="h-3 w-3" aria-hidden="true" />
-                          </Button>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {reversedItems.map((item, index) => (
+                    <CartItemRow
+                      key={item.id}
+                      item={item}
+                      isHero={index === 0}
+                      onUpdateQuantity={onUpdateQuantity}
+                      onUpdateDiscount={onUpdateItemDiscount}
+                      onRemoveItem={onRemoveItem}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
