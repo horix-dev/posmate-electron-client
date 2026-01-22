@@ -1034,8 +1034,11 @@ export interface DashboardData {
   total_due: number
   total_profit: number
   total_loss: number
+  total_returns: number
+  total_return_amount: number
   sales: ChartDataPoint[]
   purchases: ChartDataPoint[]
+  returns?: ChartDataPoint[]
 }
 
 export interface ChartDataPoint {
