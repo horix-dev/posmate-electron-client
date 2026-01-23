@@ -96,7 +96,7 @@ export function PrintLabelsPage() {
   const [barcodeSetting, setBarcodeSetting] = useState('')
   const [vatType, setVatType] = useState<'inclusive' | 'exclusive'>('inclusive')
   const [numberOfCopies, setNumberOfCopies] = useState(1)
-  const [enableSilentPrint, setEnableSilentPrint] = useState(false)
+  const [enableSilentPrint, setEnableSilentPrint] = useState(true)
 
   const [previewBarcodes, setPreviewBarcodes] = useState<LabelPayload[]>([])
   const [showPreview, setShowPreview] = useState(false)
