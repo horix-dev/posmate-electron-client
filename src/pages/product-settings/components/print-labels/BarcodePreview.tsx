@@ -83,9 +83,11 @@ export function BarcodePreview({ barcodes, paperSetting }: BarcodePreviewProps) 
                                 className="object-cover"
                                 style={{ maxHeight: '8mm', maxWidth: '100%', minWidth: '85%' }}
                                 src={
-                                  barcode.barcode_svg.startsWith('<svg')
-                                    ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(barcode.barcode_svg)))}`
-                                    : `data:image/png;base64,${barcode.barcode_svg}`
+                                  barcode.barcode_svg.startsWith('data:')
+                                    ? barcode.barcode_svg
+                                    : barcode.barcode_svg.startsWith('<svg')
+                                      ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(barcode.barcode_svg)))}`
+                                      : `data:image/png;base64,${barcode.barcode_svg}`
                                 }
                                 alt={barcode.product_code || 'barcode'}
                               />

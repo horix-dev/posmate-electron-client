@@ -85,7 +85,9 @@ if (!process.env.UPDATE_CHANNEL) {
 }
 
 // Helpful startup log to confirm which channel is resolved at runtime
-console.log(`[Main] Resolved UPDATE_CHANNEL=${process.env.UPDATE_CHANNEL || 'latest'} (isPackaged=${app.isPackaged})`)
+console.log(
+  `[Main] Resolved UPDATE_CHANNEL=${process.env.UPDATE_CHANNEL || 'latest'} (isPackaged=${app.isPackaged})`
+)
 
 // The built directory structure
 //
@@ -426,7 +428,11 @@ async function fetchWithRedirectChecks(
   throw new Error('Too many redirects')
 }
 
-async function readBodyWithLimit(response: Response, maxBytes: number, onTooLarge: () => void): Promise<Uint8Array> {
+async function readBodyWithLimit(
+  response: Response,
+  maxBytes: number,
+  onTooLarge: () => void
+): Promise<Uint8Array> {
   const contentLength = response.headers.get('content-length')
   if (contentLength) {
     const length = Number(contentLength)
@@ -477,59 +483,62 @@ async function readBodyWithLimit(response: Response, maxBytes: number, onTooLarg
   return out
 }
 
-ipcMain.handle('fetch-image', async (_event, request: FetchImageRequest): Promise<FetchImageResponse> => {
-  const allowedHosts = getAllowedImageHosts()
+ipcMain.handle(
+  'fetch-image',
+  async (_event, request: FetchImageRequest): Promise<FetchImageResponse> => {
+    const allowedHosts = getAllowedImageHosts()
 
-  const requestedUrl = resolveRequestedUrl(request?.url)
-  if (requestedUrl.protocol !== 'http:' && requestedUrl.protocol !== 'https:') {
-    throw new Error('Only http/https URLs are allowed')
-  }
-
-  // Debug logging
-  console.log('[fetch-image] Requested host:', requestedUrl.host)
-  console.log('[fetch-image] Allowed hosts:', Array.from(allowedHosts))
-  console.log('[fetch-image] API Base URL:', process.env.VITE_API_BASE_URL)
-
-  if (!allowedHosts.has(requestedUrl.host)) {
-    throw new Error(`Blocked image host: ${requestedUrl.host}`)
-  }
-
-  const controller = new AbortController()
-  const timeoutMs = 15000
-  const maxBytes = 10 * 1024 * 1024 // 10MB
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-
-  try {
-    const headers = sanitizeHeaders(request?.headers)
-
-    const res = await fetchWithRedirectChecks(
-      requestedUrl,
-      {
-        method: 'GET',
-        headers,
-        signal: controller.signal,
-      },
-      allowedHosts
-    )
-
-    if (!res.ok) {
-      throw new Error(`Failed to fetch image (${res.status})`)
+    const requestedUrl = resolveRequestedUrl(request?.url)
+    if (requestedUrl.protocol !== 'http:' && requestedUrl.protocol !== 'https:') {
+      throw new Error('Only http/https URLs are allowed')
     }
 
-    const contentType = res.headers.get('content-type') || ''
-    if (!contentType.toLowerCase().startsWith('image/')) {
-      throw new Error(`Unexpected content-type: ${contentType || 'unknown'}`)
+    // Debug logging
+    console.log('[fetch-image] Requested host:', requestedUrl.host)
+    console.log('[fetch-image] Allowed hosts:', Array.from(allowedHosts))
+    console.log('[fetch-image] API Base URL:', process.env.VITE_API_BASE_URL)
+
+    if (!allowedHosts.has(requestedUrl.host)) {
+      throw new Error(`Blocked image host: ${requestedUrl.host}`)
     }
 
-    const bytes = await readBodyWithLimit(res, maxBytes, () => controller.abort())
-    return {
-      mimeType: contentType || 'image/jpeg',
-      data: bytes,
+    const controller = new AbortController()
+    const timeoutMs = 15000
+    const maxBytes = 10 * 1024 * 1024 // 10MB
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      const headers = sanitizeHeaders(request?.headers)
+
+      const res = await fetchWithRedirectChecks(
+        requestedUrl,
+        {
+          method: 'GET',
+          headers,
+          signal: controller.signal,
+        },
+        allowedHosts
+      )
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch image (${res.status})`)
+      }
+
+      const contentType = res.headers.get('content-type') || ''
+      if (!contentType.toLowerCase().startsWith('image/')) {
+        throw new Error(`Unexpected content-type: ${contentType || 'unknown'}`)
+      }
+
+      const bytes = await readBodyWithLimit(res, maxBytes, () => controller.abort())
+      return {
+        mimeType: contentType || 'image/jpeg',
+        data: bytes,
+      }
+    } finally {
+      clearTimeout(timer)
     }
-  } finally {
-    clearTimeout(timer)
   }
-})
+)
 
 // Silent printing handler (URL-based)
 ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
@@ -580,10 +589,11 @@ ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
 // Silent printing handler (HTML-based)
 ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
   console.log('🖨️ [PRINT] Receipt print requested, HTML length:', htmlContent.length)
-  
+
   // Debug mode: show the window to see what's being printed
-  const debugMode = process.env.DEBUG_PRINT === 'true' || !app.isPackaged
-  
+  // const debugMode = process.env.DEBUG_PRINT === 'true' || !app.isPackaged
+  const debugMode = false
+
   let printWindow: BrowserWindow | null = new BrowserWindow({
     width: 800,
     height: 1200,
@@ -599,9 +609,7 @@ ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
   try {
     // Load HTML content
     console.log('🖨️ [PRINT] Loading HTML content...')
-    await printWindow.loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`
-    )
+    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`)
     console.log('🖨️ [PRINT] HTML loaded successfully')
 
     // Wait for content to render
@@ -612,14 +620,17 @@ ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
     console.log('🖨️ [PRINT] Getting available printers...')
     const printers = await printWindow.webContents.getPrintersAsync()
     console.log('🖨️ [PRINT] Found', printers.length, 'printer(s)')
-    
+
     const defaultPrinter = printers.find((p) => p.isDefault)
-    
+
     if (!defaultPrinter) {
       console.error('🖨️ [PRINT] ❌ No default printer found!')
-      console.log('🖨️ [PRINT] Available printers:', printers.map(p => p.name).join(', '))
+      console.log('🖨️ [PRINT] Available printers:', printers.map((p) => p.name).join(', '))
       printWindow.close()
-      return { success: false, error: 'No default printer found. Please set a default printer in Windows.' }
+      return {
+        success: false,
+        error: 'No default printer found. Please set a default printer in Windows.',
+      }
     }
 
     console.log('🖨️ [PRINT] ✓ Default printer:', defaultPrinter.name)
@@ -633,7 +644,7 @@ ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
 
     // Try silent print first, with fallback to dialog
     console.log('🖨️ [PRINT] Starting print job...')
-    
+
     const printResult = await new Promise<{ success: boolean; error?: string }>((resolve) => {
       printWindow?.webContents.print(
         {
@@ -651,7 +662,7 @@ ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
           } else {
             console.error('🖨️ [PRINT] ❌ Print failed with error:', errorType)
             console.log('🖨️ [PRINT] Attempting fallback with print dialog...')
-            
+
             // Fallback: Try with dialog (not silent)
             printWindow?.webContents.print(
               {
@@ -691,92 +702,100 @@ ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
     if (printWindow && !printWindow.isDestroyed()) {
       printWindow.close()
     }
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error'
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 })
 
 // Silent printing handler with custom page size for labels
-ipcMain.handle('print-receipt-html-with-page-size', async (_event, htmlContent: string, pageSize: { width: number; height: number }) => {
-  console.log('🖨️ Print labels requested with custom page size:', pageSize)
-  
-  let printWindow: BrowserWindow | null = new BrowserWindow({
-    width: 800,
-    height: 1200,
-    show: false,
-    webPreferences: {
-      preload: path.join(__dirname, 'print-preload.cjs'),
-      nodeIntegration: false,
-      contextIsolation: false, // CRITICAL: Must be false for silent printing to work
-      sandbox: false,
-    },
-  })
+ipcMain.handle(
+  'print-receipt-html-with-page-size',
+  async (_event, htmlContent: string, pageSize: { width: number; height: number }) => {
+    console.log('🖨️ Print labels requested with custom page size:', pageSize)
 
-  try {
-    // Load HTML content
-    await printWindow.loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`
-    )
-    console.log('🖨️ Label HTML loaded')
-
-    // Wait for content to render
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    // Get printers
-    const printers = await printWindow.webContents.getPrintersAsync()
-    const defaultPrinter = printers.find((p) => p.isDefault)
-    
-    if (!defaultPrinter) {
-      console.error('🖨️ No default printer found')
-      console.log('🖨️ Available printers:', printers.map(p => p.name).join(', '))
-      printWindow.close()
-      return { success: false, error: 'No default printer found' }
-    }
-
-    console.log('🖨️ Printing to:', defaultPrinter.name)
-
-    // Print silently with custom page size - wrap in promise to wait for completion
-    const printResult = await new Promise<{ success: boolean; error?: string }>((resolve) => {
-      printWindow?.webContents.print(
-        {
-          silent: true,
-          printBackground: true,
-          deviceName: defaultPrinter.name,
-          margins: { marginType: 'none' },
-          // Let CSS @page size take precedence - don't override with pageSize
-          // The pageSize property doesn't accept custom dimensions in microns format
-          scaleFactor: 100,
-        },
-        (success, errorType) => {
-          if (success) {
-            console.log('🖨️ Label print successful')
-            resolve({ success: true })
-          } else {
-            console.error('🖨️ Label print failed:', errorType)
-            resolve({ success: false, error: errorType })
-          }
-        }
-      )
+    let printWindow: BrowserWindow | null = new BrowserWindow({
+      width: 800,
+      height: 1200,
+      show: false,
+      webPreferences: {
+        preload: path.join(__dirname, 'print-preload.cjs'),
+        nodeIntegration: false,
+        contextIsolation: false, // CRITICAL: Must be false for silent printing to work
+        sandbox: false,
+      },
     })
 
-    // Close window after print completes
-    printWindow.close()
-    printWindow = null
+    try {
+      // Load HTML content
+      await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`)
+      console.log('🖨️ Label HTML loaded')
 
-    return printResult
-  } catch (error) {
-    console.error('🖨️ Label print failed:', error)
-    if (printWindow && !printWindow.isDestroyed()) {
+      // Wait for content to render
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      // Get printers
+      const printers = await printWindow.webContents.getPrintersAsync()
+      const defaultPrinter = printers.find((p) => p.isDefault)
+
+      if (!defaultPrinter) {
+        console.error('🖨️ No default printer found')
+        console.log('🖨️ Available printers:', printers.map((p) => p.name).join(', '))
+        printWindow.close()
+        return { success: false, error: 'No default printer found' }
+      }
+
+      console.log('🖨️ Printing to:', defaultPrinter.name)
+
+      console.log('🖨️ Custom page size (microns):', {
+        widthMicrons: pageSize.width,
+        heightMicrons: pageSize.height,
+      })
+
+      // Print silently with custom page size - wrap in promise to wait for completion
+      const printResult = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+        printWindow?.webContents.print(
+          {
+            silent: true,
+            printBackground: true,
+            deviceName: defaultPrinter.name,
+            margins: { marginType: 'none' },
+            pageSize: {
+              width: pageSize.width,
+              height: pageSize.height,
+            },
+            scaleFactor: 100,
+          },
+          (success, errorType) => {
+            if (success) {
+              console.log('🖨️ Label print successful')
+              resolve({ success: true })
+            } else {
+              console.error('🖨️ Label print failed:', errorType)
+              resolve({ success: false, error: errorType })
+            }
+          }
+        )
+      })
+
+      // Close window after print completes
       printWindow.close()
-    }
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error'
+      printWindow = null
+
+      return printResult
+    } catch (error) {
+      console.error('🖨️ Label print failed:', error)
+      if (printWindow && !printWindow.isDestroyed()) {
+        printWindow.close()
+      }
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
     }
   }
-})
+)
 
 // Device ID - unique identifier for this installation
 ipcMain.handle('get-device-id', () => {
@@ -839,37 +858,57 @@ ipcMain.handle('sqlite:close', () => sqliteService.close())
 ipcMain.handle('sqlite:product:getById', (_, id: number) => sqliteService.productGetById(id))
 ipcMain.handle('sqlite:product:getAll', () => sqliteService.productGetAll())
 ipcMain.handle('sqlite:product:create', (_, product) => sqliteService.productCreate(product))
-ipcMain.handle('sqlite:product:update', (_, id: number, product) => sqliteService.productUpdate(id, product))
+ipcMain.handle('sqlite:product:update', (_, id: number, product) =>
+  sqliteService.productUpdate(id, product)
+)
 ipcMain.handle('sqlite:product:delete', (_, id: number) => sqliteService.productDelete(id))
 ipcMain.handle('sqlite:product:count', () => sqliteService.productCount())
 ipcMain.handle('sqlite:product:clear', () => sqliteService.productClear())
 ipcMain.handle('sqlite:product:search', (_, query: string) => sqliteService.productSearch(query))
-ipcMain.handle('sqlite:product:getByBarcode', (_, barcode: string) => sqliteService.productGetByBarcode(barcode))
-ipcMain.handle('sqlite:product:getByCategory', (_, categoryId: number) => sqliteService.productGetByCategory(categoryId))
-ipcMain.handle('sqlite:product:getLowStock', (_, threshold?: number) => sqliteService.productGetLowStock(threshold))
-ipcMain.handle('sqlite:product:bulkUpsert', (_, products) => sqliteService.productBulkUpsert(products))
+ipcMain.handle('sqlite:product:getByBarcode', (_, barcode: string) =>
+  sqliteService.productGetByBarcode(barcode)
+)
+ipcMain.handle('sqlite:product:getByCategory', (_, categoryId: number) =>
+  sqliteService.productGetByCategory(categoryId)
+)
+ipcMain.handle('sqlite:product:getLowStock', (_, threshold?: number) =>
+  sqliteService.productGetLowStock(threshold)
+)
+ipcMain.handle('sqlite:product:bulkUpsert', (_, products) =>
+  sqliteService.productBulkUpsert(products)
+)
 
 // Categories
 ipcMain.handle('sqlite:category:getById', (_, id: number) => sqliteService.categoryGetById(id))
 ipcMain.handle('sqlite:category:getAll', () => sqliteService.categoryGetAll())
 ipcMain.handle('sqlite:category:create', (_, category) => sqliteService.categoryCreate(category))
-ipcMain.handle('sqlite:category:update', (_, id: number, category) => sqliteService.categoryUpdate(id, category))
+ipcMain.handle('sqlite:category:update', (_, id: number, category) =>
+  sqliteService.categoryUpdate(id, category)
+)
 ipcMain.handle('sqlite:category:delete', (_, id: number) => sqliteService.categoryDelete(id))
 ipcMain.handle('sqlite:category:count', () => sqliteService.categoryCount())
 ipcMain.handle('sqlite:category:clear', () => sqliteService.categoryClear())
-ipcMain.handle('sqlite:category:getByName', (_, name: string) => sqliteService.categoryGetByName(name))
-ipcMain.handle('sqlite:category:bulkUpsert', (_, categories) => sqliteService.categoryBulkUpsert(categories))
+ipcMain.handle('sqlite:category:getByName', (_, name: string) =>
+  sqliteService.categoryGetByName(name)
+)
+ipcMain.handle('sqlite:category:bulkUpsert', (_, categories) =>
+  sqliteService.categoryBulkUpsert(categories)
+)
 
 // Parties
 ipcMain.handle('sqlite:party:getById', (_, id: number) => sqliteService.partyGetById(id))
 ipcMain.handle('sqlite:party:getAll', () => sqliteService.partyGetAll())
 ipcMain.handle('sqlite:party:create', (_, party) => sqliteService.partyCreate(party))
-ipcMain.handle('sqlite:party:update', (_, id: number, party) => sqliteService.partyUpdate(id, party))
+ipcMain.handle('sqlite:party:update', (_, id: number, party) =>
+  sqliteService.partyUpdate(id, party)
+)
 ipcMain.handle('sqlite:party:delete', (_, id: number) => sqliteService.partyDelete(id))
 ipcMain.handle('sqlite:party:count', () => sqliteService.partyCount())
 ipcMain.handle('sqlite:party:clear', () => sqliteService.partyClear())
 ipcMain.handle('sqlite:party:search', (_, query: string) => sqliteService.partySearch(query))
-ipcMain.handle('sqlite:party:getByPhone', (_, phone: string) => sqliteService.partyGetByPhone(phone))
+ipcMain.handle('sqlite:party:getByPhone', (_, phone: string) =>
+  sqliteService.partyGetByPhone(phone)
+)
 ipcMain.handle('sqlite:party:getCustomers', () => sqliteService.partyGetCustomers())
 ipcMain.handle('sqlite:party:getSuppliers', () => sqliteService.partyGetSuppliers())
 ipcMain.handle('sqlite:party:getWithBalance', () => sqliteService.partyGetWithBalance())
@@ -885,46 +924,88 @@ ipcMain.handle('sqlite:sale:delete', (_, id: number) => sqliteService.saleDelete
 ipcMain.handle('sqlite:sale:count', () => sqliteService.saleCount())
 ipcMain.handle('sqlite:sale:clear', () => sqliteService.saleClear())
 ipcMain.handle('sqlite:sale:getOffline', () => sqliteService.saleGetOffline())
-ipcMain.handle('sqlite:sale:markAsSynced', (_, id: number, serverId?: number) => sqliteService.saleMarkAsSynced(id, serverId))
-ipcMain.handle('sqlite:sale:getByInvoiceNumber', (_, invoiceNo: string) => sqliteService.saleGetByInvoiceNumber(invoiceNo))
-ipcMain.handle('sqlite:sale:getByDateRange', (_, startDate: string, endDate: string) => sqliteService.saleGetByDateRange(startDate, endDate))
+ipcMain.handle('sqlite:sale:markAsSynced', (_, id: number, serverId?: number) =>
+  sqliteService.saleMarkAsSynced(id, serverId)
+)
+ipcMain.handle('sqlite:sale:getByInvoiceNumber', (_, invoiceNo: string) =>
+  sqliteService.saleGetByInvoiceNumber(invoiceNo)
+)
+ipcMain.handle('sqlite:sale:getByDateRange', (_, startDate: string, endDate: string) =>
+  sqliteService.saleGetByDateRange(startDate, endDate)
+)
 ipcMain.handle('sqlite:sale:getToday', () => sqliteService.saleGetToday())
-ipcMain.handle('sqlite:sale:getSummary', (_, startDate: string, endDate: string) => sqliteService.saleGetSummary(startDate, endDate))
+ipcMain.handle('sqlite:sale:getSummary', (_, startDate: string, endDate: string) =>
+  sqliteService.saleGetSummary(startDate, endDate)
+)
 
 // Sync Queue
 ipcMain.handle('sqlite:syncQueue:getById', (_, id: number) => sqliteService.syncQueueGetById(id))
 ipcMain.handle('sqlite:syncQueue:getAll', () => sqliteService.syncQueueGetAll())
 ipcMain.handle('sqlite:syncQueue:create', (_, item) => sqliteService.syncQueueCreate(item))
-ipcMain.handle('sqlite:syncQueue:update', (_, id: number, item) => sqliteService.syncQueueUpdate(id, item))
+ipcMain.handle('sqlite:syncQueue:update', (_, id: number, item) =>
+  sqliteService.syncQueueUpdate(id, item)
+)
 ipcMain.handle('sqlite:syncQueue:delete', (_, id: number) => sqliteService.syncQueueDelete(id))
 ipcMain.handle('sqlite:syncQueue:count', () => sqliteService.syncQueueCount())
 ipcMain.handle('sqlite:syncQueue:clear', () => sqliteService.syncQueueClear())
 ipcMain.handle('sqlite:syncQueue:enqueue', (_, item) => sqliteService.syncQueueEnqueue(item))
-ipcMain.handle('sqlite:syncQueue:getPending', (_, limit?: number) => sqliteService.syncQueueGetPending(limit))
+ipcMain.handle('sqlite:syncQueue:getPending', (_, limit?: number) =>
+  sqliteService.syncQueueGetPending(limit)
+)
 ipcMain.handle('sqlite:syncQueue:getFailed', () => sqliteService.syncQueueGetFailed())
-ipcMain.handle('sqlite:syncQueue:markAsProcessing', (_, id: number) => sqliteService.syncQueueMarkAsProcessing(id))
-ipcMain.handle('sqlite:syncQueue:markAsCompleted', (_, id: number) => sqliteService.syncQueueMarkAsCompleted(id))
-ipcMain.handle('sqlite:syncQueue:markAsFailed', (_, id: number, error: string) => sqliteService.syncQueueMarkAsFailed(id, error))
+ipcMain.handle('sqlite:syncQueue:markAsProcessing', (_, id: number) =>
+  sqliteService.syncQueueMarkAsProcessing(id)
+)
+ipcMain.handle('sqlite:syncQueue:markAsCompleted', (_, id: number) =>
+  sqliteService.syncQueueMarkAsCompleted(id)
+)
+ipcMain.handle('sqlite:syncQueue:markAsFailed', (_, id: number, error: string) =>
+  sqliteService.syncQueueMarkAsFailed(id, error)
+)
 ipcMain.handle('sqlite:syncQueue:clearCompleted', () => sqliteService.syncQueueClearCompleted())
 ipcMain.handle('sqlite:syncQueue:getStats', () => sqliteService.syncQueueGetStats())
 
 // Sync Metadata
-ipcMain.handle('sqlite:getLastSyncTime', (_, entity: string) => sqliteService.getLastSyncTime(entity))
-ipcMain.handle('sqlite:setLastSyncTime', (_, entity: string, timestamp?: string) => sqliteService.setLastSyncTime(entity, timestamp))
+ipcMain.handle('sqlite:getLastSyncTime', (_, entity: string) =>
+  sqliteService.getLastSyncTime(entity)
+)
+ipcMain.handle('sqlite:setLastSyncTime', (_, entity: string, timestamp?: string) =>
+  sqliteService.setLastSyncTime(entity, timestamp)
+)
 
 // Stock Adjustments
-ipcMain.handle('sqlite:stockAdjustment:create', (_, adjustment) => sqliteService.stockAdjustmentCreate(adjustment))
-ipcMain.handle('sqlite:stockAdjustment:getById', (_, id: number) => sqliteService.stockAdjustmentGetById(id))
-ipcMain.handle('sqlite:stockAdjustment:getAll', (_, filters) => sqliteService.stockAdjustmentGetAll(filters))
-ipcMain.handle('sqlite:stockAdjustment:getByProductId', (_, productId: number) => sqliteService.stockAdjustmentGetByProductId(productId))
+ipcMain.handle('sqlite:stockAdjustment:create', (_, adjustment) =>
+  sqliteService.stockAdjustmentCreate(adjustment)
+)
+ipcMain.handle('sqlite:stockAdjustment:getById', (_, id: number) =>
+  sqliteService.stockAdjustmentGetById(id)
+)
+ipcMain.handle('sqlite:stockAdjustment:getAll', (_, filters) =>
+  sqliteService.stockAdjustmentGetAll(filters)
+)
+ipcMain.handle('sqlite:stockAdjustment:getByProductId', (_, productId: number) =>
+  sqliteService.stockAdjustmentGetByProductId(productId)
+)
 ipcMain.handle('sqlite:stockAdjustment:getPending', () => sqliteService.stockAdjustmentGetPending())
-ipcMain.handle('sqlite:stockAdjustment:markAsSynced', (_, id: number, serverId: number) => sqliteService.stockAdjustmentMarkAsSynced(id, serverId))
-ipcMain.handle('sqlite:stockAdjustment:markAsError', (_, id: number, error: string) => sqliteService.stockAdjustmentMarkAsError(id, error))
-ipcMain.handle('sqlite:stockAdjustment:update', (_, id: number, adjustment) => sqliteService.stockAdjustmentUpdate(id, adjustment))
-ipcMain.handle('sqlite:stockAdjustment:delete', (_, id: number) => sqliteService.stockAdjustmentDelete(id))
-ipcMain.handle('sqlite:stockAdjustment:count', (_, filters) => sqliteService.stockAdjustmentCount(filters))
+ipcMain.handle('sqlite:stockAdjustment:markAsSynced', (_, id: number, serverId: number) =>
+  sqliteService.stockAdjustmentMarkAsSynced(id, serverId)
+)
+ipcMain.handle('sqlite:stockAdjustment:markAsError', (_, id: number, error: string) =>
+  sqliteService.stockAdjustmentMarkAsError(id, error)
+)
+ipcMain.handle('sqlite:stockAdjustment:update', (_, id: number, adjustment) =>
+  sqliteService.stockAdjustmentUpdate(id, adjustment)
+)
+ipcMain.handle('sqlite:stockAdjustment:delete', (_, id: number) =>
+  sqliteService.stockAdjustmentDelete(id)
+)
+ipcMain.handle('sqlite:stockAdjustment:count', (_, filters) =>
+  sqliteService.stockAdjustmentCount(filters)
+)
 ipcMain.handle('sqlite:stockAdjustment:clear', () => sqliteService.stockAdjustmentClear())
-ipcMain.handle('sqlite:stockAdjustment:getSummary', (_, filters) => sqliteService.stockAdjustmentGetSummary(filters))
+ipcMain.handle('sqlite:stockAdjustment:getSummary', (_, filters) =>
+  sqliteService.stockAdjustmentGetSummary(filters)
+)
 
 // Database utilities
 ipcMain.handle('sqlite:getDatabaseSize', () => sqliteService.getDatabaseSize())

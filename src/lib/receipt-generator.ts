@@ -41,6 +41,8 @@ export function generateReceiptHTML(data: ReceiptData): string {
   const { sale, business, customer } = data
 
   console.log('sale => ', sale)
+  console.log('customer => ', customer)
+  console.log('business => ', business)
   // Calculate totals (handle both old and new due collection fields)
   const totalPaid = sale.total_paid_amount ?? sale.paidAmount
   const totalDue = sale.remaining_due_amount ?? sale.dueAmount ?? 0
@@ -240,12 +242,44 @@ export function generateReceiptHTML(data: ReceiptData): string {
     </tr>
     ${(sale.details || [])
       .map(
-        (item) => `
+        (item) => {
+          const hasDiscount = item.discount_amount && item.discount_amount > 0
+          const itemTotal = item.subTotal || item.quantities * item.price
+          const finalPrice = hasDiscount ? item.final_price : itemTotal
+
+          let discountText = ''
+          if (hasDiscount) {
+            if (item.discount_type === 'percentage') {
+              discountText = `(${item.discount_value}% off)`
+            } else {
+              discountText = `(${formatCurrencyUtil(item.discount_value)} off)`
+            }
+          }
+
+          return `
       <tr>
         <td class="item-qty">${item.quantities} x </td>
-        <td class="item-name">${item.product?.productName || 'Product'}${item.variant_name ? ' (' + item.variant_name + ')' : ''}</td>
-        <td class="item-price">${formatCurrencyUtil(item.subTotal || item.quantities * item.price)}</td>
+        <td class="item-name">
+          ${item.product?.productName || 'Product'}${item.variant_name ? ' (' + item.variant_name + ')' : ''}
+          ${hasDiscount ? `<br/><span style="font-size: 10px; color: #666;">${discountText}</span>` : ''}
+        </td>
+        <td class="item-price">
+          ${hasDiscount ? `<div style="font-size: 10px; text-decoration: line-through; color: #999;">${formatCurrencyUtil(itemTotal)}</div>` : ''}
+          ${formatCurrencyUtil(finalPrice)}
+        </td>
       </tr>`
+        }
+        //   <tr>
+        //   <td class="item-qty">${item.quantities} x </td>
+        //   <td class="item-name">
+        //     ${item.product?.productName || 'Product'}${item.variant_name ? ' (' + item.variant_name + ')' : ''}
+        //     ${hasDiscount ? `<br/><span style="font-size: 10px; color: #666;">${discountText}</span>` : ''}
+        //   </td>
+        //   <td class="item-price">
+        //     <div>${formatCurrencyUtil(itemTotal)}</div>
+        //     ${hasDiscount ? "-" + formatCurrencyUtil(item.discount_amount) : ""}
+        //   </td>
+        // </tr>
       )
       .join('')}
     </table>
@@ -404,7 +438,7 @@ export async function printReceipt(data: ReceiptData): Promise<boolean> {
       console.log('[PrintReceipt] Calling Electron print API...')
       const result = await window.electronAPI?.print?.receiptHTML(html)
       console.log('[PrintReceipt] Electron API returned:', result)
-      // return result?.success ?? false
+      return result?.success ?? false
     }
 
     // Not in Electron - cannot print silently
