@@ -108,7 +108,7 @@ export const useUIStore = create<UIState>()(
       setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
 
       // Receipt printer
-      autoPrintReceipt: false,
+      autoPrintReceipt: true,
       setAutoPrintReceipt: (enabled) => set({ autoPrintReceipt: enabled }),
 
       // POS Smart Tender

@@ -142,13 +142,19 @@ function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowPr
 
       {/* Status */}
       <TableCell>
-        <Badge 
+        <Badge
           variant={
-            stockStatus.status === 'low' ? 'destructive' :
-            stockStatus.status === 'out' ? 'destructive' :
-            'success'
+            stockStatus.status === 'low'
+              ? 'destructive'
+              : stockStatus.status === 'out'
+                ? 'destructive'
+                : 'success'
           }
-          className={stockStatus.status === 'low' ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200' : ''}
+          className={
+            stockStatus.status === 'low'
+              ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
+              : ''
+          }
         >
           {stockStatus.status === 'low' && (
             <AlertTriangle className="mr-1 h-3 w-3" aria-hidden="true" />

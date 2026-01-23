@@ -283,11 +283,11 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
                         <TableCell className="text-right">
                           <div className="flex flex-col items-end">
                             <span>{formatCurrencyAmount(detail.price)}</span>
-                            {hasDiscount && detail.final_price && (
+                            {/* {hasDiscount && detail.final_price && (
                               <span className="text-xs text-muted-foreground line-through">
                                 {formatCurrencyAmount(detail.price)}
                               </span>
-                            )}
+                            )} */}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
@@ -298,9 +298,7 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
                                   <span className="text-xs font-medium text-green-600 dark:text-green-400">
                                     {detail.discount_type === 'percentage'
                                       ? `${detail.discount_value}%`
-                                      : detail.discount_type === 'fixed'
-                                        ? `₹${detail.discount_value}`
-                                        : 'Discount'}
+                                      : 'Fixed'}
                                   </span>
                                   <span className="text-xs text-green-600 dark:text-green-400">
                                     -{formatCurrencyAmount(discountAmount)}
