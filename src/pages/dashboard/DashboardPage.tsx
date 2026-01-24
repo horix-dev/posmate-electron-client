@@ -28,7 +28,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { SaleDetailsDialog } from '@/components/shared'
 import { StatCard } from '@/components/common/StatCard'
 import { dashboardService, stocksListService, partiesService, salesService } from '@/api/services'
-import { useSyncStore } from '@/stores'
+import { useSyncStore, useAuthStore } from '@/stores'
 import { useCurrency } from '@/hooks'
 import { getCache, setCache, CacheKeys } from '@/lib/cache'
 import { cn } from '@/lib/utils'
@@ -416,6 +416,7 @@ function QuickActionButton({
 
 export function DashboardPage() {
   const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -434,6 +435,7 @@ export function DashboardPage() {
   const [saleDetailsOpen, setSaleDetailsOpen] = useState(false)
 
   const isOnline = useSyncStore((state) => state.isOnline)
+  const isShopOwner = user?.role === 'shop-owner'
   const currencyData = useCurrency()
   const { format: formatCurrency, symbol: currencySymbol } = currencyData
 
@@ -710,41 +712,43 @@ export function DashboardPage() {
           />
         </section>
 
-        {/* Primary Stats */}
-        <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Total Sales"
-            value={formatCurrency(dashboardData?.total_sales || 0)}
-            icon={ShoppingCart}
-            iconContainerClassName="bg-primary/10 text-primary ring-1 ring-primary/20"
-            iconClassName="text-primary"
-            loading={loading}
-          />
-          <StatCard
-            title="Total Income"
-            value={formatCurrency(dashboardData?.total_income || 0)}
-            icon={DollarSign}
-            iconContainerClassName="bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20"
-            iconClassName="text-emerald-500"
-            loading={loading}
-          />
-          <StatCard
-            title="Total Expenses"
-            value={formatCurrency(dashboardData?.total_expense || 0)}
-            icon={TrendingDown}
-            iconContainerClassName="bg-rose-500/10 text-rose-500 ring-1 ring-rose-500/20"
-            iconClassName="text-rose-500"
-            loading={loading}
-          />
-          <StatCard
-            title="Net Profit"
-            value={formatCurrency(dashboardData?.total_profit || 0)}
-            icon={TrendingUp}
-            iconContainerClassName="bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20"
-            iconClassName="text-blue-500"
-            loading={loading}
-          />
-        </section>
+        {/* Primary Stats - Only for shop owners */}
+        {isShopOwner && (
+          <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              title="Total Sales"
+              value={formatCurrency(dashboardData?.total_sales || 0)}
+              icon={ShoppingCart}
+              iconContainerClassName="bg-primary/10 text-primary ring-1 ring-primary/20"
+              iconClassName="text-primary"
+              loading={loading}
+            />
+            <StatCard
+              title="Total Income"
+              value={formatCurrency(dashboardData?.total_income || 0)}
+              icon={DollarSign}
+              iconContainerClassName="bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20"
+              iconClassName="text-emerald-500"
+              loading={loading}
+            />
+            <StatCard
+              title="Total Expenses"
+              value={formatCurrency(dashboardData?.total_expense || 0)}
+              icon={TrendingDown}
+              iconContainerClassName="bg-rose-500/10 text-rose-500 ring-1 ring-rose-500/20"
+              iconClassName="text-rose-500"
+              loading={loading}
+            />
+            <StatCard
+              title="Net Profit"
+              value={formatCurrency(dashboardData?.total_profit || 0)}
+              icon={TrendingUp}
+              iconContainerClassName="bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20"
+              iconClassName="text-blue-500"
+              loading={loading}
+            />
+          </section>
+        )}
 
         {/* Secondary Stats & Inventory Health */}
         <div className="grid gap-6 md:grid-cols-3">
@@ -863,51 +867,53 @@ export function DashboardPage() {
           </div>
 
           <div className="space-y-6">
-            {/* Inventory Health */}
-            <Card className="border-border/50 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-base">Inventory Health</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div
-                  className="group flex cursor-pointer items-center justify-between rounded-lg border border-dashed p-3 transition-colors hover:border-primary hover:bg-primary/5"
-                  onClick={() => navigate('/stocks')}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                      <Package className="h-4 w-4" />
+            {/* Inventory Health - Only for shop owners */}
+            {isShopOwner && (
+              <Card className="border-border/50 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">Inventory Health</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div
+                    className="group flex cursor-pointer items-center justify-between rounded-lg border border-dashed p-3 transition-colors hover:border-primary hover:bg-primary/5"
+                    onClick={() => navigate('/stocks')}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        <Package className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Stock Value</p>
+                        <p className="text-xs text-muted-foreground">Total inventory worth</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Stock Value</p>
-                      <p className="text-xs text-muted-foreground">Total inventory worth</p>
+                    <div className="text-right">
+                      <p className="font-bold">{formatCurrency(dashboardData?.stock_value || 0)}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold">{formatCurrency(dashboardData?.stock_value || 0)}</p>
-                  </div>
-                </div>
 
-                <div
-                  className="group flex cursor-pointer items-center justify-between rounded-lg border border-dashed p-3 transition-colors hover:border-red-500 hover:bg-red-50"
-                  onClick={() => navigate('/due')}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                      <AlertTriangle className="h-4 w-4" />
+                  <div
+                    className="group flex cursor-pointer items-center justify-between rounded-lg border border-dashed p-3 transition-colors hover:border-red-500 hover:bg-red-50"
+                    onClick={() => navigate('/due')}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                        <AlertTriangle className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Total Due</p>
+                        <p className="text-xs text-muted-foreground">Pending payments</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Total Due</p>
-                      <p className="text-xs text-muted-foreground">Pending payments</p>
+                    <div className="text-right">
+                      <p className="font-bold text-red-600">
+                        {formatCurrency(dashboardData?.total_due || 0)}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-red-600">
-                      {formatCurrency(dashboardData?.total_due || 0)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Low Stock Alert */}
             <Card

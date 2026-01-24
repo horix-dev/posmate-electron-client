@@ -277,7 +277,7 @@ export interface User {
   business_id?: number
   branch_id?: number
   active_branch_id?: number
-  visibility?: string
+  visibility?: string | Record<string, unknown> | null // Can be JSON string or object from backend
   image?: string
   is_verified?: number
 }

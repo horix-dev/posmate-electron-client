@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { Sidebar } from './Sidebar'
 import { TitleBar } from './TitleBar'
 import { OfflineBanner } from '@/components/common/OfflineBanner'
+import { PermissionDebugger } from '@/components/debug/PermissionDebugger'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores'
@@ -57,6 +58,9 @@ export function AppShell() {
           </ScrollArea>
         )}
       </div>
+
+      {/* Permission Debugger (dev only) */}
+      <PermissionDebugger />
     </div>
   )
 }

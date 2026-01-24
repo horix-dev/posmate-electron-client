@@ -4,7 +4,8 @@ import { RefreshCw, Download } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
-import { useDebounce } from '@/hooks'
+import { useDebounce, usePermissions } from '@/hooks'
+import { useAuthStore } from '@/stores/auth.store'
 import type { Sale } from '@/types/api.types'
 import { SaleDetailsDialog } from '@/components/shared'
 
@@ -31,8 +32,19 @@ const SEARCH_DEBOUNCE_MS = 300
 // ============================================
 
 export function SalesPage() {
+  const { canRead, canCreate } = usePermissions()
+  const user = useAuthStore((state) => state.user)
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<'sales' | 'returns'>('sales')
+
+  // Permission checks
+  const canReadSales = canRead('sales')
+  const canCreateSales = canCreate('sales')
+  const canReadReturns = canRead('sale-returns')
+  const canCreateReturns = canCreate('sale-returns')
+  const canAccessSales = canReadSales || canCreateSales
+  const canAccessReturns = canReadReturns || canCreateReturns
+  const isShopOwner = user?.role === 'shop-owner'
 
   // Read tab from URL on mount
   useEffect(() => {
@@ -68,16 +80,8 @@ export function SalesPage() {
   // ============================================
   // Data Fetching Hook
   // ============================================
-  const {
-    sales,
-    offlineSales,
-    isLoading,
-    error,
-    filteredSales,
-    stats,
-    refetch,
-    deleteSale,
-  } = useSales(debouncedFilters)
+  const { sales, offlineSales, isLoading, error, filteredSales, stats, refetch, deleteSale } =
+    useSales(debouncedFilters)
 
   // ============================================
   // Dialog State
@@ -89,6 +93,7 @@ export function SalesPage() {
   const [returnSale, setReturnSale] = useState<Sale | null>(null)
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false)
   const [returnsRefreshKey, setReturnsRefreshKey] = useState(0)
+  const [createReturnDialogOpen, setCreateReturnDialogOpen] = useState(false)
 
   // ============================================
   // Derived State
@@ -163,23 +168,29 @@ export function SalesPage() {
           <p className="text-muted-foreground">
             {activeTab === 'sales'
               ? `View and manage your sales records${stats.total > 0 ? ` (${stats.total} sales)` : ''}`
-              : 'View and manage all sale returns'
-            }
+              : 'View and manage all sale returns'}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={handleRefresh} aria-label="Refresh sales">
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-            Export
-          </Button>
-          {activeTab === 'sales' && (
+          {canAccessSales && (
+            <>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefresh}
+                aria-label="Refresh sales"
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              </Button>
+              <Button variant="outline" onClick={handleExport}>
+                <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                Export
+              </Button>
+            </>
+          )}
+          {activeTab === 'sales' && canCreateSales && (
             <Button asChild>
-              <Link to="/pos">
-                Go to POS
-              </Link>
+              <Link to="/pos">Go to POS</Link>
             </Button>
           )}
         </div>
@@ -200,28 +211,53 @@ export function SalesPage() {
       )}
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => handleTabChange(value as 'sales' | 'returns')}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => handleTabChange(value as 'sales' | 'returns')}
+      >
         <TabsContent value="sales" className="space-y-4">
-          {/* Stats Cards */}
-          <SalesStatsCards stats={stats} isLoading={isLoading} />
+          {canAccessSales ? (
+            <>
+              {/* Stats Cards - Only for shop owners */}
+              {isShopOwner && <SalesStatsCards stats={stats} isLoading={isLoading} />}
 
-          {/* Filters */}
-          <SalesFiltersBar filters={filters} onFiltersChange={setFilters} />
+              {/* Filters */}
+              <SalesFiltersBar filters={filters} onFiltersChange={setFilters} />
 
-          {/* Sales Table */}
-          <SalesTable
-            sales={filteredSales}
-            hasSales={hasSales}
-            isLoading={isLoading}
-            onView={handleView}
-            onReturn={handleReturn}
-            onDelete={handleDeleteClick}
-            onClearFilters={handleClearFilters}
-          />
+              {/* Sales Table */}
+              <SalesTable
+                sales={filteredSales}
+                hasSales={hasSales}
+                isLoading={isLoading}
+                onView={handleView}
+                onReturn={handleReturn}
+                onDelete={handleDeleteClick}
+                onClearFilters={handleClearFilters}
+              />
+            </>
+          ) : (
+            <div className="flex min-h-[300px] items-center justify-center rounded-lg border border-dashed p-8">
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">
+                  You don't have permission to access sales.
+                </p>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="returns" className="space-y-4">
-          <SaleReturnsTable refreshKey={returnsRefreshKey} />
+          {canAccessReturns ? (
+            <SaleReturnsTable refreshKey={returnsRefreshKey} />
+          ) : (
+            <div className="flex min-h-[300px] items-center justify-center rounded-lg border border-dashed p-8">
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">
+                  You don't have permission to access sale returns.
+                </p>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -245,6 +281,14 @@ export function SalesPage() {
         sale={returnSale}
         open={isReturnDialogOpen}
         onOpenChange={setIsReturnDialogOpen}
+        onSuccess={handleReturnSuccess}
+      />
+
+      {/* Create Return Dialog (for create-only permission users) */}
+      <SaleReturnDialog
+        sale={null}
+        open={createReturnDialogOpen}
+        onOpenChange={setCreateReturnDialogOpen}
         onSuccess={handleReturnSuccess}
       />
     </div>

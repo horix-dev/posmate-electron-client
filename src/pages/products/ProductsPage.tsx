@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { useDebounce } from '@/hooks'
+import { useDebounce, usePermissions } from '@/hooks'
+import { useAuthStore } from '@/stores/auth.store'
 import { productsService } from '@/api/services'
 import type { Product } from '@/types/api.types'
 
@@ -30,6 +31,12 @@ const SEARCH_DEBOUNCE_MS = 300
 
 export function ProductsPage() {
   const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
+  const { canDelete, canUpdate } = usePermissions()
+  const isShopOwner = user?.role === 'shop-owner'
+  const canDeleteProducts = canDelete('products')
+  const canUpdateProducts = canUpdate('products')
+
   // ============================================
   // Filter State
   // ============================================
@@ -184,8 +191,10 @@ export function ProductsPage() {
         </div>
       )}
 
-      {/* Stats Cards */}
-      <ProductStatsCards stats={stats} totalStockValue={totalStockValue} isLoading={isLoading} />
+      {/* Stats Cards - Only for shop owners */}
+      {isShopOwner && (
+        <ProductStatsCards stats={stats} totalStockValue={totalStockValue} isLoading={isLoading} />
+      )}
 
       {/* Filters */}
       <ProductFiltersBar
@@ -205,6 +214,8 @@ export function ProductsPage() {
         onDelete={handleDeleteClick}
         onAdd={handleAdd}
         onClearFilters={handleClearFilters}
+        canDelete={canDeleteProducts}
+        canUpdate={canUpdateProducts}
       />
 
       {/* View Product Dialog */}

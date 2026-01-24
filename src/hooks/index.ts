@@ -8,6 +8,7 @@ export {
   refreshActiveCurrency,
 } from './useCurrency'
 export type { CurrencyConfig, UseCurrencyReturn } from './useCurrency'
+export { usePermissions } from './usePermissions'
 
 // Product search hooks
 export { useProductSearch, useBarcodeScanner, useProductAutocomplete } from './useProductSearch'
