@@ -1,12 +1,6 @@
 import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { Product } from '@/types/api.types'
 import { ProductRow } from './ProductRow'
 import { TableSkeleton, EmptyState, NoResultsState } from './ProductStates'
@@ -32,6 +26,10 @@ export interface ProductTableProps {
   onAdd: () => void
   /** Callback when clear filters button is clicked (for no results state) */
   onClearFilters: () => void
+  /** Whether user can delete products */
+  canDelete?: boolean
+  /** Whether user can update products */
+  canUpdate?: boolean
 }
 
 // ============================================
@@ -69,6 +67,8 @@ function ProductTableComponent({
   onDelete,
   onAdd,
   onClearFilters,
+  canDelete = true,
+  canUpdate = true,
 }: ProductTableProps) {
   // Loading state
   if (isLoading) {
@@ -117,6 +117,8 @@ function ProductTableComponent({
                 onView={onView}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                canDelete={canDelete}
+                canUpdate={canUpdate}
               />
             ))}
           </TableBody>

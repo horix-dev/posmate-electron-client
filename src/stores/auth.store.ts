@@ -1,9 +1,22 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { User, Business, Currency } from '@/types/api.types'
+import type { PermissionString } from '@/types/permission.types'
 import { authService } from '@/api/services'
 import { setAuthToken, clearAuthToken, clearETagCache } from '@/api/axios'
 import { setCache, getCache, removeCache, CacheKeys } from '@/lib/cache'
+import {
+  hasPermission,
+  hasAnyPermission,
+  hasAllPermissions,
+  canRead,
+  canCreate,
+  canUpdate,
+  canDelete,
+  canViewPrice,
+  isShopOwner,
+  getAccessibleModules,
+} from '@/lib/permissions'
 
 interface AuthState {
   // State
@@ -35,6 +48,18 @@ interface AuthState {
   setIsSetupComplete: (isSetup: boolean) => void
   clearError: () => void
   hydrateFromStorage: () => Promise<void>
+
+  // Permission Methods
+  hasPermission: (permission: PermissionString) => boolean
+  hasAnyPermission: (permissions: PermissionString[]) => boolean
+  hasAllPermissions: (permissions: PermissionString[]) => boolean
+  canRead: (module: string) => boolean
+  canCreate: (module: string) => boolean
+  canUpdate: (module: string) => boolean
+  canDelete: (module: string) => boolean
+  canViewPrice: (module: string) => boolean
+  isShopOwner: () => boolean
+  getAccessibleModules: () => string[]
 }
 
 // Helper to cache auth data locally (using the shared cache utility)
@@ -85,6 +110,8 @@ export const useAuthStore = create<AuthState>()(
           const response = await authService.login({ email, password })
           const { token, is_setup, currency } = response.data
 
+          console.log('[AuthStore] Login successful, fetching profile...')
+
           // Store token securely
           setAuthToken(token)
 
@@ -97,8 +124,14 @@ export const useAuthStore = create<AuthState>()(
             isOfflineMode: false,
           })
 
-          // Fetch user profile after login
+          // Fetch user profile after login (this includes visibility/permissions)
           await get().fetchProfile()
+
+          console.log('[AuthStore] Login complete, user permissions loaded:', {
+            user: get().user?.name,
+            role: get().user?.role,
+            hasVisibility: !!get().user?.visibility,
+          })
 
           // Cache auth data for offline use
           cacheAuthData(get().user, get().business, currency)
@@ -106,6 +139,7 @@ export const useAuthStore = create<AuthState>()(
           return { success: true, requiresSetup: !is_setup }
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : 'Login failed'
+          console.error('[AuthStore] Login failed:', message)
           set({ error: message, isLoading: false })
           return { success: false }
         }
@@ -215,6 +249,21 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await authService.getProfile()
           const user = response.data
+
+          // Debug: Log permissions being stored
+          console.log('[AuthStore] Storing user profile:', {
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            visibility: user.visibility,
+            visibilityType: typeof user.visibility,
+            visibilityIsObject: typeof user.visibility === 'object',
+            visibilityKeys:
+              user.visibility && typeof user.visibility === 'object'
+                ? Object.keys(user.visibility).slice(0, 5)
+                : null,
+          })
+
           set({ user, isOfflineMode: false })
           // Cache for offline use
           cacheAuthData(user, get().business, get().currency)
@@ -251,6 +300,18 @@ export const useAuthStore = create<AuthState>()(
       },
       setIsSetupComplete: (isSetup) => set({ isSetupComplete: isSetup }),
       clearError: () => set({ error: null }),
+
+      // Permission Methods
+      hasPermission: (permission) => hasPermission(get().user, permission),
+      hasAnyPermission: (permissions) => hasAnyPermission(get().user, permissions),
+      hasAllPermissions: (permissions) => hasAllPermissions(get().user, permissions),
+      canRead: (module) => canRead(get().user, module),
+      canCreate: (module) => canCreate(get().user, module),
+      canUpdate: (module) => canUpdate(get().user, module),
+      canDelete: (module) => canDelete(get().user, module),
+      canViewPrice: (module) => canViewPrice(get().user, module),
+      isShopOwner: () => isShopOwner(get().user),
+      getAccessibleModules: () => getAccessibleModules(get().user),
 
       hydrateFromStorage: async () => {
         // First, immediately load cached auth data (non-blocking)

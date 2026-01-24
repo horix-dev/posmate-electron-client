@@ -25,6 +25,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useUIStore, useBusinessStore } from '@/stores'
+import { usePermissions } from '@/hooks/usePermissions'
+import type { PermissionString } from '@/types/permission.types'
 import { cn } from '@/lib/utils'
 import { SyncStatusIndicator } from '@/components/common/SyncStatusIndicator'
 import { SyncQueuePanel } from '@/components/common/SyncQueuePanel'
@@ -34,6 +36,7 @@ interface NavItem {
   href: string
   icon: React.ElementType
   badge?: number
+  permission?: PermissionString
   children?: SubNavItem[]
 }
 
@@ -41,69 +44,129 @@ interface SubNavItem {
   title: string
   href: string
   icon: React.ElementType
+  permission?: PermissionString
+  alternatePermission?: PermissionString
 }
 
 const mainNavItems: NavItem[] = [
-  { title: 'Dashboard', href: '/', icon: Home },
-  { title: 'POS', href: '/pos', icon: ShoppingCart },
+  { title: 'Dashboard', href: '/', icon: Home, permission: 'dashboard.r' },
+  { title: 'POS', href: '/pos', icon: ShoppingCart, permission: 'sales.c' },
   {
     title: 'Products',
     href: '/products',
     icon: Package,
+    permission: 'products.r',
     children: [
-      { title: 'Add Product', href: '/products/create', icon: Plus },
-      { title: 'All Products', href: '/products', icon: Package },
+      { title: 'Add Product', href: '/products/create', icon: Plus, permission: 'products.c' },
+      { title: 'All Products', href: '/products', icon: Package, permission: 'products.r' },
     ],
   },
   {
     title: 'Sales',
     href: '/sales',
     icon: Receipt,
+    // Show Sales menu if user has either read OR create permission
+    permission: 'sales.r',
     children: [
-      { title: 'All Sales', href: '/sales?tab=sales', icon: Receipt },
-      { title: 'Sales Returns', href: '/sales?tab=returns', icon: PackageMinus },
+      { title: 'All Sales', href: '/sales?tab=sales', icon: Receipt, permission: 'sales.r' },
+      {
+        title: 'Sales Returns',
+        href: '/sales?tab=returns',
+        icon: PackageMinus,
+        permission: 'sale-returns.r',
+        alternatePermission: 'sale-returns.c',
+      },
     ],
   },
   {
     title: 'Purchases',
     href: '/purchases',
     icon: Truck,
+    permission: 'purchases.r',
     children: [
-      { title: 'Add Purchase', href: '/purchases/new', icon: Plus },
-      { title: 'All Purchases', href: '/purchases?tab=purchases', icon: Package },
-      { title: 'Purchase Returns', href: '/purchases?tab=returns', icon: PackageMinus },
+      { title: 'Add Purchase', href: '/purchases/new', icon: Plus, permission: 'purchases.c' },
+      {
+        title: 'All Purchases',
+        href: '/purchases?tab=purchases',
+        icon: Package,
+        permission: 'purchases.r',
+      },
+      {
+        title: 'Purchase Returns',
+        href: '/purchases?tab=returns',
+        icon: PackageMinus,
+        permission: 'purchase-returns.r',
+      },
     ],
   },
-  { title: 'Due', href: '/due', icon: Wallet },
+  { title: 'Due', href: '/due', icon: Wallet, permission: 'dues.r' },
   {
     title: 'Parties',
     href: '/customers',
     icon: Users,
+    permission: 'parties.r',
     children: [
-      { title: 'Customers', href: '/customers', icon: UserCheck },
-      { title: 'Suppliers', href: '/suppliers', icon: Building2 },
+      { title: 'Customers', href: '/customers', icon: UserCheck, permission: 'parties.r' },
+      { title: 'Suppliers', href: '/suppliers', icon: Building2, permission: 'parties.r' },
     ],
   },
 ]
 
 const secondaryNavItems: NavItem[] = [
-  { title: 'Finance', href: '/finance', icon: Wallet },
-  { title: 'Stocks', href: '/stocks', icon: Package },
+  { title: 'Finance', href: '/finance', icon: Wallet, permission: 'incomes.r' },
+  { title: 'Stocks', href: '/stocks', icon: Package, permission: 'stocks.r' },
   // { title: 'Invoices', href: '/invoices', icon: FileText },
   // { title: 'Warehouses', href: '/warehouses', icon: Warehouse },
-  { title: 'Product Settings', href: '/product-settings', icon: Tags },
-  { title: 'Stock Adjustments', href: '/inventory/stock-adjustments', icon: ClipboardList },
-  { title: 'Reports', href: '/reports', icon: BarChart3 },
+  { title: 'Product Settings', href: '/product-settings', icon: Tags, permission: 'categories.r' },
+  {
+    title: 'Stock Adjustments',
+    href: '/inventory/stock-adjustments',
+    icon: ClipboardList,
+    permission: 'inventory.r',
+  },
+  { title: 'Reports', href: '/reports', icon: BarChart3, permission: 'sale-reports.r' },
 ]
 
 export function Sidebar() {
   const location = useLocation()
   const { sidebarState, toggleSidebar } = useUIStore()
   const business = useBusinessStore((state) => state.business)
+  const { hasPermission } = usePermissions()
   const [syncPanelOpen, setSyncPanelOpen] = useState(false)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
 
   const isCollapsed = sidebarState === 'collapsed'
+
+  // Filter menu items based on permissions
+  const filteredMainNav = mainNavItems
+    .filter((item) => {
+      // Special case for Sales: show if user has any sales or sale-returns permission
+      if (item.title === 'Sales') {
+        return (
+          hasPermission('sales.r') ||
+          hasPermission('sales.c') ||
+          hasPermission('sale-returns.r') ||
+          hasPermission('sale-returns.c')
+        )
+      }
+      return !item.permission || hasPermission(item.permission)
+    })
+    .map((item) => ({
+      ...item,
+      children: item.children?.filter((child) => {
+        if (!child.permission) return true
+        // Check primary permission or alternate permission
+        const hasMainPermission = hasPermission(child.permission)
+        const hasAlternate = child.alternatePermission
+          ? hasPermission(child.alternatePermission)
+          : false
+        return hasMainPermission || hasAlternate
+      }),
+    }))
+
+  const filteredSecondaryNav = secondaryNavItems.filter(
+    (item) => !item.permission || hasPermission(item.permission)
+  )
 
   const toggleExpanded = (href: string) => {
     setExpandedItems((prev) => {
@@ -281,7 +344,7 @@ export function Sidebar() {
             thumbClassName="bg-sidebar-foreground/15 hover:bg-sidebar-foreground/25"
           >
             <nav className="flex flex-col gap-1">
-              {mainNavItems.map((item) => (
+              {filteredMainNav.map((item) => (
                 <NavLink key={item.href} item={item} />
               ))}
             </nav>
@@ -289,7 +352,7 @@ export function Sidebar() {
             <Separator className="my-4" />
 
             <nav className="flex flex-col gap-1">
-              {secondaryNavItems.map((item) => (
+              {filteredSecondaryNav.map((item) => (
                 <NavLink key={item.href} item={item} />
               ))}
             </nav>
@@ -308,7 +371,14 @@ export function Sidebar() {
             <Separator className="my-2" />
 
             <nav className="mb-2">
-              <NavLink item={{ title: 'Settings', href: '/settings', icon: Settings }} />
+              <NavLink
+                item={{
+                  title: 'Settings',
+                  href: '/settings',
+                  icon: Settings,
+                  permission: 'manage-settings.r',
+                }}
+              />
             </nav>
 
             <Button

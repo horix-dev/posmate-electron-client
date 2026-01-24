@@ -1,3 +1,396 @@
+## 2026-01-23 **CRITICAL FIX** - Permission Format Normalization
+
+**Critical Bug Fix**: Backend sends visibility as object with full permission names, but frontend expected string with short codes.
+
+**Problem**:
+- Backend sends `visibility` as **object**: `{"dashboard": {"read": "1"}}`
+- Frontend expected **string**: `"{\"dashboard\":{\"r\":\"1\"}}"`
+- Backend uses full names: `"read"`, `"create"`, `"update"`, `"delete"`
+- Frontend expected short codes: `"r"`, `"c"`, `"u"`, `"d"`
+- `JSON.parse()` attempted on already-parsed object → crashed
+- Permission checks failed because keys didn't match
+
+**Solution Implemented**:
+
+1. **Updated parseVisibility()** (src/lib/permissions.ts)
+   - Now handles both string and object format
+   - Normalizes permission keys from full names to short codes
+   - Mapping: read→r, create→c, update→u, delete→d, price→price
+   - Prevents JSON.parse error on already-parsed objects
+
+2. **Key Normalization Function**
+   ```typescript
+   normalizePermissionKey(key: string): string {
+     const mapping = {
+       'read': 'r',
+       'create': 'c',
+       'update': 'u',
+       'delete': 'd',
+       'price': 'price'
+     }
+     return mapping[key] || key
+   }
+   ```
+
+3. **User Type Updated** (src/types/api.types.ts)
+   - Changed `visibility?: string | null` 
+   - To `visibility?: string | Record<string, any> | null`
+   - Accepts both formats from backend
+
+4. **Debug Logging Improved** (src/stores/auth.store.ts)
+   - No longer tries to JSON.parse visibility
+   - Shows if visibility is object vs string
+   - Shows first 5 module keys for verification
+
+**Backend Response Format (Actual)**:
+```json
+{
+  "visibility": {
+    "dashboard": {"read": "1"},
+    "sales": {"read": "1", "create": "1", "update": "1", "delete": "1"},
+    "products": {"read": "1", "create": "1", "price": "1"}
+  }
+}
+```
+
+**Frontend Normalized Format (After Processing)**:
+```json
+{
+  "dashboard": {"r": "1"},
+  "sales": {"r": "1", "c": "1", "u": "1", "d": "1"},
+  "products": {"r": "1", "c": "1", "price": "1"}
+}
+```
+
+**Result**:
+✅ Permissions now properly loaded and checked  
+✅ Sidebar filters correctly based on permissions  
+✅ Routes block access based on permissions  
+✅ Both string and object formats supported  
+✅ Full and short permission names work
+
+**Files Modified**:
+- src/lib/permissions.ts (parseVisibility normalization)
+- src/stores/auth.store.ts (debug logging)
+- src/types/api.types.ts (type definition)
+
+**Testing**:
+1. Login as staff user
+2. Check console - should see visibility as object
+3. Sidebar should filter menu items
+4. Routes should block unauthorized access
+5. Permission Debugger should show all permissions
+
+---
+
+## 2026-01-23 Enhanced Permission Storage Debugging
+
+**Enhancement**: Added comprehensive logging for permission storage during login.
+
+**Changes**:
+
+1. **Auth Store Login Flow** (src/stores/auth.store.ts)
+   - Added console logging to track permission loading
+   - Logs after successful login showing user role and visibility status
+   - Helps debug permission-related issues
+
+2. **Profile Fetch Debugging** (src/stores/auth.store.ts)
+   - Detailed logging of visibility data being stored
+   - Shows visibility type (string/object)
+   - Displays parsed visibility JSON for verification
+   - Logs: name, email, role, visibility, visibilityType, visibilityParsed
+
+3. **User Type Clarification** (src/types/api.types.ts)
+   - Updated visibility type annotation to `string | null` for clarity
+   - Backend sends visibility as JSON string
+   - Frontend parses it when checking permissions
+
+**How Permission Storage Works**:
+```
+1. User logs in → POST /login
+   ↓
+2. Backend returns token
+   ↓
+3. Frontend calls GET /profile
+   ↓
+4. Backend returns user with visibility JSON string
+   ↓
+5. Auth store saves user.visibility (as JSON string)
+   ↓
+6. Permission utilities parse visibility when checking permissions
+   ↓
+7. Data cached for offline use
+```
+
+**Debug Console Output**:
+When you login, check browser DevTools console for:
+```
+[AuthStore] Login successful, fetching profile...
+[AuthStore] Storing user profile: {
+  name: "Staff 01",
+  email: "staffa@gmail.com",
+  role: "staff",
+  visibility: "{\"dashboard\":{\"r\":\"1\"},...}",
+  visibilityType: "string",
+  visibilityParsed: { dashboard: { r: "1" }, ... }
+}
+[AuthStore] Login complete, user permissions loaded: {
+  user: "Staff 01",
+  role: "staff",
+  hasVisibility: true
+}
+```
+
+**Troubleshooting**:
+- If `visibility` is null/undefined → Backend not sending permissions
+- If `hasVisibility` is false → Check backend user.visibility field
+- If `visibilityParsed` is empty → Backend sending empty JSON `{}`
+- Use Permission Debugger UI to visually inspect loaded permissions
+
+**Files Modified**:
+- src/stores/auth.store.ts
+- src/types/api.types.ts
+
+---
+
+## 2026-01-23 Permission System Route & Sidebar Enforcement
+
+**Fix**: Applied permission checks to routes and sidebar navigation.
+
+**Problem**:
+- Staff users could access all pages despite having limited permissions
+- Sidebar showed all menu items regardless of user permissions
+- Routes didn't check permissions before rendering pages
+- Permission system was created but not applied to actual UI
+
+**Solution Implemented**:
+
+1. **Sidebar Permission Filtering** (src/components/layout/Sidebar.tsx)
+   - Added `usePermissions` hook to Sidebar component
+   - Added `permission` property to NavItem and SubNavItem interfaces
+   - Assigned permissions to all menu items:
+     - Dashboard: `dashboard.r`
+     - POS: `sales.c`
+     - Products: `products.r` (children: `products.c`, `products.r`)
+     - Sales: `sales.r` (children: `sales.r`, `sale-returns.r`)
+     - Purchases: `purchases.r` (children: `purchases.c`, `purchases.r`, `purchase-returns.r`)
+     - Due: `dues.r`
+     - Parties: `parties.r`
+     - Finance: `incomes.r`
+     - Stocks: `stocks.r`
+     - Product Settings: `categories.r`
+     - Stock Adjustments: `inventory.r`
+     - Reports: `sale-reports.r`
+     - Settings: `manage-settings.r`
+   - Filter menu items based on user permissions
+   - Filter sub-menu items independently
+   - Hide menu items user doesn't have access to
+
+2. **Route Permission Protection** (src/routes/index.tsx, src/routes/PermissionRoute.tsx)
+   - Created `PermissionRoute` wrapper component
+   - Shows "Access Denied" alert if user lacks permission
+   - Applied to all protected routes with appropriate permissions
+   - Dashboard → `dashboard.r`
+   - POS → `sales.c`
+   - Products list → `products.r`
+   - Product create → `products.c`
+   - Product edit → `products.u`
+   - Sales → `sales.r`
+   - Purchases → `purchases.r`
+   - Purchase create → `purchases.c`
+   - Customers/Suppliers → `parties.r`
+   - Finance → `incomes.r`
+   - Due → `dues.r`
+   - Product Settings → `categories.r`
+   - Warehouses → `warehouses.r`
+   - Stocks → `stocks.r`
+   - Stock Adjustments → `inventory.r`
+   - Reports → `sale-reports.r`
+   - Settings → `manage-settings.r`
+
+3. **Permission Debugger** (src/components/debug/PermissionDebugger.tsx)
+   - Development-only debugging tool
+   - Shows current user info (name, email, role)
+   - Displays all granted permissions by module
+   - Shows raw visibility JSON
+   - Toggle button in bottom-right corner
+   - Automatically hidden in production build
+   - Helps troubleshoot permission issues
+
+4. **Permission Flow**:
+   ```
+   User Login → Backend returns visibility JSON
+   ↓
+   Auth Store saves user with visibility
+   ↓
+   Sidebar: Filter menu items by permissions
+   ↓
+   User clicks route
+   ↓
+   PermissionRoute: Check permission
+   ↓
+   If denied: Show "Access Denied" alert
+   If allowed: Render page component
+   ```
+
+**Debugging**:
+To check what permissions a staff user has:
+1. Login as staff user
+2. Click "Debug Permissions" button (bottom-right corner)
+3. View all granted permissions and raw JSON
+4. Verify expected permissions are set
+
+**Result**:
+- Staff users now see only menu items they have access to
+- Attempting to access restricted routes shows access denied message
+- Direct URL navigation is blocked for unauthorized pages
+- Shop owners still see and access everything (automatic bypass)
+- Easy debugging with visual permission viewer
+
+**Files Created**:
+- src/routes/PermissionRoute.tsx
+- src/components/debug/PermissionDebugger.tsx
+
+**Files Modified**:
+- src/components/layout/Sidebar.tsx
+- src/components/layout/AppShell.tsx
+- src/routes/index.tsx
+
+**Testing**:
+- Login as staff user with limited permissions
+- Sidebar should only show allowed menu items
+- Accessing restricted routes should show "Access Denied"
+- Shop owner should see all menu items and access all routes
+- Click "Debug Permissions" button to verify permissions loaded correctly
+
+**Troubleshooting**:
+If staff can still access everything:
+1. Click "Debug Permissions" button
+2. Check if `visibility` JSON is empty
+3. Verify backend is sending correct visibility data in login/profile response
+4. Check user role is "staff" not "shop-owner"
+
+---
+
+## 2026-01-23 Complete Permission System Implementation
+
+**Feature**: Full frontend permission control system matching Laravel backend.
+
+**Problem**:
+- No permission checking in Electron frontend
+- All users could access all features regardless of role
+- No way to hide sensitive UI elements (like prices) from staff
+- Shop owner vs staff role distinction not enforced
+- Backend has complete permission system via visibility JSON, but frontend wasn't using it
+
+**Solution Implemented**:
+
+1. **Permission Types** (src/types/permission.types.ts)
+   - Comprehensive TypeScript types for all permission structures
+   - `PermissionAction`: 'r', 'c', 'u', 'd', 'price'
+   - `UserVisibility`: Complete interface matching backend
+   - `PermissionString`: Type-safe permission format ("module.action")
+   - Support for all modules: core POS, products, financial, reports, HRM, warehouse, etc.
+
+2. **Permission Utilities** (src/lib/permissions.ts)
+   - `hasPermission(user, 'sales.create')` - Check single permission
+   - `hasAnyPermission(user, permissions[])` - Check if user has ANY permission
+   - `hasAllPermissions(user, permissions[])` - Check if user has ALL permissions
+   - `canRead/Create/Update/Delete/ViewPrice(user, module)` - Convenience helpers
+   - `isShopOwner(user)` - Shop owner bypass check
+   - `parseVisibility()` - Parse JSON visibility string
+   - `getAccessibleModules(user)` - Get list of accessible modules
+   - `countActivePermissions(user)` - Count total permissions
+   - Automatic shop-owner bypass (shop owners have all permissions)
+
+3. **Permission Hook** (src/hooks/usePermissions.ts)
+   - React hook wrapping permission utilities with current user context
+   - Auto-updates when user changes
+   - Memoized for performance
+   - Returns all permission checking methods
+
+4. **PermissionGate Component** (src/components/shared/PermissionGate.tsx)
+   - Conditional rendering component (like Laravel's @usercan)
+   - Single or multiple permission support
+   - `requireAll` prop for AND logic (default is OR)
+   - `fallback` prop for alternative UI
+   - `PermissionGate.Deny` - Inverse component (shows when permission denied)
+
+5. **Protected Route Enhancement** (src/routes/ProtectedRoute.tsx)
+   - Added optional `permission` prop
+   - Shows "Access Denied" message if permission check fails
+   - Support for single or multiple permissions
+   - `requireAll` prop for AND logic
+
+6. **Auth Store Updates** (src/stores/auth.store.ts)
+   - Added permission methods to auth store
+   - Direct access: `authStore.hasPermission('sales.create')`
+   - All permission utilities available from store
+   - Cached with user data for offline support
+
+**Usage Examples**:
+
+```tsx
+// 1. In components with hook
+const { hasPermission, canCreate } = usePermissions()
+
+if (canCreate('sales')) {
+  // Show create button
+}
+
+// 2. With PermissionGate component
+<PermissionGate permission="products.create">
+  <Button>Add Product</Button>
+</PermissionGate>
+
+// 3. Hide prices from staff
+<PermissionGate 
+  permission="products.price"
+  fallback={<span>***</span>}
+>
+  <span>${product.price}</span>
+</PermissionGate>
+
+// 4. Protect routes
+<Route path="/products" element={
+  <ProtectedRoute permission="products.r">
+    <ProductsPage />
+  </ProtectedRoute>
+} />
+
+// 5. From auth store
+const authStore = useAuthStore()
+if (authStore.canUpdate('categories')) {
+  // Allow editing
+}
+```
+
+**Permission Format**:
+- Format: `module.action` (e.g., "sales.create")
+- Actions: r (read), c (create), u (update), d (delete), price (view prices)
+- Examples: 'sales.r', 'products.create', 'purchases.price'
+
+**Special Features**:
+- Shop owner automatic bypass (always has all permissions)
+- Price visibility control (hide from staff)
+- Multi-permission checks (ANY or ALL)
+- Detailed error messages
+- Offline support (cached with user data)
+- Type-safe permission strings
+
+**Files Created**:
+- src/types/permission.types.ts
+- src/lib/permissions.ts
+- src/hooks/usePermissions.ts
+- src/components/shared/PermissionGate.tsx
+- docs/PERMISSION_IMPLEMENTATION_GUIDE.md
+
+**Files Modified**:
+- src/routes/ProtectedRoute.tsx
+- src/stores/auth.store.ts
+
+---
+
 ## 2026-01-22 Sale Details Dialog - Individual Product Discount Display
 
 **Enhancement**: Sale Details dialog now shows individual product discount information.

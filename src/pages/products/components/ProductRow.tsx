@@ -29,6 +29,10 @@ export interface ProductRowProps {
   onEdit: (product: Product) => void
   /** Callback when delete action is clicked */
   onDelete: (product: Product) => void
+  /** Whether user can delete products */
+  canDelete?: boolean
+  /** Whether user can update products */
+  canUpdate?: boolean
 }
 
 // ============================================
@@ -39,7 +43,13 @@ export interface ProductRowProps {
  * ProductRow component displays a single product in the table.
  * Memoized to prevent unnecessary re-renders when other products change.
  */
-function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowProps) {
+function ProductRowComponent({
+  product,
+  onView,
+  onEdit,
+  onDelete,
+  canDelete = true,
+}: ProductRowProps) {
   const { format: formatCurrency } = useCurrency()
   const stockStatus = getStockStatus(product)
   const totalStock = getTotalStock(product)
@@ -142,13 +152,19 @@ function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowPr
 
       {/* Status */}
       <TableCell>
-        <Badge 
+        <Badge
           variant={
-            stockStatus.status === 'low' ? 'destructive' :
-            stockStatus.status === 'out' ? 'destructive' :
-            'success'
+            stockStatus.status === 'low'
+              ? 'destructive'
+              : stockStatus.status === 'out'
+                ? 'destructive'
+                : 'success'
           }
-          className={stockStatus.status === 'low' ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200' : ''}
+          className={
+            stockStatus.status === 'low'
+              ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
+              : ''
+          }
         >
           {stockStatus.status === 'low' && (
             <AlertTriangle className="mr-1 h-3 w-3" aria-hidden="true" />
@@ -179,11 +195,15 @@ function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowPr
               <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
               Edit
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleDelete} className="text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-              Delete
-            </DropdownMenuItem>
+            {canDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>
