@@ -15,6 +15,7 @@ interface BusinessState {
   updateBusiness: (id: number, data: FormData) => Promise<{ success: boolean }>
   setBusiness: (business: Business | null) => void
   clearError: () => void
+  reset: () => void
 }
 
 export const useBusinessStore = create<BusinessState>()(
@@ -81,6 +82,7 @@ export const useBusinessStore = create<BusinessState>()(
 
       setBusiness: (business) => set({ business }),
       clearError: () => set({ error: null }),
+      reset: () => set({ business: null, isLoading: false, error: null }),
     }),
     {
       name: 'business-storage',

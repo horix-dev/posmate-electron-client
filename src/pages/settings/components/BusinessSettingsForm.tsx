@@ -48,6 +48,7 @@ const getImageUrl = (path: string | null | undefined): string | null => {
 
 export function BusinessSettingsForm() {
   const business = useBusinessStore((state) => state.business)
+  const fetchBusiness = useBusinessStore((state) => state.fetchBusiness)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [categories, setCategories] = useState<BusinessCategory[]>([])
@@ -271,6 +272,9 @@ export function BusinessSettingsForm() {
       // Clear file states
       setLogoFile(null)
       setScannerLogoFile(null)
+
+      // Refetch business store to update cached data (e.g., gratitude_message for receipts)
+      fetchBusiness().catch(console.error)
 
       // Refetch in background to ensure sync with latest API data
       setTimeout(() => {
