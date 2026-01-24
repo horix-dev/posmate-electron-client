@@ -177,6 +177,11 @@ export const useAuthStore = create<AuthState>()(
           clearAuthToken()
           clearETagCache() // Clear HTTP cache on logout
           clearCachedAuthData()
+
+          // Clear business store on logout
+          const { useBusinessStore } = await import('./business.store')
+          useBusinessStore.getState().reset()
+
           set({
             user: null,
             business: null,

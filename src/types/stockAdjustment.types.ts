@@ -117,12 +117,7 @@ export const ADJUSTMENT_REASONS_BY_TYPE = {
     'Returned by Customer',
     'Other',
   ],
-  out: [
-    'Damaged/Expired',
-    'Lost/Stolen',
-    'Transfer Out',
-    'Other',
-  ],
+  out: ['Damaged/Expired', 'Lost/Stolen', 'Transfer Out', 'Other'],
 } as const
 
 // All adjustment reasons

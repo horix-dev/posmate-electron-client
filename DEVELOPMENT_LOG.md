@@ -1,3 +1,257 @@
+## 2026-01-22 — Dashboard Returns Display & Default Filter
+
+**Enhancement**: Implemented best-practice returns tracking on dashboard with today as default filter.
+
+**Features**:
+1. **Separate Returns Metric**
+   - New stat card displays total return amount and return count
+   - Visual distinction with orange color (separate from sales reduction)
+   - Shows return impact clearly for business transparency
+
+2. **Returns Chart**
+   - New "Returns Overview" chart alongside Sales and Purchases
+   - Visualizes return amount trends over selected period
+   - Helps identify return patterns and patterns
+
+3. **Today as Default Filter**
+   - Dashboard now defaults to "today" instead of "last_thirty_days"
+   - Provides daily performance snapshot on dashboard load
+   - Users can still change filter using date range picker
+
+4. **Return Logic**
+   - Returns displayed **separately** not deducted from sales
+   - Total Sales = All paid invoices (original sales only)
+   - Total Returns = Sum of all return amounts (as separate metric)
+   - Net Sales = can be calculated as Total Sales - Returns
+
+**Business Benefits**:
+- ✅ **Transparency**: Clear visibility of return volume and patterns
+- ✅ **Analytics**: Easy to track return rate (Returns ÷ Total Sales)
+- ✅ **Accountability**: All returns auditable and trackable
+- ✅ **Compliance**: Meets industry standards for POS audit trails
+- ✅ **Insight**: Quick identification of problem products/periods
+
+**Files Modified/Created**:
+- Modified: src/types/api.types.ts (added total_returns, total_return_amount, returns chart data)
+- Modified: src/pages/dashboard/DashboardPage.tsx (default filter to 'today', added Returns card and chart)
+
+**Implementation Details**:
+- DashboardData type now includes:
+  - `total_returns: number` - count of returns
+  - `total_return_amount: number` - sum of return amounts
+  - `returns?: ChartDataPoint[]` - time-series return data for chart
+- StatCard updated with `subtitle` prop to show return count
+- Returns chart uses orange color (#orange-500) for visual distinction
+- Chart grid expanded from 2 to 3 columns (MD) to accommodate Returns chart
+
+---
+## 2026-01-22 Sale Details Dialog - Individual Product Discount Display
+
+**Enhancement**: Sale Details dialog now shows individual product discount information.
+
+**Problem**:
+- Sale Details dialog was not displaying product-level discounts
+- Only showed final subtotal without discount breakdown
+- Users couldn't see what discounts were applied to each product
+- Example: Product at ₹300 discounted to ₹285 showed no discount info
+
+**Solution Implemented**:
+
+1. **SaleDetail Type Updated** (src/types/api.types.ts)
+   - Added discount fields received from backend:
+     - `discount_type`: 'percentage' | 'fixed' | null
+     - `discount_value`: discount percentage or amount
+     - `discount_amount`: calculated discount per unit
+     - `final_price`: unit price after discount
+
+2. **SaleDetailsDialog Enhanced** (src/components/shared/SaleDetailsDialog.tsx)
+   - Added "Discount" column to products table
+   - Displays discount type and value:
+     - Percentage: "10%" 
+     - Fixed: "₹15"
+   - Shows total discount per line (discount × quantity)
+   - Green color for discount amounts
+   - Strike-through original price when discounted
+   - Variant name shown if applicable
+
+3. **Summary Section Updated**
+   - Separates product-level vs cart-level discounts
+   - Shows:
+     - Subtotal (before discounts)
+     - Product Discounts (sum of all item discounts)
+     - Cart Discount (sale-level discount)
+     - VAT
+     - Total
+   - Green text for discount amounts (instead of red)
+
+**Display Logic**:
+```typescript
+// Per product
+hasDiscount = discount_amount > 0
+originalSubtotal = price × quantity
+discountAmount = discount_amount × quantity
+finalSubtotal = final_price × quantity
+
+// Total product discounts
+productDiscounts = Σ(discount_amount × quantity)
+```
+
+**Example Display**:
+
+**Products Table:**
+| Product | Qty | Price | Discount | Subtotal |
+|---------|-----|-------|----------|----------|
+| Laptop  | 1   | ₹300  | 5% -₹15  | ₹285     |
+
+**Summary:**
+- Subtotal (before discounts): ₹300.00
+- Product Discounts: -₹15.00
+- Total: ₹285.00
+
+**Visual Features**:
+- ✅ Discount column in products table
+- ✅ Discount type badge (percentage or amount)
+- ✅ Total discount per line
+- ✅ Green color for discounts
+- ✅ Separate product vs cart discounts in summary
+- ✅ Variant name display
+
+**Files Modified**:
+- `src/types/api.types.ts` - Added discount fields to SaleDetail
+- `src/components/shared/SaleDetailsDialog.tsx` - Enhanced display
+- `DEVELOPMENT_LOG.md` - This documentation
+
+## 2026-01-22 Individual Product Discount Implementation
+
+**Feature**: Added support for applying individual discounts to each product in a sale transaction.
+
+**Problem**:
+- POS system only supported cart-level discounts (applied to entire sale)
+- No way to apply different discounts to different products in the same sale
+- Backend API already supported individual product discounts, but frontend UI was missing
+
+**Backend API Support** (Already Implemented):
+- `sale_details` table has discount fields:
+  - `discount_type`: 'percentage' or 'fixed'
+  - `discount_value`: discount percentage (0-100) or fixed amount
+  - `discount_amount`: calculated discount per unit
+  - `final_price`: price after discount
+- API accepts discount fields in `SaleProductItem` interface
+- See `backend_docs/INDIVIDUAL_PRODUCT_DISCOUNT_IMPLEMENTATION.md` for full API documentation
+
+**Solution Implemented**:
+
+1. **TypeScript Types Updated** (src/types/api.types.ts)
+   - Added `discount_type` and `discount_value` to `SaleProductItem` interface
+   - These fields are optional and sent to backend when discount is applied
+
+2. **Cart Store** (src/stores/cart.store.ts)
+   - Already had `discount` and `discountType` fields in `CartItem` interface
+   - Already had `updateItemDiscount()` method implemented
+   - No changes needed - infrastructure was already in place!
+
+3. **CartItem Component** (src/pages/pos/components/CartItem.tsx)
+   - Updated `CartItemDisplay` interface to include discount fields
+   - Added props for `onUpdateDiscount` callback
+   - Added discount calculation logic for line totals
+   - Added discount popover UI with:
+     - Amount input (fixed discount per unit)
+     - Percentage input (percentage of unit price)
+     - Quick discount buttons (5%, 10%, 15%, 20%)
+     - Clear discount button
+     - Real-time calculation display
+   - Visual indicators:
+     - Green discount badge when discount applied
+     - Strike-through original price
+     - Discount amount shown in green
+
+4. **CartSidebar Component** (src/pages/pos/components/CartSidebar.tsx)
+   - Added `CartItemRow` component with full discount support
+   - Shows discount icon button (appears on hover, green when active)
+   - Displays discount info inline with product details
+   - Updated props to accept `onUpdateItemDiscount` callback
+   - Replaced inline table rows with `CartItemRow` component
+
+5. **POSPage** (src/pages/pos/POSPage.tsx)
+   - Imported `updateItemDiscount` from cart store
+   - Added discount fields to `adaptedCartItems` mapping
+   - Passed `onUpdateItemDiscount` callback to `CartSidebar`
+   - Updated sale creation to include discount data in API request:
+     ```typescript
+     discount_type: item.discount > 0 ? item.discountType : undefined,
+     discount_value: item.discount > 0 ? item.discount : undefined,
+     ```
+
+**Discount Types Supported**:
+
+1. **Percentage Discount**:
+   - User enters percentage (0-100%)
+   - Applied to unit price
+   - Example: 10% off ₹100 = ₹90 final price
+
+2. **Fixed Amount Discount**:
+   - User enters fixed amount per unit
+   - Subtracted from unit price
+   - Example: ₹15 off ₹100 = ₹85 final price
+
+**Calculations**:
+```typescript
+// Percentage
+discount_amount_per_unit = (unit_price × discount_value) ÷ 100
+final_unit_price = unit_price - discount_amount_per_unit
+total_discount = discount_amount_per_unit × quantity
+
+// Fixed
+discount_amount_per_unit = discount_value
+final_unit_price = unit_price - discount_value
+total_discount = discount_value × quantity
+
+// Line total
+line_total = final_unit_price × quantity
+```
+
+**UI/UX Features**:
+- Discount button appears on cart item hover
+- Green color when discount is active
+- Popover shows both amount and percentage inputs
+- Real-time bidirectional conversion between amount and percentage
+- Quick preset buttons for common discounts
+- Clear visual feedback with discount summary
+- Shows total discount for the line (discount × quantity)
+
+**Example Usage**:
+1. Add product to cart (₹100 × 2 units = ₹200)
+2. Click discount button (percent icon)
+3. Enter 10% discount
+4. See: Unit price ₹90, Total ₹180 (₹20 discount)
+
+**Compatibility**:
+- ✅ Works with simple products
+- ✅ Works with variable products (variants)
+- ✅ Works with batch tracking
+- ✅ Persists in held carts
+- ✅ Works offline (syncs when online)
+- ✅ Works with cart-level discounts (both can be applied)
+
+**Files Modified**:
+- `src/types/api.types.ts` - Added discount fields to SaleProductItem
+- `src/pages/pos/components/CartItem.tsx` - Added discount UI
+- `src/pages/pos/components/CartSidebar.tsx` - Added CartItemRow with discount support
+- `src/pages/pos/POSPage.tsx` - Connected discount functionality and API
+- `DEVELOPMENT_LOG.md` - This documentation
+
+**Testing Checklist**:
+- [ ] Apply percentage discount to product
+- [ ] Apply fixed discount to product
+- [ ] Mix discounted and non-discounted products
+- [ ] Apply both item-level and cart-level discounts
+- [ ] Test with variants
+- [ ] Test offline sale creation
+- [ ] Verify data sent to backend API
+- [ ] Check receipt printing with discounts
+- [ ] Test held cart with discounts
+- [ ] Verify discount persists in local storage
+
 ## 2026-01-19  Real-time Available Stock Display 
 
 **Enhancement**: Product grid now displays real-time available stock (total stock - cart quantity) instead of just database stock.

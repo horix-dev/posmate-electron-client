@@ -60,6 +60,7 @@ export function POSPage() {
   const autoPrintReceipt = useUIStore((state) => state.autoPrintReceipt)
   const smartTenderEnabled = useUIStore((state) => state.smartTenderEnabled)
   const business = useBusinessStore((state) => state.business)
+  const fetchBusiness = useBusinessStore((state) => state.fetchBusiness)
   const { isOnline } = useOnlineStatus()
 
   // Cart store
@@ -77,6 +78,7 @@ export function POSPage() {
     invoiceNumber,
     addItem,
     updateItemQuantity,
+    updateItemDiscount,
     removeItem,
     clearCart,
     setCustomer,
@@ -114,6 +116,13 @@ export function POSPage() {
   // Data Fetching
   // ----------------------------------------
   const { products, categories, paymentTypes, isLoading, filteredProducts } = usePOSData(filters)
+
+  // Fetch business data on mount
+  useEffect(() => {
+    if (!business) {
+      fetchBusiness()
+    }
+  }, [business, fetchBusiness])
 
   // Fetch invoice number on mount
   useEffect(() => {
@@ -179,7 +188,9 @@ export function POSPage() {
 
       if (availableQty <= 0 || currentQty >= availableQty) {
         const itemName = variant ? `${product.productName} (${variant.sku})` : product.productName
-        toast.error(`Stock limit reached for ${itemName}. Available: ${availableQty}. In cart: ${currentQty}.`)
+        toast.error(
+          `Stock limit reached for ${itemName}. Available: ${availableQty}. In cart: ${currentQty}.`
+        )
         return
       }
 
@@ -431,6 +442,9 @@ export function POSPage() {
           // Variant information for variable products
           variant_id: item.variantId ?? undefined,
           variant_name: item.variantName ?? undefined,
+          // Individual product discount fields
+          discount_type: item.discount > 0 ? item.discountType : undefined,
+          discount_value: item.discount > 0 ? item.discount : undefined,
         }))
 
         // Prepare sale data matching CreateSaleRequest
@@ -460,8 +474,11 @@ export function POSPage() {
         }
 
         // Print receipt if auto-print is enabled (works offline)
+        console.log('[POS] autoPrintReceipt setting:', autoPrintReceipt)
         if (autoPrintReceipt) {
           console.log('[POS] Auto-print enabled, generating receipt...')
+          console.log('[POS] Business data:', business ? business.companyName : 'NOT LOADED')
+          console.log('[POS] Sale data:', result.data.invoiceNumber)
 
           try {
             const printSuccess = await printReceipt({
@@ -470,18 +487,19 @@ export function POSPage() {
               customer,
             })
 
-            // Only show error if print truly failed
-            // In dev mode, print dialog may show but still succeed
             if (!printSuccess) {
               console.warn('[POS] Print may have failed or shown dialog')
-              // Don't show error toast - user may have printed via dialog
+              toast.warning('Receipt print may have failed - check printer')
             } else {
               console.log('[POS] Receipt printed to printer')
+              toast.success('Receipt sent to printer')
             }
           } catch (error) {
             console.error('[POS] Receipt print error:', error)
-            // Silently log error but don't show toast
+            toast.error('Failed to print receipt')
           }
+        } else {
+          console.log('[POS] Auto-print is disabled in settings')
         }
 
         clearCart()
@@ -841,6 +859,9 @@ export function POSPage() {
         // Batch information for display
         batchNo: item.stock.batch_no ?? null,
         expiryDate: item.stock.expire_date ?? null,
+        // Discount fields
+        discount: item.discount,
+        discountType: item.discountType,
       })),
     [cartItems]
   )
@@ -868,6 +889,9 @@ export function POSPage() {
               onUpdateQuantity={(productId, quantity) => {
                 const item = cartItems.find((i) => i.product.id === productId)
                 if (item) handleUpdateQuantity(item.id, quantity)
+              }}
+              onUpdateItemDiscount={(itemId, discount, type) => {
+                updateItemDiscount(itemId, discount, type)
               }}
               onRemoveItem={(productId) => {
                 const item = cartItems.find((i) => i.product.id === productId)

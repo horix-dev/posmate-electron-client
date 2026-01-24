@@ -22,16 +22,9 @@ import { LabelConfiguration } from './LabelConfiguration'
 import { SelectedProductsTable } from './SelectedProductsTable'
 import { BarcodePreview } from './BarcodePreview'
 
-// Type for Electron print API response
-type PrintResult = {
-  success: boolean
-  error?: string
-}
-
-// Replace SearchProductResult with a local option type (minimal fields we render)
 type ProductOption = {
   optionValue: string
-  id: number // parent product id
+  id: number
   productName: string
   productCode: string
   barcode?: string
@@ -51,15 +44,18 @@ interface SelectedProduct extends BarcodeBatchItem {
 }
 
 type BwipJs = {
-  toSVG: (options: {
-    bcid: string
-    text: string
-    scale?: number
-    height?: number
-    includetext?: boolean
-    textxalign?: string
-    backgroundcolor?: string
-  }) => string
+  toCanvas: (
+    canvas: HTMLCanvasElement,
+    options: {
+      bcid: string
+      text: string
+      scale?: number
+      height?: number
+      includetext?: boolean
+      textxalign?: string
+      backgroundcolor?: string
+    }
+  ) => void
 }
 
 const bwip: BwipJs = bwipjs as unknown as BwipJs
@@ -70,16 +66,14 @@ export function PrintLabelsPage() {
 
   type BarcodeTypeOpt = { value: string; label: string }
   type PaperSettingOpt = { value: string; label: string; name: string; dimensions?: string }
+
   const [settings, setSettings] = useState<{
     barcode_types: BarcodeTypeOpt[]
     paper_settings: PaperSettingOpt[]
   } | null>(null)
   const [loadingSettings, setLoadingSettings] = useState(true)
 
-  // Selected products
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([])
-
-  // Product dropdown options
   const [productOptions, setProductOptions] = useState<ProductOption[]>([])
   const [productOptionsLoading, setProductOptionsLoading] = useState(false)
   const [selectedOptionValue, setSelectedOptionValue] = useState<string>('')
@@ -89,30 +83,26 @@ export function PrintLabelsPage() {
   // Label configuration
   const [showBusinessName, setShowBusinessName] = useState(true)
   const [businessNameSize, setBusinessNameSize] = useState(7)
-
   const [showProductName, setShowProductName] = useState(true)
   const [productNameSize, setProductNameSize] = useState(7)
-
   const [showProductPrice, setShowProductPrice] = useState(true)
   const [productPriceSize, setProductPriceSize] = useState(7)
-
   const [showProductCode, setShowProductCode] = useState(true)
   const [productCodeSize, setProductCodeSize] = useState(7)
-
   const [showPackDate, setShowPackDate] = useState(true)
   const [packDateSize, setPackDateSize] = useState(7)
 
-  // Barcode settings
   const [barcodeType, setBarcodeType] = useState('')
   const [barcodeSetting, setBarcodeSetting] = useState('')
   const [vatType, setVatType] = useState<'inclusive' | 'exclusive'>('inclusive')
+  const [numberOfCopies, setNumberOfCopies] = useState(1)
+  const [enableSilentPrint, setEnableSilentPrint] = useState(true)
 
-  // Preview
   const [previewBarcodes, setPreviewBarcodes] = useState<LabelPayload[]>([])
   const [showPreview, setShowPreview] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
 
-  // Default settings
+  // Initialize settings
   useEffect(() => {
     const defaultBarcodeTypes = [
       { value: 'code128', label: 'Code 128' },
@@ -120,13 +110,7 @@ export function PrintLabelsPage() {
       { value: 'ean13', label: 'EAN-13' },
       { value: 'ean8', label: 'EAN-8' },
       { value: 'upca', label: 'UPC-A' },
-      { value: 'itf14', label: 'ITF-14' },
-      { value: 'interleaved2of5', label: 'Interleaved 2 of 5' },
-      { value: 'code93', label: 'Code 93' },
       { value: 'qrcode', label: 'QR Code' },
-      { value: 'datamatrix', label: 'Data Matrix' },
-      { value: 'pdf417', label: 'PDF417' },
-      { value: 'azteccode', label: 'Aztec Code' },
     ]
     const defaultPaperSettings = [
       {
@@ -145,20 +129,18 @@ export function PrintLabelsPage() {
         name: '28 Labels Per Sheet, Sheet Size: 8.27" X 11.69", Label size: 2" X 1.25"',
       },
     ]
-    const cfg = { barcode_types: defaultBarcodeTypes, paper_settings: defaultPaperSettings }
-    setSettings(cfg)
+    setSettings({ barcode_types: defaultBarcodeTypes, paper_settings: defaultPaperSettings })
     setBarcodeType('code128')
     setBarcodeSetting('2')
     setLoadingSettings(false)
   }, [])
 
-  // Helper to normalize product list response
   const normalizeItems = (products: unknown[]): ProductOption[] => {
     const options: ProductOption[] = []
 
     products.forEach((p: unknown) => {
       const product = p as Record<string, unknown>
-      // Extract sale price: try root level, then stocks array
+
       let salePrice: number | undefined =
         ((product.productSalePrice ?? product.price) as number | undefined) ?? undefined
       if (
@@ -171,7 +153,6 @@ export function PrintLabelsPage() {
         salePrice = ((stock0.productSalePrice ?? stock0.price) as number | undefined) ?? undefined
       }
 
-      // Extract dealer price: try root level, then stocks array
       let dealerPrice: number | undefined =
         ((product.productDealerPrice ?? product.dealer_price) as number | undefined) ?? undefined
       if (
@@ -185,7 +166,6 @@ export function PrintLabelsPage() {
           ((stock0.productDealerPrice ?? stock0.dealer_price) as number | undefined) ?? undefined
       }
 
-      // Extract stock: try multiple fields
       let stock: number | undefined =
         ((product.productStock ?? product.stocks_sum_product_stock) as number | undefined) ??
         undefined
@@ -196,7 +176,6 @@ export function PrintLabelsPage() {
         }, 0)
       }
 
-      // Extract barcode directly from API response (barcode field added to backend)
       const baseBarcode: string = String(
         product.barcode ?? product.productCode ?? product.code ?? ''
       ).trim()
@@ -217,18 +196,15 @@ export function PrintLabelsPage() {
       if (Array.isArray(product.variants)) {
         product.variants.forEach((v: unknown) => {
           const variant = v as Record<string, unknown>
-          // Build variant name from attribute_values (matches ProductDetailsDialog logic)
           let variantName = ''
           if (variant.attribute_values && Array.isArray(variant.attribute_values)) {
             variantName = (variant.attribute_values as Array<Record<string, unknown>>)
               .map((av) => av.value)
               .join(' / ')
           }
-          // Fallback to variant_name from API if available
           if (!variantName) {
             variantName = String(variant.variant_name ?? '')
           }
-          // Fallback to attributes_map if neither above is available
           if (
             !variantName &&
             variant.attributes_map &&
@@ -272,12 +248,10 @@ export function PrintLabelsPage() {
     return options
   }
 
-  // Load initial product options for dropdown (server)
   useEffect(() => {
     const loadProducts = async () => {
       setProductOptionsLoading(true)
       try {
-        // Use productsService.getAll() which calls /products
         const resp = await productsService.getAll()
         const items = normalizeItems(resp.data || [])
         setProductOptions(items)
@@ -292,7 +266,6 @@ export function PrintLabelsPage() {
     loadProducts()
   }, [])
 
-  // Add product callback
   const handleAddProduct = useCallback(
     (product: SelectedProduct) => {
       const exists = selectedProducts.some((p) => p.product_id === product.product_id)
@@ -306,26 +279,78 @@ export function PrintLabelsPage() {
     [selectedProducts]
   )
 
-  // Remove product
   const handleRemoveProduct = (productId: number) => {
     setSelectedProducts((prev) => prev.filter((p) => p.product_id !== productId))
   }
 
-  // Update product quantity
   const handleUpdateQuantity = (productId: number, quantity: number) => {
     setSelectedProducts((prev) =>
       prev.map((p) => (p.product_id === productId ? { ...p, quantity } : p))
     )
   }
 
-  // Update product packing date
   const handleUpdatePackingDate = (productId: number, date: string | null) => {
     setSelectedProducts((prev) =>
       prev.map((p) => (p.product_id === productId ? { ...p, packing_date: date } : p))
     )
   }
 
-  // Generate preview (client-side, no API call)
+  // Generate barcode as PNG base64
+  function generateBarcodePNG(value: string, type: string): string {
+    try {
+      const canvas = document.createElement('canvas')
+      const bcid = type || 'code128'
+      let text = value
+
+      // Handle numeric-only barcode types
+      if (['ean13', 'ean8', 'upca', 'upce'].includes(bcid)) {
+        text = text.replace(/[^0-9]/g, '')
+        if (!text) text = '0'
+
+        if (bcid === 'ean13') {
+          if (text.length < 12) text = text.padStart(12, '0')
+          else if (text.length > 13) text = text.slice(0, 13)
+        } else if (bcid === 'ean8') {
+          if (text.length < 7) text = text.padStart(7, '0')
+          else if (text.length > 8) text = text.slice(0, 8)
+        } else if (bcid === 'upca') {
+          if (text.length < 11) text = text.padStart(11, '0')
+          else if (text.length > 12) text = text.slice(0, 12)
+        }
+      }
+
+      bwip.toCanvas(canvas, {
+        bcid,
+        text: text,
+        scale: 5, // Increased from 3 to 5 for higher resolution
+        height: 15, // Increased from 10 to 15 for taller bars
+        includetext: false, // Disable built-in text to avoid rendering issues
+        textxalign: 'center',
+        backgroundcolor: 'ffffff',
+      })
+
+      return canvas.toDataURL('image/png')
+    } catch (err) {
+      console.warn(`Barcode generation failed for ${type}:`, err)
+      // Return a simple fallback PNG
+      const canvas = document.createElement('canvas')
+      canvas.width = 300
+      canvas.height = 100
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.fillStyle = 'white'
+        ctx.fillRect(0, 0, 300, 100)
+        ctx.fillStyle = '#ccc'
+        ctx.fillRect(30, 15, 240, 60)
+        ctx.fillStyle = 'black'
+        ctx.font = '14px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText(value, 150, 90)
+      }
+      return canvas.toDataURL('image/png')
+    }
+  }
+
   const handlePreview = async () => {
     if (selectedProducts.length === 0) {
       toast.error('Please select at least one product')
@@ -334,24 +359,21 @@ export function PrintLabelsPage() {
 
     setPreviewLoading(true)
     try {
-      // Generate barcodes client-side
       const barcodes: LabelPayload[] = []
 
       for (const product of selectedProducts) {
-        const qty = Number(product.quantity || 1)
+        const qty = Math.max(1, Number(product.quantity || 1))
 
-        // Duplicate labels based on quantity
         for (let i = 0; i < qty; i++) {
-          // Generate placeholder barcode SVG (simple code128-like representation)
           const barcodeValue = String(product.barcode || product.product_code)
-          const barcodeSvg = generateBarcodeSVG(barcodeValue, barcodeType)
+          const barcodePNG = generateBarcodePNG(barcodeValue, barcodeType)
 
           const label: LabelPayload = {
-            barcode_svg: barcodeSvg,
+            barcode_svg: barcodePNG, // Actually PNG now
             packing_date: product.packing_date || null,
             product_name: product.product_name,
             business_name: business?.companyName || 'Business Name',
-            product_code: product.product_code,
+            product_code: product.barcode || product.product_code,
             product_price: product.unit_price || 0,
             product_stock: product.stock || 0,
             show_product_name: showProductName,
@@ -370,9 +392,15 @@ export function PrintLabelsPage() {
         }
       }
 
-      setPreviewBarcodes(barcodes)
+      // Apply number of copies
+      const finalBarcodes: LabelPayload[] = []
+      for (let copy = 0; copy < Math.max(1, numberOfCopies); copy++) {
+        finalBarcodes.push(...barcodes)
+      }
+
+      setPreviewBarcodes(finalBarcodes)
       setShowPreview(true)
-      toast.success(`Preview generated: ${barcodes.length} labels`)
+      toast.success(`Preview generated: ${finalBarcodes.length} labels`)
     } catch (err) {
       toast.error('Failed to generate preview')
       console.error('Preview error:', err)
@@ -381,243 +409,6 @@ export function PrintLabelsPage() {
     }
   }
 
-  // Generate barcode SVG
-  // Generate barcode SVG
-  function generateBarcodeSVG(value: string, type: string): string {
-    try {
-      const bcid = type || 'code128'
-      let text = value
-
-      // Pre-processing for strict numeric barcode types
-      if (['ean13', 'ean8', 'upca', 'upce', 'itf14', 'interleaved2of5'].includes(bcid)) {
-        // Remove non-numeric characters
-        text = text.replace(/[^0-9]/g, '')
-
-        // Ensure at least 1 digit remains, else fallback will trigger naturally or below
-        if (!text) throw new Error('Numeric barcode requires numeric value')
-
-        // Specific Padding/Length Logic
-        if (bcid === 'ean13') {
-          // EAN-13: 12 digits (calc check) or 13 digits
-          if (text.length < 12) text = text.padStart(12, '0')
-          else if (text.length > 13) text = text.slice(0, 13)
-        } else if (bcid === 'ean8') {
-          // EAN-8: 7 digits (calc check) or 8 digits
-          if (text.length < 7) text = text.padStart(7, '0')
-          else if (text.length > 8) text = text.slice(0, 8)
-        } else if (bcid === 'upca') {
-          // UPC-A: 11 digits (calc check) or 12 digits
-          if (text.length < 11) text = text.padStart(11, '0')
-          else if (text.length > 12) text = text.slice(0, 12)
-        } else if (bcid === 'itf14') {
-          // ITF-14: 13 digits (calc check) or 14 digits
-          if (text.length < 13) text = text.padStart(13, '0')
-          else if (text.length > 14) text = text.slice(0, 14)
-        } else if (bcid === 'interleaved2of5') {
-          // I2of5: Must be even number of digits
-          if (text.length % 2 !== 0) text = '0' + text
-        }
-      }
-
-      // Codabar specific handling (needs start/stop chars A-D)
-      if (bcid === 'codabar') {
-        text = text.toUpperCase()
-        const validStartStop = ['A', 'B', 'C', 'D']
-        const hasStart = validStartStop.includes(text[0])
-        const hasStop = validStartStop.includes(text[text.length - 1])
-
-        if (!hasStart) text = 'A' + text
-        if (!hasStop) text = text + 'A'
-      }
-
-      const svg = bwip.toSVG({
-        bcid,
-        text: text,
-        scale: 3,
-        height: 10,
-        includetext: true,
-        textxalign: 'center',
-        backgroundcolor: 'ffffff',
-      })
-
-      return svg
-    } catch (err) {
-      console.warn(`Barcode generation failed for ${type} with value ${value}:`, err)
-      return generateFallbackBarcode(value)
-    }
-  }
-
-  function generateFallbackBarcode(value: string): string {
-    // Basic rectangle fallback
-    const barcodeWidth = 100
-    const barcodeHeight = 50
-    return `<svg width="${barcodeWidth}" height="${barcodeHeight}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${barcodeWidth}" height="${barcodeHeight}" fill="white"/>
-      <rect x="10" y="5" width="80" height="40" fill="#ccc"/>
-      <text x="50" y="30" font-family="Arial" font-size="10" text-anchor="middle" fill="black">${value}</text>
-    </svg>`
-  }
-
-  // Generate print HTML with only barcodes
-  const generatePrintHTML = (): string => {
-    const barcodes: LabelPayload[] = []
-
-    for (const product of selectedProducts) {
-      const qty = Number(product.quantity || 1)
-
-      for (let i = 0; i < qty; i++) {
-        const barcodeValue = String(product.barcode || product.product_code)
-        const barcodeSvg = generateBarcodeSVG(barcodeValue, barcodeType)
-
-        const label: LabelPayload = {
-          barcode_svg: barcodeSvg,
-          packing_date: product.packing_date || null,
-          product_name: product.product_name,
-          business_name: business?.companyName || 'KC',
-          product_code: product.product_code,
-          product_price: product.unit_price || 0,
-          product_stock: product.stock || 0,
-          show_product_name: showProductName,
-          product_name_size: productNameSize,
-          show_business_name: showBusinessName,
-          business_name_size: businessNameSize,
-          show_product_price: showProductPrice,
-          product_price_size: productPriceSize,
-          show_product_code: showProductCode,
-          product_code_size: productCodeSize,
-          show_pack_date: showPackDate,
-          pack_date_size: packDateSize,
-        }
-        barcodes.push(label)
-      }
-    }
-
-    const paperSettings: Record<
-      string,
-      { width: string; height: string; labelHeight: string; gap: string; cols: number }
-    > = {
-      '1': { width: '38mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 4 },
-      '2': { width: '50mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 3 },
-      '3': { width: '50.8mm', height: '31.75mm', labelHeight: '31.75mm', gap: '10mm', cols: 4 },
-    }
-    const dims = paperSettings[barcodeSetting] || paperSettings['1']
-
-    const convertPtToPixels = (pt: number): number => (pt * 96) / 72
-
-    const labelHTML = barcodes
-      .map((barcode) => {
-        const svgSrc = barcode.barcode_svg.startsWith('<svg')
-          ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(barcode.barcode_svg)))}`
-          : `data:image/png;base64,${barcode.barcode_svg}`
-        return `
-      <div class="label" style="width: ${dims.width}; height: ${dims.height};">
-        ${barcode.show_product_price && typeof barcode.product_price === 'number' ? `<div class="price" style="font-size: ${convertPtToPixels(barcode.product_price_size)}px;">Price: ${formatCurrency(barcode.product_price)}</div>` : ''}
-        <div class="barcode"><img src="${svgSrc}" alt="barcode"/></div>
-      </div>
-    `
-      })
-      .join('')
-
-    const isSheet = barcodeSetting === '3'
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8"/>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-          <title>Print Labels</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { 
-              font-family: Arial, sans-serif; 
-              padding: 0; 
-              margin: 0; 
-              background-color: white;
-            }
-            
-            /* Page Setup - page height = label (25mm) + gap (10mm) = 35mm total */
-            @page {
-              ${isSheet ? 'size: A4; margin: 0.25in;' : `size: 50mm 35mm landscape; margin: 0; padding: 0;`}
-            }
-
-            .container { 
-              width: 100%;
-              ${
-                isSheet
-                  ? `display: grid; grid-template-columns: repeat(${dims.cols}, 1fr); gap: 0.125in;`
-                  : 'display: block;'
-              }
-            }
-
-            .label { 
-              width: ${dims.width}; 
-              height: ${dims.labelHeight}; 
-              border: 1px dotted #ccc; 
-              display: flex; 
-              flex-direction: column; 
-              justify-content: space-between; 
-              align-items: center; 
-              padding: 0px 0px 0px 0px; 
-              text-align: center; 
-              overflow: hidden; 
-              background: white;
-              position: relative;
-              ${!isSheet ? `page-break-after: always; break-after: page;` : `margin-bottom: 0.125in;`}
-            }
-            
-            /* Hide border for print */
-            @media print {
-              body { margin: 0; padding: 0; }
-              .label { border: none; }
-              /* Prevent extra page at end */
-              .label:last-child { 
-                page-break-after: auto; 
-                break-after: auto; 
-              }
-              .container {
-                /* Ensure grid works on print */
-                 ${isSheet ? `display: grid; grid-template-columns: repeat(${dims.cols}, 1fr); gap: 0.125in;` : ''}
-              }
-            }
-
-            /* Content Styles */
-            .business-name { font-weight: bold; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-            .product-name { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-            .price { font-weight: bold; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-            
-            .barcode { 
-              flex: 1; 
-              width: 100%; 
-              display: flex; 
-              align-items: center; 
-              justify-content: center; 
-              min-height: 0; 
-              margin: 2px 0; 
-            }
-            .barcode img { 
-              max-height: 100%; 
-              max-width: 100%; 
-              object-fit: contain; 
-            }
-            
-            .product-code { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-            .pack-date { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #666; font-size: 8px !important; }
-          </style>
-        </head>
-        <body>
-          <div class="container">${labelHTML}</div>
-          <script>
-            window.addEventListener('load', function() {
-              setTimeout(function() { window.print(); }, 500);
-            });
-          </script>
-        </body>
-      </html>
-    `
-  }
-
-  // Generate and print (client-side, opens new window)
   const handleGenerateAndPrint = async () => {
     if (selectedProducts.length === 0) {
       toast.error('Please select at least one product')
@@ -626,84 +417,337 @@ export function PrintLabelsPage() {
 
     setPreviewLoading(true)
     try {
-      // Get current paper settings
-      const paperSettings: Record<
-        string,
-        { width: string; height: string; labelHeight: string; gap: string; cols: number }
-      > = {
-        '1': { width: '38mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 4 },
-        '2': { width: '50mm', height: '25mm', labelHeight: '25mm', gap: '10mm', cols: 3 },
-        '3': { width: '50.8mm', height: '31.75mm', labelHeight: '31.75mm', gap: '10mm', cols: 4 },
-      }
-      const dims = paperSettings[barcodeSetting] || paperSettings['1']
+      const barcodes: LabelPayload[] = []
 
-      const printHTML = generatePrintHTML()
+      for (const product of selectedProducts) {
+        const qty = Math.max(1, Number(product.quantity || 1))
 
-      // Convert mm to microns for page size (1mm = 1000 microns)
-      // Page height = label height + gap between stickers
-      const widthMm = parseInt(dims.width)
-      const gapMm = 10 // 10mm gap between stickers
-      const heightMm = parseInt(dims.labelHeight) + gapMm
-      const pageWidth = Math.round(widthMm * 1000) // 50mm = 50,000 microns
-      const pageHeight = Math.round(heightMm * 1000) // 28mm = 28,000 microns
+        for (let i = 0; i < qty; i++) {
+          const barcodeValue = String(product.barcode || product.product_code)
+          const barcodePNG = generateBarcodePNG(barcodeValue, barcodeType)
 
-      // If running inside Electron, prefer the native silent-print path
-      // exposed via the preload as `electronAPI.print.receiptHTMLWithPageSize`.
-      // Fallback to opening a new window for browser environments.
-      try {
-        const electronWindow = window as unknown as {
-          electronAPI?: {
-            print?: {
-              receiptHTMLWithPageSize?: (
-                html: string,
-                pageSize: { width: number; height: number }
-              ) => Promise<PrintResult>
-              receiptHTML?: (html: string) => Promise<PrintResult>
-            }
-          }
-        }
-
-        if (
-          typeof window !== 'undefined' &&
-          electronWindow.electronAPI?.print?.receiptHTMLWithPageSize
-        ) {
-          const result = await electronWindow.electronAPI.print.receiptHTMLWithPageSize(printHTML, {
-            width: pageWidth,
-            height: pageHeight,
+          barcodes.push({
+            barcode_svg: barcodePNG,
+            packing_date: product.packing_date || null,
+            product_name: product.product_name,
+            business_name: business?.companyName || 'KC',
+            product_code: product.barcode || product.product_code,
+            product_price: product.unit_price || 0,
+            product_stock: product.stock || 0,
+            show_product_name: showProductName,
+            product_name_size: productNameSize,
+            show_business_name: showBusinessName,
+            business_name_size: businessNameSize,
+            show_product_price: showProductPrice,
+            product_price_size: productPriceSize,
+            show_product_code: showProductCode,
+            product_code_size: productCodeSize,
+            show_pack_date: showPackDate,
+            pack_date_size: packDateSize,
           })
-          if (result && result.success) {
-            toast.success('Sent to printer')
-          } else {
-            toast.error('Printer error: ' + (result?.error || ''))
-          }
-        } else if (
-          typeof window !== 'undefined' &&
-          electronWindow.electronAPI?.print?.receiptHTML
-        ) {
-          const result = await electronWindow.electronAPI.print.receiptHTML(printHTML)
-          if (result && result.success) {
-            toast.success('Sent to printer')
-          } else {
-            toast.error('Printer error')
-          }
-        } else {
-          const printWindow = window.open('', '_blank', 'width=800,height=600')
-          if (printWindow) {
-            printWindow.document.write(printHTML)
-            printWindow.document.close()
-            printWindow.onload = () => {
-              setTimeout(() => {
-                printWindow.print()
-              }, 500)
-            }
-            toast.success('Print window opened')
-          } else {
-            toast.error('Failed to open print window')
+        }
+      }
+
+      // Apply number of copies
+      const finalBarcodes: LabelPayload[] = []
+      for (let copy = 0; copy < Math.max(1, numberOfCopies); copy++) {
+        finalBarcodes.push(...barcodes)
+      }
+
+      const paperSettings: Record<string, { width: string; height: string; gap: string }> = {
+        '1': { width: '38mm', height: '25mm', gap: '3mm' },
+        '2': { width: '50mm', height: '25mm', gap: '3mm' },
+        '3': { width: '50.8mm', height: '31.75mm', gap: '3mm' },
+      }
+      const dims = paperSettings[barcodeSetting] || paperSettings['2']
+
+      // Calculate total page height including gap for thermal printer
+      const labelHeightMm = parseInt(dims.height)
+      const gapMm = parseInt(dims.gap)
+      const totalPageHeightMm = labelHeightMm + gapMm
+
+      const labelHTML = finalBarcodes
+        .map((barcode) => {
+          const code = String(barcode.product_code || '')
+          console.log('Label data:', {
+            product_name: barcode.product_name,
+            show_product_name: barcode.show_product_name,
+            business_name: barcode.business_name,
+            show_business_name: barcode.show_business_name,
+          })
+
+          return `
+        <div class="label">
+          <div class="top-spaceing"></div>
+          
+          <div class="main-content">
+            <div class="left-section">
+          ${barcode.show_product_name && barcode.product_name ? `<div class="product-name-top">${barcode.product_name}</div>` : ''}
+
+              ${barcode.show_product_price ? `<div class="price">${formatCurrency(barcode.product_price)}</div>` : ''}
+              
+              <div class="barcode-container">
+                <img src="${
+                  barcode.barcode_svg.startsWith('data:')
+                    ? barcode.barcode_svg
+                    : barcode.barcode_svg.startsWith('<svg')
+                      ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(barcode.barcode_svg)))}`
+                      : `data:image/png;base64,${barcode.barcode_svg}`
+                }" class="barcode-img" />
+                ${barcode.show_product_code && code ? `<div class="code">${code}</div>` : ''}
+              </div>
+            </div>
+            
+            ${barcode.show_business_name ? `<div class="business-name-rotated">${barcode.business_name}</div>` : ''}
+          </div>
+          
+          ${barcode.show_pack_date && barcode.packing_date ? `<div class="pack-date">${barcode.packing_date}</div>` : ''}
+        </div>`
+        })
+        .join('')
+
+      const printHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    @page {
+      size: ${dims.width} ${totalPageHeightMm}mm;
+      margin: 0;
+    }
+    
+    * { 
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box; 
+    }
+    
+    html, body { 
+      margin: 0;
+      padding: 0;
+    }
+    
+    .label { 
+      width: ${dims.width}; 
+      height: ${labelHeightMm}mm; 
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      background: white;
+      padding: 2mm 1mm 1mm 1mm;
+      page-break-after: always;
+      page-break-inside: avoid;
+      position: relative;
+    }
+
+    .top-spaceing {
+      margin-bottom: 4.5mm;
+    }
+
+    .product-name-top {
+      width: 100%;
+      font-weight: bold;
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: center;
+    }
+    
+    .main-content {
+      display: flex;
+      width: 100%;
+      flex: 1;
+      position: relative;
+      align-items: flex-start;
+    }
+    
+    .left-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-around;
+      padding-right: 4mm;
+    }
+    
+    .price {
+      font-weight: bold;
+      font-size: 10px;
+      line-height: 1.1;
+      text-align: center;
+      margin-bottom: 2mm;
+    }
+    
+    .barcode-container {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      width: 85%;
+    }
+    
+    .barcode-img {
+      width: 100%;
+      max-width: 100%;
+      min-width: 85%;
+      max-height: 8mm;
+      object-fit: cover;
+    }
+    
+    .code {
+      width: 100%;
+      font-weight: 500;
+      font-size: 12px;
+      margin-bottom: 0;
+      text-align: center;
+    }
+    
+    .business-name-rotated {
+      position: absolute;
+      right: 1mm;
+      top: 50%;
+      transform: translateY(-50%) rotate(180deg);
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      font-size: ${productNameSize === 7 ? '10px' : productNameSize === 8 ? '11px' : '14px'};
+      max-width: ${dims.height};
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding-left: 1mm;
+    }
+    
+    .pack-date {
+      width: 100%;
+      font-size: 6px;
+      line-height: 1.1;
+      text-align: center;
+      color: #666;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  ${labelHTML}
+</body>
+</html>`
+
+      console.log('Generated HTML preview (first 500 chars):', printHTML.substring(0, 500))
+      console.log('Total labels to print:', finalBarcodes.length)
+
+      // If silent print is disabled, just show preview
+      if (!enableSilentPrint) {
+        setPreviewBarcodes(finalBarcodes)
+        setShowPreview(true)
+        toast.success(`Preview generated: ${finalBarcodes.length} labels (Silent print disabled)`)
+        return
+      }
+
+      // Convert page size to microns for Electron (1mm = 1000 microns)
+      // Page height must include the gap between labels for proper feeding
+      const widthMicrons = parseInt(dims.width) * 1000
+      const heightMicrons = totalPageHeightMm * 1000
+
+      console.log('Print settings:', {
+        dims,
+        widthMicrons,
+        heightMicrons,
+        labelHeightMm,
+        gapMm,
+        totalPageHeightMm,
+        htmlLength: printHTML.length,
+        labelCount: finalBarcodes.length,
+      })
+
+      // Try Electron silent print API first
+      const electronWindow = window as unknown as {
+        electronAPI?: {
+          print?: {
+            receiptHTMLWithPageSize?: (
+              html: string,
+              pageSize: { width: number; height: number }
+            ) => Promise<{ success: boolean; error?: string }>
+            receiptHTML?: (html: string) => Promise<{ success: boolean; error?: string }>
           }
         }
-      } catch (err) {
-        console.error('Print invocation failed:', err)
-        toast.error('Failed to invoke print')
+      }
+
+      console.log('Electron API check:', {
+        hasElectronAPI: !!electronWindow.electronAPI,
+        hasPrintAPI: !!electronWindow.electronAPI?.print,
+        hasReceiptHTMLWithPageSize: !!electronWindow.electronAPI?.print?.receiptHTMLWithPageSize,
+        hasReceiptHTML: !!electronWindow.electronAPI?.print?.receiptHTML,
+      })
+
+      if (electronWindow.electronAPI?.print?.receiptHTMLWithPageSize) {
+        // Use Electron silent print with custom page size
+        console.log('Using receiptHTMLWithPageSize')
+        try {
+          const result = await electronWindow.electronAPI.print.receiptHTMLWithPageSize(printHTML, {
+            width: widthMicrons,
+            height: heightMicrons,
+          })
+          console.log('Print result:', result)
+          if (result?.success) {
+            toast.success('Sent to printer successfully')
+          } else {
+            toast.error('Print failed: ' + (result?.error || 'Unknown error'))
+          }
+        } catch (err) {
+          console.error('Electron print error:', err)
+          toast.error('Failed to print')
+        }
+      } else if (electronWindow.electronAPI?.print?.receiptHTML) {
+        // Fallback to standard Electron print
+        console.log('Using receiptHTML')
+        try {
+          const result = await electronWindow.electronAPI.print.receiptHTML(printHTML)
+          console.log('Print result:', result)
+          if (result?.success) {
+            toast.success('Sent to printer successfully')
+          } else {
+            toast.error('Print failed: ' + (result?.error || 'Unknown error'))
+          }
+        } catch (err) {
+          console.error('Electron print error:', err)
+          toast.error('Failed to print')
+        }
+      } else {
+        // Fallback: Create hidden iframe and auto-print (browser environment)
+        const iframe = document.createElement('iframe')
+        iframe.style.position = 'fixed'
+        iframe.style.right = '0'
+        iframe.style.bottom = '0'
+        iframe.style.width = '0'
+        iframe.style.height = '0'
+        iframe.style.border = 'none'
+        document.body.appendChild(iframe)
+
+        const iframeDoc = iframe.contentWindow?.document
+        if (iframeDoc) {
+          iframeDoc.open()
+          iframeDoc.write(printHTML)
+          iframeDoc.close()
+
+          iframe.onload = () => {
+            setTimeout(() => {
+              iframe.contentWindow?.focus()
+              iframe.contentWindow?.print()
+              setTimeout(() => {
+                document.body.removeChild(iframe)
+              }, 1000)
+            }, 250)
+          }
+
+          toast.success('Opening print dialog...')
+        } else {
+          document.body.removeChild(iframe)
+          toast.error('Failed to initialize print')
+        }
       }
     } catch (err) {
       toast.error('Failed to generate labels')
@@ -713,7 +757,6 @@ export function PrintLabelsPage() {
     }
   }
 
-  // Clear selection
   const handleClearSelection = () => {
     setSelectedProducts([])
     setShowPreview(false)
@@ -739,7 +782,7 @@ export function PrintLabelsPage() {
 
       <Card className="border-none bg-transparent shadow-none">
         <CardContent className="space-y-8 p-0">
-          {/* Section 1: Product Selection */}
+          {/* Product Selection */}
           <div className="space-y-6 rounded-lg border bg-background p-6">
             <div className="space-y-1">
               <h3 className="text-sm font-medium text-muted-foreground">Select Product</h3>
@@ -804,7 +847,6 @@ export function PrintLabelsPage() {
                                           setSelectedOptionValue(p.optionValue)
                                           setProductPopoverOpen(false)
 
-                                          // For variants, we already have the needed values; no extra fetch required.
                                           if (p.isVariant && p.variantId) {
                                             handleAddProduct({
                                               product_id: p.variantId,
@@ -829,7 +871,6 @@ export function PrintLabelsPage() {
                                                 .data) ??
                                               {}) as Record<string, unknown>
 
-                                            // Extract stock properly from nested structure
                                             let stock: number | undefined =
                                               ((d.productStock ??
                                                 d.stocks_sum_product_stock ??
@@ -849,7 +890,6 @@ export function PrintLabelsPage() {
                                               )
                                             }
 
-                                            // Extract sale price: try root level, then stocks array
                                             let salePrice: number | undefined =
                                               ((d.productSalePrice ?? d.price) as
                                                 | number
@@ -965,7 +1005,7 @@ export function PrintLabelsPage() {
             )}
           </div>
 
-          {/* Section 2: Label Configuration & Settings */}
+          {/* Label Configuration */}
           <div className="rounded-lg border bg-background p-6">
             <LabelConfiguration
               showBusinessName={showBusinessName}
@@ -998,6 +1038,39 @@ export function PrintLabelsPage() {
               onPaperSettingChange={setBarcodeSetting}
             />
 
+            <div className="mt-6 space-y-4 border-t pt-6">
+              <div className="flex items-center justify-center gap-4">
+                <label htmlFor="numberOfCopies" className="text-sm font-medium">
+                  Number of Copies:
+                </label>
+                <input
+                  id="numberOfCopies"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={numberOfCopies}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 1
+                    setNumberOfCopies(Math.max(1, Math.min(100, value)))
+                  }}
+                  className="h-9 w-20 rounded-md border border-input bg-background px-3 text-center text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
+              </div>
+
+              <div className="flex items-center justify-center gap-3">
+                <input
+                  id="enableSilentPrint"
+                  type="checkbox"
+                  checked={enableSilentPrint}
+                  onChange={(e) => setEnableSilentPrint(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                />
+                <label htmlFor="enableSilentPrint" className="text-sm font-medium">
+                  Enable Silent Print (uncheck to preview only)
+                </label>
+              </div>
+            </div>
+
             <div className="flex justify-center pt-8">
               <Button
                 onClick={handlePreview}
@@ -1012,7 +1085,7 @@ export function PrintLabelsPage() {
             </div>
           </div>
 
-          {/* Section 3: Preview Section */}
+          {/* Preview Section */}
           {showPreview && (
             <div className="rounded-lg border bg-background p-6 duration-500 animate-in fade-in-50">
               <div className="mb-6 flex items-center justify-between">

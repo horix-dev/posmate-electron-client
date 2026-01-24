@@ -300,6 +300,7 @@ export interface Business {
   invoice_size?: InvoiceSize
   branch_count?: number
   addons?: BusinessAddons
+  gratitude_message?: string
 }
 
 export interface BusinessAddons {
@@ -673,6 +674,11 @@ export interface SaleDetail {
   lossProfit?: number
   mfg_date?: string
   expire_date?: string
+  // Individual product discount fields (from backend)
+  discount_type?: 'percentage' | 'fixed' | null
+  discount_value?: number
+  discount_amount?: number
+  final_price?: number
   // product?: Product
   product?: {
     id: number
@@ -712,6 +718,9 @@ export interface SaleProductItem {
   lossProfit: number
   variant_id?: number
   variant_name?: string
+  // Individual product discount fields
+  discount_type?: 'percentage' | 'fixed'
+  discount_value?: number
 }
 
 // ============================================
@@ -1034,8 +1043,11 @@ export interface DashboardData {
   total_due: number
   total_profit: number
   total_loss: number
+  total_returns: number
+  total_return_amount: number
   sales: ChartDataPoint[]
   purchases: ChartDataPoint[]
+  returns?: ChartDataPoint[]
 }
 
 export interface ChartDataPoint {
