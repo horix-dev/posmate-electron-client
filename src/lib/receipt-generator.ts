@@ -245,7 +245,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
         (item) => {
           const hasDiscount = item.discount_amount && item.discount_amount > 0
           const itemTotal = item.subTotal || item.quantities * item.price
-          const finalPrice = hasDiscount ? item.final_price : itemTotal
+          // const finalPrice = hasDiscount ? item.final_price : itemTotal
 
           let discountText = ''
           if (hasDiscount) {
@@ -257,17 +257,31 @@ export function generateReceiptHTML(data: ReceiptData): string {
           }
 
           return `
-      <tr>
-        <td class="item-qty">${item.quantities} x </td>
-        <td class="item-name">
-          ${item.product?.productName || 'Product'}${item.variant_name ? ' (' + item.variant_name + ')' : ''}
-          ${hasDiscount ? `<br/><span style="font-size: 10px; color: #666;">${discountText}</span>` : ''}
-        </td>
-        <td class="item-price">
-          ${hasDiscount ? `<div style="font-size: 10px; text-decoration: line-through; color: #999;">${formatCurrencyUtil(itemTotal)}</div>` : ''}
-          ${formatCurrencyUtil(finalPrice)}
-        </td>
-      </tr>`
+             <tr>
+          <td class="item-qty">${item.quantities} x </td>
+          <td class="item-name">
+            ${item.product?.productName || 'Product'}${item.variant_name ? ' (' + item.variant_name + ')' : ''}
+            ${hasDiscount ? `<br/><span style="font-size: 10px; color: #666;">${discountText}</span>` : ''}
+          </td>
+          <td class="item-price">
+            <div>${formatCurrencyUtil(itemTotal)}</div>
+            ${hasDiscount ? '-' + formatCurrencyUtil(item.discount_amount) : ''}
+          </td>
+        </tr>
+          `
+
+          //     `
+          // <tr>
+          //   <td class="item-qty">${item.quantities} x </td>
+          //   <td class="item-name">
+          //     ${item.product?.productName || 'Product'}${item.variant_name ? ' (' + item.variant_name + ')' : ''}
+          //     ${hasDiscount ? `<br/><span style="font-size: 10px; color: #666;">${discountText}</span>` : ''}
+          //   </td>
+          //   <td class="item-price">
+          //     ${hasDiscount ? `<div style="font-size: 10px; text-decoration: line-through; color: #999;">${formatCurrencyUtil(itemTotal)}</div>` : ''}
+          //     ${formatCurrencyUtil(finalPrice)}
+          //   </td>
+          // </tr>`
         }
         //   <tr>
         //   <td class="item-qty">${item.quantities} x </td>
