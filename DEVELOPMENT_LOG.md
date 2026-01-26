@@ -1,3 +1,45 @@
+## 2026-01-26 — Finance Page Dropdown List in Sidebar
+
+**Enhancement**: Converted Finance page to use dropdown list style in sidebar, matching Sales page pattern.
+
+**Features**:
+1. **Sidebar Navigation Dropdown**
+   - Finance now appears as expandable menu in sidebar
+   - Sub-items: "Expenses" and "Income"
+   - Matches existing dropdown pattern used by Sales and Purchases pages
+   - Collapses when sidebar is minimized, shows tooltips
+
+2. **Improved Page Layout**
+   - Cleaner header section with title and action buttons
+   - Summary card showing total amount and record count
+   - Inline tab switcher (Expenses/Income buttons) instead of separate tab component
+   - Search bar for filtering transactions
+   - Refresh button for manual data reload
+
+3. **URL Parameter Handling**
+   - Uses `?tab=expenses` or `?tab=income` URL parameter
+   - Tab state persists when navigating via sidebar links
+   - Automatically selects tab based on URL on page load
+
+**Files Modified**:
+- Modified: src/components/layout/Sidebar.tsx
+  - Updated Finance navigation to have children array with Expenses and Income sub-items
+  - Uses existing expandable menu UI logic
+  
+- Modified: src/pages/finance/FinancePage.tsx
+  - Removed Tabs component (using button-based switcher instead)
+  - Added URL search parameter handling with setSearchParams
+  - Simplified layout with cleaner header and controls section
+  - Added RefreshCw icon import for refresh button
+  - Improved page structure to match Sales page style
+
+**Benefits**:
+- ✅ **Consistency**: Unified navigation pattern across similar features (Sales, Purchases, Finance)
+- ✅ **UX**: Easier access to finance sections via sidebar
+- ✅ **Navigation**: URL state preservation for bookmarking/sharing
+- ✅ **Clean UI**: More intuitive layout without nested tabs
+
+---
 ## 2026-01-22 — Dashboard Returns Display & Default Filter
 
 **Enhancement**: Implemented best-practice returns tracking on dashboard with today as default filter.

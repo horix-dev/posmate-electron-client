@@ -19,6 +19,9 @@ import {
   ClipboardList,
   PackageMinus,
   Plus,
+  TrendingUp,
+  TrendingDown,
+  PieChart,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -87,7 +90,15 @@ const mainNavItems: NavItem[] = [
 ]
 
 const secondaryNavItems: NavItem[] = [
-  { title: 'Finance', href: '/finance', icon: Wallet },
+  {
+    title: 'Finance',
+    href: '/finance',
+    icon: PieChart,
+    children: [
+      { title: 'Expenses', href: '/finance?tab=expenses', icon: TrendingDown },
+      { title: 'Income', href: '/finance?tab=income', icon: TrendingUp },
+    ],
+  },
   { title: 'Stocks', href: '/stocks', icon: Package },
   // { title: 'Invoices', href: '/invoices', icon: FileText },
   // { title: 'Warehouses', href: '/warehouses', icon: Warehouse },

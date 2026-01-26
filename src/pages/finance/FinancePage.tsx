@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Wallet, Plus, Search, Tags } from 'lucide-react'
+import { Wallet, Plus, Search, Tags, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCurrency } from '@/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TransactionTable } from './components/TransactionTable'
 import { AddTransactionDialog } from './components/AddTransactionDialog'
 import { CategoryManagerDialog } from './components/CategoryManagerDialog'
@@ -20,14 +19,16 @@ import { BulkDeleteConfirmDialog } from '@/components/common/BulkDeleteConfirmDi
 export function FinancePage() {
   const [searchParams] = useSearchParams()
   const { format: formatCurrency } = useCurrency()
-  const [activeTab, setActiveTab] = useState<'expenses' | 'income'>('expenses')
+  const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense')
   const [searchQuery, setSearchQuery] = useState('')
 
   // Read tab from URL on mount
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (tab === 'income' || tab === 'expenses') {
-      setActiveTab(tab)
+    if (tab === 'income') {
+      setActiveTab('income')
+    } else if (tab === 'expenses') {
+      setActiveTab('expense')
     }
   }, [searchParams])
 
@@ -46,7 +47,7 @@ export function FinancePage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      if (activeTab === 'expenses') {
+      if (activeTab === 'expense') {
         const response = await expensesService.getAll({ limit: 1000 })
         // Response.data is already the array of expenses
         const list = response?.data || []
@@ -102,7 +103,7 @@ export function FinancePage() {
     if (!deleteDialog.id) return
 
     try {
-      if (activeTab === 'expenses') {
+      if (activeTab === 'expense') {
         await expensesService.delete(deleteDialog.id)
       } else {
         await incomesService.delete(deleteDialog.id)
@@ -123,7 +124,7 @@ export function FinancePage() {
     if (ids.length === 0) return
 
     try {
-      const service = activeTab === 'expenses' ? expensesService : incomesService
+      const service = activeTab === 'expense' ? expensesService : incomesService
       // Using Promise.all for now as API might not support bulk delete endpoint
       await Promise.all(ids.map((id) => service.delete(id)))
 
@@ -141,7 +142,7 @@ export function FinancePage() {
     setIsAddOpen(true)
   }
 
-  const filteredData = (activeTab === 'expenses' ? expenses : incomes).filter((item) => {
+  const filteredData = (activeTab === 'expense' ? expenses : incomes).filter((item) => {
     if (!searchQuery) return true
     const q = searchQuery.toLowerCase()
 
@@ -158,16 +159,23 @@ export function FinancePage() {
   const totalAmount = filteredData.reduce((acc, item) => acc + item.amount, 0)
 
   return (
-    <div className="flex h-full flex-col space-y-6">
-      {/* Header Section */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      {/* Page Header */}
+      <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Finance Management</h2>
-          <p className="text-sm text-muted-foreground">
-            Manage {activeTab === 'expenses' ? 'expenses' : 'income'} and categories
+          <h1 className="text-3xl font-bold tracking-tight">
+            {activeTab === 'expense' ? 'Expenses' : 'Income'}
+          </h1>
+          <p className="text-muted-foreground">
+            {activeTab === 'expense'
+              ? 'Manage and track your expense records'
+              : 'Manage and track your income records'}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => fetchData()} aria-label="Refresh">
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -186,25 +194,25 @@ export function FinancePage() {
             className="gap-2"
           >
             <Plus className="h-4 w-4" />
-            Add {activeTab === 'expenses' ? 'Expense' : 'Income'}
+            Add {activeTab === 'expense' ? 'Expense' : 'Income'}
           </Button>
         </div>
-      </div>
+      </header>
 
       {/* Summary Card */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-1 max-w-sm">
         <Card className="bg-gradient-to-br from-background to-muted/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total {activeTab === 'expenses' ? 'Expenses' : 'Income'}
+              Total {activeTab === 'expense' ? 'Expenses' : 'Income'}
             </CardTitle>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div
-              className={`text-2xl font-bold ${activeTab === 'expenses' ? 'text-red-600' : 'text-green-600'}`}
+              className={`text-2xl font-bold ${activeTab === 'expense' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}
             >
-              {activeTab === 'expenses' ? '-' : '+'} {formatCurrency(totalAmount)}
+              {activeTab === 'expense' ? '-' : '+'} {formatCurrency(totalAmount)}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               {filteredData.length} {filteredData.length === 1 ? 'record' : 'records'}
@@ -213,76 +221,28 @@ export function FinancePage() {
         </Card>
       </div>
 
-      {/* Main Content Area */}
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setActiveTab(v as 'expenses' | 'income')}
-        className="flex flex-1 flex-col space-y-4"
-      >
-        {/* Controls Section */}
-        <div className="flex items-center justify-between gap-4 px-1">
-          <div className="relative max-w-md flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={`Search ${activeTab}...`}
-              className="h-10 border border-input bg-background pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          <TabsList className="grid h-10 w-[240px] grid-cols-2 rounded-lg bg-muted/50 p-1">
-            <TabsTrigger
-              value="expenses"
-              className="rounded-md text-sm font-medium transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-            >
-              <Wallet className="mr-2 h-4 w-4" />
-              Expenses
-            </TabsTrigger>
-            <TabsTrigger
-              value="income"
-              className="rounded-md text-sm font-medium transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-            >
-              <Wallet className="mr-2 h-4 w-4" />
-              Income
-            </TabsTrigger>
-          </TabsList>
+      {/* Controls */}
+      <div className="flex items-center gap-4">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder={`Search ${activeTab}...`}
+            className="h-10 border border-input bg-background pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
+      </div>
 
-        {/* Expenses Tab */}
-        <TabsContent
-          value="expenses"
-          className="mt-0 flex flex-1 flex-col border-none p-0 data-[state=active]:flex"
-        >
-          <div className="flex flex-1 flex-col rounded-lg border bg-background p-6">
-            <TransactionTable
-              data={filteredData}
-              isLoading={isLoading}
-              type="expense"
-              onDelete={handleDeleteClick}
-              onEdit={handleEdit}
-              onBulkDelete={handleBulkDeleteClick}
-            />
-          </div>
-        </TabsContent>
-
-        {/* Income Tab */}
-        <TabsContent
-          value="income"
-          className="mt-0 flex flex-1 flex-col border-none p-0 data-[state=active]:flex"
-        >
-          <div className="flex flex-1 flex-col rounded-lg border bg-background p-6">
-            <TransactionTable
-              data={filteredData}
-              isLoading={isLoading}
-              type="income"
-              onDelete={handleDeleteClick}
-              onEdit={handleEdit}
-              onBulkDelete={handleBulkDeleteClick}
-            />
-          </div>
-        </TabsContent>
-      </Tabs>
+      {/* Transactions Table */}
+      <TransactionTable
+        data={filteredData}
+        isLoading={isLoading}
+        type={activeTab === 'expense' ? 'expense' : 'income'}
+        onDelete={handleDeleteClick}
+        onEdit={handleEdit}
+        onBulkDelete={handleBulkDeleteClick}
+      />
 
       <AddTransactionDialog
         open={isAddOpen}
@@ -290,7 +250,7 @@ export function FinancePage() {
           setIsAddOpen(open)
           if (!open) setEditingItem(null)
         }}
-        type={activeTab === 'expenses' ? 'expense' : 'income'}
+        type={activeTab === 'expense' ? 'expense' : 'income'}
         editData={editingItem?.original}
         onSuccess={fetchData}
       />
@@ -298,13 +258,13 @@ export function FinancePage() {
       <CategoryManagerDialog
         open={isCategoryOpen}
         onOpenChange={setIsCategoryOpen}
-        type={activeTab === 'expenses' ? 'expense' : 'income'}
+        type={activeTab === 'expense' ? 'expense' : 'income'}
       />
 
       <DeleteConfirmDialog
         isOpen={deleteDialog.open}
         onOpenChange={(open) => setDeleteDialog((prev) => ({ ...prev, open }))}
-        title={`Delete ${activeTab === 'expenses' ? 'Expense' : 'Income'}`}
+        title={`Delete ${activeTab === 'expense' ? 'Expense' : 'Income'}`}
         description="Are you sure you want to delete this record? This action cannot be undone."
         onConfirm={confirmDelete}
       />
@@ -313,7 +273,7 @@ export function FinancePage() {
         isOpen={bulkDeleteState.open}
         onOpenChange={(open) => setBulkDeleteState((prev) => ({ ...prev, open }))}
         itemCount={bulkDeleteState.ids.length}
-        itemLabel={activeTab === 'expenses' ? 'expenses' : 'income records'}
+        itemLabel={activeTab === 'expense' ? 'expenses' : 'income records'}
         onConfirm={confirmBulkDelete}
       />
     </div>
