@@ -983,6 +983,70 @@ export interface IncomeCategory {
 }
 
 // ============================================
+// Bank Types (Finance)
+// ============================================
+
+export interface BankBranchRef {
+  id: number
+  name: string
+}
+
+export type BankStatus = 'active' | 'inactive' | 'closed'
+
+export interface Bank {
+  id: number
+  name: string
+  account_number: string
+  account_holder?: string
+  bank_name: string
+  current_balance: number
+  opening_balance?: number
+  status: BankStatus
+  show_in_invoice?: boolean
+  branch?: BankBranchRef
+  transaction_count?: number
+  latest_transaction_date?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export type BankTransactionType =
+  | 'deposit'
+  | 'withdrawal'
+  | 'transfer'
+  | 'transfer_in'
+  | 'transfer_out'
+
+export interface BankTransaction {
+  id: number
+  bank_id: number
+  type: BankTransactionType
+  direction?: 'in' | 'out'
+  is_inflow?: boolean
+  is_outflow?: boolean
+  amount: number
+  balance_before?: number
+  balance_after?: number
+  balance_change?: number
+  description?: string
+  reference?: string
+  date: string
+  transaction_date?: string
+  bank_name?: string
+  reconciled?: boolean
+  reconciled_on?: string
+  bank?: {
+    id: number
+    name: string
+    account_number?: string
+    bank_name?: string
+  }
+  processed_by?: { id: number; name: string }
+  created_at?: string
+  updated_at?: string
+}
+
+// ============================================
 // Warehouse Types
 // ============================================
 

@@ -1,3 +1,48 @@
+## 2026-01-27 — Bank Management UI & Operations
+
+Enhancement: Implemented core Bank Management features under Finance following project patterns and Bank API docs.
+
+Features:
+1. Bank List enhancements
+   - Search, status filter, balance range filters
+   - Summary cards: Total Banks, Total Balance
+   - Empty/loading states and refresh action
+   - Row actions: View, Edit, Deposit, Withdraw, Transfer, Close, Delete
+
+2. Modals & Forms
+   - Add New Bank (create)
+   - Edit Bank (update)
+   - Delete Bank (confirmation)
+   - Close Account (confirmation)
+   - Deposit, Withdraw, Transfer between banks with validations
+
+3. Bank Details & Transactions
+   - Quick details drawer with key fields and current balance
+   - Transactions table with type/date filters and CSV export
+
+4. Hooks & Caching
+   - `useBankTransactions`: fetch with filters, offline cache, CSV export
+   - Banks list uses local cache fallback when offline (10 min TTL)
+
+Files Modified/Created:
+- Modified: src/pages/finance/banks/BanksPage.tsx — integrated filters, dialogs, actions, and details view
+- Added: src/pages/finance/banks/hooks/useBankTransactions.ts — transactions hook with filters + export
+- Added: src/pages/finance/banks/components/TransactionsTable.tsx — transactions UI and CSV export
+- Added: src/pages/finance/banks/components/BankFormDialog.tsx — create/edit bank form
+- Added: src/pages/finance/banks/components/DeleteBankDialog.tsx — delete confirmation
+- Added: src/pages/finance/banks/components/CloseAccountDialog.tsx — close account confirmation
+- Added: src/pages/finance/banks/components/DepositModal.tsx — deposit form
+- Added: src/pages/finance/banks/components/WithdrawModal.tsx — withdraw form
+- Added: src/pages/finance/banks/components/TransferModal.tsx — transfer form
+- Added: src/pages/finance/banks/components/BankDetailsDrawer.tsx — quick details view
+
+Fixes:
+- Ensure Add Bank modal renders independently of other action modals
+
+Notes:
+- Operations are online-first for data integrity; list reading has offline cache fallback.
+- PDF export and charts are deferred to a future iteration to avoid heavy dependencies.
+
 ## 2026-01-26 — Finance Page Dropdown List in Sidebar
 
 **Enhancement**: Converted Finance page to use dropdown list style in sidebar, matching Sales page pattern.

@@ -317,4 +317,19 @@ export const API_ENDPOINTS = {
   SYNC: {
     CHANGES: '/sync/changes',
   },
+
+  // Banks (Finance)
+  BANKS: {
+    LIST: '/banks',
+    GET: (id: number) => `/banks/${id}`,
+    CREATE: '/banks',
+    UPDATE: (id: number) => `/banks/${id}`,
+    DELETE: (id: number) => `/banks/${id}`,
+    DEPOSIT: (id: number) => `/banks/${id}/deposit`,
+    WITHDRAW: (id: number) => `/banks/${id}/withdraw`,
+    TRANSFER: '/banks/transfer',
+    TRANSACTIONS: (id: number) => `/banks/${id}/transactions`,
+    ALL_TRANSACTIONS: '/banks/transactions',
+    CLOSE: (id: number) => `/banks/${id}/close`,
+  },
 } as const
