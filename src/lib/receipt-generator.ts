@@ -213,7 +213,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
   <div class="receipt">
     <!-- Header -->
     <div class="header">
-      // ${business?.invoice_logo ? `<img src="${business.invoice_logo}" alt="Logo" class="logo" />` : ''}
+      ${business?.invoice_logo ? `<img src="${business.invoice_logo}" alt="Logo" class="logo" />` : ''}
       <div class="business-name">${business?.companyName || 'Horix'}</div>
       <div class="receipt-title">Cash Receipt</div>
       <div class="invoice-number">#${sale.invoiceNumber}</div>
@@ -246,6 +246,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
           const hasDiscount = item.discount_amount && item.discount_amount > 0
           const itemTotal = item.subTotal || item.quantities * item.price
           // const finalPrice = hasDiscount ? item.final_price : itemTotal
+          const totalDiscount = hasDiscount ? (item.discount_amount || 0) * item.quantities || 0 : 0
 
           let discountText = ''
           if (hasDiscount) {
@@ -265,7 +266,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
           </td>
           <td class="item-price">
             <div>${formatCurrencyUtil(itemTotal)}</div>
-            ${hasDiscount ? '-' + formatCurrencyUtil(item.discount_amount) : ''}
+            ${hasDiscount ? '-' + formatCurrencyUtil(totalDiscount) : ''}
           </td>
         </tr>
           `
@@ -435,17 +436,17 @@ function isElectron(): boolean {
  */
 export async function printReceipt(data: ReceiptData): Promise<boolean> {
   try {
-    console.log('[PrintReceipt] Starting print process...')
-    console.log('[PrintReceipt] Is Electron?', isElectron())
-    console.log('[PrintReceipt] electronAPI exists?', typeof window.electronAPI !== 'undefined')
-    console.log('[PrintReceipt] print exists?', typeof window.electronAPI?.print !== 'undefined')
-    console.log(
-      '[PrintReceipt] receiptHTML exists?',
-      typeof window.electronAPI?.print?.receiptHTML !== 'undefined'
-    )
+    // console.log('[PrintReceipt] Starting print process...')
+    // console.log('[PrintReceipt] Is Electron?', isElectron())
+    // console.log('[PrintReceipt] electronAPI exists?', typeof window.electronAPI !== 'undefined')
+    // console.log('[PrintReceipt] print exists?', typeof window.electronAPI?.print !== 'undefined')
+    // console.log(
+    //   '[PrintReceipt] receiptHTML exists?',
+    //   typeof window.electronAPI?.print?.receiptHTML !== 'undefined'
+    // )
 
     const html = generateReceiptHTML(data)
-    console.log('[PrintReceipt] Generated HTML length:', html.length)
+    // console.log('[PrintReceipt] Generated HTML length:', html.length)
 
     // Silent print via Electron (no dialogs, no popups)
     if (isElectron()) {
