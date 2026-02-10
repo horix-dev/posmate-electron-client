@@ -1,3 +1,20 @@
+## 2026-02-11 — Cart Fixed Discount Calculation Bug
+
+**Fix**: Corrected per-item fixed discount math so totals subtract the discount for every unit.
+
+**Problem**:
+- Line totals only removed a single fixed discount amount regardless of quantity
+- Displayed totals (and final payable amount) were higher than expected when quantity > 1
+
+**Solution**:
+- Updated `calculateItemTotal()` to multiply fixed discounts by quantity before subtracting from the subtotal
+- Added inline comment clarifying that fixed discounts are defined per unit in the UI
+
+**Files Modified/Created**:
+- `src/stores/cart.store.ts`
+- `DEVELOPMENT_LOG.md`
+
+---
 ## 2026-01-22 — Dashboard Returns Display & Default Filter
 
 **Enhancement**: Implemented best-practice returns tracking on dashboard with today as default filter.

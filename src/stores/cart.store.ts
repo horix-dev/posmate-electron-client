@@ -85,7 +85,9 @@ interface CartState {
 const calculateItemTotal = (item: Omit<CartItem, 'total'>): number => {
   const subtotal = item.quantity * item.unitPrice
   const discount =
-    item.discountType === 'percentage' ? subtotal * (item.discount / 100) : item.discount
+    item.discountType === 'percentage'
+      ? subtotal * (item.discount / 100)
+      : item.discount * item.quantity // Fixed discounts are configured per unit
   return Math.max(0, subtotal - discount)
 }
 
