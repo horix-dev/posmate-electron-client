@@ -7,10 +7,17 @@ export const variantInputSchema = z.object({
   id: z.number().optional(), // Existing variant ID for updates
   sku: z.string().optional(),
   barcode: z.string().optional(),
-  initial_stock: z.number().int().min(0).optional(),
+  initial_stock: z
+    .number({ required_error: 'Stock is required' })
+    .int('Stock must be an integer')
+    .min(0, 'Stock must be 0 or greater'),
   enabled: z.union([z.literal(0), z.literal(1)]).default(1),
-  cost_price: z.number().min(0).optional(),
-  price: z.number().min(0).optional(),
+  cost_price: z
+    .number({ required_error: 'Cost price is required' })
+    .min(0.01, 'Cost price must be greater than 0'),
+  price: z
+    .number({ required_error: 'Sale price is required' })
+    .min(0.01, 'Sale price must be greater than 0'),
   dealer_price: z.number().min(0).optional(),
   wholesale_price: z.number().min(0).optional(),
   is_active: z.union([z.literal(0), z.literal(1)]).default(1),
@@ -23,79 +30,97 @@ export type VariantInputData = z.infer<typeof variantInputSchema>
  * Product form validation schema
  * Uses zod for type-safe runtime validation
  */
-export const productFormSchema = z.object({
-  productName: z
-    .string()
-    .min(1, 'Product name is required')
-    .max(255, 'Product name must be less than 255 characters')
-    .trim(),
+export const productFormSchema = z
+  .object({
+    productName: z
+      .string()
+      .min(1, 'Product name is required')
+      .max(255, 'Product name must be less than 255 characters')
+      .trim(),
 
-  productCode: z
-    .string()
-    .max(100, 'Product code must be less than 100 characters')
-    .trim()
-    .optional()
-    .or(z.literal('')),
+    productCode: z
+      .string()
+      .max(100, 'Product code must be less than 100 characters')
+      .trim()
+      .optional()
+      .or(z.literal('')),
 
-  barcode: z
-    .string()
-    .max(100, 'Barcode must be less than 100 characters')
-    .trim()
-    .optional()
-    .or(z.literal('')),
+    barcode: z
+      .string()
+      .max(100, 'Barcode must be less than 100 characters')
+      .trim()
+      .optional()
+      .or(z.literal('')),
 
-  category_id: z.string().optional().or(z.literal('')),
+    category_id: z.string().optional().or(z.literal('')),
 
-  brand_id: z.string().optional().or(z.literal('')),
+    brand_id: z.string().optional().or(z.literal('')),
 
-  unit_id: z.string().optional().or(z.literal('')),
+    unit_id: z.string().optional().or(z.literal('')),
 
-  alert_qty: z
-    .string()
-    .optional()
-    .or(z.literal(''))
-    .transform((val) => (val === '' ? undefined : val))
-    .pipe(z.string().regex(/^\d*$/, 'Alert quantity must be a positive number').optional()),
+    alert_qty: z
+      .string()
+      .optional()
+      .or(z.literal(''))
+      .transform((val) => (val === '' ? undefined : val))
+      .pipe(z.string().regex(/^\d*$/, 'Alert quantity must be a positive number').optional()),
 
-  product_type: z.enum(['simple', 'variable']).default('simple'),
+    product_type: z.enum(['simple', 'variable']).default('simple'),
 
-  is_batch_tracked: z.boolean().default(false),
+    is_batch_tracked: z.boolean().default(false),
 
-  productPurchasePrice: z
-    .string()
-    .optional()
-    .or(z.literal(''))
-    .transform((val) => (val === '' ? undefined : val))
-    .pipe(
-      z
-        .string()
-        .regex(/^\d*\.?\d*$/, 'Purchase price must be a valid number')
-        .optional()
-    ),
+    productPurchasePrice: z
+      .string()
+      .regex(/^\d*\.?\d*$/, 'Purchase price must be a valid number')
+      .optional()
+      .or(z.literal('')),
+    productSalePrice: z
+      .string()
+      .regex(/^\d*\.?\d*$/, 'Sale price must be a valid number')
+      .optional()
+      .or(z.literal('')),
+    productStock: z
+      .string()
+      .regex(/^\d*$/, 'Stock must be a positive number')
+      .optional()
+      .or(z.literal('')),
 
-  productSalePrice: z
-    .string()
-    .optional()
-    .or(z.literal(''))
-    .transform((val) => (val === '' ? undefined : val))
-    .pipe(
-      z
-        .string()
-        .regex(/^\d*\.?\d*$/, 'Sale price must be a valid number')
-        .optional()
-    ),
-
-  productStock: z
-    .string()
-    .optional()
-    .or(z.literal(''))
-    .transform((val) => (val === '' ? undefined : val))
-    .pipe(z.string().regex(/^\d*$/, 'Stock must be a positive number').optional()),
-
-  // Description field for products
-  description: z.string().optional(),
-})
-// Note: variants are managed separately in component state and validated in handleSubmit
+    // Description field for products
+    description: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.product_type === 'simple') {
+      if (
+        !data.productPurchasePrice ||
+        isNaN(Number(data.productPurchasePrice)) ||
+        Number(data.productPurchasePrice) <= 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['productPurchasePrice'],
+          message: 'Purchase price is required',
+        })
+      }
+      if (
+        !data.productSalePrice ||
+        isNaN(Number(data.productSalePrice)) ||
+        Number(data.productSalePrice) <= 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['productSalePrice'],
+          message: 'Sale price is required',
+        })
+      }
+      if (!data.productStock || isNaN(Number(data.productStock)) || Number(data.productStock) < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['productStock'],
+          message: 'Stock is required',
+        })
+      }
+    }
+  })
 
 export type ProductFormData = z.infer<typeof productFormSchema>
 
@@ -166,12 +191,12 @@ export function productToFormData(product: {
       id: v.id, // Preserve variant ID for updates
       sku: v.sku || '',
       barcode: v.barcode || '',
-      initial_stock: v.initial_stock ?? undefined,
+      initial_stock: v.initial_stock ?? 0,
       enabled: 1 as const,
-      cost_price: v.cost_price ?? undefined,
-      price: v.price ?? undefined,
-      dealer_price: v.dealer_price ?? undefined,
-      wholesale_price: v.wholesale_price ?? undefined,
+      cost_price: v.cost_price ?? 0.01,
+      price: v.price ?? 0.01,
+      dealer_price: v.dealer_price ?? 0,
+      wholesale_price: v.wholesale_price ?? 0,
       is_active: v.is_active ? (1 as const) : (0 as const),
       attribute_value_ids: v.attribute_value_ids
         ? v.attribute_value_ids
