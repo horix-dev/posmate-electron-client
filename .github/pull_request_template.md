@@ -57,8 +57,4 @@ Any additional information for reviewers:
 
 ---
 
-**Please ensure:**
-1. ✅ All checks pass
-2. ✅ No conflicts with `develop` branch
-3. ✅ At least 2 approvals before merging
-4. ✅ Branch will be deleted after merge
+**Note:** Pull requests are optional in this repository. Anyone with write permission can push directly to `main` or `develop`. PRs are useful for getting feedback and documenting changes.
