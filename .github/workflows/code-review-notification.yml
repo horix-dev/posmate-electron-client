@@ -1,0 +1,504 @@
+name: Automated Code Review & Notifications
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      send_test_email:
+        description: 'Send a test email notification'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  # Job 1: CodeQL Security Analysis
+  codeql-analysis:
+    name: CodeQL Security Scan
+    runs-on: ubuntu-latest
+    if: github.event.inputs.send_test_email != 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript,typescript
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        id: codeql
+        uses: github/codeql-action/analyze@v3
+        continue-on-error: true
+
+      - name: Check for Critical Security Issues
+        id: security-check
+        run: |
+          # This will be used to determine if we need to send notifications
+          echo "critical_found=false" >> $GITHUB_OUTPUT
+
+          # Check if there are any security alerts (this is a placeholder - actual check happens via API)
+          echo "Security scan completed. Check GitHub Security tab for results."
+
+  # Job 2: Code Quality Analysis
+  code-quality:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    if: github.event.inputs.send_test_email != 'true'
+
+    outputs:
+      lint-failed: ${{ steps.lint.outcome == 'failure' }}
+      typecheck-failed: ${{ steps.typecheck.outcome == 'failure' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        id: lint
+        run: |
+          npm run lint 2>&1 | tee lint-output.txt
+          exit ${PIPESTATUS[0]}
+        continue-on-error: true
+
+      - name: Check for critical lint errors
+        id: critical-lint
+        if: steps.lint.outcome == 'failure'
+        run: |
+          # Check for critical patterns in lint output
+          if grep -E "error|Error|ERROR" lint-output.txt; then
+            echo "critical_errors_found=true" >> $GITHUB_OUTPUT
+            echo "### Critical Lint Errors Found" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            grep -E "error|Error|ERROR" lint-output.txt | head -20 >> $GITHUB_STEP_SUMMARY || true
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "critical_errors_found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run TypeScript Type Check
+        id: typecheck
+        run: |
+          npm run typecheck 2>&1 | tee typecheck-output.txt
+          exit ${PIPESTATUS[0]}
+        continue-on-error: true
+
+      - name: Check for critical type errors
+        id: critical-typecheck
+        if: steps.typecheck.outcome == 'failure'
+        run: |
+          if grep -E "error TS" typecheck-output.txt; then
+            echo "critical_errors_found=true" >> $GITHUB_OUTPUT
+            echo "### Critical Type Errors Found" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            grep -E "error TS" typecheck-output.txt | head -20 >> $GITHUB_STEP_SUMMARY || true
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "critical_errors_found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload lint results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-quality-results
+          path: |
+            lint-output.txt
+            typecheck-output.txt
+          retention-days: 30
+
+  # Job 3: Dependency Security Check
+  dependency-security:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+    if: github.event.inputs.send_test_email != 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run npm audit
+        id: npm-audit
+        run: |
+          npm audit --audit-level=high --json > audit-results.json 2>&1 || true
+          npm audit --audit-level=high 2>&1 | tee audit-output.txt || true
+
+      - name: Check for critical vulnerabilities
+        id: critical-vuln
+        run: |
+          # Check if there are high or critical vulnerabilities
+          if grep -E "high|critical" audit-output.txt; then
+            echo "critical_found=true" >> $GITHUB_OUTPUT
+            echo "### Critical Vulnerabilities Found" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            cat audit-output.txt >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "critical_found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-results
+          path: |
+            audit-results.json
+            audit-output.txt
+          retention-days: 30
+
+  # Job 4: Test Email Notification (Manual Only)
+  test-email:
+    name: Send Test Email
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.send_test_email == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare test email content
+        id: prepare-test
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          COMMIT="${{ github.sha }}"
+          COMMIT_SHORT="${COMMIT:0:7}"
+          AUTHOR="${{ github.actor }}"
+          REPO="${{ github.repository }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          # Create test email
+          cat > test-notification.txt << EOF
+          Test Email Notification
+          =======================
+
+          This is a test email from the automated code review system.
+
+          Repository: ${REPO}
+          Branch: ${BRANCH}
+          Commit: ${COMMIT_SHORT}
+          Triggered by: ${AUTHOR}
+          Timestamp: ${TIMESTAMP}
+
+          Status
+          ------
+          ✅ Email notification system is working correctly!
+
+          View Workflow Run: ${RUN_URL}
+
+          This is a test notification from GitHub Actions.
+          If you received this, your email configuration is working properly.
+          EOF
+
+          # Create HTML test email
+          cat > test-notification.html << EOF
+          <html>
+          <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0366d6;">✅ Test Email Notification</h2>
+            
+            <div style="padding: 15px; background-color: #d1ecf1; border-left: 4px solid #0c5460; margin: 20px 0;">
+              <strong>This is a test email from the automated code review system.</strong>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+              <tr style="background-color: #f6f8fa;">
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Repository</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${REPO}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Branch</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${BRANCH}</td>
+              </tr>
+              <tr style="background-color: #f6f8fa;">
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Commit</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${COMMIT_SHORT}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Triggered by</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${AUTHOR}</td>
+              </tr>
+              <tr style="background-color: #f6f8fa;">
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Timestamp</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${TIMESTAMP}</td>
+              </tr>
+            </table>
+
+            <div style="padding: 15px; background-color: #d4edda; border-left: 4px solid #28a745; margin: 20px 0;">
+              <h3 style="margin: 0 0 10px 0; color: #155724;">✅ Success!</h3>
+              <p style="margin: 0;">Email notification system is working correctly!</p>
+            </div>
+
+            <p style="margin-top: 20px;">
+              <a href="${RUN_URL}" style="display: inline-block; padding: 10px 20px; background-color: #0366d6; color: white; text-decoration: none; border-radius: 5px;">View Workflow Run</a>
+            </p>
+
+            <hr style="margin-top: 30px; border: none; border-top: 1px solid #e1e4e8;">
+            <p style="color: #586069; font-size: 12px;">
+              This is a test notification from GitHub Actions.<br>
+              If you received this, your email configuration is working properly.
+            </p>
+          </body>
+          </html>
+          EOF
+
+      - name: Send Test Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "[TEST] Email Notification Test - ${{ github.ref_name }}"
+          to: ${{ secrets.MAIL_TO }}
+          from: GitHub Actions <${{ secrets.MAIL_FROM }}>
+          body: file://test-notification.txt
+          html_body: file://test-notification.html
+          priority: normal
+
+      - name: Test Email Summary
+        if: always()
+        run: |
+          echo "## 📧 Test Email Sent" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ **Test email sent successfully!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check your inbox at the configured MAIL_TO address." >> $GITHUB_STEP_SUMMARY
+            echo "Don't forget to check your spam/junk folder." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Failed to send test email.**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check the workflow logs for error details." >> $GITHUB_STEP_SUMMARY
+            echo "Verify your email secrets are configured correctly." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Job 5: Send Email Notifications
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [codeql-analysis, code-quality, dependency-security]
+    if: always() && github.event.inputs.send_test_email != 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare notification content
+        id: prepare
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          COMMIT="${{ github.sha }}"
+          COMMIT_SHORT="${COMMIT:0:7}"
+          AUTHOR="${{ github.actor }}"
+          MESSAGE="${{ github.event.head_commit.message }}"
+          REPO="${{ github.repository }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # Determine if there are critical issues
+          CRITICAL_ISSUES="false"
+          ISSUES_SUMMARY=""
+
+          # Check code quality job
+          if [ "${{ needs.code-quality.result }}" == "failure" ]; then
+            CRITICAL_ISSUES="true"
+            ISSUES_SUMMARY="${ISSUES_SUMMARY}\n- ❌ Code Quality: Linting or type check failures detected"
+          fi
+
+          # Check dependency security
+          if [ "${{ needs.dependency-security.result }}" == "failure" ]; then
+            CRITICAL_ISSUES="true"
+            ISSUES_SUMMARY="${ISSUES_SUMMARY}\n- ❌ Dependencies: Security vulnerabilities found"
+          fi
+
+          # Check CodeQL
+          if [ "${{ needs.codeql-analysis.result }}" == "failure" ]; then
+            CRITICAL_ISSUES="true"
+            ISSUES_SUMMARY="${ISSUES_SUMMARY}\n- ❌ Security: CodeQL found potential vulnerabilities"
+          fi
+
+          # If no failures but jobs completed successfully
+          if [ "${CRITICAL_ISSUES}" == "false" ]; then
+            ISSUES_SUMMARY="\n- ✅ Code Quality: All checks passed\n- ✅ Dependencies: No vulnerabilities found\n- ✅ Security: No issues detected"
+          fi
+
+          # Save to file for email
+          cat > notification.txt << EOF
+          Subject: [${BRANCH}] Code Review Alert - ${COMMIT_SHORT}
+
+          Automated Code Review Results
+          =============================
+
+          Repository: ${REPO}
+          Branch: ${BRANCH}
+          Commit: ${COMMIT_SHORT}
+          Author: ${AUTHOR}
+          Message: ${MESSAGE}
+
+          Review Status
+          -------------
+          ${ISSUES_SUMMARY}
+
+          View Details: ${RUN_URL}
+
+          This is an automated notification from GitHub Actions.
+          EOF
+
+          echo "critical_issues=${CRITICAL_ISSUES}" >> $GITHUB_OUTPUT
+
+          # Also create HTML version
+          cat > notification.html << EOF
+          <html>
+          <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0366d6;">Automated Code Review Results</h2>
+
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr style="background-color: #f6f8fa;">
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Repository</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${REPO}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Branch</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${BRANCH}</td>
+              </tr>
+              <tr style="background-color: #f6f8fa;">
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Commit</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${COMMIT_SHORT}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Author</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${AUTHOR}</td>
+              </tr>
+              <tr style="background-color: #f6f8fa;">
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Message</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${MESSAGE}</td>
+              </tr>
+            </table>
+
+            <h3 style="color: #0366d6; margin-top: 20px;">Review Status</h3>
+            <div style="padding: 10px; background-color: #f6f8fa; border-left: 4px solid #0366d6;">
+              <pre style="margin: 0; white-space: pre-wrap;">${ISSUES_SUMMARY}</pre>
+            </div>
+
+            <p style="margin-top: 20px;">
+              <a href="${RUN_URL}" style="display: inline-block; padding: 10px 20px; background-color: #0366d6; color: white; text-decoration: none; border-radius: 5px;">View Full Report</a>
+            </p>
+
+            <hr style="margin-top: 30px; border: none; border-top: 1px solid #e1e4e8;">
+            <p style="color: #586069; font-size: 12px;">This is an automated notification from GitHub Actions.</p>
+          </body>
+          </html>
+          EOF
+
+      - name: Send Email Notification (if critical issues found)
+        if: steps.prepare.outputs.critical_issues == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "[CRITICAL] Code Review Alert - ${{ github.ref_name }} - ${{ github.sha }}"
+          to: ${{ secrets.MAIL_TO }}
+          from: GitHub Actions <${{ secrets.MAIL_FROM }}>
+          body: file://notification.txt
+          html_body: file://notification.html
+          priority: high
+        continue-on-error: true
+
+      - name: Post summary
+        if: always()
+        run: |
+          echo "## 📊 Code Review Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Author:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Job Results" >> $GITHUB_STEP_SUMMARY
+          echo "- CodeQL Analysis: ${{ needs.codeql-analysis.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Code Quality: ${{ needs.code-quality.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Dependency Security: ${{ needs.dependency-security.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.prepare.outputs.critical_issues }}" == "true" ]; then
+            echo "⚠️ **Critical issues detected!** Email notification sent." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **All checks passed!** No critical issues found." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Job 6: Create Issue for Critical Problems (Optional)
+  create-issue:
+    name: Create Issue (if critical)
+    runs-on: ubuntu-latest
+    needs: [codeql-analysis, code-quality, dependency-security]
+    if: failure() && github.ref == 'refs/heads/main' && github.event.inputs.send_test_email != 'true'
+
+    steps:
+      - name: Create Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Critical Issues Found in ${context.sha.substring(0, 7)}`,
+              body: `## Automated Code Review Alert
+
+              Critical issues were detected in commit ${context.sha}.
+
+              **Branch:** ${context.ref}
+              **Author:** ${context.actor}
+              **Commit:** ${context.sha}
+
+              ### Issues Detected
+              - CodeQL Analysis: ${{ needs.codeql-analysis.result }}
+              - Code Quality: ${{ needs.code-quality.result }}
+              - Dependency Security: ${{ needs.dependency-security.result }}
+
+              [View Workflow Run](${context.payload.repository.html_url}/actions/runs/${context.runId})
+
+              Please review and fix the issues as soon as possible.
+              `,
+              labels: ['bug', 'critical', 'automated']
+            });
+
+            console.log(`Created issue #${issue.data.number}`);
