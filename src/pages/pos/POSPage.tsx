@@ -111,6 +111,7 @@ export function POSPage() {
   const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false)
   const [showSmartTender, setShowSmartTender] = useState(false)
   const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null)
+  const [isAddingToCart, setIsAddingToCart] = useState(false)
 
   // ----------------------------------------
   // Data Fetching
@@ -176,6 +177,12 @@ export function POSPage() {
 
   const handleAddToCart = useCallback(
     (product: Product, stock: Stock | null, variant?: ProductVariant | null) => {
+      // Check if we're in cooldown period
+      if (isAddingToCart) {
+        toast.warning('Please wait before adding another item')
+        return
+      }
+
       // For variants, use variant stock if available
       const effectiveStock = variant?.stocks?.[0] || stock
       if (!effectiveStock) {
@@ -193,6 +200,10 @@ export function POSPage() {
         )
         return
       }
+
+      // Set cooldown
+      setIsAddingToCart(true)
+      setTimeout(() => setIsAddingToCart(false), 2000)
 
       addItem(product, effectiveStock, 1, variant)
 
@@ -217,7 +228,7 @@ export function POSPage() {
       const name = variant ? `${product.productName} (${variant.sku})` : product.productName
       toast.success(`Added ${name} to cart`)
     },
-    [addItem, getCartQuantity]
+    [addItem, getCartQuantity, isAddingToCart]
   )
 
   const handleUpdateQuantity = useCallback(
@@ -547,6 +558,12 @@ export function POSPage() {
   // ----------------------------------------
   const handleBarcodeScan = useCallback(
     async (barcode: string) => {
+      // Check if we're in cooldown period
+      if (isAddingToCart) {
+        toast.warning('Please wait before scanning another item')
+        return
+      }
+
       const normalizedBarcode = barcode.toLowerCase()
 
       // Step 1: Check local storage FIRST (instant)
@@ -576,6 +593,10 @@ export function POSPage() {
             toast.error('No stock available')
             return
           }
+
+          // Set cooldown
+          setIsAddingToCart(true)
+          setTimeout(() => setIsAddingToCart(false), 3000)
 
           // Optimistically add to cart
           addItem(product, stock, 1)
@@ -713,7 +734,7 @@ export function POSPage() {
 
       // Don't await - let it resolve in background
     },
-    [products, handleAddToCart, isOnline, addItem, removeItem]
+    [products, handleAddToCart, isOnline, addItem, removeItem, isAddingToCart]
   )
 
   useBarcodeScanner({ onScan: handleBarcodeScan, enabled: !dialogs.payment })

@@ -14,7 +14,7 @@ import { CachedImage } from '@/components/common/CachedImage'
 import { getImageUrl } from '@/lib/utils'
 import { useCurrency } from '@/hooks'
 import type { Product } from '@/types/api.types'
-import { getStockStatus, getTotalStock, getSalePrice, getPurchasePrice } from '../hooks'
+import { getStockStatus, getTotalStock, getSalePrice } from '../hooks'
 
 // ============================================
 // Types
@@ -44,7 +44,6 @@ function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowPr
   const stockStatus = getStockStatus(product)
   const totalStock = getTotalStock(product)
   const salePrice = getSalePrice(product)
-  const purchasePrice = getPurchasePrice(product)
   const isVariable = product.product_type === 'variable'
 
   // Count variants: use variants array if available, otherwise count unique variant_ids in stocks
@@ -117,15 +116,9 @@ function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowPr
       <TableCell>
         <div className="text-right">
           {isVariable && variantCount > 0 ? (
-            <>
-              <p className="text-sm font-medium text-muted-foreground">Variable pricing</p>
-              <p className="text-xs text-muted-foreground">Base: {formatCurrency(salePrice)}</p>
-            </>
+            <p className="font-medium text-muted-foreground">-</p>
           ) : (
-            <>
-              <p className="font-medium">{formatCurrency(salePrice)}</p>
-              <p className="text-xs text-muted-foreground">Cost: {formatCurrency(purchasePrice)}</p>
-            </>
+            <p className="font-medium">{formatCurrency(salePrice)}</p>
           )}
         </div>
       </TableCell>
