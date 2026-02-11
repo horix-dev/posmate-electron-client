@@ -22,7 +22,7 @@ Ensure the following GitHub Secrets are configured in your repository:
 #### Option 1: Using GitHub Web Interface (Easiest)
 
 1. **Go to the Actions tab** in your repository
-   - URL: `https://github.com/horix-dev/posmate-electron-client/actions`
+   - URL: `https://github.com/YOUR-ORG/YOUR-REPO/actions`
 
 2. **Select the workflow**
    - Click on "Automated Code Review & Notifications" in the left sidebar
@@ -52,7 +52,7 @@ Ensure the following GitHub Secrets are configured in your repository:
 gh auth login
 
 # Navigate to your repository
-cd /path/to/posmate-electron-client
+cd /path/to/your-repository
 
 # Trigger the test email workflow
 gh workflow run code-review-notification.yml \
@@ -76,7 +76,7 @@ You should receive an HTML email containing:
 ```
 
 #### Body
-- **Repository name**: horix-dev/posmate-electron-client
+- **Repository name**: YOUR-ORG/YOUR-REPO
 - **Branch name**: The branch you selected
 - **Commit SHA**: The latest commit on that branch
 - **Triggered by**: Your GitHub username
