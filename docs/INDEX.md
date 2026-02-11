@@ -43,6 +43,14 @@ You now have a **complete, enterprise-grade pull request management system** for
 | **.github/CODEOWNERS** | Auto-assigns reviewers | Controls who reviews what |
 | **.github/pull_request_template.md** | PR structure template | Ensures complete PRs |
 | **.github/workflows/ci-cd.yml** | Automated CI/CD checks | Enforces code quality |
+| **.github/workflows/code-review-notification.yml** | Automated code review & alerts | Monitors commits to main/develop |
+
+### Automated Code Review & Notifications
+
+| File | Purpose | Audience |
+|------|---------|----------|
+| **docs/AUTOMATED_CODE_REVIEW.md** | Complete guide to automated reviews | Project lead, DevOps |
+| **docs/NOTIFICATION_SETUP_GUIDE.md** | Quick setup for email alerts | Project lead |
 
 ---
 
@@ -60,13 +68,25 @@ ESLint ──────► No bad code practices
 TypeScript ──► No type errors (informational)
 Tests ───────► 80%+ coverage (informational)
 Build ───────► No compilation errors (informational)
+CodeQL ──────► Security vulnerability scanning
+Audit ───────► Dependency vulnerability checks
 ```
+
+### 3. **Automated Code Review & Notifications**
+- Runs on every push to `main` and `develop` branches
+- Security scanning with CodeQL
+- Code quality analysis (ESLint, TypeScript)
+- Dependency vulnerability checks
+- Email notifications for critical issues
+- Optional automated issue creation
 
 ### 3. **Flexible Workflow**
 - Direct push allowed for anyone with write permission
 - Optional pull requests for discussion
 - Optional reviews (not required)
 - Self-merge allowed
+- Automated code review on push to main/develop
+- Email alerts for critical issues
 
 ### 4. **Branch Configuration**
 - `main` and `develop` branches open for direct push
