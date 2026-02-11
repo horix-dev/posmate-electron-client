@@ -82,15 +82,35 @@ MAIL_FROM: your-email@outlook.com
 
 ## Step 3: Test the Setup
 
-### Option A: Manual Trigger (Recommended)
+### ⚡ Quick Test (NEW - 1 minute)
+
+**Fastest way to test your email configuration:**
+
+1. Go to **Actions** tab in your repository
+2. Click **Automated Code Review & Notifications** workflow
+3. Click **Run workflow** dropdown
+4. **Check the "Send a test email notification" checkbox** ✅
+5. Select the branch (main or develop)
+6. Click **Run workflow**
+7. Wait ~30 seconds
+8. Check your email inbox (and spam folder)
+
+**You should receive a test email immediately!**
+
+📘 **Detailed guide**: See [`docs/EMAIL_TEST_GUIDE.md`](EMAIL_TEST_GUIDE.md) for complete testing instructions.
+
+---
+
+### Option A: Manual Trigger (Full Workflow Test)
 
 1. Go to **Actions** tab in your repository
 2. Click **Automated Code Review & Notifications** workflow
 3. Click **Run workflow** dropdown
 4. Select the branch (main or develop)
-5. Click **Run workflow**
-6. Wait for the workflow to complete (~2-3 minutes)
-7. Check your email for the notification
+5. **Leave the checkbox unchecked** for full workflow
+6. Click **Run workflow**
+7. Wait for the workflow to complete (~2-3 minutes)
+8. Check your email for the notification (only if critical issues found)
 
 ### Option B: Push to Trigger
 
