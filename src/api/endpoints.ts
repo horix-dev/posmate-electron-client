@@ -205,6 +205,7 @@ export const API_ENDPOINTS = {
     ADD: '/stocks',
     UPDATE: (id: number) => `/stocks/${id}`,
     DELETE: (id: number) => `/stocks/${id}`,
+    TOTAL_VALUE: '/stocks/total-value',
   },
 
   // Warehouses

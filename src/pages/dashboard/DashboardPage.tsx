@@ -27,7 +27,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SaleDetailsDialog } from '@/components/shared'
 import { StatCard } from '@/components/common/StatCard'
-import { dashboardService, stocksListService, partiesService, salesService } from '@/api/services'
+import { dashboardService, stocksListService, stocksService, partiesService, salesService } from '@/api/services'
 import { useSyncStore } from '@/stores'
 import { useCurrency } from '@/hooks'
 import { getCache, setCache, CacheKeys } from '@/lib/cache'
@@ -474,24 +474,25 @@ export function DashboardPage() {
 
         let dashboardDataResult = dashboardRes.data
 
-        // Calculate stock_value if not provided by API
-        if (
-          dashboardDataResult &&
-          (dashboardDataResult.stock_value === undefined || dashboardDataResult.stock_value === 0)
-        ) {
-          try {
-            const stocksRes = await stocksListService.getAll({ limit: 1000 })
-            const stocks = (Array.isArray(stocksRes.data) ? stocksRes.data : []) as Stock[]
-            const calculatedStockValue = stocks.reduce(
-              (sum, stock) => sum + stock.productStock * stock.productPurchasePrice,
-              0
-            )
+        // Always use stocks total value API for stock_value
+        try {
+          const stockValueRes = await stocksService.getTotalValue()
+          dashboardDataResult = {
+            ...dashboardDataResult,
+            stock_value: stockValueRes.data.total_value,
+          }
+          setCache(CacheKeys.STOCKS_TOTAL_VALUE, stockValueRes.data.total_value, {
+            ttl: 5 * 60 * 1000,
+          })
+        } catch (err) {
+          const cachedStockValue = getCache<number>(CacheKeys.STOCKS_TOTAL_VALUE)
+          if (cachedStockValue !== null) {
             dashboardDataResult = {
               ...dashboardDataResult,
-              stock_value: calculatedStockValue,
+              stock_value: cachedStockValue,
             }
-          } catch (err) {
-            console.warn('Failed to calculate stock value:', err)
+          } else {
+            console.warn('Failed to fetch stock value:', err)
           }
         }
 

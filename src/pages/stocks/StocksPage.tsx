@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Search, WifiOff, RefreshCw, LayoutDashboard, AlertTriangle, Archive, DollarSign } from 'lucide-react'
+import { Plus, Search, WifiOff, RefreshCw, LayoutDashboard, AlertTriangle, Archive, DollarSign, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { useCurrency } from '@/hooks'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useStocks, type StocksFilters } from './hooks'
 import { StocksList } from './components'
+import { stocksService } from '@/api/services'
 import { toast } from 'sonner'
 
 // ============================================
@@ -28,6 +29,25 @@ export function StocksPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<TabType>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [stockStats, setStockStats] = useState<{
+    total_value: number
+    total_quantity: number
+    product_count_with_stock: number
+  } | null>(null)
+  const [isLoadingStats, setIsLoadingStats] = useState(false)
+
+  // Fetch stock statistics
+  const fetchStockStats = useCallback(async () => {
+    setIsLoadingStats(true)
+    try {
+      const response = await stocksService.getTotalValue()
+      setStockStats(response.data)
+    } catch (error) {
+      console.error('Failed to fetch stock stats:', error)
+    } finally {
+      setIsLoadingStats(false)
+    }
+  }, [])
 
   // Read tab from URL on mount
   useEffect(() => {
@@ -36,6 +56,11 @@ export function StocksPage() {
       setActiveTab(tab)
     }
   }, [searchParams])
+
+  // Fetch stock stats on mount
+  useEffect(() => {
+    fetchStockStats()
+  }, [fetchStockStats])
 
   // Update URL when tab changes
   const handleTabChange = (tab: TabType) => {
@@ -80,9 +105,11 @@ export function StocksPage() {
       allCount: allStocks.length,
       lowCount: lowStocks.length,
       expiredCount: expiredStocks.length,
-      totalValue: allStocks.reduce((sum, stock) => sum + stock.productStock * stock.productPurchasePrice, 0),
+      totalValue: stockStats?.total_value ?? 0,
+      totalQuantity: stockStats?.total_quantity ?? 0,
+      productCount: stockStats?.product_count_with_stock ?? 0,
     }),
-    [allStocks, lowStocks, expiredStocks]
+    [allStocks, lowStocks, expiredStocks, stockStats]
   )
 
   return (
@@ -100,14 +127,22 @@ export function StocksPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <StatCard
-          title="Total Stock Items"
-          value={String(stats.allCount)}
-          description="Total items in inventory"
+          title="Total Products"
+          value={String(stats.productCount)}
+          description="Total unique products"
           icon={Archive}
           iconClassName="text-blue-500"
-          loading={isLoading}
+          loading={isLoadingStats}
+        />
+        <StatCard
+          title="Total Quantity"
+          value={String(stats.totalQuantity)}
+          description="Total units in stock"
+          icon={Package}
+          iconClassName="text-purple-500"
+          loading={isLoadingStats}
         />
         <StatCard
           title="Low Stock Items"
@@ -131,7 +166,7 @@ export function StocksPage() {
           description="Total inventory value"
           icon={DollarSign}
           iconClassName="text-green-600"
-          loading={isLoading}
+          loading={isLoadingStats}
         />
       </div>
 
@@ -151,7 +186,7 @@ export function StocksPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button variant="outline" size="icon" onClick={refetch} title="Refresh stocks">
+            <Button variant="outline" size="icon" onClick={() => { refetch(); fetchStockStats(); }} title="Refresh stocks">
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>

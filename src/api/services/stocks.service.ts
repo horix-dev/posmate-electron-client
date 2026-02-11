@@ -54,6 +54,26 @@ export const stocksService = {
     const { data } = await api.delete<ApiResponse<null>>(API_ENDPOINTS.STOCKS.DELETE(id))
     return data
   },
+
+  /**
+   * Get total stock value, quantity, and product count with stock
+   */
+  getTotalValue: async (): Promise<
+    ApiResponse<{
+      total_value: number
+      total_quantity: number
+      product_count_with_stock: number
+    }>
+  > => {
+    const { data } = await api.get<
+      ApiResponse<{
+        total_value: number
+        total_quantity: number
+        product_count_with_stock: number
+      }>
+    >(API_ENDPOINTS.STOCKS.TOTAL_VALUE)
+    return data
+  },
 }
 
 export default stocksService

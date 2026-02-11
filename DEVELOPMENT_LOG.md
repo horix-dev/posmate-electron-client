@@ -15,6 +15,22 @@
 - `DEVELOPMENT_LOG.md`
 
 ---
+## 2026-02-12 — Stock Total Value API Usage
+
+**Enhancement**: Products and dashboard now use the stocks total value API instead of frontend calculations.
+
+**Solution**:
+- Added cache key for stocks total value
+- Products hook reads total value from `GET /stocks/total-value` and caches it
+- Dashboard stock value card uses the same API response with cache fallback
+
+**Files Modified/Created**:
+- `src/lib/cache/index.ts`
+- `src/pages/products/hooks/useProducts.ts`
+- `src/pages/dashboard/DashboardPage.tsx`
+- `DEVELOPMENT_LOG.md`
+
+---
 ## 2026-01-22 — Dashboard Returns Display & Default Filter
 
 **Enhancement**: Implemented best-practice returns tracking on dashboard with today as default filter.

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
-import { productsService, categoriesService, brandsService, unitsService } from '@/api/services'
+import { productsService, categoriesService, brandsService, unitsService, stocksService } from '@/api/services'
 import { storage } from '@/lib/storage'
 import type { LocalProduct, LocalCategory } from '@/lib/db/schema'
 import { setCache, getCache, removeCache, CacheKeys } from '@/lib/cache'
@@ -234,6 +234,9 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
       const cachedUnits = getCache<Unit[]>(CacheKeys.PRODUCTS_UNITS)
       if (cachedUnits && Array.isArray(cachedUnits)) setUnits(cachedUnits)
 
+      const cachedStockValue = getCache<number>(CacheKeys.STOCKS_TOTAL_VALUE)
+      if (cachedStockValue !== null) setTotalStockValue(cachedStockValue)
+
       // Create lookup maps for joining
       const categoryMap = new Map(cachedCategories.map((c) => [c.id, c]))
       const brandMap = cachedBrands ? new Map(cachedBrands.map((b) => [b.id, b])) : new Map()
@@ -276,13 +279,6 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
         convertedProducts.sort((a, b) => b.id - a.id)
         setProducts(convertedProducts)
 
-        // Calculate stock value
-        const value = convertedProducts.reduce((sum, p) => {
-          const stock = p.stocks_sum_product_stock ?? p.productStock ?? 0
-          const price = p.stocks?.[0]?.productPurchasePrice ?? 0
-          return sum + stock * price
-        }, 0)
-        setTotalStockValue(value)
       }
 
       return cachedProducts.length > 0
@@ -311,15 +307,16 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
     }
 
     try {
-      const [productsRes, categoriesRes, brandsRes, unitsRes] = await Promise.all([
+      const [productsRes, categoriesRes, brandsRes, unitsRes, stockStatsRes] = await Promise.all([
         productsService.getAll(10000), // Get up to 10,000 products (supports large catalogs)
         categoriesService.getList({ limit: 1000, status: true }),
         brandsService.getList({ limit: 1000, status: true }),
         unitsService.getList({ limit: 1000, status: true }),
+        stocksService.getTotalValue(),
       ])
 
       setProducts(productsRes.data)
-      setTotalStockValue(productsRes.total_stock_value)
+      setTotalStockValue(stockStatsRes.data.total_value)
       setCategories(categoriesRes.data)
       setBrands(brandsRes.data)
       setUnits(unitsRes.data)
@@ -351,6 +348,7 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
       // Cache brands/units to localStorage (with TTL)
       setCache(CacheKeys.PRODUCTS_BRANDS, brandsRes.data)
       setCache(CacheKeys.PRODUCTS_UNITS, unitsRes.data)
+      setCache(CacheKeys.STOCKS_TOTAL_VALUE, stockStatsRes.data.total_value)
     } catch (err) {
       console.warn('[useProducts] API fetch failed, trying cached data:', err)
 
@@ -414,12 +412,21 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
   // Filtered products with memoization
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      // Search filter
+      // Search filter - by name, code, or barcode
       if (filters.search) {
         const query = filters.search.toLowerCase().trim()
         const matchesName = product.productName.toLowerCase().includes(query)
         const matchesCode = product.productCode?.toLowerCase().includes(query)
-        if (!matchesName && !matchesCode) return false
+        const matchesProductBarcode = product.barcode?.toLowerCase().includes(query)
+        
+        // Check variant barcodes for variable products
+        const matchesVariantBarcode = product.variants?.some((v) =>
+          v.barcode?.toLowerCase().includes(query)
+        )
+        
+        if (!matchesName && !matchesCode && !matchesProductBarcode && !matchesVariantBarcode) {
+          return false
+        }
       }
 
       // Category filter
