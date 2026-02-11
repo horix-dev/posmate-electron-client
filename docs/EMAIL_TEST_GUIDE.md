@@ -118,6 +118,7 @@ You should receive an HTML email containing:
 
 1. **YAML syntax error**
    ```bash
+   # Requires PyYAML: pip install pyyaml
    # Test YAML syntax locally
    python3 -c "import yaml; yaml.safe_load(open('.github/workflows/code-review-notification.yml'))"
    ```

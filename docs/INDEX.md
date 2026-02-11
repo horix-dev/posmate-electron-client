@@ -49,7 +49,7 @@ You now have a **complete, enterprise-grade pull request management system** for
 
 | File | Purpose | Audience |
 |------|---------|----------|
-| **docs/EMAIL_TEST_GUIDE.md** | Quick 1-minute email test | Project lead |
+| **docs/EMAIL_TEST_GUIDE.md** | Quick 1-minute email test + full troubleshooting/provider setup guide | Project lead |
 | **docs/AUTOMATED_CODE_REVIEW.md** | Complete guide to automated reviews | Project lead, DevOps |
 | **docs/NOTIFICATION_SETUP_GUIDE.md** | Quick setup for email alerts | Project lead |
 

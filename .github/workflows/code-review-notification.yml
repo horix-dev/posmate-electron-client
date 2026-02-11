@@ -198,8 +198,6 @@ jobs:
 
           # Create test email
           cat > test-notification.txt << EOF
-          Subject: [TEST] Email Notification Test - ${BRANCH}
-
           Test Email Notification
           =======================
 
