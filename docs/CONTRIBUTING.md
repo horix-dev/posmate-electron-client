@@ -55,13 +55,13 @@ We use **Git Flow** with the following branch structure:
 ### Main Branches
 
 - **`main`** (production-ready)
-  - Protected branch - requires pull request reviews
-  - All commits must be from merged PRs
+  - Open for direct push by anyone with write permission
+  - All commits can be direct pushes or from merged PRs
   - Automatically deployed to production
 
 - **`develop`** (integration branch)
-  - Protected branch - requires pull request reviews
-  - Base branch for feature branches
+  - Open for direct push by anyone with write permission
+  - Base branch for feature branches (optional)
   - Integration point for features
 
 ### Supporting Branches
@@ -140,13 +140,27 @@ git rebase origin/develop
 # 3. git rebase --continue
 ```
 
-### Step 4: Push Your Branch
+### Step 4: Push Your Changes
 
+You can either:
+
+**Option 1: Push directly to develop or main**
+```powershell
+# Push directly to develop
+git push origin develop
+
+# Or push directly to main (for production-ready changes)
+git push origin main
+```
+
+**Option 2: Push feature branch and create a Pull Request (optional)**
 ```powershell
 git push origin feature/your-feature
 ```
 
-### Step 5: Create a Pull Request
+Then create a PR on GitHub for team review and discussion.
+
+### Step 5: Pull Request (Optional)
 
 See [Pull Request Process](#pull-request-process)
 
@@ -154,7 +168,12 @@ See [Pull Request Process](#pull-request-process)
 
 ## Pull Request Process
 
-### Before Creating a PR
+**Note:** Pull requests are now optional. You can push directly to `main` or `develop` if you have write permission. However, PRs are still useful for:
+- Getting feedback on complex changes
+- Documenting major features
+- Team discussion and collaboration
+
+### Before Pushing or Creating a PR
 
 **Checklist:**
 
@@ -167,7 +186,9 @@ See [Pull Request Process](#pull-request-process)
 - [ ] No merge conflicts
 - [ ] DEVELOPMENT_LOG.md updated with changes (if applicable)
 
-### Creating a PR
+### Creating a PR (Optional)
+
+If you choose to use a pull request:
 
 1. **Push your branch to GitHub**
    ```powershell
@@ -221,18 +242,22 @@ See [Pull Request Process](#pull-request-process)
    - [ ] Documentation updated
    ```
 
-### PR Review Process
+### PR Review Process (Optional)
 
-1. **At least 2 approvals required** before merging
-2. **All CI checks must pass**
-3. **No conflicts with develop branch**
-4. **Address all review comments**
+When using PRs, consider these guidelines:
 
-### Merging PR
+1. **Request reviews** from team members (optional)
+2. **CI checks** will run automatically (not required to pass)
+3. **Address review comments** if any are provided
+4. **Merge when ready** - no approval requirements
 
+### Merging (When Using PRs)
+
+When you use a PR, you can:
+- **Merge immediately** - no approval required
 - **Squash and merge** for small changes (1-3 commits)
 - **Create a merge commit** for larger features (10+ commits)
-- Delete branch after merging
+- Delete branch after merging (optional)
 
 ---
 
@@ -443,10 +468,10 @@ Approve with suggestions for:
 
 ### For PR Authors
 
-- **Respond to all comments** - even if you disagree, explain why
-- **Keep scope small** - easier to review, easier to merge
-- **Request re-review** after making changes
-- **Don't merge your own PRs** - always have another reviewer
+- **Respond to comments** if you get feedback
+- **Keep scope manageable** - easier to review and understand
+- **Self-merge is allowed** - you can merge your own PRs
+- **Request reviews if desired** - optional but can be helpful
 
 ---
 
