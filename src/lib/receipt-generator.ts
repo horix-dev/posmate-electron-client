@@ -7,11 +7,16 @@
 
 import type { Sale, Business, Party } from '@/types/api.types'
 import { formatCurrency as formatCurrencyUtil } from '@/hooks/useCurrency'
+import { useUIStore } from '@/stores/ui.store'
 
 export interface ReceiptData {
   sale: Sale
   business: Business | null
   customer: Party | null
+}
+
+type ReceiptPrintOptions = {
+  printerName?: string | null
 }
 
 /**
@@ -434,7 +439,10 @@ function isElectron(): boolean {
  * @param data - Receipt data including sale, business info, and customer
  * @returns Promise<boolean> - true if print was triggered successfully
  */
-export async function printReceipt(data: ReceiptData): Promise<boolean> {
+export async function printReceipt(
+  data: ReceiptData,
+  options?: ReceiptPrintOptions
+): Promise<boolean> {
   try {
     // console.log('[PrintReceipt] Starting print process...')
     // console.log('[PrintReceipt] Is Electron?', isElectron())
@@ -450,8 +458,10 @@ export async function printReceipt(data: ReceiptData): Promise<boolean> {
 
     // Silent print via Electron (no dialogs, no popups)
     if (isElectron()) {
+      const preferredPrinter = options?.printerName ?? useUIStore.getState().receiptPrinterName
+      const printOptions = preferredPrinter ? { printerName: preferredPrinter } : undefined
       console.log('[PrintReceipt] Calling Electron print API...')
-      const result = await window.electronAPI?.print?.receiptHTML(html)
+      const result = await window.electronAPI?.print?.receiptHTML(html, printOptions)
       console.log('[PrintReceipt] Electron API returned:', result)
       return result?.success ?? false
     }
@@ -475,7 +485,8 @@ export async function printReceipt(data: ReceiptData): Promise<boolean> {
 export async function printReceiptWithFeedback(
   data: ReceiptData,
   onSuccess?: () => void,
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
+  options?: ReceiptPrintOptions
 ): Promise<void> {
   if (!data.sale) {
     const message = 'Cannot print receipt: Sale data not available'
@@ -491,7 +502,7 @@ export async function printReceiptWithFeedback(
     return
   }
 
-  const success = await printReceipt(data)
+  const success = await printReceipt(data, options)
 
   if (success) {
     onSuccess?.()

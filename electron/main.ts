@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import type { PrinterInfo } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'fs'
@@ -540,8 +541,40 @@ ipcMain.handle(
   }
 )
 
+type PrintJobOptions = {
+  printerName?: string
+}
+
+function resolvePrinter(printers: PrinterInfo[], preferredName?: string): PrinterInfo | null {
+  if (!printers.length) {
+    return null
+  }
+
+  if (preferredName) {
+    const match = printers.find((printer) => printer.name === preferredName)
+    if (match) {
+      return match
+    }
+    console.warn(`🖨️ [PRINT] Preferred printer "${preferredName}" not found. Falling back to default.`)
+  }
+
+  const defaultPrinter = printers.find((printer) => printer.isDefault)
+  return defaultPrinter ?? printers[0]
+}
+
+ipcMain.handle('get-printers', async () => {
+  const targetWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+
+  if (!targetWindow) {
+    console.warn('🖨️ [PRINT] Cannot list printers: no renderer window available')
+    return []
+  }
+
+  return targetWindow.webContents.getPrintersAsync()
+})
+
 // Silent printing handler (URL-based)
-ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
+ipcMain.handle('print-receipt', async (_event, invoiceUrl: string, options?: PrintJobOptions) => {
   try {
     // Create hidden window to load and print the invoice
     const printWindow = new BrowserWindow({
@@ -560,12 +593,19 @@ ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
     // Wait for content to load
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    // Silent print with default printer
+    const printers = await printWindow.webContents.getPrintersAsync()
+    const targetPrinter = resolvePrinter(printers, options?.printerName)
+
+    if (!targetPrinter) {
+      throw new Error('No printers available on this system')
+    }
+
+    // Silent print with configured printer
     await printWindow.webContents.print(
       {
         silent: true, // No dialog
         printBackground: true,
-        deviceName: '', // Use default printer
+        deviceName: targetPrinter.name,
       },
       (success, errorType) => {
         if (!success) {
@@ -587,7 +627,7 @@ ipcMain.handle('print-receipt', async (_event, invoiceUrl: string) => {
 })
 
 // Silent printing handler (HTML-based)
-ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
+ipcMain.handle('print-receipt-html', async (_event, htmlContent: string, options?: PrintJobOptions) => {
   console.log('🖨️ [PRINT] Receipt print requested, HTML length:', htmlContent.length)
 
   // Debug mode: show the window to see what's being printed
@@ -621,25 +661,24 @@ ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
     const printers = await printWindow.webContents.getPrintersAsync()
     console.log('🖨️ [PRINT] Found', printers.length, 'printer(s)')
 
-    const defaultPrinter = printers.find((p) => p.isDefault)
+    const targetPrinter = resolvePrinter(printers, options?.printerName)
 
-    if (!defaultPrinter) {
-      console.error('🖨️ [PRINT] ❌ No default printer found!')
-      console.log('🖨️ [PRINT] Available printers:', printers.map((p) => p.name).join(', '))
+    if (!targetPrinter) {
+      console.error('🖨️ [PRINT] ❌ No printers detected!')
       printWindow.close()
       return {
         success: false,
-        error: 'No default printer found. Please set a default printer in Windows.',
+        error: 'No printers available. Please connect or install a printer.',
       }
     }
 
-    console.log('🖨️ [PRINT] ✓ Default printer:', defaultPrinter.name)
+    console.log('🖨️ [PRINT] ✓ Selected printer:', targetPrinter.name)
     console.log('🖨️ [PRINT] Printer details:', {
-      name: defaultPrinter.name,
-      displayName: defaultPrinter.displayName,
-      description: defaultPrinter.description,
-      status: defaultPrinter.status,
-      isDefault: defaultPrinter.isDefault,
+      name: targetPrinter.name,
+      displayName: targetPrinter.displayName,
+      description: targetPrinter.description,
+      status: targetPrinter.status,
+      isDefault: targetPrinter.isDefault,
     })
 
     // Try silent print first, with fallback to dialog
@@ -650,7 +689,7 @@ ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
         {
           silent: true, // Try silent first
           printBackground: true,
-          deviceName: defaultPrinter.name,
+          deviceName: targetPrinter.name,
           margins: { marginType: 'none' },
           pageSize: { width: 80000, height: 297000 }, // 80mm width for thermal printers
           scaleFactor: 100,
@@ -668,7 +707,7 @@ ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
               {
                 silent: false, // Show dialog as fallback
                 printBackground: true,
-                deviceName: defaultPrinter.name,
+                deviceName: targetPrinter.name,
               },
               (success2, errorType2) => {
                 if (success2) {
@@ -712,7 +751,12 @@ ipcMain.handle('print-receipt-html', async (_event, htmlContent: string) => {
 // Silent printing handler with custom page size for labels
 ipcMain.handle(
   'print-receipt-html-with-page-size',
-  async (_event, htmlContent: string, pageSize: { width: number; height: number }) => {
+  async (
+    _event,
+    htmlContent: string,
+    pageSize: { width: number; height: number },
+    options?: PrintJobOptions
+  ) => {
     console.log('🖨️ Print labels requested with custom page size:', pageSize)
 
     let printWindow: BrowserWindow | null = new BrowserWindow({
@@ -737,16 +781,16 @@ ipcMain.handle(
 
       // Get printers
       const printers = await printWindow.webContents.getPrintersAsync()
-      const defaultPrinter = printers.find((p) => p.isDefault)
+      const targetPrinter = resolvePrinter(printers, options?.printerName)
 
-      if (!defaultPrinter) {
-        console.error('🖨️ No default printer found')
+      if (!targetPrinter) {
+        console.error('🖨️ No printers detected for label printing')
         console.log('🖨️ Available printers:', printers.map((p) => p.name).join(', '))
         printWindow.close()
-        return { success: false, error: 'No default printer found' }
+        return { success: false, error: 'No printers available' }
       }
 
-      console.log('🖨️ Printing to:', defaultPrinter.name)
+      console.log('🖨️ Printing to:', targetPrinter.name)
 
       console.log('🖨️ Custom page size (microns):', {
         widthMicrons: pageSize.width,
@@ -759,7 +803,7 @@ ipcMain.handle(
           {
             silent: true,
             printBackground: true,
-            deviceName: defaultPrinter.name,
+            deviceName: targetPrinter.name,
             margins: { marginType: 'none' },
             pageSize: {
               width: pageSize.width,

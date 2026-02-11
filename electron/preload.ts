@@ -20,10 +20,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Receipt Printing
   print: {
-    receipt: (invoiceUrl: string) => ipcRenderer.invoke('print-receipt', invoiceUrl),
-    receiptHTML: (htmlContent: string) => ipcRenderer.invoke('print-receipt-html', htmlContent),
-    receiptHTMLWithPageSize: (htmlContent: string, pageSize: { width: number; height: number }) => 
-      ipcRenderer.invoke('print-receipt-html-with-page-size', htmlContent, pageSize),
+    receipt: (invoiceUrl: string, options?: { printerName?: string }) =>
+      ipcRenderer.invoke('print-receipt', invoiceUrl, options),
+    receiptHTML: (htmlContent: string, options?: { printerName?: string }) =>
+      ipcRenderer.invoke('print-receipt-html', htmlContent, options),
+    receiptHTMLWithPageSize: (
+      htmlContent: string,
+      pageSize: { width: number; height: number },
+      options?: { printerName?: string }
+    ) => ipcRenderer.invoke('print-receipt-html-with-page-size', htmlContent, pageSize, options),
+    getPrinters: () => ipcRenderer.invoke('get-printers'),
   },
 
   // SQLite Database

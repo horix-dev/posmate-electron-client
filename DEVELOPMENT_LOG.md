@@ -1,3 +1,35 @@
+## 2026-02-11 — Dedicated Printer Routing
+
+**Feature**: Allow merchants to assign separate silent-print targets for thermal receipts and barcode labels without showing print dialogs.
+
+**Highlights**:
+1. **UI Store Enhancements**
+   - Added `receiptPrinterName` and `labelPrinterName` (persisted) with setters.
+   - Existing tests updated to cover the new state.
+
+2. **Settings UI**
+   - POS Settings card now lists Windows printers (desktop app) and lets users pick receipt/label devices via dropdowns.
+   - Added refresh control and helpful status messaging when printers are unavailable.
+
+3. **Electron Bridge**
+   - `ipcMain` exposes `get-printers` and all print handlers accept `printerName` overrides.
+   - Preload/renderer typings updated with the new API surface.
+
+4. **Printing Workflow**
+   - Receipt prints automatically target the preferred device via `receipt-generator`.
+   - Label printing page uses the dedicated label printer when invoking Electron.
+
+**Files Modified/Created**:
+- electron/main.ts
+- electron/preload.ts
+- src/types/electron.d.ts
+- src/stores/ui.store.ts
+- src/__tests__/stores/ui.store.test.ts
+- src/pages/settings/SettingsPage.tsx
+- src/pages/product-settings/components/print-labels/PrintLabelsPage.tsx
+- src/lib/receipt-generator.ts
+
+---
 ## 2026-01-22 — Dashboard Returns Display & Default Filter
 
 **Enhancement**: Implemented best-practice returns tracking on dashboard with today as default filter.
