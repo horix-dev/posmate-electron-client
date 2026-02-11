@@ -11,6 +11,20 @@ type AsyncFn<Args extends unknown[] = unknown[], Result = unknown> = (
   ...args: Args
 ) => Promise<Result>
 
+export interface RendererPrinterInfo {
+  name: string
+  displayName?: string
+  description?: string
+  status?: number
+  isDefault?: boolean
+  options?: Record<string, string>
+}
+
+export type PrintInvokeResult = {
+  success: boolean
+  error?: string
+}
+
 export interface WindowControls {
   minimize: () => void
   maximize: () => void
@@ -182,8 +196,17 @@ export interface ElectronAPI {
   }
   sqlite?: ElectronSQLiteAPI
   print?: {
-    receipt: (url: string) => Promise<{ success: boolean }>
-    receiptHTML: (htmlContent: string) => Promise<{ success: boolean }>
+    receipt: (url: string, options?: { printerName?: string }) => Promise<PrintInvokeResult>
+    receiptHTML: (
+      htmlContent: string,
+      options?: { printerName?: string }
+    ) => Promise<PrintInvokeResult>
+    receiptHTMLWithPageSize?: (
+      htmlContent: string,
+      pageSize: { width: number; height: number },
+      options?: { printerName?: string }
+    ) => Promise<PrintInvokeResult>
+    getPrinters?: () => Promise<RendererPrinterInfo[]>
   }
   getDeviceId?: () => Promise<string>
   getAppInfo?: () => Promise<{

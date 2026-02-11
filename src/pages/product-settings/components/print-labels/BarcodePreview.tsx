@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { LabelPayload } from '@/api/services/print-labels.service'
+import { useCurrency } from '@/hooks/useCurrency'
 
 interface BarcodePreviewProps {
   barcodes: LabelPayload[]
@@ -15,6 +16,8 @@ const paperDimensions: Record<string, { width: string; height: string; cols: num
 
 export function BarcodePreview({ barcodes, paperSetting }: BarcodePreviewProps) {
   const dims = paperDimensions[paperSetting] || paperDimensions['1']
+
+  const { format: formatCurrency } = useCurrency()
 
   // console.log('barcodes => ', barcodes);
   const convertPtToPixels = (pt: number): number => {
@@ -69,7 +72,7 @@ export function BarcodePreview({ barcodes, paperSetting }: BarcodePreviewProps) 
                             fontSize: `${convertPtToPixels(barcode.product_price_size)}px`,
                           }}
                         >
-                          ${barcode.product_price.toFixed(2)}
+                          {formatCurrency(barcode.product_price)}
                         </div>
                       )}
 

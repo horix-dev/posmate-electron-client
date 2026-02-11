@@ -12,6 +12,7 @@ import {
   Package,
   X,
   Percent,
+  ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -22,6 +23,13 @@ import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { CachedImage } from '@/components/common/CachedImage'
 import { toast } from 'sonner'
 import { useCurrency } from '@/hooks'
@@ -60,11 +68,13 @@ export interface CartSidebarProps {
   /** Discount type */
   discountType: 'fixed' | 'percentage'
   /** Callback to update item quantity */
-  onUpdateQuantity: (productId: number, quantity: number) => void
+  onUpdateQuantity: (itemId: string, quantity: number) => void
   /** Callback to update item discount */
   onUpdateItemDiscount?: (itemId: string, discount: number, type: 'fixed' | 'percentage') => void
   /** Callback to remove item */
-  onRemoveItem: (productId: number) => void
+  onRemoveItem: (itemId: string) => void
+  /** Callback to switch batches */
+  onChangeBatch?: (itemId: string, batchId: number) => void
   /** Callback to clear cart */
   onClearCart: () => void
   /** Callback to hold cart */
@@ -365,9 +375,10 @@ interface CartItemRowProps {
   item: CartItemDisplay
   isHero?: boolean
   showDiscountColumn?: boolean
-  onUpdateQuantity: (productId: number, quantity: number) => void
+  onUpdateQuantity: (itemId: string, quantity: number) => void
   onUpdateDiscount?: (itemId: string, discount: number, type: 'fixed' | 'percentage') => void
-  onRemoveItem: (productId: number) => void
+  onRemoveItem: (itemId: string) => void
+  onChangeBatch?: (itemId: string, batchId: number) => void
 }
 
 const CartItemRow = memo(function CartItemRow({
@@ -377,6 +388,7 @@ const CartItemRow = memo(function CartItemRow({
   onUpdateQuantity,
   onUpdateDiscount,
   onRemoveItem,
+  onChangeBatch,
 }: CartItemRowProps) {
   const { format: formatCurrency } = useCurrency()
 
@@ -390,12 +402,24 @@ const CartItemRow = memo(function CartItemRow({
       : itemDiscount * item.quantity
   const lineTotal = Math.max(0, subtotal - discountAmount)
   const hasDiscount = discountAmount > 0
+  const batchOptions = item.batchOptions ?? []
+  const canChangeBatch = batchOptions.length > 1 && Boolean(onChangeBatch)
+  const currentBatch = canChangeBatch
+    ? (batchOptions.find((batch) => batch.id === item.selectedBatchId) ?? batchOptions[0])
+    : null
+  const batchLabel = currentBatch
+    ? `${currentBatch.batchNo ? `Batch ${currentBatch.batchNo}` : `Batch #${currentBatch.id}`}${currentBatch.expireDate ? ` · Exp ${new Date(currentBatch.expireDate).toLocaleDateString()}` : ''}`
+    : 'Select batch'
+  const batchMeta = currentBatch
+    ? `Stock: ${currentBatch.productStock ?? 0}${currentBatch.productSalePrice ? ` · ${formatCurrency(currentBatch.productSalePrice)}` : ''}`
+    : 'Choose a batch to sync price'
 
   // Discount popover state
   const [discountOpen, setDiscountOpen] = useState(false)
   const [amountStr, setAmountStr] = useState('')
   const [percentStr, setPercentStr] = useState('')
   const [activeDiscountType, setActiveDiscountType] = useState<'fixed' | 'percentage'>('percentage')
+  const [batchOpen, setBatchOpen] = useState(false)
 
   // Sync local state when popover opens
   useEffect(() => {
@@ -531,6 +555,72 @@ const CartItemRow = memo(function CartItemRow({
                 Batch: {item.batchNo}
               </span>
             )}
+            {canChangeBatch && onChangeBatch && (
+              <Popover open={batchOpen} onOpenChange={setBatchOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="mt-2 inline-flex h-9 w-full items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 text-left text-[11px] font-semibold text-primary shadow-sm transition hover:border-primary"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Package className="h-3 w-3" aria-hidden="true" />
+                      <span className="truncate uppercase tracking-wide">Batch & Pricing</span>
+                    </span>
+                    <span className="ml-2 hidden flex-1 truncate text-[10px] font-normal text-muted-foreground lg:block">
+                      {batchLabel}
+                    </span>
+                    <ChevronDown
+                      className="ml-2 h-3 w-3 shrink-0 text-primary"
+                      aria-hidden="true"
+                    />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 space-y-3 rounded-lg border border-primary/20 bg-background p-4 shadow-2xl">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Selected Batch</p>
+                    <p className="text-sm font-semibold text-foreground">{batchLabel}</p>
+                    <p className="text-[11px] text-muted-foreground">{batchMeta}</p>
+                  </div>
+                  <Select
+                    value={item.selectedBatchId ? item.selectedBatchId.toString() : undefined}
+                    onValueChange={(value) => {
+                      onChangeBatch(item.id, Number(value))
+                      setBatchOpen(false)
+                    }}
+                  >
+                    <SelectTrigger className="h-10 w-full justify-between rounded-md border border-input bg-muted/40 px-3 text-left text-sm font-medium">
+                      <SelectValue placeholder="Choose batch" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 w-full text-xs">
+                      {batchOptions.map((batch) => (
+                        <SelectItem
+                          key={batch.id}
+                          value={batch.id.toString()}
+                          disabled={batch.disabled}
+                          className="space-y-0.5 border-b border-border/40 py-2 text-xs last:border-none"
+                        >
+                          <div className="font-medium text-foreground">
+                            {batch.batchNo ? `Batch ${batch.batchNo}` : `Batch #${batch.id}`}
+                            {batch.expireDate
+                              ? ` · Exp ${new Date(batch.expireDate).toLocaleDateString()}`
+                              : ''}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            Stock: {batch.productStock ?? 0}
+                            {batch.productSalePrice
+                              ? ` · ${formatCurrency(batch.productSalePrice)}`
+                              : ''}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    Selecting a batch automatically updates available quantity and unit price.
+                  </p>
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
         </div>
       </td>
@@ -540,7 +630,7 @@ const CartItemRow = memo(function CartItemRow({
             variant="outline"
             size="icon"
             className="h-6 w-6"
-            onClick={() => onUpdateQuantity(item.productId, item.quantity - 1)}
+            onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
             disabled={item.quantity <= 1}
             aria-label={`Decrease ${item.productName} quantity`}
           >
@@ -552,7 +642,7 @@ const CartItemRow = memo(function CartItemRow({
             onChange={(e) => {
               const newQty = parseInt(e.target.value, 10)
               if (!isNaN(newQty) && newQty >= 1 && newQty <= item.maxStock) {
-                onUpdateQuantity(item.productId, newQty)
+                onUpdateQuantity(item.id, newQty)
               }
             }}
             onFocus={(e) => e.target.select()}
@@ -565,7 +655,7 @@ const CartItemRow = memo(function CartItemRow({
             variant="outline"
             size="icon"
             className="h-6 w-6"
-            onClick={() => onUpdateQuantity(item.productId, item.quantity + 1)}
+            onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
             disabled={item.quantity >= item.maxStock}
             aria-label={`Increase ${item.productName} quantity`}
           >
@@ -759,7 +849,7 @@ const CartItemRow = memo(function CartItemRow({
             variant="ghost"
             size="icon"
             className="h-6 w-6 text-destructive hover:bg-destructive/10"
-            onClick={() => onRemoveItem(item.productId)}
+            onClick={() => onRemoveItem(item.id)}
             aria-label={`Remove ${item.productName} from cart`}
           >
             <Trash2 className="h-3 w-3" aria-hidden="true" />
@@ -807,6 +897,7 @@ function CartSidebarComponent({
   onUpdateQuantity,
   onUpdateItemDiscount,
   onRemoveItem,
+  onChangeBatch,
   onClearCart,
   onHoldCart,
   onOpenHeldCarts,
@@ -883,6 +974,7 @@ function CartSidebarComponent({
                       onUpdateQuantity={onUpdateQuantity}
                       onUpdateDiscount={onUpdateItemDiscount}
                       onRemoveItem={onRemoveItem}
+                      onChangeBatch={onChangeBatch}
                     />
                   ))}
                 </tbody>

@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Package, Loader2, Layers, ArrowLeft, Save, Plus, Barcode } from 'lucide-react'
+import { Package, Loader2, Layers, ArrowLeft, Save, Plus, Barcode, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -26,15 +26,14 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import type { VariantInputData } from './schemas'
 import {
   productFormSchema,
-  type ProductFormData,
   defaultProductFormValues,
   formDataToFormData,
   formDataToVariableProductPayload,
   productToFormData,
 } from './schemas'
+import type { ProductFormData, VariantInputData, BatchFormValue } from './schemas'
 import { VariantManager } from './components/VariantManager'
 import { useProducts, useAttributes, DEFAULT_FILTERS } from './hooks'
 import { CategoryDialog } from '../product-settings/components/categories/CategoryDialog'
@@ -49,6 +48,18 @@ import { productsService } from '@/api/services'
 
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024 // 2MB
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+
+const createEmptyBatchEntry = (overrides?: Partial<BatchFormValue>): BatchFormValue => ({
+  batch_no: '',
+  productStock: '',
+  productPurchasePrice: '',
+  productSalePrice: '',
+  productWholeSalePrice: '',
+  productDealerPrice: '',
+  mfg_date: '',
+  expire_date: '',
+  ...overrides,
+})
 
 // ============================================
 // Main Component
@@ -86,6 +97,68 @@ export default function ProductFormPage() {
   // Watch product type
   const productType = form.watch('product_type')
   const isVariableProduct = productType === 'variable'
+  const isBatchTracked = form.watch('is_batch_tracked')
+
+  const {
+    fields: batchFields,
+    append: appendBatch,
+    remove: removeBatch,
+  } = useFieldArray({
+    control: form.control,
+    name: 'batches',
+  })
+
+  const generateBatchNumber = useCallback(() => {
+    const now = new Date()
+    const datePart = `${now.getFullYear().toString().slice(-2)}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+    const randomSegment = Math.random().toString(36).slice(2, 8).toUpperCase()
+    return `LOT-${datePart}-${randomSegment}`
+  }, [])
+
+  useEffect(() => {
+    if (isBatchTracked && !isVariableProduct) {
+      const currentBatches = form.getValues('batches')
+      if (!currentBatches || currentBatches.length === 0) {
+        appendBatch(createEmptyBatchEntry({ batch_no: generateBatchNumber() }))
+        return
+      }
+
+      let mutated = false
+      const updatedBatches = currentBatches.map((batch) => {
+        let nextBatch = batch
+        if (!nextBatch.batch_no) {
+          mutated = true
+          nextBatch = { ...nextBatch, batch_no: generateBatchNumber() }
+        }
+        return nextBatch
+      })
+
+      if (mutated) {
+        form.setValue('batches', updatedBatches)
+      }
+    }
+  }, [appendBatch, form, generateBatchNumber, isBatchTracked, isVariableProduct])
+
+  useEffect(() => {
+    if (!isBatchTracked) {
+      form.setValue('batches', [])
+    }
+  }, [form, isBatchTracked])
+
+  const handleAddBatchRow = useCallback(() => {
+    appendBatch(createEmptyBatchEntry({ batch_no: generateBatchNumber() }))
+  }, [appendBatch, generateBatchNumber])
+
+  const handleRemoveBatchRow = useCallback(
+    (index: number) => {
+      const currentBatches = form.getValues('batches') || []
+      if (currentBatches.length <= 1) {
+        return
+      }
+      removeBatch(index)
+    },
+    [form, removeBatch]
+  )
 
   // Fetch product data for edit mode
   useEffect(() => {
@@ -117,10 +190,12 @@ export default function ProductFormPage() {
           unit_id: formData.unit_id,
           alert_qty: formData.alert_qty,
           product_type: formData.product_type,
+          is_batch_tracked: formData.is_batch_tracked,
           productPurchasePrice: formData.productPurchasePrice,
           productSalePrice: formData.productSalePrice,
           productStock: formData.productStock,
           description: formData.description,
+          batches: formData.batches,
         })
 
         // Set variants if variable product
@@ -228,7 +303,24 @@ export default function ProductFormPage() {
 
   // Handle form submission
   const handleSubmit = useCallback(
-    async (data: ProductFormData) => {
+    async (formValues: ProductFormData) => {
+      const normalizedBatches =
+        formValues.batches?.map((batch) => ({
+          batch_no: batch.batch_no?.trim() || '',
+          productStock: batch.productStock?.trim() || '',
+          productPurchasePrice: batch.productPurchasePrice?.trim() || '',
+          productSalePrice: batch.productSalePrice?.trim() || '',
+          productWholeSalePrice: batch.productWholeSalePrice?.trim() || '',
+          productDealerPrice: batch.productDealerPrice?.trim() || '',
+          mfg_date: batch.mfg_date?.trim() || '',
+          expire_date: batch.expire_date?.trim() || '',
+        })) || []
+
+      const data: ProductFormData = {
+        ...formValues,
+        batches: normalizedBatches,
+      }
+
       // Validate variants for variable products
       if (data.product_type === 'variable' && variants.length === 0) {
         toast.error('Variable products must have at least one variant')
@@ -252,6 +344,22 @@ export default function ProductFormPage() {
           toast.error(
             `Duplicate SKUs found: ${duplicates.join(', ')}. Each variant must have a unique SKU.`
           )
+          return
+        }
+      }
+
+      if (data.product_type === 'simple' && data.is_batch_tracked) {
+        if (!data.batches || data.batches.length === 0) {
+          toast.error('Add at least one batch entry before saving this product')
+          return
+        }
+
+        const invalidBatch = data.batches.find(
+          (batch) => !batch.batch_no || !batch.productStock || Number(batch.productStock) <= 0
+        )
+
+        if (invalidBatch) {
+          toast.error('Each batch needs a batch number and a quantity greater than zero')
           return
         }
       }
@@ -667,6 +775,200 @@ export default function ProductFormPage() {
             </div>
           </div>
 
+          {/* Card 3: Batch Entries */}
+          {!isVariableProduct && isBatchTracked && (
+            <div className="rounded-lg border bg-card p-6">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h3 className="flex items-center gap-2 text-lg font-semibold">
+                  <Package className="h-5 w-5 text-primary" />
+                  Batch Entries
+                </h3>
+                <Button type="button" variant="outline" size="sm" onClick={handleAddBatchRow}>
+                  <Plus className="mr-2 h-4 w-4" /> Add Batch
+                </Button>
+              </div>
+              <p className="mb-6 text-sm text-muted-foreground">
+                Capture one row per lot so the backend can create a proper stock record for each
+                batch. You can still add more via Purchases or Stock Adjustments after creation.
+              </p>
+
+              {batchFields.length === 0 && (
+                <div className="rounded-md border border-dashed border-muted-foreground/40 p-4 text-sm text-muted-foreground">
+                  No batches added yet.
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {batchFields.map((field, index) => (
+                  <div key={field.id} className="rounded-lg border p-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <FormField
+                        control={form.control}
+                        name={`batches.${index}.batch_no`}
+                        render={({ field: batchField }) => (
+                          <FormItem>
+                            <FormLabel>Batch / Lot Number</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...batchField}
+                                placeholder="Auto-generated"
+                                readOnly
+                                disabled
+                                className="cursor-not-allowed bg-muted/60 text-muted-foreground"
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Created automatically and cannot be changed.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`batches.${index}.productStock`}
+                        render={({ field: qtyField }) => (
+                          <FormItem>
+                            <FormLabel>Quantity</FormLabel>
+                            <FormControl>
+                              <Input type="number" min="0" placeholder="0" {...qtyField} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="mt-4 grid gap-4 md:grid-cols-4">
+                      <FormField
+                        control={form.control}
+                        name={`batches.${index}.productPurchasePrice`}
+                        render={({ field: purchaseField }) => (
+                          <FormItem>
+                            <FormLabel>Purchase Price</FormLabel>
+                            <FormControl>
+                              <CurrencyInput
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                {...purchaseField}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`batches.${index}.productSalePrice`}
+                        render={({ field: saleField }) => (
+                          <FormItem>
+                            <FormLabel>Sale Price</FormLabel>
+                            <FormControl>
+                              <CurrencyInput
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                {...saleField}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`batches.${index}.productWholeSalePrice`}
+                        render={({ field: wholesaleField }) => (
+                          <FormItem>
+                            <FormLabel>Wholesale Price</FormLabel>
+                            <FormControl>
+                              <CurrencyInput
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                {...wholesaleField}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`batches.${index}.productDealerPrice`}
+                        render={({ field: dealerField }) => (
+                          <FormItem>
+                            <FormLabel>Dealer Price</FormLabel>
+                            <FormControl>
+                              <CurrencyInput
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                {...dealerField}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="mt-4 grid gap-4 md:grid-cols-3">
+                      <FormField
+                        control={form.control}
+                        name={`batches.${index}.mfg_date`}
+                        render={({ field: mfgField }) => (
+                          <FormItem>
+                            <FormLabel>Manufacturing Date</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...mfgField} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`batches.${index}.expire_date`}
+                        render={({ field: expField }) => (
+                          <FormItem>
+                            <FormLabel>Expiry Date</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...expField} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="flex items-end justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveBatchRow(index)}
+                          disabled={batchFields.length === 1}
+                          aria-label="Remove batch"
+                          title={
+                            batchFields.length === 1
+                              ? 'At least one batch entry is required'
+                              : 'Remove batch'
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Card 3: Pricing & Inventory (Simple Product Only) */}
           {!isVariableProduct && (
             <div className="rounded-lg border bg-card p-6">
@@ -713,7 +1015,7 @@ export default function ProductFormPage() {
                     </FormItem>
                   )}
                 />
-                {!isEditMode && (
+                {!isEditMode && !isBatchTracked && (
                   <FormField
                     control={form.control}
                     name="productStock"
@@ -729,6 +1031,13 @@ export default function ProductFormPage() {
                   />
                 )}
               </div>
+
+              {isBatchTracked && (
+                <div className="rounded-md border border-dashed border-muted-foreground/40 p-4 text-sm text-muted-foreground">
+                  Stock quantities are captured per batch. Use the Batch Entries section below to
+                  define the initial lots for this product.
+                </div>
+              )}
 
               {isEditMode && (
                 <>

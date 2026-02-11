@@ -16,7 +16,7 @@ import { type BarcodeBatchItem } from '@/api/services/barcodes.service'
 import { type LabelPayload } from '@/api/services/print-labels.service'
 import { productsService } from '@/api/services/products.service'
 import { useCurrency } from '@/hooks/useCurrency'
-import { useBusinessStore } from '@/stores'
+import { useBusinessStore, useUIStore } from '@/stores'
 
 import { LabelConfiguration } from './LabelConfiguration'
 import { SelectedProductsTable } from './SelectedProductsTable'
@@ -63,6 +63,7 @@ const bwip: BwipJs = bwipjs as unknown as BwipJs
 export function PrintLabelsPage() {
   const { format: formatCurrency } = useCurrency()
   const business = useBusinessStore((state) => state.business)
+  const labelPrinterName = useUIStore((state) => state.labelPrinterName)
 
   type BarcodeTypeOpt = { value: string; label: string }
   type PaperSettingOpt = { value: string; label: string; name: string; dimensions?: string }
@@ -114,14 +115,14 @@ export function PrintLabelsPage() {
     ]
     const defaultPaperSettings = [
       {
-        value: '2',
-        label: 'Labels Roll-Label Size 2"x1", 50mmx25mm, Gap:3.1mm',
-        name: 'Labels Roll-Label Size 2"x1", 50mmx25mm, Gap:3.1mm',
-      },
-      {
         value: '1',
         label: 'Labels Roll-Label Size 1.5"x1", 38mmx25mm, Gap:3.1mm',
         name: 'Labels Roll-Label Size 1.5"x1", 38mmx25mm, Gap:3.1mm',
+      },
+      {
+        value: '2',
+        label: 'Labels Roll-Label Size 2"x1", 50mmx25mm, Gap:3.1mm',
+        name: 'Labels Roll-Label Size 2"x1", 50mmx25mm, Gap:3.1mm',
       },
       {
         value: '3',
@@ -131,7 +132,7 @@ export function PrintLabelsPage() {
     ]
     setSettings({ barcode_types: defaultBarcodeTypes, paper_settings: defaultPaperSettings })
     setBarcodeType('code128')
-    setBarcodeSetting('2')
+    setBarcodeSetting('1')
     setLoadingSettings(false)
   }, [])
 
@@ -549,7 +550,7 @@ export function PrintLabelsPage() {
     .product-name-top {
       width: 100%;
       font-weight: bold;
-      font-size: 14px;
+      font-size: 12px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -669,12 +670,17 @@ export function PrintLabelsPage() {
           print?: {
             receiptHTMLWithPageSize?: (
               html: string,
-              pageSize: { width: number; height: number }
+              pageSize: { width: number; height: number },
+              options?: { printerName?: string }
             ) => Promise<{ success: boolean; error?: string }>
-            receiptHTML?: (html: string) => Promise<{ success: boolean; error?: string }>
+            receiptHTML?: (
+              html: string,
+              options?: { printerName?: string }
+            ) => Promise<{ success: boolean; error?: string }>
           }
         }
       }
+      const printerOptions = labelPrinterName ? { printerName: labelPrinterName } : undefined
 
       console.log('Electron API check:', {
         hasElectronAPI: !!electronWindow.electronAPI,
@@ -687,10 +693,14 @@ export function PrintLabelsPage() {
         // Use Electron silent print with custom page size
         console.log('Using receiptHTMLWithPageSize')
         try {
-          const result = await electronWindow.electronAPI.print.receiptHTMLWithPageSize(printHTML, {
-            width: widthMicrons,
-            height: heightMicrons,
-          })
+          const result = await electronWindow.electronAPI.print.receiptHTMLWithPageSize(
+            printHTML,
+            {
+              width: widthMicrons,
+              height: heightMicrons,
+            },
+            printerOptions
+          )
           console.log('Print result:', result)
           if (result?.success) {
             toast.success('Sent to printer successfully')
@@ -705,7 +715,10 @@ export function PrintLabelsPage() {
         // Fallback to standard Electron print
         console.log('Using receiptHTML')
         try {
-          const result = await electronWindow.electronAPI.print.receiptHTML(printHTML)
+          const result = await electronWindow.electronAPI.print.receiptHTML(
+            printHTML,
+            printerOptions
+          )
           console.log('Print result:', result)
           if (result?.success) {
             toast.success('Sent to printer successfully')
