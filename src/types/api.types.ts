@@ -1047,6 +1047,92 @@ export interface BankTransaction {
 }
 
 // ============================================
+// Cheque Types (Finance)
+// ============================================
+
+export type ChequeStatus =
+  | 'pending'
+  | 'deposited'
+  | 'cleared'
+  | 'bounced'
+  | 'cancelled'
+  | 'issued'
+
+export type ChequeType = 'received' | 'issued'
+
+export interface ChequePartyRef {
+  id: number
+  name: string
+  phone?: string
+}
+
+export interface ChequeBankRef {
+  id: number
+  name: string
+  account_number?: string
+  bank_name?: string
+}
+
+export interface Cheque {
+  id: number
+  business_id?: number
+  bank_id?: number | null
+  party_id?: number | null
+  payable_id?: number | null
+  due_collect_id?: number | null
+  drawn_from_id?: number | null
+  type: ChequeType
+  cheque_number: string
+  amount: number
+  issue_date: string
+  due_date?: string | null
+  deposit_date?: string | null
+  clear_date?: string | null
+  bounce_date?: string | null
+  status: ChequeStatus
+  reference_type?: string | null
+  reference_id?: number | null
+  notes?: string | null
+  note?: string | null
+  bank_name?: string | null
+  account_holder?: string | null
+  bounce_reason?: string | null
+  bounce_charges?: number | null
+  created_at?: string
+  updated_at?: string
+  bank?: ChequeBankRef
+  party?: ChequePartyRef
+  dueCollect?: {
+    id: number
+    sale_id?: number | null
+    party_id?: number | null
+    payDueAmount?: number
+    purpose?: string
+    amount?: number
+    party?: ChequePartyRef
+    sale?: { id: number; invoiceNumber?: string }
+  }
+  payable?: {
+    id: number
+    purchase_id?: number
+    amount?: number
+    party?: ChequePartyRef
+  }
+  local_only?: boolean
+}
+
+export interface ChequeManualEntryRequest {
+  cheque_number: string
+  amount: number
+  issue_date: string
+  due_date?: string
+  bank_name: string
+  account_holder: string
+  purpose: string
+  note?: string
+}
+
+// ============================================
 // Warehouse Types
 // ============================================
 

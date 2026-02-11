@@ -332,4 +332,20 @@ export const API_ENDPOINTS = {
     ALL_TRANSACTIONS: '/banks/transactions',
     CLOSE: (id: number) => `/banks/${id}/close`,
   },
+
+  // Cheques (Finance)
+  CHEQUES: {
+    LIST: '/cheques',
+    GET: (id: number) => `/cheques/${id}`,
+    CREATE: '/cheques',
+    MANUAL_ENTRY: '/cheques/manual-entry',
+    ISSUE_TO_SUPPLIER: '/cheques/issue-to-supplier',
+    UPDATE: (id: number) => `/cheques/${id}`,
+    DELETE: (id: number) => `/cheques/${id}`,
+    DEPOSIT: (id: number) => `/cheques/${id}/deposit`,
+    CLEAR: (id: number) => `/cheques/${id}/clear`,
+    BOUNCE: (id: number) => `/cheques/${id}/bounce`,
+    REOPEN: (id: number) => `/cheques/${id}/reopen`,
+    STATISTICS: '/cheques/statistics',
+  },
 } as const

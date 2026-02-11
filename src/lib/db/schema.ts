@@ -32,6 +32,7 @@ export interface SyncQueueItem {
     | 'customer'
     | 'party'
     | 'stock'
+    | 'cheque'
   entityId: string | number // Local ID (may be temporary for creates)
 
   // Version for optimistic locking (for updates)

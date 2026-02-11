@@ -23,6 +23,7 @@ import {
   TrendingDown,
   PieChart,
   Landmark,
+  FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -98,6 +99,7 @@ const secondaryNavItems: NavItem[] = [
     children: [
       { title: 'Banks', href: '/finance/banks', icon: Landmark },
       { title: 'Transactions', href: '/finance/transactions', icon: Receipt },
+      { title: 'Cheques', href: '/finance/cheques', icon: FileText },
       { title: 'Expenses', href: '/finance?tab=expenses', icon: TrendingDown },
       { title: 'Income', href: '/finance?tab=income', icon: TrendingUp },
     ],

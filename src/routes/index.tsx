@@ -23,6 +23,7 @@ const NewPurchasePage = lazy(() => import('@/pages/purchases/NewPurchasePage'))
 const FinancePage = lazy(() => import('@/pages/finance/FinancePage'))
 const BanksPage = lazy(() => import('@/pages/finance/banks/BanksPage'))
 const BankTransactionsPage = lazy(() => import('@/pages/finance/bank-transactions/BankTransactionsPage'))
+const ChequesPage = lazy(() => import('@/pages/finance/cheques/ChequesPage'))
 const DuePage = lazy(() => import('@/pages/Due/DuePage'))
 const CustomersPage = lazy(() => import('@/pages/customers/CustomersPage'))
 const SuppliersPage = lazy(() => import('@/pages/suppliers/SuppliersPage'))
@@ -196,6 +197,14 @@ const router = routerCreator([
         element: (
           <Suspense fallback={<PageLoader />}>
             <BankTransactionsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'finance/cheques',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <ChequesPage />
           </Suspense>
         ),
       },

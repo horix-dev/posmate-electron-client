@@ -1,3 +1,96 @@
+## 2026-02-01 — Cheque Management Feature (Phase 1 - Manual Entry)
+
+**Enhancement**: Implemented comprehensive cheque management feature under Finance section.
+
+**Features**:
+1. **Cheques Page** (`/finance/cheques`)
+   - Full cheque listing with filters (status, type, date range, search)
+   - Pagination (10/25/50/100 per page)
+   - Summary cards: Total, Pending, Cleared cheques
+   - Offline support with caching (10 min TTL)
+   - Queued cheques display for offline submissions
+
+2. **Manual Cheque Entry Form** (Type 2)
+   - Modal dialog for adding manual cheques without invoice
+   - Required fields: Cheque number, amount, issue date, bank name, account holder, purpose
+   - Optional fields: Due date, note
+   - Offline queue support - queued when offline
+   - Form validation for all required fields
+
+3. **Data Layer**
+   - API Service: `cheques.service.ts` with 12+ methods
+   - Custom Hook: `useCheques()` for state management
+   - Types: `Cheque`, `ChequeStatus`, `ChequeType`, `ChequeManualEntryRequest`
+   - Endpoints: Added CHEQUES section to `endpoints.ts`
+   - Sync Queue: Added 'cheque' entity support
+
+4. **Offline Support**
+   - Cached cheque list for offline viewing
+   - Manual entry queued in sync queue when offline
+   - Idempotency keys for duplicate prevention
+   - Offline banner notification
+   - Queued cheques show "(queued)" indicator
+
+5. **Navigation Integration**
+   - Added "Cheques" to Finance dropdown in Sidebar
+   - Route: `/finance/cheques`
+   - Icon: FileText
+   - Position: Below "Transactions"
+
+**Files Created**:
+- `/src/api/services/cheques.service.ts` - API service layer
+- `/src/pages/finance/cheques/ChequesPage.tsx` - Main page component
+- `/src/pages/finance/cheques/hooks/useCheques.ts` - Data fetching hook
+- `/src/pages/finance/cheques/components/ChequeFormDialog.tsx` - Form modal
+- `/docs/cheque/CHEQUE_IMPLEMENTATION_SUMMARY.md` - Implementation documentation
+
+**Files Modified**:
+- `/src/api/endpoints.ts` - Added CHEQUES endpoints
+- `/src/types/api.types.ts` - Added Cheque types
+- `/src/routes/index.tsx` - Added cheques route
+- `/src/components/layout/Sidebar.tsx` - Added Cheques nav item
+- `/src/lib/db/schema.ts` - Added 'cheque' to sync queue entities
+
+**Backend Integration**:
+- Uses `/api/v1/cheques/*` endpoints per CHEQUE_API_DOCUMENTATION.md
+- Manual entry: `POST /api/v1/cheques/manual-entry`
+- Supports 4 pagination modes (default, limit, offset, cursor)
+- Filters: status, type, bank_id, party_id, date_from, date_to, search
+
+**Implementation Details**:
+- Follows Banks page pattern (same structure and style)
+- Feature-based module structure
+- Encapsulated business logic in custom hook
+- Offline-first with cache fallback
+- Typed errors with `createAppError()`
+- Status badges with color coding
+- Responsive design
+
+**User Flow**:
+1. Navigate to Finance → Cheques
+2. View list with filters and summary cards
+3. Click "Add Cheque" to open form
+4. Fill manual cheque details (purpose, amount, bank info)
+5. Submit → If online: Direct save | If offline: Queued for sync
+6. Cheque appears in list (with "(queued)" indicator if offline)
+
+**Phase 2 Features (Not Yet Implemented)**:
+- Type 1: Cheques received with invoice (linked to due_collect with sale)
+- Type 3: Cheques issued to suppliers (linked to payable)
+- Deposit, Clear, Bounce, Reopen actions
+- Update/Edit pending cheques
+- Delete cheques
+- Statistics dashboard
+- PDF export and cheque printing
+
+**References**:
+- `/docs/cheque/CHEQUE_START_HERE.md` - Getting started guide
+- `/docs/cheque/CHEQUE_API_DOCUMENTATION.md` - Complete API spec (verified)
+- `/docs/cheque/CHEQUE_IMPLEMENTATION_SUMMARY.md` - Implementation details
+
+**Status**: ✅ Phase 1 Complete - Ready for backend integration testing
+
+---
 ## 2026-01-27 — Bank Management UI & Operations
 
 Enhancement: Implemented core Bank Management features under Finance following project patterns and Bank API docs.
