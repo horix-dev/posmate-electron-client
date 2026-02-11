@@ -1,5 +1,38 @@
 import { z } from 'zod'
 
+const decimalRegex = /^\d+(?:\.\d+)?$/
+
+const optionalDecimalString = (label: string) =>
+  z
+    .string()
+    .optional()
+    .or(z.literal(''))
+    .transform((val) => (val ?? '').trim())
+    .refine((val) => val === '' || decimalRegex.test(val), {
+      message: `${label} must be a valid number`,
+    })
+
+export const batchEntrySchema = z.object({
+  batch_no: z
+    .string()
+    .trim()
+    .min(1, 'Batch number is required')
+    .max(100, 'Batch number must be less than 100 characters'),
+  productStock: z
+    .string()
+    .trim()
+    .min(1, 'Quantity is required')
+    .regex(/^[0-9]+$/, 'Quantity must be a whole number'),
+  productPurchasePrice: optionalDecimalString('Purchase price'),
+  productSalePrice: optionalDecimalString('Sale price'),
+  productWholeSalePrice: optionalDecimalString('Wholesale price'),
+  productDealerPrice: optionalDecimalString('Dealer price'),
+  mfg_date: z.string().optional().or(z.literal('')),
+  expire_date: z.string().optional().or(z.literal('')),
+})
+
+export type BatchFormValue = z.infer<typeof batchEntrySchema>
+
 /**
  * Variant input schema for variable products
  */
@@ -61,6 +94,8 @@ export const productFormSchema = z.object({
 
   is_batch_tracked: z.boolean().default(false),
 
+  batches: z.array(batchEntrySchema).default([]),
+
   productPurchasePrice: z
     .string()
     .optional()
@@ -116,6 +151,7 @@ export const defaultProductFormValues: ProductFormData = {
   productSalePrice: '',
   productStock: '',
   description: '',
+  batches: [],
 }
 
 /**
@@ -136,12 +172,14 @@ export function productToFormData(product: {
     productPurchasePrice: number
     productSalePrice: number
     productStock: number
+    batch_no?: string | null
+    mfg_date?: string | null
+    expire_date?: string | null
+    productWholeSalePrice?: number | null
+    productDealerPrice?: number | null
   }>
   variants?: Array<{
     id?: number
-    sku: string
-    barcode?: string | null
-    initial_stock?: number | null
     price?: number | null
     cost_price?: number | null
     dealer_price?: number | null
@@ -149,6 +187,9 @@ export function productToFormData(product: {
     is_active: boolean
     attribute_value_ids?: number[]
     attribute_values?: Array<{ id: number }>
+    sku?: string | null
+    barcode?: string | null
+    initial_stock?: number | null
   }>
 }): ProductFormData & { variants: VariantInputData[] } {
   const stock = product.stocks?.[0]
@@ -193,6 +234,19 @@ export function productToFormData(product: {
     productStock: stock?.productStock?.toString() || '',
     variants,
     description: product.description || '',
+    batches:
+      product.is_batch_tracked && product.stocks
+        ? product.stocks.map((batchStock) => ({
+            batch_no: batchStock.batch_no || '',
+            productStock: batchStock.productStock?.toString() || '',
+            productPurchasePrice: batchStock.productPurchasePrice?.toString() || '',
+            productSalePrice: batchStock.productSalePrice?.toString() || '',
+            productWholeSalePrice: batchStock.productWholeSalePrice?.toString() || '',
+            productDealerPrice: batchStock.productDealerPrice?.toString() || '',
+            mfg_date: batchStock.mfg_date || '',
+            expire_date: batchStock.expire_date || '',
+          }))
+        : [],
   }
 }
 
@@ -230,18 +284,52 @@ export function formDataToFormData(
     formData.append('alert_qty', data.alert_qty)
   }
 
-  formData.append('product_type', data.product_type)
+  const hasBatchRows = data.is_batch_tracked && data.batches && data.batches.length > 0
+  const effectiveProductType = hasBatchRows ? 'variant' : data.product_type
+
+  formData.append('product_type', effectiveProductType)
   formData.append('is_batch_tracked', data.is_batch_tracked ? '1' : '0')
 
-  if (data.productPurchasePrice) {
-    formData.append('productPurchasePrice', data.productPurchasePrice)
+  const firstBatch = data.batches?.[0]
+  const purchasePriceValue = data.productPurchasePrice || firstBatch?.productPurchasePrice
+  const salePriceValue = data.productSalePrice || firstBatch?.productSalePrice
+
+  if (purchasePriceValue) {
+    formData.append('productPurchasePrice', purchasePriceValue)
   }
-  if (data.productSalePrice) {
-    formData.append('productSalePrice', data.productSalePrice)
+  if (salePriceValue) {
+    formData.append('productSalePrice', salePriceValue)
   }
-  // Only include productStock on create (not on edit)
-  if (!isEdit && data.productStock) {
-    formData.append('productStock', data.productStock)
+
+  if (!isEdit) {
+    if (hasBatchRows) {
+      formData.append('inventory_tracking_mode', 'batch')
+      data.batches.forEach((batch, index) => {
+        formData.append(`batch_no[${index}]`, batch.batch_no)
+        formData.append(`productStock[${index}]`, batch.productStock)
+
+        if (batch.productPurchasePrice) {
+          formData.append(`productPurchasePrice[${index}]`, batch.productPurchasePrice)
+        }
+        if (batch.productSalePrice) {
+          formData.append(`productSalePrice[${index}]`, batch.productSalePrice)
+        }
+        if (batch.productWholeSalePrice) {
+          formData.append(`productWholeSalePrice[${index}]`, batch.productWholeSalePrice)
+        }
+        if (batch.productDealerPrice) {
+          formData.append(`productDealerPrice[${index}]`, batch.productDealerPrice)
+        }
+        if (batch.mfg_date) {
+          formData.append(`mfg_date[${index}]`, batch.mfg_date)
+        }
+        if (batch.expire_date) {
+          formData.append(`expire_date[${index}]`, batch.expire_date)
+        }
+      })
+    } else if (data.productStock) {
+      formData.append('productStock', data.productStock)
+    }
   }
   if (imageFile) {
     formData.append('productPicture', imageFile)
