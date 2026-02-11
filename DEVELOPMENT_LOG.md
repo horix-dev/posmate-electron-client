@@ -1,3 +1,56 @@
+## 2026-02-12 — Cart Item Typecheck Fix
+
+**Fix**: Resolved the pre-commit TypeScript errors by ensuring cart item callbacks and form control ids use the available `itemId` instead of the removed `productId` reference.
+
+**Details**:
+1. Updated the quantity increment/decrement handlers and direct input change handler to depend on `itemId`, matching the store callback signatures.
+2. Swapped the discount popover label/input `htmlFor`/`id` pairs to the same `itemId` token, preventing undefined identifier references during compilation.
+
+**Files Modified/Created**:
+- `src/pages/pos/components/CartItem.tsx`
+- `DEVELOPMENT_LOG.md`
+
+## 2026-02-13 — POS Cart Batch Switching
+
+**Feature**: Cashiers can now swap between available batches from the cart sidebar and see price/quantity constraints update instantly.
+
+**Highlights**:
+1. **Batch Metadata In Cart**
+   - `POSPage` now adapts each cart line with the available batch list, selected batch id, and accurate stock caps per lot.
+   - Switching lots reuses the new `updateItemStock` store action so unit prices and allowed quantities stay in sync with the selected stock.
+2. **Cart UI Enhancements**
+   - `CartSidebar` surfaces a compact dropdown whenever a line has multiple batches, showing quantity, expiry, and price per option.
+   - `CartItem` (mobile/future layout) received the same selector, ensuring consistent behavior across views.
+
+**Files Modified/Created**:
+- `src/pages/pos/POSPage.tsx`
+- `src/pages/pos/components/CartSidebar.tsx`
+- `src/pages/pos/components/CartItem.tsx`
+- `DEVELOPMENT_LOG.md`
+
+## 2026-02-13 — Cart Item ID Handling Fixes
+
+**Fix**: Quantity steppers and delete actions no longer interfere with other lines when the same product is added multiple times (e.g., different batches).
+
+**Details**:
+1. Cart callbacks (`onUpdateQuantity`, `onRemoveItem`, discounts) now use each cart line’s unique `id` instead of `productId`, so actions target the intended batch/variant.
+2. `POSPage` passes the store handlers directly without re-looking up by product id, simplifying the flow and preventing mismatches.
+
+**Files Modified/Created**:
+- `src/pages/pos/POSPage.tsx`
+- `src/pages/pos/components/CartSidebar.tsx`
+- `src/pages/pos/components/CartItem.tsx`
+- `DEVELOPMENT_LOG.md`
+
+## 2026-02-13 — POS Batch Selector Polish
+
+**Enhancement**: The POS cart’s batch selector now presents a compact “Batch & Pricing” trigger that opens a focused popover, keeping rows slim while still surfacing stock, expiry, and price comparisons at a glance.
+
+**Files Modified/Created**:
+- `src/pages/pos/components/CartSidebar.tsx`
+- `src/pages/pos/components/CartItem.tsx`
+- `DEVELOPMENT_LOG.md`
+
 ## 2026-02-12 — Multi-Batch Product Create Payload
 
 **Feature**: Product creation now supports submitting multiple batch rows in a single request using the backend’s flat array contract.

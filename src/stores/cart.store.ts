@@ -65,6 +65,7 @@ interface CartState {
   updateItemQuantity: (itemId: string, quantity: number) => void
   updateItemPrice: (itemId: string, price: number) => void
   updateItemDiscount: (itemId: string, discount: number, type: 'fixed' | 'percentage') => void
+  updateItemStock: (itemId: string, stock: Stock) => void
   removeItem: (itemId: string) => void
   clearCart: () => void
   setCustomer: (customer: Party | null) => void
@@ -247,6 +248,35 @@ export const useCartStore = create<CartState>()(
                 }
               : item
           ),
+        })
+
+        get().calculateTotals()
+      },
+
+      updateItemStock: (itemId: string, stock: Stock) => {
+        set({
+          items: get().items.map((item) => {
+            if (item.id !== itemId) {
+              return item
+            }
+
+            const maxStock = stock.productStock ?? item.stock.productStock ?? item.quantity
+            const adjustedQuantity = Math.min(item.quantity, maxStock)
+            const variantPrice = item.variant?.effective_price ?? item.variant?.price
+            const unitPrice = stock.productSalePrice ?? variantPrice ?? item.unitPrice
+
+            const updatedItem: CartItem = {
+              ...item,
+              stock,
+              quantity: adjustedQuantity,
+              unitPrice,
+            }
+
+            return {
+              ...updatedItem,
+              total: calculateItemTotal(updatedItem),
+            }
+          }),
         })
 
         get().calculateTotals()
