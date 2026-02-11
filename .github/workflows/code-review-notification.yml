@@ -6,6 +6,12 @@ on:
       - main
       - develop
   workflow_dispatch:
+    inputs:
+      send_test_email:
+        description: 'Send a test email notification'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -17,6 +23,7 @@ jobs:
   codeql-analysis:
     name: CodeQL Security Scan
     runs-on: ubuntu-latest
+    if: github.event.inputs.send_test_email != 'true'
 
     steps:
       - name: Checkout code
@@ -51,6 +58,7 @@ jobs:
   code-quality:
     name: Code Quality Check
     runs-on: ubuntu-latest
+    if: github.event.inputs.send_test_email != 'true'
 
     outputs:
       lint-failed: ${{ steps.lint.outcome == 'failure' }}
@@ -126,6 +134,7 @@ jobs:
   dependency-security:
     name: Dependency Security Scan
     runs-on: ubuntu-latest
+    if: github.event.inputs.send_test_email != 'true'
 
     steps:
       - name: Checkout code
@@ -166,12 +175,145 @@ jobs:
             audit-output.txt
           retention-days: 30
 
-  # Job 4: Send Email Notifications
+  # Job 4: Test Email Notification (Manual Only)
+  test-email:
+    name: Send Test Email
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.send_test_email == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare test email content
+        id: prepare-test
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          COMMIT="${{ github.sha }}"
+          COMMIT_SHORT="${COMMIT:0:7}"
+          AUTHOR="${{ github.actor }}"
+          REPO="${{ github.repository }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          # Create test email
+          cat > test-notification.txt << EOF
+          Subject: [TEST] Email Notification Test - ${BRANCH}
+
+          Test Email Notification
+          =======================
+
+          This is a test email from the automated code review system.
+
+          Repository: ${REPO}
+          Branch: ${BRANCH}
+          Commit: ${COMMIT_SHORT}
+          Triggered by: ${AUTHOR}
+          Timestamp: ${TIMESTAMP}
+
+          Status
+          ------
+          ✅ Email notification system is working correctly!
+
+          View Workflow Run: ${RUN_URL}
+
+          This is a test notification from GitHub Actions.
+          If you received this, your email configuration is working properly.
+          EOF
+
+          # Create HTML test email
+          cat > test-notification.html << EOF
+          <html>
+          <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0366d6;">✅ Test Email Notification</h2>
+            
+            <div style="padding: 15px; background-color: #d1ecf1; border-left: 4px solid #0c5460; margin: 20px 0;">
+              <strong>This is a test email from the automated code review system.</strong>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+              <tr style="background-color: #f6f8fa;">
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Repository</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${REPO}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Branch</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${BRANCH}</td>
+              </tr>
+              <tr style="background-color: #f6f8fa;">
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Commit</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${COMMIT_SHORT}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Triggered by</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${AUTHOR}</td>
+              </tr>
+              <tr style="background-color: #f6f8fa;">
+                <td style="padding: 8px; border: 1px solid #e1e4e8;"><strong>Timestamp</strong></td>
+                <td style="padding: 8px; border: 1px solid #e1e4e8;">${TIMESTAMP}</td>
+              </tr>
+            </table>
+
+            <div style="padding: 15px; background-color: #d4edda; border-left: 4px solid #28a745; margin: 20px 0;">
+              <h3 style="margin: 0 0 10px 0; color: #155724;">✅ Success!</h3>
+              <p style="margin: 0;">Email notification system is working correctly!</p>
+            </div>
+
+            <p style="margin-top: 20px;">
+              <a href="${RUN_URL}" style="display: inline-block; padding: 10px 20px; background-color: #0366d6; color: white; text-decoration: none; border-radius: 5px;">View Workflow Run</a>
+            </p>
+
+            <hr style="margin-top: 30px; border: none; border-top: 1px solid #e1e4e8;">
+            <p style="color: #586069; font-size: 12px;">
+              This is a test notification from GitHub Actions.<br>
+              If you received this, your email configuration is working properly.
+            </p>
+          </body>
+          </html>
+          EOF
+
+      - name: Send Test Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "[TEST] Email Notification Test - ${{ github.ref_name }}"
+          to: ${{ secrets.MAIL_TO }}
+          from: GitHub Actions <${{ secrets.MAIL_FROM }}>
+          body: file://test-notification.txt
+          html_body: file://test-notification.html
+          priority: normal
+
+      - name: Test Email Summary
+        if: always()
+        run: |
+          echo "## 📧 Test Email Sent" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ **Test email sent successfully!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check your inbox at the configured MAIL_TO address." >> $GITHUB_STEP_SUMMARY
+            echo "Don't forget to check your spam/junk folder." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Failed to send test email.**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check the workflow logs for error details." >> $GITHUB_STEP_SUMMARY
+            echo "Verify your email secrets are configured correctly." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Job 5: Send Email Notifications
   notify:
     name: Send Notifications
     runs-on: ubuntu-latest
     needs: [codeql-analysis, code-quality, dependency-security]
-    if: always()
+    if: always() && github.event.inputs.send_test_email != 'true'
 
     steps:
       - name: Checkout code
@@ -325,12 +467,12 @@ jobs:
             echo "✅ **All checks passed!** No critical issues found." >> $GITHUB_STEP_SUMMARY
           fi
 
-  # Job 5: Create Issue for Critical Problems (Optional)
+  # Job 6: Create Issue for Critical Problems (Optional)
   create-issue:
     name: Create Issue (if critical)
     runs-on: ubuntu-latest
     needs: [codeql-analysis, code-quality, dependency-security]
-    if: failure() && github.ref == 'refs/heads/main'
+    if: failure() && github.ref == 'refs/heads/main' && github.event.inputs.send_test_email != 'true'
 
     steps:
       - name: Create Issue

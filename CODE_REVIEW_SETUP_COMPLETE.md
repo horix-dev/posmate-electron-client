@@ -22,7 +22,12 @@ Follow the guide: **`docs/NOTIFICATION_SETUP_GUIDE.md`**
 
 Follow: **`TESTING_CODE_REVIEW_WORKFLOW.md`**
 
-**Quick test**:
+**Quick email test (1 minute)**:
+See **[`docs/EMAIL_TEST_GUIDE.md`](docs/EMAIL_TEST_GUIDE.md)** for instant email testing.
+
+Go to Actions → Run workflow → Check "Send a test email notification" ✅
+
+**Full test**:
 ```bash
 # Test 1: Basic workflow trigger
 git checkout main
@@ -99,6 +104,7 @@ Push fix → Workflow runs again
 
 | File | Purpose | Read Time |
 |------|---------|-----------|
+| **`docs/EMAIL_TEST_GUIDE.md`** | Quick email test | 1 min |
 | **`docs/NOTIFICATION_SETUP_GUIDE.md`** | Email setup | 5 min |
 | **`TESTING_CODE_REVIEW_WORKFLOW.md`** | Test scenarios | 10 min |
 | **`WORKFLOW_DIAGRAM.md`** | Visual flows | 5 min |
@@ -174,6 +180,9 @@ Review Status
 ## Quick Commands
 
 ```bash
+# Test email notification (GitHub CLI)
+gh workflow run code-review-notification.yml --ref main --field send_test_email=true
+
 # View workflow file
 cat .github/workflows/code-review-notification.yml
 

@@ -2,6 +2,14 @@
 
 This document provides test scenarios to verify the automated code review and notification system is working correctly.
 
+## Quick Email Test (1 minute)
+
+**NEW**: You can now test the email notification system instantly without introducing code errors!
+
+👉 **See: [`docs/EMAIL_TEST_GUIDE.md`](docs/EMAIL_TEST_GUIDE.md)** for a quick 1-minute email test.
+
+Simply go to Actions → "Automated Code Review & Notifications" → Run workflow → Check "Send a test email notification" ✅
+
 ## Prerequisites
 
 Before testing, ensure:
