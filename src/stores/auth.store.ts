@@ -4,6 +4,8 @@ import type { User, Business, Currency } from '@/types/api.types'
 import { authService } from '@/api/services'
 import { setAuthToken, clearAuthToken, clearETagCache } from '@/api/axios'
 import { setCache, getCache, removeCache, CacheKeys } from '@/lib/cache'
+import { clearAllCache } from '@/lib/cache/clearCache'
+import { queryClient } from '@/lib/query-client'
 
 interface AuthState {
   // State
@@ -174,6 +176,14 @@ export const useAuthStore = create<AuthState>()(
         } catch {
           // Ignore errors, we're logging out anyway
         } finally {
+          try {
+            // Clear all cache layers (same as Settings > Cache > Clear All)
+            await clearAllCache(queryClient, { all: true })
+          } catch (error) {
+            console.error('Failed to clear cache during logout:', error)
+            // Continue with logout even if cache clearing fails
+          }
+
           clearAuthToken()
           clearETagCache() // Clear HTTP cache on logout
           clearCachedAuthData()
