@@ -322,13 +322,12 @@ export default function ProductFormPage() {
       }
 
       // Validate variants for variable products
-      if (data.product_type === 'variable' && variants.length === 0) {
-        toast.error('Variable products must have at least one variant')
-        return
-      }
-
-      // Check for duplicate SKUs
-      if (data.product_type === 'variable' && variants.length > 0) {
+      if (data.product_type === 'variable') {
+        if (variants.length === 0) {
+          toast.error('Variable products must have at least one variant')
+          return
+        }
+        // Check for duplicate SKUs
         const skuCounts = new Map<string, number>()
         variants.forEach((variant) => {
           const sku = variant.sku?.trim().toUpperCase()
@@ -339,11 +338,24 @@ export default function ProductFormPage() {
         const duplicates = Array.from(skuCounts.entries())
           .filter(([, count]) => count > 1)
           .map(([sku]) => sku)
-
         if (duplicates.length > 0) {
           toast.error(
             `Duplicate SKUs found: ${duplicates.join(', ')}. Each variant must have a unique SKU.`
           )
+          return
+        }
+        // Block if any variant has stock = 0 or cost price/price missing/zero
+        const invalidVariants = variants.filter(
+          (v) =>
+            v.initial_stock === 0 ||
+            v.initial_stock === undefined ||
+            v.cost_price === undefined ||
+            v.cost_price <= 0 ||
+            v.price === undefined ||
+            v.price <= 0
+        )
+        if (invalidVariants.length > 0) {
+          toast.error('All variants must have stock > 0, cost price > 0, and sale price > 0')
           return
         }
       }

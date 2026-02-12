@@ -634,10 +634,11 @@ function VariantManagerComponent({
       .map((combo) => ({
         sku: generateSku(productName, productCode, combo, valueMap),
         enabled: 1 as const,
-        cost_price: undefined,
-        price: undefined,
-        dealer_price: undefined,
-        wholesale_price: undefined,
+        initial_stock: 0,
+        cost_price: 0,
+        price: 0,
+        dealer_price: 0,
+        wholesale_price: 0,
         is_active: 1 as const,
         attribute_value_ids: combo,
       }))
