@@ -13,7 +13,7 @@ export { SmartTender } from './SmartTender'
 // Types
 export type { ProductCardProps } from './ProductCard'
 export type { ProductGridProps } from './ProductGrid'
-export type { CartItemProps, CartItemDisplay } from './CartItem'
+export type { CartItemProps, CartItemDisplay, CartItemBatchOption } from './CartItem'
 export type { CartSidebarProps, CartTotals } from './CartSidebar'
 export type { PaymentDialogProps } from './PaymentDialog'
 export type { HeldCartsDialogProps } from './HeldCartsDialog'

@@ -1,10 +1,17 @@
 import { memo, useCallback, useState, useEffect } from 'react'
-import { Minus, Plus, Trash2, Package, Percent, X } from 'lucide-react'
+import { Minus, Plus, Trash2, Package, Percent, X, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { CachedImage } from '@/components/common/CachedImage'
 import { cn, getImageUrl } from '@/lib/utils'
 import { useCurrency } from '@/hooks'
@@ -12,6 +19,15 @@ import { useCurrency } from '@/hooks'
 // ============================================
 // Types
 // ============================================
+
+export interface CartItemBatchOption {
+  id: number
+  batchNo?: string | null
+  expireDate?: string | null
+  productStock?: number
+  productSalePrice?: number
+  disabled?: boolean
+}
 
 /** Display-oriented cart item interface for POS */
 export interface CartItemDisplay {
@@ -30,6 +46,8 @@ export interface CartItemDisplay {
   // Batch support
   batchNo?: string | null
   expiryDate?: string | null
+  batchOptions?: CartItemBatchOption[]
+  selectedBatchId?: number | null
   // Discount support
   discount?: number
   discountType?: 'fixed' | 'percentage'
@@ -41,11 +59,13 @@ export interface CartItemProps {
   /** Whether item is being edited */
   isEditing?: boolean
   /** Callback to update quantity */
-  onUpdateQuantity: (productId: number, quantity: number) => void
+  onUpdateQuantity: (itemId: string, quantity: number) => void
   /** Callback to update discount */
-  onUpdateDiscount?: (productId: number, discount: number, type: 'fixed' | 'percentage') => void
+  onUpdateDiscount?: (itemId: string, discount: number, type: 'fixed' | 'percentage') => void
   /** Callback to remove item */
-  onRemove: (productId: number) => void
+  onRemove: (itemId: string) => void
+  /** Callback to change batch */
+  onChangeBatch?: (itemId: string, batchId: number) => void
 }
 
 // ============================================
@@ -58,10 +78,11 @@ function CartItemComponent({
   onUpdateQuantity,
   onUpdateDiscount,
   onRemove,
+  onChangeBatch,
 }: CartItemProps) {
   const { format: formatCurrency } = useCurrency()
   const {
-    productId,
+    id: itemId,
     productName,
     productCode,
     productImage,
@@ -71,6 +92,17 @@ function CartItemComponent({
     discount = 0,
     discountType = 'fixed',
   } = item
+  const batchOptions = item.batchOptions ?? []
+  const canChangeBatch = batchOptions.length > 1 && Boolean(onChangeBatch)
+  const currentBatch = canChangeBatch
+    ? (batchOptions.find((batch) => batch.id === item.selectedBatchId) ?? batchOptions[0])
+    : null
+  const batchLabel = currentBatch
+    ? `${currentBatch.batchNo ? `Batch ${currentBatch.batchNo}` : `Batch #${currentBatch.id}`}${currentBatch.expireDate ? ` · Exp ${new Date(currentBatch.expireDate).toLocaleDateString()}` : ''}`
+    : 'Select batch'
+  const batchMeta = currentBatch
+    ? `Stock: ${currentBatch.productStock ?? 0}${currentBatch.productSalePrice ? ` · ${formatCurrency(currentBatch.productSalePrice)}` : ''}`
+    : 'Choose a batch to sync price'
 
   // Calculate discount amount and final price
   const subtotal = quantity * salePrice
@@ -84,6 +116,7 @@ function CartItemComponent({
   const [discountOpen, setDiscountOpen] = useState(false)
   const [amountStr, setAmountStr] = useState('')
   const [percentStr, setPercentStr] = useState('')
+  const [batchOpen, setBatchOpen] = useState(false)
 
   // Sync local state when popover opens
   useEffect(() => {
@@ -115,7 +148,7 @@ function CartItemComponent({
 
     if (isNaN(num)) {
       setPercentStr('')
-      if (val === '') onUpdateDiscount(productId, 0, 'fixed')
+      if (val === '') onUpdateDiscount(itemId, 0, 'fixed')
       return
     }
 
@@ -124,7 +157,7 @@ function CartItemComponent({
     setPercentStr(pct.toFixed(2))
 
     // Update store
-    onUpdateDiscount(productId, num, 'fixed')
+    onUpdateDiscount(itemId, num, 'fixed')
   }
 
   const handleDiscountPercentChange = (val: string) => {
@@ -135,7 +168,7 @@ function CartItemComponent({
 
     if (isNaN(num)) {
       setAmountStr('')
-      if (val === '') onUpdateDiscount(productId, 0, 'percentage')
+      if (val === '') onUpdateDiscount(itemId, 0, 'percentage')
       return
     }
 
@@ -144,7 +177,7 @@ function CartItemComponent({
     setAmountStr(amt.toFixed(2))
 
     // Update store
-    onUpdateDiscount(productId, num, 'percentage')
+    onUpdateDiscount(itemId, num, 'percentage')
   }
 
   const handleDiscountPreset = (pct: number) => {
@@ -154,7 +187,7 @@ function CartItemComponent({
   const handleClearDiscount = (e: React.MouseEvent) => {
     if (!onUpdateDiscount) return
     e.stopPropagation()
-    onUpdateDiscount(productId, 0, 'fixed')
+    onUpdateDiscount(itemId, 0, 'fixed')
     setDiscountOpen(false)
   }
 
@@ -162,29 +195,38 @@ function CartItemComponent({
 
   const handleDecrement = useCallback(() => {
     if (quantity > 1) {
-      onUpdateQuantity(productId, quantity - 1)
+      onUpdateQuantity(itemId, quantity - 1)
     }
-  }, [productId, quantity, onUpdateQuantity])
+  }, [itemId, quantity, onUpdateQuantity])
 
   const handleIncrement = useCallback(() => {
     if (quantity < maxStock) {
-      onUpdateQuantity(productId, quantity + 1)
+      onUpdateQuantity(itemId, quantity + 1)
     }
-  }, [productId, quantity, maxStock, onUpdateQuantity])
+  }, [itemId, quantity, maxStock, onUpdateQuantity])
 
   const handleQuantityChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newQty = parseInt(e.target.value, 10)
       if (!isNaN(newQty) && newQty >= 1 && newQty <= maxStock) {
-        onUpdateQuantity(productId, newQty)
+        onUpdateQuantity(itemId, newQty)
       }
     },
-    [productId, maxStock, onUpdateQuantity]
+    [itemId, maxStock, onUpdateQuantity]
   )
 
   const handleRemove = useCallback(() => {
-    onRemove(productId)
-  }, [productId, onRemove])
+    onRemove(itemId)
+  }, [itemId, onRemove])
+
+  const handleBatchSelect = useCallback(
+    (value: string) => {
+      if (!onChangeBatch) return
+      onChangeBatch(itemId, Number(value))
+      setBatchOpen(false)
+    },
+    [itemId, onChangeBatch, setBatchOpen]
+  )
 
   return (
     <div
@@ -226,6 +268,66 @@ function CartItemComponent({
               </span>
             )}
           </div>
+        )}
+        {canChangeBatch && onChangeBatch && (
+          <Popover open={batchOpen} onOpenChange={setBatchOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="mt-2 inline-flex h-9 w-full items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 text-left text-xs font-semibold text-primary shadow-sm transition hover:border-primary"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <Package className="h-3 w-3" aria-hidden="true" />
+                  <span className="truncate uppercase tracking-wide">Batch & Pricing</span>
+                </span>
+                <span className="ml-2 hidden flex-1 truncate text-[10px] font-normal text-muted-foreground lg:block">
+                  {batchLabel}
+                </span>
+                <ChevronDown className="ml-2 h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 space-y-3 rounded-lg border border-primary/20 bg-background p-4 shadow-2xl">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Selected Batch</p>
+                <p className="text-sm font-semibold text-foreground">{batchLabel}</p>
+                <p className="text-[11px] text-muted-foreground">{batchMeta}</p>
+              </div>
+              <Select
+                value={item.selectedBatchId ? item.selectedBatchId.toString() : undefined}
+                onValueChange={handleBatchSelect}
+              >
+                <SelectTrigger className="h-10 w-full justify-between rounded-md border border-input bg-muted/40 px-3 text-left text-sm font-medium">
+                  <SelectValue placeholder="Choose batch" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 w-full text-xs">
+                  {batchOptions.map((batch) => (
+                    <SelectItem
+                      key={batch.id}
+                      value={batch.id.toString()}
+                      disabled={batch.disabled}
+                      className="space-y-0.5 border-b border-border/40 py-2 text-xs last:border-none"
+                    >
+                      <div className="font-medium text-foreground">
+                        {batch.batchNo ? `Batch ${batch.batchNo}` : `Batch #${batch.id}`}
+                        {batch.expireDate
+                          ? ` · Exp ${new Date(batch.expireDate).toLocaleDateString()}`
+                          : ''}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        Stock: {batch.productStock ?? 0}
+                        {batch.productSalePrice
+                          ? ` · ${formatCurrency(batch.productSalePrice)}`
+                          : ''}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                Selecting a batch automatically updates available quantity and unit price.
+              </p>
+            </PopoverContent>
+          </Popover>
         )}
         <p className="text-xs text-muted-foreground">{item.variantSku || productCode}</p>
         <div className="mt-1 flex items-center gap-2">
@@ -314,11 +416,11 @@ function CartItemComponent({
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label htmlFor={`amount-${productId}`} className="text-xs">
+                      <Label htmlFor={`amount-${itemId}`} className="text-xs">
                         Amount
                       </Label>
                       <CurrencyInput
-                        id={`amount-${productId}`}
+                        id={`amount-${itemId}`}
                         type="number"
                         value={amountStr}
                         onChange={(e) => handleDiscountAmountChange(e.target.value)}
@@ -330,12 +432,12 @@ function CartItemComponent({
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor={`percent-${productId}`} className="text-xs">
+                      <Label htmlFor={`percent-${itemId}`} className="text-xs">
                         Percentage
                       </Label>
                       <div className="relative">
                         <Input
-                          id={`percent-${productId}`}
+                          id={`percent-${itemId}`}
                           type="number"
                           value={percentStr}
                           onChange={(e) => handleDiscountPercentChange(e.target.value)}

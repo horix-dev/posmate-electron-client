@@ -438,9 +438,9 @@ export interface CreateProductRequest {
   'productDealerPrice[]'?: number[]
   'productWholeSalePrice[]'?: number[]
   'productStock[]'?: number[]
-  'profit_percent[]'?: number[]
   'mfg_date[]'?: string[]
   'expire_date[]'?: string[]
+  inventory_tracking_mode?: string
 }
 
 // ============================================

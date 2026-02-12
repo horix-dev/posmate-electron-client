@@ -6,4 +6,9 @@ export {
   formDataToFormData,
   formDataToVariableProductPayload,
 } from './product.schema'
-export type { ProductFormData, VariantInputData, VariableProductPayload } from './product.schema'
+export type {
+  ProductFormData,
+  VariantInputData,
+  VariableProductPayload,
+  BatchFormValue,
+} from './product.schema'

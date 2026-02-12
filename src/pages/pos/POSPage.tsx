@@ -79,6 +79,7 @@ export function POSPage() {
     addItem,
     updateItemQuantity,
     updateItemDiscount,
+    updateItemStock,
     removeItem,
     clearCart,
     setCustomer,
@@ -236,6 +237,36 @@ export function POSPage() {
       updateItemQuantity(itemId, quantity)
     },
     [updateItemQuantity]
+  )
+
+  const handleBatchChange = useCallback(
+    (itemId: string, stockId: number) => {
+      const item = cartItems.find((cartItem) => cartItem.id === itemId)
+      if (!item) {
+        toast.error('Cart item not found')
+        return
+      }
+
+      const productStocks = item.product.stocks ?? []
+      const relevantStocks = item.variantId
+        ? productStocks.filter((stock) => Number(stock.variant_id) === Number(item.variantId))
+        : productStocks
+      const nextStock = relevantStocks.find((stock) => stock.id === stockId)
+
+      if (!nextStock) {
+        toast.error('Selected batch is unavailable')
+        return
+      }
+
+      if ((nextStock.productStock ?? 0) <= 0) {
+        toast.error('Selected batch is out of stock')
+        return
+      }
+
+      updateItemStock(itemId, nextStock)
+      toast.success('Batch updated')
+    },
+    [cartItems, updateItemStock]
   )
 
   const handleRemoveItem = useCallback(
@@ -862,28 +893,45 @@ export function POSPage() {
   // ----------------------------------------
   const adaptedCartItems = useMemo(
     () =>
-      cartItems.map((item) => ({
-        productId: item.product.id,
-        productName: item.product.productName,
-        // Use variant SKU if available, otherwise product code
-        productCode: item.variant?.sku || item.product.productCode || `SKU-${item.product.id}`,
-        productImage: item.variant?.image || item.product.productPicture,
-        quantity: item.quantity,
-        salePrice: item.unitPrice,
-        // Use variant stock if available
-        maxStock: item.variant?.total_stock ?? item.stock.productStock,
-        id: item.id,
-        // Variant information for display
-        variantId: item.variantId ?? null,
-        variantName: item.variantName ?? null,
-        variantSku: item.variant?.sku ?? null,
-        // Batch information for display
-        batchNo: item.stock.batch_no ?? null,
-        expiryDate: item.stock.expire_date ?? null,
-        // Discount fields
-        discount: item.discount,
-        discountType: item.discountType,
-      })),
+      cartItems.map((item) => {
+        const productStocks = item.product.stocks ?? []
+        const relevantStocks = item.variantId
+          ? productStocks.filter((stock) => Number(stock.variant_id) === Number(item.variantId))
+          : productStocks
+        const batchOptions = relevantStocks.map((stock) => ({
+          id: stock.id,
+          batchNo: stock.batch_no ?? null,
+          expireDate: stock.expire_date ?? null,
+          productStock: stock.productStock ?? 0,
+          productSalePrice: stock.productSalePrice ?? item.unitPrice,
+          disabled: (stock.productStock ?? 0) <= 0,
+        }))
+
+        return {
+          productId: item.product.id,
+          productName: item.product.productName,
+          // Use variant SKU if available, otherwise product code
+          productCode: item.variant?.sku || item.product.productCode || `SKU-${item.product.id}`,
+          productImage: item.variant?.image || item.product.productPicture,
+          quantity: item.quantity,
+          salePrice: item.unitPrice,
+          // Limit quantity to selected stock
+          maxStock: item.stock.productStock ?? item.variant?.total_stock ?? item.quantity,
+          id: item.id,
+          // Variant information for display
+          variantId: item.variantId ?? null,
+          variantName: item.variantName ?? null,
+          variantSku: item.variant?.sku ?? null,
+          // Batch information for display
+          batchNo: item.stock.batch_no ?? null,
+          expiryDate: item.stock.expire_date ?? null,
+          batchOptions,
+          selectedBatchId: item.stock.id,
+          // Discount fields
+          discount: item.discount,
+          discountType: item.discountType,
+        }
+      }),
     [cartItems]
   )
 
@@ -907,17 +955,12 @@ export function POSPage() {
               vatPercentage={vatPercentage}
               heldCartsCount={heldCarts.length}
               invoiceNumber={invoiceNumber || 'Loading...'}
-              onUpdateQuantity={(productId, quantity) => {
-                const item = cartItems.find((i) => i.product.id === productId)
-                if (item) handleUpdateQuantity(item.id, quantity)
-              }}
+              onUpdateQuantity={handleUpdateQuantity}
               onUpdateItemDiscount={(itemId, discount, type) => {
                 updateItemDiscount(itemId, discount, type)
               }}
-              onRemoveItem={(productId) => {
-                const item = cartItems.find((i) => i.product.id === productId)
-                if (item) handleRemoveItem(item.id)
-              }}
+              onRemoveItem={handleRemoveItem}
+              onChangeBatch={handleBatchChange}
               onClearCart={handleClearCart}
               onHoldCart={handleHoldCart}
               onOpenHeldCarts={handleOpenHeldCarts}
