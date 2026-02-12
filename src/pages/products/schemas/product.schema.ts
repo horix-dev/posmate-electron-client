@@ -157,6 +157,12 @@ export const defaultProductFormValues: ProductFormData = {
 /**
  * Convert Product to form data for editing
  */
+const normalizeBoolean = (value?: boolean | number | string | null): boolean => {
+  if (value === true || value === '1' || value === 1) return true
+  if (value === false || value === '0' || value === 0) return false
+  return false
+}
+
 export function productToFormData(product: {
   productName: string
   productCode?: string | null
@@ -228,7 +234,7 @@ export function productToFormData(product: {
     unit_id: product.unit_id?.toString() || '',
     alert_qty: product.alert_qty?.toString() || '',
     product_type: normalizedProductType,
-    is_batch_tracked: product.is_batch_tracked ?? false,
+    is_batch_tracked: normalizeBoolean(product.is_batch_tracked),
     productPurchasePrice: stock?.productPurchasePrice?.toString() || '',
     productSalePrice: stock?.productSalePrice?.toString() || '',
     productStock: stock?.productStock?.toString() || '',
