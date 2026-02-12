@@ -1,3 +1,27 @@
+## 2026-02-13 — POS Cache Clearing and Loading State
+
+**Feature**: POS screen now clears cache on access and shows a full-screen loader until products are loaded, ensuring users always see fresh data.
+
+**Details**:
+1. **Cache Clearing on Mount**
+   - Added automatic cache clearing when the POS page is accessed, including React Query cache, localStorage cache, and persistent storage (IndexedDB/SQLite).
+   - Kept image cache and sync state to maintain performance and data integrity.
+   - Cache clearing triggers a fresh product fetch from the API.
+
+2. **Full-Screen Loading State**
+   - Implemented a full-screen loader with progress messages ("Clearing cache..." → "Loading products...").
+   - Loader only shows during initial load after cache clearing.
+   - Subsequent filter changes or refetches use the ProductGrid's inline loader for better UX.
+
+3. **Loading State Management**
+   - Added `isClearingCache` state to track cache clearing progress.
+   - Added `isInitialLoad` flag to differentiate initial load from subsequent loads.
+   - Integrated with existing `isLoading` state from `usePOSData` hook.
+
+**Files Modified/Created**:
+- `src/pages/pos/POSPage.tsx`
+- `DEVELOPMENT_LOG.md`
+
 ## 2026-02-12 — POS Batch Dialog Wiring Fix
 
 **Fix**: Restored the POS batch selector import and added the missing cart sidebar prop so the batch dialog can open from cart rows again.

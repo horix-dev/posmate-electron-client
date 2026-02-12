@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
-import { Keyboard } from 'lucide-react'
+import { Keyboard, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCartStore, getHeldCarts, deleteHeldCart } from '@/stores/cart.store'
@@ -15,6 +15,8 @@ import { printReceipt } from '@/lib/receipt-generator'
 import { useBusinessStore } from '@/stores/business.store'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { storage } from '@/lib/storage'
+import { useQueryClient } from '@tanstack/react-query'
+import { clearAllCache } from '@/lib/cache/clearCache'
 import type { Product, Stock, PaymentType, Party as Customer } from '@/types/api.types'
 import type { ProductVariant } from '@/types/variant.types'
 import type { LocalProduct } from '@/lib/db/schema'
@@ -67,6 +69,7 @@ export function POSPage() {
   // ----------------------------------------
   // Store & Data
   // ----------------------------------------
+  const queryClient = useQueryClient()
   const autoPrintReceipt = useUIStore((state) => state.autoPrintReceipt)
   const smartTenderEnabled = useUIStore((state) => state.smartTenderEnabled)
   const business = useBusinessStore((state) => state.business)
@@ -125,11 +128,37 @@ export function POSPage() {
   const [showSmartTender, setShowSmartTender] = useState(false)
   const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
+  const [isClearingCache, setIsClearingCache] = useState(true)
 
   // ----------------------------------------
   // Data Fetching
   // ----------------------------------------
   const { products, categories, paymentTypes, isLoading, filteredProducts } = usePOSData(filters)
+
+  // Clear cache on mount to ensure fresh data
+  useEffect(() => {
+    const clearCacheOnMount = async () => {
+      try {
+        console.log('[POS] Clearing cache on mount...')
+        await clearAllCache(queryClient, {
+          reactQuery: true,
+          localStorage: true,
+          persistentStorage: true,
+          images: false, // Keep images cached for performance
+          syncState: false, // Keep sync state
+        })
+        console.log('[POS] Cache cleared successfully')
+        // usePOSData hook will automatically fetch fresh data since cache is empty
+      } catch (error) {
+        console.warn('[POS] Failed to clear cache:', error)
+        toast.error('Failed to clear cache. Please refresh the page.')
+      } finally {
+        setIsClearingCache(false)
+      }
+    }
+
+    clearCacheOnMount()
+  }, [queryClient])
 
   // Fetch business data on mount
   useEffect(() => {
@@ -1036,6 +1065,21 @@ export function POSPage() {
   // ----------------------------------------
   // Render
   // ----------------------------------------
+
+  // Show full-screen loader during cache clearing or initial product load
+  if (isClearingCache || isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center bg-muted/30">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-lg font-medium text-muted-foreground">
+            {isClearingCache ? 'Preparing POS...' : 'Loading products...'}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="h-full bg-muted/30">
       {/* Two-column layout: Cart 60% | Products 40% */}
