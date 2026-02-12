@@ -1,3 +1,40 @@
+## 2026-02-12 — Clear All Cache on Logout
+
+**Enhancement**: Integrated comprehensive cache clearing functionality into the logout process.
+
+**Problem**:
+When users logged out, cached data (products, categories, images, sync state, offline sales) remained in the application storage, which could cause data leakage between user sessions or stale data issues.
+
+**Solution**:
+Modified the logout function to clear all cache layers using the same `clearAllCache` utility used in the Settings page:
+- React Query cache (memory)
+- LocalStorage cache (TTL cache)
+- IndexedDB/SQLite persistent storage (products, categories, offline sales, sync queue)
+- Image cache
+- Sync state (timestamps, tokens)
+
+**Implementation Details**:
+1. Created `src/lib/query-client.ts` to export queryClient instance
+2. Imported `clearAllCache` utility into auth store
+3. Called `clearAllCache(queryClient, { all: true })` during logout
+4. Wrapped in try-catch to ensure logout completes even if cache clearing fails
+
+**Files Created**:
+- [src/lib/query-client.ts](src/lib/query-client.ts) - Centralized query client configuration
+
+**Files Modified**:
+- [src/App.tsx](src/App.tsx) - Imported queryClient from new module
+- [src/stores/auth.store.ts](src/stores/auth.store.ts#L170-L203) - Integrated cache clearing in logout function
+
+**Benefits**:
+- Clean logout with no residual data
+- Prevents data leakage between user sessions
+- Ensures fresh data on next login
+- Consistent with cache management in Settings page
+- Maintains Fast Refresh compatibility by keeping queryClient in separate module
+
+---
+
 ## 2026-02-11 — Automated Code Review & Email Notifications
 
 **Enhancement**: Implemented automated code review system with email notifications for commits to main and develop branches.
