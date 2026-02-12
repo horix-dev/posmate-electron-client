@@ -103,7 +103,7 @@ export function StocksList({
               onPageChange?.(1)
             }}
           >
-            <SelectTrigger className="w-[70px] h-8">
+            <SelectTrigger className="h-8 w-[70px]">
               <SelectValue placeholder={perPage} />
             </SelectTrigger>
             <SelectContent>
@@ -137,11 +137,11 @@ export function StocksList({
       <div className="rounded-md border bg-card">
         {isLoading ? (
           <div className="flex h-64 items-center justify-center text-muted-foreground">
-            <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading...
+            <Loader2 className="mr-2 h-6 w-6 animate-spin" /> Loading...
           </div>
         ) : stocks.length === 0 ? (
           <div className="flex h-64 flex-col items-center justify-center text-muted-foreground">
-            <AlertCircle className="h-10 w-10 mb-2 opacity-50" />
+            <AlertCircle className="mb-2 h-10 w-10 opacity-50" />
             <p>{emptyMessage}</p>
           </div>
         ) : (
@@ -172,8 +172,14 @@ export function StocksList({
               {displayStocks.map((stock) => {
                 const stockValue = stock.productStock * stock.productPurchasePrice
                 const productName = stock.product?.productName || stock.product_name || '-'
-                const productCode = stock.product?.productCode || stock.product_code || stock.batch_no || '-'
-                const categoryName = stock.category?.categoryName || stock.category_name || (stock.product as { category?: { categoryName?: string } })?.category?.categoryName || '-'
+                const productCode =
+                  stock.product?.productCode || stock.product_code || stock.batch_no || '-'
+                const categoryName =
+                  stock.category?.categoryName ||
+                  stock.category_name ||
+                  (stock.product as { category?: { categoryName?: string } })?.category
+                    ?.categoryName ||
+                  '-'
                 const variantName = stock.variant?.variant_name || stock.variant_name
                 const formattedExpiry = stock.expire_date
                   ? format(new Date(stock.expire_date), 'MMM dd, yyyy')
@@ -183,7 +189,7 @@ export function StocksList({
                   <TableRow
                     key={stock.id}
                     data-state={selectedIds.includes(stock.id) && 'selected'}
-                    className="h-14 hover:bg-muted/50 transition-colors"
+                    className="h-14 transition-colors hover:bg-muted/50"
                   >
                     <TableCell>
                       <Checkbox
@@ -191,7 +197,7 @@ export function StocksList({
                         onCheckedChange={(checked) => toggleSelect(stock.id, !!checked)}
                       />
                     </TableCell>
-                    <TableCell className="font-medium text-sm">#{stock.product_id}</TableCell>
+                    <TableCell className="text-sm font-medium">#{stock.product_id}</TableCell>
                     <TableCell className="font-medium">
                       <div className="flex flex-col">
                         <span>{productName}</span>
@@ -202,11 +208,19 @@ export function StocksList({
                     </TableCell>
                     <TableCell className="text-muted-foreground">{productCode}</TableCell>
                     <TableCell className="text-muted-foreground">{categoryName}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatCurrency(stock.productPurchasePrice)}</TableCell>
-                    <TableCell className="font-semibold text-center">{stock.productStock}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatCurrency(stock.productSalePrice)}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatCurrency(stock.productPurchasePrice)}
+                    </TableCell>
+                    <TableCell className="text-center font-semibold">
+                      {stock.productStock}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatCurrency(stock.productSalePrice)}
+                    </TableCell>
                     <TableCell className="font-semibold">{formatCurrency(stockValue)}</TableCell>
-                    {showExpiryDate && <TableCell className="text-red-600 font-medium">{formattedExpiry}</TableCell>}
+                    {showExpiryDate && (
+                      <TableCell className="font-medium text-red-600">{formattedExpiry}</TableCell>
+                    )}
                   </TableRow>
                 )
               })}
@@ -228,7 +242,7 @@ export function StocksList({
               onClick={() => onPageChange?.(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
             >
-              <ChevronLeft className="h-4 w-4 mr-1" />
+              <ChevronLeft className="mr-1 h-4 w-4" />
               Previous
             </Button>
             <div className="flex items-center gap-1">
@@ -247,7 +261,7 @@ export function StocksList({
                     key={pageNum}
                     variant={currentPage === pageNum ? 'default' : 'outline'}
                     size="sm"
-                    className="w-8 h-8 p-0"
+                    className="h-8 w-8 p-0"
                     onClick={() => onPageChange?.(pageNum)}
                   >
                     {pageNum}
@@ -262,7 +276,7 @@ export function StocksList({
               disabled={currentPage === totalPages}
             >
               Next
-              <ChevronRight className="h-4 w-4 ml-1" />
+              <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </div>
         </div>

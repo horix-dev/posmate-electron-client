@@ -12,6 +12,7 @@ import {
   Package,
   X,
   Percent,
+  ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -22,7 +23,15 @@ import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { CachedImage } from '@/components/common/CachedImage'
+import { toast } from 'sonner'
 import { useCurrency } from '@/hooks'
 import { cn, getImageUrl } from '@/lib/utils'
 import type { CartItemDisplay } from './CartItem'
@@ -59,9 +68,15 @@ export interface CartSidebarProps {
   /** Discount type */
   discountType: 'fixed' | 'percentage'
   /** Callback to update item quantity */
-  onUpdateQuantity: (productId: number, quantity: number) => void
+  onUpdateQuantity: (itemId: string, quantity: number) => void
+  /** Callback to update item discount */
+  onUpdateItemDiscount?: (itemId: string, discount: number, type: 'fixed' | 'percentage') => void
   /** Callback to remove item */
-  onRemoveItem: (productId: number) => void
+  onRemoveItem: (itemId: string) => void
+  /** Callback to switch batches */
+  onChangeBatch?: (itemId: string, batchId: number) => void
+  /** Callback to open batch selector dialog */
+  onOpenBatchSelector?: (itemId: string) => void
   /** Callback to clear cart */
   onClearCart: () => void
   /** Callback to hold cart */
@@ -354,6 +369,517 @@ const CartTotalsSection = memo(function CartTotalsSection({
   )
 })
 
+// ============================================
+// Cart Item Row with Discount Support
+// ============================================
+
+interface CartItemRowProps {
+  item: CartItemDisplay
+  isHero?: boolean
+  showDiscountColumn?: boolean
+  onUpdateQuantity: (itemId: string, quantity: number) => void
+  onUpdateDiscount?: (itemId: string, discount: number, type: 'fixed' | 'percentage') => void
+  onRemoveItem: (itemId: string) => void
+  onChangeBatch?: (itemId: string, batchId: number) => void
+  onOpenBatchSelector?: (itemId: string) => void
+}
+
+const CartItemRow = memo(function CartItemRow({
+  item,
+  isHero = false,
+  showDiscountColumn = false,
+  onUpdateQuantity,
+  onUpdateDiscount,
+  onRemoveItem,
+  onChangeBatch,
+  onOpenBatchSelector,
+}: CartItemRowProps) {
+  const { format: formatCurrency } = useCurrency()
+
+  // Calculate discount and line total
+  const itemDiscount = item.discount ?? 0
+  const itemDiscountType = item.discountType ?? 'fixed'
+  const subtotal = item.quantity * item.salePrice
+  const discountAmount =
+    itemDiscountType === 'percentage'
+      ? subtotal * (itemDiscount / 100)
+      : itemDiscount * item.quantity
+  const lineTotal = Math.max(0, subtotal - discountAmount)
+  const hasDiscount = discountAmount > 0
+  const batchOptions = item.batchOptions ?? []
+  const canChangeBatch = batchOptions.length > 1 && Boolean(onChangeBatch)
+  const currentBatch = canChangeBatch
+    ? (batchOptions.find((batch) => batch.id === item.selectedBatchId) ?? batchOptions[0])
+    : null
+  const batchLabel = currentBatch
+    ? `${currentBatch.batchNo ? `Batch ${currentBatch.batchNo}` : `Batch #${currentBatch.id}`}${currentBatch.expireDate ? ` · Exp ${new Date(currentBatch.expireDate).toLocaleDateString()}` : ''}`
+    : 'Select batch'
+  const batchMeta = currentBatch
+    ? `Stock: ${currentBatch.productStock ?? 0}${currentBatch.productSalePrice ? ` · ${formatCurrency(currentBatch.productSalePrice)}` : ''}`
+    : 'Choose a batch to sync price'
+
+  // Discount popover state
+  const [discountOpen, setDiscountOpen] = useState(false)
+  const [amountStr, setAmountStr] = useState('')
+  const [percentStr, setPercentStr] = useState('')
+  const [activeDiscountType, setActiveDiscountType] = useState<'fixed' | 'percentage'>('percentage')
+  const [batchOpen, setBatchOpen] = useState(false)
+
+  // Sync local state when popover opens
+  useEffect(() => {
+    if (discountOpen) {
+      if (itemDiscount === 0 && discountAmount === 0) {
+        setAmountStr('')
+        setPercentStr('')
+        setActiveDiscountType('percentage')
+        return
+      }
+
+      setActiveDiscountType(itemDiscountType)
+      if (itemDiscountType === 'fixed') {
+        setAmountStr(itemDiscount.toString())
+        const pct = item.salePrice > 0 ? (itemDiscount / item.salePrice) * 100 : 0
+        setPercentStr(pct.toFixed(2))
+      } else {
+        setPercentStr(itemDiscount.toString())
+        const amt = (item.salePrice * itemDiscount) / 100
+        setAmountStr(amt.toFixed(2))
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discountOpen])
+
+  const handleDiscountAmountChange = (val: string) => {
+    setAmountStr(val)
+    setActiveDiscountType('fixed')
+    const num = parseFloat(val)
+
+    if (isNaN(num)) {
+      setPercentStr('')
+      return
+    }
+
+    // Update percentage local state only (don't apply yet)
+    const pct = item.salePrice > 0 ? (num / item.salePrice) * 100 : 0
+    setPercentStr(pct.toFixed(2))
+  }
+
+  const handleDiscountPercentChange = (val: string) => {
+    setPercentStr(val)
+    setActiveDiscountType('percentage')
+    const num = parseFloat(val)
+
+    if (isNaN(num)) {
+      setAmountStr('')
+      return
+    }
+
+    // Update amount local state only (don't apply yet)
+    const amt = (item.salePrice * num) / 100
+    setAmountStr(amt.toFixed(2))
+  }
+
+  const handleDiscountPreset = (pct: number) => {
+    handleDiscountPercentChange(pct.toString())
+  }
+
+  const handleApplyDiscount = () => {
+    if (!onUpdateDiscount) return
+
+    // Apply the discount based on the active discount type
+    if (activeDiscountType === 'percentage' && percentStr && parseFloat(percentStr) > 0) {
+      const num = parseFloat(percentStr)
+      // Validate percentage doesn't exceed 100%
+      if (num > 100) {
+        toast.error('Discount cannot exceed 100%')
+        return
+      }
+      onUpdateDiscount(item.id, num, 'percentage')
+    } else if (activeDiscountType === 'fixed' && amountStr && parseFloat(amountStr) > 0) {
+      const num = parseFloat(amountStr)
+      // Validate fixed discount doesn't exceed product price
+      if (num > item.salePrice) {
+        toast.error(`Discount cannot exceed product price (${formatCurrency(item.salePrice)})`)
+        return
+      }
+      onUpdateDiscount(item.id, num, 'fixed')
+    } else {
+      // Clear discount if both are empty
+      onUpdateDiscount(item.id, 0, 'fixed')
+    }
+
+    setDiscountOpen(false)
+  }
+
+  const handleClearDiscount = () => {
+    if (!onUpdateDiscount) return
+    onUpdateDiscount(item.id, 0, 'fixed')
+    setAmountStr('')
+    setPercentStr('')
+    setDiscountOpen(false)
+  }
+
+  return (
+    <tr
+      className={cn(
+        'group border-b transition-colors duration-1000 ease-out',
+        isHero
+          ? 'bg-green-100/80 hover:bg-primary/5 dark:bg-green-900/40 dark:hover:bg-blue-900/50'
+          : 'hover:bg-muted/50'
+      )}
+      role="row"
+    >
+      <td className="px-3 py-2">
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-primary/5">
+            {getImageUrl(item.productImage) ? (
+              <CachedImage
+                src={getImageUrl(item.productImage)!}
+                alt={item.productName}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <Package className="h-5 w-5 text-primary/40" aria-hidden="true" />
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col">
+            <span className="line-clamp-2 font-medium leading-tight">{item.productName}</span>
+            <span className="font-mono text-[10px] text-muted-foreground/90">
+              {item.productCode}
+            </span>
+            {item.variantName && (
+              <span className="text-[11px] font-normal leading-relaxed text-muted-foreground">
+                {item.variantName}
+              </span>
+            )}
+            {item.batchNo && (
+              <span className="text-[11px] font-normal leading-3 text-muted-foreground">
+                Batch: {item.batchNo}
+              </span>
+            )}
+            {canChangeBatch && onChangeBatch && onOpenBatchSelector && (
+              <button
+                type="button"
+                className="mt-2 inline-flex h-9 w-full items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 text-left text-[11px] font-semibold text-primary shadow-sm transition hover:border-primary"
+                onClick={() => onOpenBatchSelector(item.id)}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <Package className="h-3 w-3" aria-hidden="true" />
+                  <span className="truncate uppercase tracking-wide">Batch & Pricing</span>
+                </span>
+                <span className="ml-2 hidden flex-1 truncate text-[10px] font-normal text-muted-foreground lg:block">
+                  {batchLabel}
+                </span>
+                <ChevronDown className="ml-2 h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+              </button>
+            )}
+            {canChangeBatch && onChangeBatch && !onOpenBatchSelector && (
+              <Popover open={batchOpen} onOpenChange={setBatchOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="mt-2 inline-flex h-9 w-full items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 text-left text-[11px] font-semibold text-primary shadow-sm transition hover:border-primary"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Package className="h-3 w-3" aria-hidden="true" />
+                      <span className="truncate uppercase tracking-wide">Batch & Pricing</span>
+                    </span>
+                    <span className="ml-2 hidden flex-1 truncate text-[10px] font-normal text-muted-foreground lg:block">
+                      {batchLabel}
+                    </span>
+                    <ChevronDown
+                      className="ml-2 h-3 w-3 shrink-0 text-primary"
+                      aria-hidden="true"
+                    />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 space-y-3 rounded-lg border border-primary/20 bg-background p-4 shadow-2xl">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Selected Batch</p>
+                    <p className="text-sm font-semibold text-foreground">{batchLabel}</p>
+                    <p className="text-[11px] text-muted-foreground">{batchMeta}</p>
+                  </div>
+                  <Select
+                    value={item.selectedBatchId ? item.selectedBatchId.toString() : undefined}
+                    onValueChange={(value) => {
+                      onChangeBatch(item.id, Number(value))
+                      setBatchOpen(false)
+                    }}
+                  >
+                    <SelectTrigger className="h-10 w-full justify-between rounded-md border border-input bg-muted/40 px-3 text-left text-sm font-medium">
+                      <SelectValue placeholder="Choose batch" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 w-full text-xs">
+                      {batchOptions.map((batch) => (
+                        <SelectItem
+                          key={batch.id}
+                          value={batch.id.toString()}
+                          disabled={batch.disabled}
+                          className="space-y-0.5 border-b border-border/40 py-2 text-xs last:border-none"
+                        >
+                          <div className="font-medium text-foreground">
+                            {batch.batchNo ? `Batch ${batch.batchNo}` : `Batch #${batch.id}`}
+                            {batch.expireDate
+                              ? ` · Exp ${new Date(batch.expireDate).toLocaleDateString()}`
+                              : ''}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            Stock: {batch.productStock ?? 0}
+                            {batch.productSalePrice
+                              ? ` · ${formatCurrency(batch.productSalePrice)}`
+                              : ''}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    Selecting a batch automatically updates available quantity and unit price.
+                  </p>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
+        </div>
+      </td>
+      <td className="px-2 py-2">
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+            disabled={item.quantity <= 1}
+            aria-label={`Decrease ${item.productName} quantity`}
+          >
+            <Minus className="h-3 w-3" aria-hidden="true" />
+          </Button>
+          <Input
+            type="number"
+            value={item.quantity}
+            onChange={(e) => {
+              const newQty = parseInt(e.target.value, 10)
+              if (!isNaN(newQty) && newQty >= 1 && newQty <= item.maxStock) {
+                onUpdateQuantity(item.id, newQty)
+              }
+            }}
+            onFocus={(e) => e.target.select()}
+            min={1}
+            max={item.maxStock}
+            className="h-6 w-12 cursor-pointer text-center text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            aria-label={`${item.productName} quantity`}
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+            disabled={item.quantity >= item.maxStock}
+            aria-label={`Increase ${item.productName} quantity`}
+          >
+            <Plus className="h-3 w-3" aria-hidden="true" />
+          </Button>
+        </div>
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(item.salePrice)}</td>
+      {showDiscountColumn && (
+        <td className="px-3 py-2 text-right">
+          {hasDiscount ? (
+            <div className="flex flex-col items-end tabular-nums">
+              <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                {formatCurrency(discountAmount)}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                ({itemDiscountType === 'percentage' ? `${itemDiscount}%` : 'Fixed'})
+              </span>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">-</span>
+          )}
+        </td>
+      )}
+      <td className="px-3 py-2 text-right font-semibold tabular-nums text-foreground">
+        {formatCurrency(lineTotal)}
+      </td>
+      <td className="px-2 py-2">
+        <div className="flex items-center gap-1">
+          {/* Discount Button */}
+          {onUpdateDiscount && (
+            <Popover open={discountOpen} onOpenChange={setDiscountOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={hasDiscount ? 'default' : 'ghost'}
+                  size="icon"
+                  className={cn(
+                    'h-6 w-6',
+                    hasDiscount
+                      ? 'bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600'
+                      : 'text-muted-foreground hover:bg-primary/10'
+                  )}
+                  aria-label={`Set discount for ${item.productName}`}
+                >
+                  <Percent className="h-3 w-3" aria-hidden="true" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-72 p-4"
+                align="end"
+                side="left"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleApplyDiscount()
+                  }
+                }}
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">Item Discount</h4>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor={`amount-${item.id}`} className="text-xs">
+                        Amount (per unit)
+                      </Label>
+                      <CurrencyInput
+                        id={`amount-${item.id}`}
+                        type="number"
+                        value={amountStr}
+                        onChange={(e) => handleDiscountAmountChange(e.target.value)}
+                        className="h-9 text-sm"
+                        placeholder="0.00"
+                        min="0"
+                        max={item.salePrice}
+                        currencySymbol="Rs"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`percent-${item.id}`} className="text-xs">
+                        Percentage
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id={`percent-${item.id}`}
+                          type="number"
+                          value={percentStr}
+                          onChange={(e) => handleDiscountPercentChange(e.target.value)}
+                          className="h-9 pr-7 text-sm"
+                          placeholder="0"
+                          min="0"
+                          max="100"
+                        />
+                        <Percent className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Quick Discount</Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[5, 10, 15, 20].map((pct) => (
+                        <Button
+                          key={pct}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => handleDiscountPreset(pct)}
+                        >
+                          {pct}%
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {hasDiscount && (
+                    <div className="rounded-md bg-green-50 p-2 dark:bg-green-950/30">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Unit Price:</span>
+                        <span>{formatCurrency(item.salePrice)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Discount (per unit):</span>
+                        <span className="text-green-600 dark:text-green-400">
+                          -
+                          {formatCurrency(
+                            itemDiscountType === 'percentage'
+                              ? (item.salePrice * itemDiscount) / 100
+                              : itemDiscount
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-t border-green-200 pt-1 text-xs font-semibold dark:border-green-900">
+                        <span>Final Unit Price:</span>
+                        <span>
+                          {formatCurrency(
+                            Math.max(
+                              0,
+                              item.salePrice -
+                                (itemDiscountType === 'percentage'
+                                  ? (item.salePrice * itemDiscount) / 100
+                                  : itemDiscount)
+                            )
+                          )}
+                        </span>
+                      </div>
+                      <div className="mt-2 border-t border-green-200 pt-1 dark:border-green-900">
+                        <div className="flex justify-between text-xs font-bold">
+                          <span>Total Discount:</span>
+                          <span className="text-green-600 dark:text-green-400">
+                            -{formatCurrency(discountAmount)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">× {item.quantity} units</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 border-t pt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={handleClearDiscount}
+                      disabled={!hasDiscount}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="flex-1"
+                      onClick={handleApplyDiscount}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* Remove Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-destructive hover:bg-destructive/10"
+            onClick={() => onRemoveItem(item.id)}
+            aria-label={`Remove ${item.productName} from cart`}
+          >
+            <Trash2 className="h-3 w-3" aria-hidden="true" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  )
+})
+
 interface EmptyCartProps {
   heldCartsCount: number
   onOpenHeldCarts: () => void
@@ -389,7 +915,10 @@ function CartSidebarComponent({
   heldCartsCount,
   invoiceNumber,
   onUpdateQuantity,
+  onUpdateItemDiscount,
   onRemoveItem,
+  onChangeBatch,
+  onOpenBatchSelector,
   onClearCart,
   onHoldCart,
   onOpenHeldCarts,
@@ -397,8 +926,10 @@ function CartSidebarComponent({
   onDiscountChange,
   onPayment,
 }: CartSidebarProps) {
-  const { format: formatCurrency } = useCurrency()
   const itemCount = useMemo(() => items.reduce((acc, item) => acc + item.quantity, 0), [items])
+
+  // Check if any item has a discount
+  const hasAnyDiscount = useMemo(() => items.some((item) => (item.discount ?? 0) > 0), [items])
 
   // Reverse items to show newest first (Hero row at top)
   const reversedItems = useMemo(() => [...items].reverse(), [items])
@@ -446,121 +977,28 @@ function CartSidebarComponent({
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">Item</th>
                     <th className="px-2 py-2 text-center font-medium">Qty</th>
-                    <th className="px-2 py-2 text-right font-medium">Price</th>
+                    <th className="px-3 py-2 text-right font-medium">Price</th>
+                    {hasAnyDiscount && (
+                      <th className="px-3 py-2 text-right font-medium">Discount</th>
+                    )}
                     <th className="px-3 py-2 text-right font-medium">Total</th>
-                    <th className="w-8 px-2 py-2"></th>
+                    <th className="w-16 px-2 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {reversedItems.map((item, index) => {
-                    const lineTotal = item.quantity * item.salePrice
-                    const isHero = index === 0
-
-                    return (
-                      <tr
-                        key={item.id}
-                        className={cn(
-                          'border-b transition-colors duration-1000 ease-out',
-                          isHero
-                            ? 'bg-green-100/80 hover:bg-primary/5 dark:bg-green-900/40 dark:hover:bg-blue-900/50'
-                            : 'hover:bg-muted/50'
-                        )}
-                        role="row"
-                      >
-                        <td className="px-3 py-2">
-                          <div className="flex items-start gap-3">
-                            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-primary/5">
-                              {getImageUrl(item.productImage) ? (
-                                <CachedImage
-                                  src={getImageUrl(item.productImage)!}
-                                  alt={item.productName}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-full items-center justify-center">
-                                  <Package className="h-5 w-5 text-primary/40" aria-hidden="true" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="line-clamp-2 font-medium leading-tight">
-                                {item.productName}
-                              </span>
-                              <span className="font-mono text-[10px] text-muted-foreground/90">
-                                {item.productCode}
-                              </span>
-                              {item.variantName && (
-                                <span className="text-[11px] font-normal leading-relaxed text-muted-foreground">
-                                  {item.variantName}
-                                </span>
-                              )}
-                              {item.batchNo && (
-                                <span className="text-[11px] font-normal leading-3 text-muted-foreground">
-                                  Batch: {item.batchNo}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => onUpdateQuantity(item.productId, item.quantity - 1)}
-                              disabled={item.quantity <= 1}
-                              aria-label={`Decrease ${item.productName} quantity`}
-                            >
-                              <Minus className="h-3 w-3" aria-hidden="true" />
-                            </Button>
-                            <Input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => {
-                                const newQty = parseInt(e.target.value, 10)
-                                if (!isNaN(newQty) && newQty >= 1 && newQty <= item.maxStock) {
-                                  onUpdateQuantity(item.productId, newQty)
-                                }
-                              }}
-                              onFocus={(e) => e.target.select()}
-                              min={1}
-                              max={item.maxStock}
-                              className="h-6 w-12 cursor-pointer text-center text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                              aria-label={`${item.productName} quantity`}
-                            />
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => onUpdateQuantity(item.productId, item.quantity + 1)}
-                              disabled={item.quantity >= item.maxStock}
-                              aria-label={`Increase ${item.productName} quantity`}
-                            >
-                              <Plus className="h-3 w-3" aria-hidden="true" />
-                            </Button>
-                          </div>
-                        </td>
-                        <td className="px-2 py-2 text-right tabular-nums">
-                          {formatCurrency(item.salePrice)}
-                        </td>
-                        <td className="px-3 py-2 text-right font-semibold tabular-nums text-foreground">
-                          {formatCurrency(lineTotal)}
-                        </td>
-                        <td className="px-2 py-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                            onClick={() => onRemoveItem(item.productId)}
-                            aria-label={`Remove ${item.productName} from cart`}
-                          >
-                            <Trash2 className="h-3 w-3" aria-hidden="true" />
-                          </Button>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {reversedItems.map((item, index) => (
+                    <CartItemRow
+                      key={item.id}
+                      item={item}
+                      isHero={index === 0}
+                      showDiscountColumn={hasAnyDiscount}
+                      onUpdateQuantity={onUpdateQuantity}
+                      onUpdateDiscount={onUpdateItemDiscount}
+                      onRemoveItem={onRemoveItem}
+                      onChangeBatch={onChangeBatch}
+                      onOpenBatchSelector={onOpenBatchSelector}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>

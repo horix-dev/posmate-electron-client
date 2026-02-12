@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   Receipt,
@@ -21,6 +21,13 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useUIStore } from '@/stores'
 import { useAppUpdater } from '@/hooks/useAppUpdater'
 import { useQueryClient } from '@tanstack/react-query'
@@ -36,6 +43,14 @@ type AppInfo = {
   platform: string
 }
 
+type PrinterInfo = {
+  name: string
+  displayName?: string
+  description?: string
+  status?: number
+  isDefault?: boolean
+}
+
 export function SettingsPage() {
   const {
     theme,
@@ -44,6 +59,10 @@ export function SettingsPage() {
     setSoundEnabled,
     autoPrintReceipt,
     setAutoPrintReceipt,
+    receiptPrinterName,
+    setReceiptPrinterName,
+    labelPrinterName,
+    setLabelPrinterName,
     smartTenderEnabled,
     setSmartTenderEnabled,
   } = useUIStore()
@@ -85,8 +104,45 @@ export function SettingsPage() {
     syncQueue: number
     images: number
   } | null>(null)
+  const [printers, setPrinters] = useState<PrinterInfo[]>([])
+  const [isLoadingPrinters, setIsLoadingPrinters] = useState(false)
+  const hasPrinterApi = Boolean(window.electronAPI?.print?.getPrinters)
 
   const refresh = () => setRefreshTrigger((prev) => prev + 1)
+  const DEFAULT_PRINTER_VALUE = '__system_default__'
+
+  const handleReceiptPrinterChange = (value: string) => {
+    setReceiptPrinterName(value === DEFAULT_PRINTER_VALUE ? null : value)
+  }
+
+  const handleLabelPrinterChange = (value: string) => {
+    setLabelPrinterName(value === DEFAULT_PRINTER_VALUE ? null : value)
+  }
+
+  const receiptPrinterValue = receiptPrinterName ?? DEFAULT_PRINTER_VALUE
+  const labelPrinterValue = labelPrinterName ?? DEFAULT_PRINTER_VALUE
+
+  const loadPrinters = useCallback(async () => {
+    if (!hasPrinterApi) {
+      setPrinters([])
+      return
+    }
+
+    setIsLoadingPrinters(true)
+    try {
+      const list = await window.electronAPI?.print?.getPrinters?.()
+      if (list) {
+        setPrinters(list)
+      } else {
+        setPrinters([])
+      }
+    } catch (error) {
+      console.error('Failed to load printers:', error)
+      toast.error('Unable to load printers')
+    } finally {
+      setIsLoadingPrinters(false)
+    }
+  }, [hasPrinterApi])
 
   useEffect(() => {
     const loadAppInfo = async () => {
@@ -118,6 +174,14 @@ export function SettingsPage() {
     }
     loadCacheStats()
   }, [])
+
+  useEffect(() => {
+    if (!hasPrinterApi) {
+      return
+    }
+
+    loadPrinters()
+  }, [hasPrinterApi, loadPrinters])
 
   const handleClearCache = async () => {
     if (
@@ -310,6 +374,95 @@ export function SettingsPage() {
                   </p>
                 </div>
                 <Switch checked={smartTenderEnabled} onCheckedChange={setSmartTenderEnabled} />
+              </div>
+
+              <div className="space-y-3 rounded-lg border p-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <Label>Printer Routing</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Choose dedicated printers for receipts and shelf labels (desktop only)
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadPrinters}
+                      disabled={!hasPrinterApi || isLoadingPrinters}
+                    >
+                      {isLoadingPrinters ? 'Loading...' : 'Refresh list'}
+                    </Button>
+                  </div>
+                </div>
+
+                {hasPrinterApi ? (
+                  printers.length || isLoadingPrinters ? (
+                    <div className="grid gap-4 pt-2 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Receipt printer</p>
+                        <Select
+                          value={receiptPrinterValue}
+                          onValueChange={handleReceiptPrinterChange}
+                          disabled={isLoadingPrinters || (!printers.length && !isLoadingPrinters)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select printer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={DEFAULT_PRINTER_VALUE}>
+                              Use system default
+                            </SelectItem>
+                            {printers.map((printer) => (
+                              <SelectItem key={printer.name} value={printer.name}>
+                                {printer.displayName || printer.name}
+                                {printer.isDefault ? ' (OS default)' : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Used for POS receipts and reprints.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Label printer</p>
+                        <Select
+                          value={labelPrinterValue}
+                          onValueChange={handleLabelPrinterChange}
+                          disabled={isLoadingPrinters || (!printers.length && !isLoadingPrinters)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select printer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={DEFAULT_PRINTER_VALUE}>
+                              Use system default
+                            </SelectItem>
+                            {printers.map((printer) => (
+                              <SelectItem key={`${printer.name}-label`} value={printer.name}>
+                                {printer.displayName || printer.name}
+                                {printer.isDefault ? ' (OS default)' : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Applied when printing barcode labels.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="pt-2 text-sm text-muted-foreground">
+                      No printers were returned by Windows. Connect a printer and refresh the list.
+                    </p>
+                  )
+                ) : (
+                  <p className="pt-2 text-sm text-muted-foreground">
+                    Printer routing is available in the desktop app.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>

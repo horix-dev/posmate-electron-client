@@ -9,11 +9,12 @@ export { CustomerSelectDialog } from './CustomerSelectDialog'
 export { ShortcutsHelpDialog } from './ShortcutsHelpDialog'
 export { VariantSelectionDialog } from './VariantSelectionDialog'
 export { SmartTender } from './SmartTender'
+export { BatchSelectionDialog } from '@/components/shared'
 
 // Types
 export type { ProductCardProps } from './ProductCard'
 export type { ProductGridProps } from './ProductGrid'
-export type { CartItemProps, CartItemDisplay } from './CartItem'
+export type { CartItemProps, CartItemDisplay, CartItemBatchOption } from './CartItem'
 export type { CartSidebarProps, CartTotals } from './CartSidebar'
 export type { PaymentDialogProps } from './PaymentDialog'
 export type { HeldCartsDialogProps } from './HeldCartsDialog'

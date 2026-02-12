@@ -20,29 +20,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Receipt Printing
   print: {
-    receipt: (invoiceUrl: string) => ipcRenderer.invoke('print-receipt', invoiceUrl),
-    receiptHTML: (htmlContent: string) => {
-      return new Promise((resolve) => {
-        // Send print request
-        ipcRenderer.send('print-receipt-html', htmlContent)
-        
-        // Listen for reply (one-time)
-        ipcRenderer.once('print-receipt-html-result', (_event, result) => {
-          resolve(result)
-        })
-      })
-    },
-    receiptHTMLWithPageSize: (htmlContent: string, pageSize: { width: number; height: number }) => {
-      return new Promise((resolve) => {
-        // Send print request with page size
-        ipcRenderer.send('print-receipt-html-with-page-size', htmlContent, pageSize)
-        
-        // Listen for reply (one-time)
-        ipcRenderer.once('print-receipt-html-result', (_event, result) => {
-          resolve(result)
-        })
-      })
-    },
+    receipt: (invoiceUrl: string, options?: { printerName?: string }) =>
+      ipcRenderer.invoke('print-receipt', invoiceUrl, options),
+    receiptHTML: (htmlContent: string, options?: { printerName?: string }) =>
+      ipcRenderer.invoke('print-receipt-html', htmlContent, options),
+    receiptHTMLWithPageSize: (
+      htmlContent: string,
+      pageSize: { width: number; height: number },
+      options?: { printerName?: string }
+    ) => ipcRenderer.invoke('print-receipt-html-with-page-size', htmlContent, pageSize, options),
+    getPrinters: () => ipcRenderer.invoke('get-printers'),
   },
 
   // SQLite Database

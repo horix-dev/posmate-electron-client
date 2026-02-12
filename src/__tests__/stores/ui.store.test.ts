@@ -206,6 +206,31 @@ describe('UI Store', () => {
 
       expect(useUIStore.getState().autoPrintReceipt).toBe(false)
     })
+
+    it('should default printer selection to null', () => {
+      const state = useUIStore.getState()
+      expect(state.receiptPrinterName).toBeNull()
+      expect(state.labelPrinterName).toBeNull()
+    })
+
+    it('should update printer selections', () => {
+      act(() => {
+        useUIStore.getState().setReceiptPrinterName('Thermal-123')
+        useUIStore.getState().setLabelPrinterName('Labeler-XYZ')
+      })
+
+      const state = useUIStore.getState()
+      expect(state.receiptPrinterName).toBe('Thermal-123')
+      expect(state.labelPrinterName).toBe('Labeler-XYZ')
+
+      act(() => {
+        useUIStore.getState().setReceiptPrinterName(null)
+        useUIStore.getState().setLabelPrinterName(null)
+      })
+
+      expect(useUIStore.getState().receiptPrinterName).toBeNull()
+      expect(useUIStore.getState().labelPrinterName).toBeNull()
+    })
   })
 
   describe('POS settings', () => {
@@ -255,6 +280,8 @@ describe('UI Store', () => {
         useUIStore.getState().setTheme('dark')
         useUIStore.getState().setSoundEnabled(true)
         useUIStore.getState().setAutoPrintReceipt(true)
+        useUIStore.getState().setReceiptPrinterName('Thermal-ABC')
+        useUIStore.getState().setLabelPrinterName('Label-123')
         useUIStore.getState().setSmartTenderEnabled(false)
         useUIStore.getState().setPosViewMode('list')
       })
@@ -263,6 +290,8 @@ describe('UI Store', () => {
       expect(state.theme).toBe('dark')
       expect(state.soundEnabled).toBe(true)
       expect(state.autoPrintReceipt).toBe(true)
+      expect(state.receiptPrinterName).toBe('Thermal-ABC')
+      expect(state.labelPrinterName).toBe('Label-123')
       expect(state.smartTenderEnabled).toBe(false)
       expect(state.posViewMode).toBe('list')
     })

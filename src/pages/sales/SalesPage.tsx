@@ -68,16 +68,8 @@ export function SalesPage() {
   // ============================================
   // Data Fetching Hook
   // ============================================
-  const {
-    sales,
-    offlineSales,
-    isLoading,
-    error,
-    filteredSales,
-    stats,
-    refetch,
-    deleteSale,
-  } = useSales(debouncedFilters)
+  const { sales, offlineSales, isLoading, error, filteredSales, stats, refetch, deleteSale } =
+    useSales(debouncedFilters)
 
   // ============================================
   // Dialog State
@@ -163,8 +155,7 @@ export function SalesPage() {
           <p className="text-muted-foreground">
             {activeTab === 'sales'
               ? `View and manage your sales records${stats.total > 0 ? ` (${stats.total} sales)` : ''}`
-              : 'View and manage all sale returns'
-            }
+              : 'View and manage all sale returns'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -177,9 +168,7 @@ export function SalesPage() {
           </Button>
           {activeTab === 'sales' && (
             <Button asChild>
-              <Link to="/pos">
-                Go to POS
-              </Link>
+              <Link to="/pos">Go to POS</Link>
             </Button>
           )}
         </div>
@@ -200,7 +189,10 @@ export function SalesPage() {
       )}
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => handleTabChange(value as 'sales' | 'returns')}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => handleTabChange(value as 'sales' | 'returns')}
+      >
         <TabsContent value="sales" className="space-y-4">
           {/* Stats Cards */}
           <SalesStatsCards stats={stats} isLoading={isLoading} />

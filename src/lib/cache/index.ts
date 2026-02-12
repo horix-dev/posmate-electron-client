@@ -137,6 +137,12 @@ export const CacheKeys = {
   PRODUCTS_UNITS: 'cache:products:units',
   PRODUCT_VARIANTS: (productId: number) => `cache:products:${productId}:variants`,
 
+  // Inventory metadata
+  WAREHOUSES: 'cache:inventory:warehouses',
+
+  // Stocks
+  STOCKS_TOTAL_VALUE: 'cache:stocks:total-value',
+
   // Dashboard
   DASHBOARD_SUMMARY: 'cache:dashboard:summary',
   DASHBOARD_DATA: 'cache:dashboard:data',

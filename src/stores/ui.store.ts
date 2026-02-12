@@ -41,6 +41,10 @@ interface UIState {
   // Receipt printer settings
   autoPrintReceipt: boolean
   setAutoPrintReceipt: (enabled: boolean) => void
+  receiptPrinterName: string | null
+  setReceiptPrinterName: (printerName: string | null) => void
+  labelPrinterName: string | null
+  setLabelPrinterName: (printerName: string | null) => void
 
   // POS Smart Tender
   smartTenderEnabled: boolean
@@ -108,8 +112,12 @@ export const useUIStore = create<UIState>()(
       setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
 
       // Receipt printer
-      autoPrintReceipt: false,
+      autoPrintReceipt: true,
       setAutoPrintReceipt: (enabled) => set({ autoPrintReceipt: enabled }),
+      receiptPrinterName: null,
+      setReceiptPrinterName: (printerName) => set({ receiptPrinterName: printerName }),
+      labelPrinterName: null,
+      setLabelPrinterName: (printerName) => set({ labelPrinterName: printerName }),
 
       // POS Smart Tender
       smartTenderEnabled: false,
@@ -131,6 +139,8 @@ export const useUIStore = create<UIState>()(
         sidebarState: state.sidebarState,
         soundEnabled: state.soundEnabled,
         autoPrintReceipt: state.autoPrintReceipt,
+        receiptPrinterName: state.receiptPrinterName,
+        labelPrinterName: state.labelPrinterName,
         smartTenderEnabled: state.smartTenderEnabled,
         posViewMode: state.posViewMode,
         posProductsPerPage: state.posProductsPerPage,

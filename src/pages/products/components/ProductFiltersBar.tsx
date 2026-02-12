@@ -207,7 +207,7 @@ function ProductFiltersBarComponent({
         />
         <Input
           type="search"
-          placeholder="Search products by name or code..."
+          placeholder="Search products by name, code, or barcode..."
           value={filters.search}
           onChange={handleSearchChange}
           className="pl-10 pr-8"
