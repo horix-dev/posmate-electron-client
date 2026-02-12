@@ -478,7 +478,19 @@ export class SQLiteService {
   productGetById(id: number): LocalProduct | undefined {
     if (!this.db) throw new Error('Database not initialized')
     const row = this.db.prepare('SELECT * FROM products WHERE id = ?').get(id) as any
-    return row ? this.mapProduct(row) : undefined
+    if (!row) return undefined
+    
+    const product = this.mapProduct(row)
+    
+    // Load variants if product is variable
+    if ((row.product_type === 'variable' || row.product_type === 'variant') && row.has_variants) {
+      product.variants = this.getVariantsByProductId(row.id)
+    }
+    
+    // Load all stocks (includes variant stocks and batch data)
+    product.stocks = this.getStocksByProductId(row.id)
+    
+    return product
   }
 
   productGetAll(): LocalProduct[] {
@@ -572,25 +584,73 @@ export class SQLiteService {
       WHERE product_name LIKE ? OR product_code LIKE ?
       LIMIT 50
     `).all(pattern, pattern) as any[]
-    return rows.map(r => this.mapProduct(r))
+    return rows.map(r => {
+      const product = this.mapProduct(r)
+      
+      // Load variants if product is variable
+      if ((r.product_type === 'variable' || r.product_type === 'variant') && r.has_variants) {
+        product.variants = this.getVariantsByProductId(r.id)
+      }
+      
+      // Load all stocks (includes variant stocks and batch data)
+      product.stocks = this.getStocksByProductId(r.id)
+      
+      return product
+    })
   }
 
   productGetByBarcode(barcode: string): LocalProduct | undefined {
     if (!this.db) throw new Error('Database not initialized')
     const row = this.db.prepare('SELECT * FROM products WHERE product_code = ?').get(barcode) as any
-    return row ? this.mapProduct(row) : undefined
+    if (!row) return undefined
+    
+    const product = this.mapProduct(row)
+    
+    // Load variants if product is variable
+    if ((row.product_type === 'variable' || row.product_type === 'variant') && row.has_variants) {
+      product.variants = this.getVariantsByProductId(row.id)
+    }
+    
+    // Load all stocks (includes variant stocks and batch data)
+    product.stocks = this.getStocksByProductId(row.id)
+    
+    return product
   }
 
   productGetByCategory(categoryId: number): LocalProduct[] {
     if (!this.db) throw new Error('Database not initialized')
     const rows = this.db.prepare('SELECT * FROM products WHERE category_id = ?').all(categoryId) as any[]
-    return rows.map(r => this.mapProduct(r))
+    return rows.map(r => {
+      const product = this.mapProduct(r)
+      
+      // Load variants if product is variable
+      if ((r.product_type === 'variable' || r.product_type === 'variant') && r.has_variants) {
+        product.variants = this.getVariantsByProductId(r.id)
+      }
+      
+      // Load all stocks (includes variant stocks and batch data)
+      product.stocks = this.getStocksByProductId(r.id)
+      
+      return product
+    })
   }
 
   productGetLowStock(threshold: number = 10): LocalProduct[] {
     if (!this.db) throw new Error('Database not initialized')
     const rows = this.db.prepare('SELECT * FROM products WHERE stock_quantity <= ?').all(threshold) as any[]
-    return rows.map(r => this.mapProduct(r))
+    return rows.map(r => {
+      const product = this.mapProduct(r)
+      
+      // Load variants if product is variable
+      if ((r.product_type === 'variable' || r.product_type === 'variant') && r.has_variants) {
+        product.variants = this.getVariantsByProductId(r.id)
+      }
+      
+      // Load all stocks (includes variant stocks and batch data)
+      product.stocks = this.getStocksByProductId(r.id)
+      
+      return product
+    })
   }
 
   productBulkUpsert(products: LocalProduct[]): void {
@@ -662,10 +722,21 @@ export class SQLiteService {
         const purchasePrice = p.stock?.productPurchasePrice ?? p.purchasePrice ?? 0
         const salePrice = p.stock?.productSalePrice ?? p.salePrice ?? 0
         const wholesalePrice = p.stock?.productWholeSalePrice ?? p.wholesalePrice ?? 0
-        // Normalize product_type: API returns 'variant' but we use 'variable' internally
-        const rawType = (p as any).product_type || 'simple'
-        const productType = rawType === 'variant' ? 'variable' : rawType
+        
+        // Keep product_type as-is - don't normalize 'variant' to 'variable'
+        // 'variant' is for batch-tracked products (legacy naming)
+        // 'variable' is for products with actual variants
+        const productType = (p as any).product_type || 'simple'
         const hasVariants = (p as any).has_variants || Boolean((p as any).variants && (p as any).variants.length > 0)
+        
+        // Get stocks array - check multiple property forms for compatibility
+        const stocksArray = (p as any).stocks || p.stocks || []
+        const isBatchProduct = (p as any).is_batch_tracked || stocksArray.length > 1
+        
+        // Debug logging for batch products
+        if (isBatchProduct && stocksArray.length > 0) {
+          console.log(`[SQLite] Caching batch product ${p.id} (${p.productName}) with ${stocksArray.length} stocks`)
+        }
         
         // Insert/update product
         upsertProduct.run(
@@ -709,23 +780,26 @@ export class SQLiteService {
         }
 
         // Insert/update stocks (handles both simple and variant stocks)
-        const stocks = (p as any).stocks || []
-        for (const stock of stocks) {
-          upsertStock.run(
-            stock.id,
-            p.id,
-            stock.variant_id || null,
-            stock.batch_no || null,
-            stock.productStock || 0,
-            stock.productPurchasePrice || 0,
-            stock.productSalePrice || 0,
-            stock.productWholeSalePrice || 0,
-            stock.productDealerPrice || 0,
-            stock.profit_percent || 0,
-            stock.mfg_date || null,
-            stock.expire_date || null,
-            p.lastSyncedAt || new Date().toISOString()
-          )
+        for (const stock of stocksArray) {
+          try {
+            upsertStock.run(
+              stock.id,
+              p.id,
+              stock.variant_id || null,
+              stock.batch_no || null,
+              stock.productStock || 0,
+              stock.productPurchasePrice || 0,
+              stock.productSalePrice || 0,
+              stock.productWholeSalePrice || stock.productWholesalePrice || 0, // Handle both casings
+              stock.productDealerPrice || 0,
+              stock.profit_percent || 0,
+              stock.mfg_date || null,
+              stock.expire_date || null,
+              p.lastSyncedAt || new Date().toISOString()
+            )
+          } catch (err) {
+            console.error(`[SQLite] Failed to insert stock ${stock.id} for product ${p.id}:`, err)
+          }
         }
       }
     })
@@ -789,6 +863,7 @@ export class SQLiteService {
   private getStocksByProductId(productId: number): any[] {
     if (!this.db) return []
     const rows = this.db.prepare('SELECT * FROM variant_stocks WHERE product_id = ?').all(productId) as any[]
+    console.log(`[SQLite] Loading ${rows.length} stocks for product ${productId}`)
     return rows.map(row => ({
       id: row.id,
       product_id: row.product_id,

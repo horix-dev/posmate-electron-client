@@ -135,11 +135,18 @@ export function POSPage() {
   // ----------------------------------------
   const { products, categories, paymentTypes, isLoading, filteredProducts } = usePOSData(filters)
 
-  // Clear cache on mount to ensure fresh data
+  // Clear cache on mount to ensure fresh data (only when online)
   useEffect(() => {
     const clearCacheOnMount = async () => {
+      // Skip cache clearing if offline - use cached data instead
+      if (!navigator.onLine) {
+        console.log('[POS] Offline mode detected - using cached data')
+        setIsClearingCache(false)
+        return
+      }
+
       try {
-        console.log('[POS] Clearing cache on mount...')
+        console.log('[POS] Online - clearing cache on mount...')
         await clearAllCache(queryClient, {
           reactQuery: true,
           localStorage: true,

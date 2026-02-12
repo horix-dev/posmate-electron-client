@@ -33,7 +33,7 @@ export interface ProductCardProps {
 
 function getStockInfo(product: Product, availableStock?: number) {
   const isVariable = product.product_type === 'variable'
-  const isBatchProduct = product.product_type === 'variant' // Legacy batch products
+  const isBatchProduct = product.is_batch_tracked || product.product_type === 'variant' // Legacy batch products
 
   // For variable products, calculate total stock from all variants
   let totalStock = 0

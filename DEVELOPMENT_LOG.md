@@ -1,22 +1,160 @@
-## 2026-02-13 — POS Cache Clearing and Loading State
+## 2026-02-13 — Critical Fix: Batch Product Type Preservation
 
-**Feature**: POS screen now clears cache on access and shows a full-screen loader until products are loaded, ensuring users always see fresh data.
+**Fix**: Fixed batch products being incorrectly converted to variable products in cache, causing "No variants available" error offline.
+
+**Root Cause**:
+SQLite storage was normalizing `product_type: 'variant'` to `variable` when caching products:
+```typescript
+// WRONG - This was converting batch products to variable products
+const productType = rawType === 'variant' ? 'variable' : rawType
+```
+
+This caused batch products to be stored as variable products in cache. When loaded offline:
+1. Batch product had `product_type: 'variable'` (from cache)
+2. ProductCard treated it as variable product
+3. Clicked → opened variant selection dialog
+4. Dialog checked for `variants` array → empty
+5. Error: "No variants available for this product"
+
+**Solution**:
+Don't normalize the product_type - preserve it as-is:
+```typescript
+// CORRECT - Keep original type
+const productType = (p as any).product_type || 'simple'
+```
+
+**Product Types (Backend Naming)**:
+- `'simple'` - Single SKU, no variants, no batches
+- `'variable'` - Multiple variants (sizes, colors, etc.)
+- `'variant'` - Batch-tracked products (legacy naming, confusing but that's what the API uses)
+
+**Impact**:
+- ✅ Batch products now preserve correct type in cache
+- ✅ ProductCard correctly identifies batch products offline
+- ✅ Batch products do NOT open variant dialog
+- ✅ Variable products still work correctly
+
+**Files Modified**:
+- `electron/sqlite.service.ts`
+- `DEVELOPMENT_LOG.md`
+
+## 2026-02-13 — Batch Product Offline Cache Fix
+
+**Fix**: Fixed batch products showing "No variants available" error when clicked in offline mode.
+
+**Root Cause**: 
+When loading products from cache offline, the `stocks` array was empty for batch products because:
+1. SQLite was storing stocks correctly in the `variant_stocks` table
+2. But retrieval methods (productGetById, productSearch, etc.) were not loading the stocks array
+3. Only `productGetAll()` was populating the variants and stocks arrays
+
+**Solution**:
+1. Updated all SQLite product retrieval methods to load stocks and variants arrays:
+   - `productGetById` - Single product lookup
+   - `productSearch` - Search functionality  
+   - `productGetByBarcode` - Barcode scanning
+   - `productGetByCategory` - Category filtering
+   - `productGetLowStock` - Low stock alerts
+
+2. Added comprehensive debug logging:
+   - Logs when caching batch products (with stock count)
+   - Logs when loading batch products from cache (with stock details)
+   - Logs when retrieving stocks from SQLite database
+
+**Impact**: 
+- ✅ Batch products now display all batches correctly when offline
+- ✅ Batch selection dialog works in offline mode
+- ✅ Stock information (batch_no, expire_date, quantities) preserved offline
+- ✅ Variable products with batch tracking work correctly
+
+**Technical Notes**:
+- Variable products (`product_type: 'variable'`) can ALSO have batch tracking on each variant
+- Batch products are identified by: `is_batch_tracked` flag or `product_type: 'variant'` (legacy)
+- stocksThe two concepts are independent but can coexist
+
+**Files Modified**:
+- `electron/sqlite.service.ts`
+- `src/pages/pos/hooks/usePOSData.ts`
+- `DEVELOPMENT_LOG.md`
+
+## 2026-02-13 — Batch Product Cache Debugging and Improvements
+
+**Enhancement**: Added comprehensive logging and improved error handling for batch product caching to help diagnose and fix offline batch product issues.
 
 **Details**:
-1. **Cache Clearing on Mount**
-   - Added automatic cache clearing when the POS page is accessed, including React Query cache, localStorage cache, and persistent storage (IndexedDB/SQLite).
+1. **Enhanced SQLite Bulk Insert**
+   - Added debug logging to track when batch products are being cached
+   - Added error handling for individual stock inserts to prevent silent failures
+   - Fixed property access to handle both `(p as any).stocks` and `p.stocks` forms
+   - Added support for both `productWholeSalePrice` and `productWholesalePrice` casing variations
+
+2. **Improved Cache Loading Logging**
+   - Added console logging when caching batch products (shows product ID, name, and stock count)
+   - Added logging when loading batch products from cache with their stock details
+   - Added logging in SQLite `getStocksByProductId` to track stock retrieval
+
+3. **Better Stock Array Handling**
+   - Ensured stocks array is properly checked and logged at multiple points:
+     - During API response mapping in `usePOSData`
+     - During SQLite bulk insert in `productBulkUpsert`
+     - During cache loading in `loadCachedData`
+     - During stock retrieval in `getStocksByProductId`
+
+**Debugging Flow**:
+1. API response → logs "Preparing to cache batch product X with Y stocks"
+2. SQLite insert → logs "Caching batch product X with Y stocks"
+3. SQLite retrieval → logs "Loading Y stocks for product X"
+4. Cache loading → logs "Loaded batch product X from cache with Y stocks" + stock details
+
+**Files Modified**:
+- `electron/sqlite.service.ts`
+- `src/pages/pos/hooks/usePOSData.ts`
+- `DEVELOPMENT_LOG.md`
+
+## 2026-02-13 — Offline Batch Product Data Fix
+
+**Fix**: Batch products now load correctly when offline by ensuring stocks and variants arrays are properly retrieved from cache.
+
+**Problem**: When working offline, batch products (products with multiple stocks/batches) weren't displaying properly. The batch information (batch numbers, expiry dates, variant stocks) was being stored but not retrieved from the SQLite cache.
+
+**Solution**:
+1. Updated all SQLite product retrieval methods (`productGetById`, `productSearch`, `productGetByBarcode`, `productGetByCategory`, `productGetLowStock`) to include:
+   - `variants` array for variable products
+   - `stocks` array for all batch/stock information (batch_no, expire_date, mfg_date, variant_id, etc.)
+2. These arrays were already being loaded in `productGetAll()` but other methods weren't populating them.
+3. IndexedDB adapter was already working correctly as Dexie automatically handles nested arrays.
+
+**Impact**: 
+- Batch selection dialogs now work offline
+- Variant products display all variants offline
+- Stock expiry dates and batch numbers are preserved offline
+- Improves offline POS functionality for stores using batch tracking
+
+**Files Modified**:
+- `electron/sqlite.service.ts`
+- `DEVELOPMENT_LOG.md`
+
+## 2026-02-13 — POS Cache Clearing and Loading State
+
+**Feature**: POS screen now clears cache on access and shows a full-screen loader until products are loaded, ensuring users always see fresh data when online.
+
+**Details**:
+1. **Smart Cache Clearing on Mount**
+   - Cache is only cleared when internet connection is available (online mode).
+   - When offline, cached data is used immediately without clearing, ensuring offline functionality.
+   - Clears React Query cache, localStorage cache, and persistent storage (IndexedDB/SQLite) when online.
    - Kept image cache and sync state to maintain performance and data integrity.
    - Cache clearing triggers a fresh product fetch from the API.
 
 2. **Full-Screen Loading State**
-   - Implemented a full-screen loader with progress messages ("Clearing cache..." → "Loading products...").
-   - Loader only shows during initial load after cache clearing.
+   - Implemented a full-screen loader with progress messages ("Preparing POS..." → "Loading products...").
+   - Loader shows during cache clearing (online only) and initial data load.
    - Subsequent filter changes or refetches use the ProductGrid's inline loader for better UX.
 
 3. **Loading State Management**
    - Added `isClearingCache` state to track cache clearing progress.
-   - Added `isInitialLoad` flag to differentiate initial load from subsequent loads.
    - Integrated with existing `isLoading` state from `usePOSData` hook.
+   - Offline detection prevents unnecessary cache clearing and shows cached data instantly.
 
 **Files Modified/Created**:
 - `src/pages/pos/POSPage.tsx`

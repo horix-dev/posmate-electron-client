@@ -84,6 +84,8 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
       // Load products from storage
       const cachedProducts = await storage.products.getAll()
       if (cachedProducts.length > 0) {
+        console.log(`[POS Data] Loaded ${cachedProducts.length} products from cache`)
+
         const convertedProducts: Product[] = cachedProducts.map((p: LocalProduct) => {
           // Get category ID - SQLite returns camelCase, but type uses snake_case
           const catId = (p as unknown as Record<string, unknown>).categoryId ?? p.category_id
@@ -91,6 +93,16 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
 
           // Preserve stocks array from cache (includes variant_id for variable products)
           const stocks = p.stocks && p.stocks.length > 0 ? p.stocks : p.stock ? [p.stock] : []
+
+          // Debug log for batch products
+          const isBatchProduct =
+            (p as unknown as Record<string, unknown>).is_batch_tracked || stocks.length > 1
+          if (isBatchProduct) {
+            console.log(
+              `[POS Data] Loaded batch product ${p.id} (${p.productName}) from cache with ${stocks.length} stocks:`,
+              stocks
+            )
+          }
 
           return {
             ...p,
@@ -186,6 +198,16 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
               productPurchasePrice: 0,
               productSalePrice: 0,
             }
+
+            // Log batch products for debugging
+            const isBatchProduct =
+              product.is_batch_tracked || (product.stocks && product.stocks.length > 1)
+            if (isBatchProduct) {
+              console.log(
+                `[POS Data] Preparing to cache batch product ${product.id} (${product.productName}) with ${product.stocks?.length || 0} stocks`
+              )
+            }
+
             return {
               ...product,
               stock, // Fallback stock for simple products
