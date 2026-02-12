@@ -1,3 +1,17 @@
+## 2026-02-12 — POS Batch Dialog Wiring Fix
+
+**Fix**: Restored the POS batch selector import and added the missing cart sidebar prop so the batch dialog can open from cart rows again.
+
+**Details**:
+1. Re-exported the shared `BatchSelectionDialog` from the POS components barrel to fix the import error in `POSPage`.
+2. Added an optional `onOpenBatchSelector` prop to `CartSidebar`/`CartItemRow` and wired it into the cart row action.
+
+**Files Modified/Created**:
+- `src/components/shared/index.ts`
+- `src/pages/pos/components/index.ts`
+- `src/pages/pos/components/CartSidebar.tsx`
+- `DEVELOPMENT_LOG.md`
+
 ## 2026-02-12 — Cart Item Typecheck Fix
 
 **Fix**: Resolved the pre-commit TypeScript errors by ensuring cart item callbacks and form control ids use the available `itemId` instead of the removed `productId` reference.

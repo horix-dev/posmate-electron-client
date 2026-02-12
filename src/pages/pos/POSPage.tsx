@@ -28,6 +28,7 @@ import {
   CustomerSelectDialog,
   ShortcutsHelpDialog,
   VariantSelectionDialog,
+  BatchSelectionDialog,
   SmartTender,
 } from './components'
 
@@ -47,6 +48,15 @@ interface DialogState {
   heldCarts: boolean
   customer: boolean
   shortcuts: boolean
+}
+
+interface BatchDialogState {
+  product: Product
+  stocks: Stock[]
+  variant?: ProductVariant | null
+  defaultStockId?: number | null
+  mode: 'add' | 'update'
+  cartItemId?: string
 }
 
 // ============================================
@@ -110,6 +120,8 @@ export function POSPage() {
   const [customersLoading, setCustomersLoading] = useState(false)
   const [variantDialogProduct, setVariantDialogProduct] = useState<Product | null>(null)
   const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false)
+  const [batchDialogState, setBatchDialogState] = useState<BatchDialogState | null>(null)
+  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false)
   const [showSmartTender, setShowSmartTender] = useState(false)
   const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
@@ -176,22 +188,28 @@ export function POSPage() {
     [cartItems]
   )
 
-  const handleAddToCart = useCallback(
-    (product: Product, stock: Stock | null, variant?: ProductVariant | null) => {
-      // Check if we're in cooldown period
+  const isBatchTrackedProduct = useCallback((product: Product) => {
+    if (product.product_type === 'variant') return true
+    if (product.is_batch_tracked) return true
+    return Boolean(product.stocks?.some((stock) => Boolean(stock.batch_no)))
+  }, [])
+
+  const getBatchStocks = useCallback((product: Product, variant?: ProductVariant | null) => {
+    const stocks = product.stocks ?? []
+    if (variant) {
+      return stocks.filter((stock) => Number(stock.variant_id) === Number(variant.id))
+    }
+    return stocks
+  }, [])
+
+  const executeAddToCart = useCallback(
+    (product: Product, stock: Stock, variant?: ProductVariant | null) => {
       if (isAddingToCart) {
         toast.warning('Please wait before adding another item')
-        return
+        return false
       }
 
-      // For variants, use variant stock if available
-      const effectiveStock = variant?.stocks?.[0] || stock
-      if (!effectiveStock) {
-        toast.error('No stock information available')
-        return
-      }
-
-      const availableQty = effectiveStock.productStock ?? 0
+      const availableQty = stock.productStock ?? 0
       const currentQty = getCartQuantity(product.id, variant?.id ?? null)
 
       if (availableQty <= 0 || currentQty >= availableQty) {
@@ -199,18 +217,14 @@ export function POSPage() {
         toast.error(
           `Stock limit reached for ${itemName}. Available: ${availableQty}. In cart: ${currentQty}.`
         )
-        return
+        return false
       }
 
-      // Set cooldown
       setIsAddingToCart(true)
       setTimeout(() => setIsAddingToCart(false), 2000)
 
-      addItem(product, effectiveStock, 1, variant)
+      addItem(product, stock, 1, variant)
 
-      // After adding, find the last item added
-      // If it's a variant, find the item with matching variantId
-      // If it's a product, find the item with matching stock.id
       setTimeout(() => {
         const cartNow = useCartStore.getState().items
         let addedItem
@@ -218,7 +232,7 @@ export function POSPage() {
         if (variant) {
           addedItem = cartNow.find((item) => item.variantId === variant.id)
         } else {
-          addedItem = cartNow.find((item) => !item.variantId && item.stock.id === effectiveStock.id)
+          addedItem = cartNow.find((item) => !item.variantId && item.stock.id === stock.id)
         }
 
         if (addedItem) {
@@ -228,16 +242,58 @@ export function POSPage() {
 
       const name = variant ? `${product.productName} (${variant.sku})` : product.productName
       toast.success(`Added ${name} to cart`)
+      return true
     },
     [addItem, getCartQuantity, isAddingToCart]
   )
 
-  const handleUpdateQuantity = useCallback(
-    (itemId: string, quantity: number) => {
-      updateItemQuantity(itemId, quantity)
+  const handleAddToCart = useCallback(
+    (
+      product: Product,
+      stock: Stock | null,
+      variant?: ProductVariant | null,
+      options?: { skipBatchPrompt?: boolean }
+    ) => {
+      const batchTracked = isBatchTrackedProduct(product)
+      const relevantStocks = getBatchStocks(product, variant ?? null)
+
+      if (batchTracked && !options?.skipBatchPrompt) {
+        if (relevantStocks.length === 0) {
+          toast.error('No batch records available for this product')
+          return false
+        }
+
+        if (relevantStocks.length > 1) {
+          setBatchDialogState({
+            product,
+            stocks: relevantStocks,
+            variant: variant ?? null,
+            defaultStockId: stock?.id ?? null,
+            mode: 'add',
+          })
+          setIsBatchDialogOpen(true)
+          return false
+        }
+
+        if (!stock) {
+          stock = relevantStocks[0]
+        }
+      }
+
+      if (!stock) {
+        toast.error('No stock information available')
+        return false
+      }
+
+      return executeAddToCart(product, stock, variant ?? null)
     },
-    [updateItemQuantity]
+    [executeAddToCart, getBatchStocks, isBatchTrackedProduct]
   )
+
+  const closeBatchDialog = useCallback(() => {
+    setIsBatchDialogOpen(false)
+    setBatchDialogState(null)
+  }, [])
 
   const handleBatchChange = useCallback(
     (itemId: string, stockId: number) => {
@@ -267,6 +323,58 @@ export function POSPage() {
       toast.success('Batch updated')
     },
     [cartItems, updateItemStock]
+  )
+
+  const handleOpenCartBatchDialog = useCallback(
+    (itemId: string) => {
+      const cartItem = cartItems.find((item) => item.id === itemId)
+      if (!cartItem) {
+        toast.error('Cart item not found')
+        return
+      }
+
+      const variant = cartItem.variant ?? null
+      const stocks = getBatchStocks(cartItem.product, variant)
+      if (!stocks || stocks.length === 0) {
+        toast.error('No batch records available for this item')
+        return
+      }
+
+      setBatchDialogState({
+        product: cartItem.product,
+        stocks,
+        variant,
+        defaultStockId: cartItem.stock.id,
+        mode: 'update',
+        cartItemId: cartItem.id,
+      })
+      setIsBatchDialogOpen(true)
+    },
+    [cartItems, getBatchStocks]
+  )
+
+  const handleBatchSelected = useCallback(
+    (selectedStock: Stock) => {
+      if (!batchDialogState) return
+
+      if (batchDialogState.mode === 'add') {
+        handleAddToCart(batchDialogState.product, selectedStock, batchDialogState.variant ?? null, {
+          skipBatchPrompt: true,
+        })
+      } else if (batchDialogState.mode === 'update' && batchDialogState.cartItemId) {
+        handleBatchChange(batchDialogState.cartItemId, selectedStock.id)
+      }
+
+      closeBatchDialog()
+    },
+    [batchDialogState, closeBatchDialog, handleAddToCart, handleBatchChange]
+  )
+
+  const handleUpdateQuantity = useCallback(
+    (itemId: string, quantity: number) => {
+      updateItemQuantity(itemId, quantity)
+    },
+    [updateItemQuantity]
   )
 
   const handleRemoveItem = useCallback(
@@ -625,15 +733,10 @@ export function POSPage() {
             return
           }
 
-          // Set cooldown
-          setIsAddingToCart(true)
-          setTimeout(() => setIsAddingToCart(false), 3000)
-
-          // Optimistically add to cart
-          addItem(product, stock, 1)
-
-          // Generate the same item ID that would be in cart
-          const cartItemId = `${stock.id}`
+          const added = handleAddToCart(product, stock)
+          if (!added) {
+            return
+          }
 
           // Step 2: If online, verify with API in background
           if (isOnline) {
@@ -642,10 +745,8 @@ export function POSPage() {
                 const apiResponse = await productsService.getByBarcode(barcode)
 
                 if (!apiResponse.data) {
-                  // Product not found in API - remove from cart
-                  removeItem(cartItemId)
                   toast.error('Product no longer available', {
-                    description: 'This item has been removed from your cart',
+                    description: 'Please remove this item from your cart',
                   })
                   return
                 }
@@ -654,9 +755,8 @@ export function POSPage() {
 
                 // Verify stock availability
                 if (apiStock.productStock <= 0) {
-                  removeItem(cartItemId)
                   toast.error('Product out of stock', {
-                    description: 'This item has been removed from your cart',
+                    description: 'Please remove this item from your cart',
                   })
                   return
                 }
@@ -676,8 +776,6 @@ export function POSPage() {
               }
             }, 100) // Small delay to not block UI
           }
-
-          toast.success('Added to cart')
           return
         }
       } catch (error) {
@@ -765,7 +863,7 @@ export function POSPage() {
 
       // Don't await - let it resolve in background
     },
-    [products, handleAddToCart, isOnline, addItem, removeItem, isAddingToCart]
+    [products, handleAddToCart, isOnline, isAddingToCart]
   )
 
   useBarcodeScanner({ onScan: handleBarcodeScan, enabled: !dialogs.payment })
@@ -961,6 +1059,7 @@ export function POSPage() {
               }}
               onRemoveItem={handleRemoveItem}
               onChangeBatch={handleBatchChange}
+              onOpenBatchSelector={handleOpenCartBatchDialog}
               onClearCart={handleClearCart}
               onHoldCart={handleHoldCart}
               onOpenHeldCarts={handleOpenHeldCarts}
@@ -1059,6 +1158,16 @@ export function POSPage() {
           onSelectVariant={handleVariantSelected}
         />
       )}
+
+      <BatchSelectionDialog
+        open={isBatchDialogOpen && Boolean(batchDialogState)}
+        onClose={closeBatchDialog}
+        product={batchDialogState?.product ?? null}
+        stocks={batchDialogState?.stocks ?? []}
+        variant={batchDialogState?.variant ?? null}
+        defaultStockId={batchDialogState?.defaultStockId}
+        onSelect={handleBatchSelected}
+      />
     </div>
   )
 }

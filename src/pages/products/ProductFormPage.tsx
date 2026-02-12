@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm, useFieldArray, type FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Package, Loader2, Layers, ArrowLeft, Save, Plus, Barcode, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -422,6 +422,38 @@ export default function ProductFormPage() {
     setVariants(newVariants)
   }, [])
 
+  const findFirstError = useCallback(function findFirstError(
+    errors: FieldErrors<ProductFormData>,
+    prefix = ''
+  ): { path: string; message: string } | null {
+    const entries = Object.entries(errors)
+    for (const [key, value] of entries) {
+      if (!value) continue
+      const nextPath = prefix ? `${prefix}.${key}` : key
+      if (typeof value === 'object' && 'message' in value && value.message) {
+        return { path: nextPath, message: String(value.message) }
+      }
+      if (typeof value === 'object') {
+        const nested = findFirstError(value as FieldErrors<ProductFormData>, nextPath)
+        if (nested) return nested
+      }
+    }
+    return null
+  }, [])
+
+  const handleInvalid = useCallback(
+    (errors: FieldErrors<ProductFormData>) => {
+      const firstError = findFirstError(errors)
+      if (firstError?.path) {
+        form.setFocus(firstError.path as keyof ProductFormData)
+      }
+      toast.error(firstError?.message || 'Please fix the highlighted fields before saving.')
+    },
+    [findFirstError, form]
+  )
+
+  const handleFormSubmit = form.handleSubmit(handleSubmit, handleInvalid)
+
   // Show loading state while fetching product
   if (isLoadingProduct) {
     return (
@@ -456,7 +488,7 @@ export default function ProductFormPage() {
       </header>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+        <form onSubmit={handleFormSubmit} className="space-y-8">
           {/* Card 1: Basic Info */}
           <div className="rounded-lg border bg-card p-6">
             <h3 className="mb-6 flex items-center gap-2 text-lg font-semibold">
@@ -783,9 +815,11 @@ export default function ProductFormPage() {
                   <Package className="h-5 w-5 text-primary" />
                   Batch Entries
                 </h3>
-                <Button type="button" variant="outline" size="sm" onClick={handleAddBatchRow}>
-                  <Plus className="mr-2 h-4 w-4" /> Add Batch
-                </Button>
+                {!isEditMode && (
+                  <Button type="button" variant="outline" size="sm" onClick={handleAddBatchRow}>
+                    <Plus className="mr-2 h-4 w-4" /> Add Batch
+                  </Button>
+                )}
               </div>
               <p className="mb-6 text-sm text-muted-foreground">
                 Capture one row per lot so the backend can create a proper stock record for each
@@ -824,19 +858,21 @@ export default function ProductFormPage() {
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name={`batches.${index}.productStock`}
-                        render={({ field: qtyField }) => (
-                          <FormItem>
-                            <FormLabel>Quantity</FormLabel>
-                            <FormControl>
-                              <Input type="number" min="0" placeholder="0" {...qtyField} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      {!isEditMode && (
+                        <FormField
+                          control={form.control}
+                          name={`batches.${index}.productStock`}
+                          render={({ field: qtyField }) => (
+                            <FormItem>
+                              <FormLabel>Quantity</FormLabel>
+                              <FormControl>
+                                <Input type="number" min="0" placeholder="0" {...qtyField} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
                     </div>
 
                     <div className="mt-4 grid gap-4 md:grid-cols-4">
@@ -977,44 +1013,48 @@ export default function ProductFormPage() {
                 Pricing & Inventory
               </h3>
               <div className={cn('grid gap-6', isEditMode ? 'md:grid-cols-2' : 'md:grid-cols-3')}>
-                <FormField
-                  control={form.control}
-                  name="productPurchasePrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Purchase Price</FormLabel>
-                      <FormControl>
-                        <CurrencyInput
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="productSalePrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sale Price</FormLabel>
-                      <FormControl>
-                        <CurrencyInput
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {!isBatchTracked && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="productPurchasePrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Purchase Price</FormLabel>
+                          <FormControl>
+                            <CurrencyInput
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="0.00"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="productSalePrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sale Price</FormLabel>
+                          <FormControl>
+                            <CurrencyInput
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="0.00"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
                 {!isEditMode && !isBatchTracked && (
                   <FormField
                     control={form.control}
@@ -1114,7 +1154,7 @@ export default function ProductFormPage() {
             <Button variant="outline" type="button" onClick={() => navigate('/products')}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="button" disabled={isSubmitting} onClick={handleFormSubmit}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Save className="mr-2 h-4 w-4" />
               {isEditMode ? 'Update Product' : 'Create Product'}

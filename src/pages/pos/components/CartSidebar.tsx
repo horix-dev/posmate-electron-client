@@ -75,6 +75,8 @@ export interface CartSidebarProps {
   onRemoveItem: (itemId: string) => void
   /** Callback to switch batches */
   onChangeBatch?: (itemId: string, batchId: number) => void
+  /** Callback to open batch selector dialog */
+  onOpenBatchSelector?: (itemId: string) => void
   /** Callback to clear cart */
   onClearCart: () => void
   /** Callback to hold cart */
@@ -379,6 +381,7 @@ interface CartItemRowProps {
   onUpdateDiscount?: (itemId: string, discount: number, type: 'fixed' | 'percentage') => void
   onRemoveItem: (itemId: string) => void
   onChangeBatch?: (itemId: string, batchId: number) => void
+  onOpenBatchSelector?: (itemId: string) => void
 }
 
 const CartItemRow = memo(function CartItemRow({
@@ -389,6 +392,7 @@ const CartItemRow = memo(function CartItemRow({
   onUpdateDiscount,
   onRemoveItem,
   onChangeBatch,
+  onOpenBatchSelector,
 }: CartItemRowProps) {
   const { format: formatCurrency } = useCurrency()
 
@@ -555,7 +559,23 @@ const CartItemRow = memo(function CartItemRow({
                 Batch: {item.batchNo}
               </span>
             )}
-            {canChangeBatch && onChangeBatch && (
+            {canChangeBatch && onChangeBatch && onOpenBatchSelector && (
+              <button
+                type="button"
+                className="mt-2 inline-flex h-9 w-full items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 text-left text-[11px] font-semibold text-primary shadow-sm transition hover:border-primary"
+                onClick={() => onOpenBatchSelector(item.id)}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <Package className="h-3 w-3" aria-hidden="true" />
+                  <span className="truncate uppercase tracking-wide">Batch & Pricing</span>
+                </span>
+                <span className="ml-2 hidden flex-1 truncate text-[10px] font-normal text-muted-foreground lg:block">
+                  {batchLabel}
+                </span>
+                <ChevronDown className="ml-2 h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+              </button>
+            )}
+            {canChangeBatch && onChangeBatch && !onOpenBatchSelector && (
               <Popover open={batchOpen} onOpenChange={setBatchOpen}>
                 <PopoverTrigger asChild>
                   <button
@@ -898,6 +918,7 @@ function CartSidebarComponent({
   onUpdateItemDiscount,
   onRemoveItem,
   onChangeBatch,
+  onOpenBatchSelector,
   onClearCart,
   onHoldCart,
   onOpenHeldCarts,
@@ -975,6 +996,7 @@ function CartSidebarComponent({
                       onUpdateDiscount={onUpdateItemDiscount}
                       onRemoveItem={onRemoveItem}
                       onChangeBatch={onChangeBatch}
+                      onOpenBatchSelector={onOpenBatchSelector}
                     />
                   ))}
                 </tbody>

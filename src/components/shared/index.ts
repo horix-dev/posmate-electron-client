@@ -6,3 +6,4 @@
 
 export { ProductLookup, type ProductLookupProps } from './ProductLookup'
 export { SaleDetailsDialog, type SaleDetailsDialogProps } from './SaleDetailsDialog'
+export { BatchSelectionDialog } from './BatchSelectionDialog'
