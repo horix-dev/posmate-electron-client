@@ -160,6 +160,18 @@ When loading products from cache offline, the `stocks` array was empty for batch
 - `src/pages/pos/POSPage.tsx`
 - `DEVELOPMENT_LOG.md`
 
+## 2026-02-13 — Sales Return Discounted Amounts
+
+**Fix**: Return amounts now use the discounted unit price instead of the original sale price.
+
+**Details**:
+1. Calculated return pricing from `final_price`, per-item discount fields, or prorated discount amount.
+2. Applied the corrected unit price to per-line and total return calculations plus payload `return_amount` values.
+
+**Files Modified/Created**:
+- `src/pages/sales/components/SaleReturnDialog.tsx`
+- `DEVELOPMENT_LOG.md`
+
 ## 2026-02-12 — POS Batch Dialog Wiring Fix
 
 **Fix**: Restored the POS batch selector import and added the missing cart sidebar prop so the batch dialog can open from cart rows again.
