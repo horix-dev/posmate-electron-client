@@ -1,9 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -55,7 +68,10 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
     }
   }, [open, sale])
 
-  const details = useMemo<SaleDetail[]>(() => fullSale?.details ?? sale?.details ?? [], [fullSale?.details, sale?.details])
+  const details = useMemo<SaleDetail[]>(
+    () => fullSale?.details ?? sale?.details ?? [],
+    [fullSale?.details, sale?.details]
+  )
 
   // Calculate already returned quantities per detail
   const alreadyReturned = useMemo(() => {
@@ -72,10 +88,27 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
     return returned
   }, [fullSale?.saleReturns, sale?.saleReturns])
 
+  const getUnitReturnPrice = (detail: SaleDetail): number => {
+    if (detail.final_price != null) return detail.final_price
+
+    if (detail.discount_type && detail.discount_value != null) {
+      if (detail.discount_type === 'percentage') {
+        return Math.max(0, detail.price - (detail.price * detail.discount_value) / 100)
+      }
+      return Math.max(0, detail.price - detail.discount_value)
+    }
+
+    if (detail.discount_amount != null && detail.quantities > 0) {
+      return Math.max(0, detail.price - detail.discount_amount / detail.quantities)
+    }
+
+    return detail.price
+  }
+
   const totals = useMemo(() => {
     const totalAmount = details.reduce((sum, detail) => {
       const qty = returnQuantities[detail.id] ?? 0
-      return sum + qty * detail.price
+      return sum + qty * getUnitReturnPrice(detail)
     }, 0)
     const totalQty = Object.values(returnQuantities).reduce((sum, qty) => sum + (qty || 0), 0)
     return { totalAmount, totalQty }
@@ -90,18 +123,18 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
 
   const handleSubmit = async () => {
     if (!sale?.id) return
-    
+
     // Build parallel arrays as required by API
     const sale_detail_id: number[] = []
     const return_qty: number[] = []
     const return_amount: number[] = []
-    
+
     details.forEach((detail) => {
       const qty = returnQuantities[detail.id] ?? 0
       if (qty > 0) {
         sale_detail_id.push(detail.id)
         return_qty.push(qty)
-        return_amount.push(qty * detail.price)
+        return_amount.push(qty * getUnitReturnPrice(detail))
       }
     })
 
@@ -132,7 +165,7 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Return Items</DialogTitle>
         </DialogHeader>
@@ -154,7 +187,11 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Return Date</p>
-                <Input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
+                <Input
+                  type="date"
+                  value={returnDate}
+                  onChange={(e) => setReturnDate(e.target.value)}
+                />
               </div>
             </div>
 
@@ -187,16 +224,17 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
                       const isFullyReturned = remainingQty <= 0
                       const maxQty = remainingQty
                       const qty = returnQuantities[detail.id] ?? 0
-                      const returnAmount = qty * detail.price
+                      const unitPrice = getUnitReturnPrice(detail)
+                      const returnAmount = qty * unitPrice
                       return (
-                        <TableRow 
+                        <TableRow
                           key={detail.id}
                           className={isFullyReturned ? 'bg-muted/50 opacity-60' : ''}
                         >
                           <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                           <TableCell>
                             <div className="flex items-start gap-3">
-                              <div className="h-12 w-12 rounded border bg-muted flex items-center justify-center flex-shrink-0">
+                              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded border bg-muted">
                                 {getImageUrl(detail.product?.productPicture) ? (
                                   <img
                                     src={getImageUrl(detail.product?.productPicture)!}
@@ -204,21 +242,39 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
                                     className="h-full w-full rounded object-cover"
                                   />
                                 ) : (
-                                  <svg className="h-6 w-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  <svg
+                                    className="h-6 w-6 text-muted-foreground"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={1.5}
+                                      d="m4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                    />
                                   </svg>
                                 )}
                               </div>
                               <div className="flex flex-col">
-                                <span className="font-medium">{detail.product?.productName || `Product #${detail.product_id}`}</span>
+                                <span className="font-medium">
+                                  {detail.product?.productName || `Product #${detail.product_id}`}
+                                </span>
                                 {detail.product?.productCode && (
-                                  <span className="text-xs text-muted-foreground">Code: {detail.product.productCode}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    Code: {detail.product.productCode}
+                                  </span>
                                 )}
                                 {detail.mfg_date && (
-                                  <span className="text-xs text-muted-foreground">Mfg: {formatSaleDate(detail.mfg_date)}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    Mfg: {formatSaleDate(detail.mfg_date)}
+                                  </span>
                                 )}
                                 {detail.expire_date && (
-                                  <span className="text-xs text-muted-foreground">Exp: {formatSaleDate(detail.expire_date)}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    Exp: {formatSaleDate(detail.expire_date)}
+                                  </span>
                                 )}
                                 {isFullyReturned && (
                                   <Badge variant="secondary" className="mt-1 w-fit text-xs">
@@ -249,8 +305,10 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
                               disabled={isFullyReturned}
                             />
                           </TableCell>
-                          <TableCell className="text-right">{formatCurrency(detail.price)}</TableCell>
-                          <TableCell className="text-right font-medium">{formatCurrency(returnAmount)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(unitPrice)}</TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(returnAmount)}
+                          </TableCell>
                         </TableRow>
                       )
                     })
@@ -267,7 +325,9 @@ export function SaleReturnDialog({ sale, open, onOpenChange, onSuccess }: SaleRe
                 </div>
                 <div className="flex justify-between text-lg">
                   <span className="font-semibold">Total Return Amount</span>
-                  <span className="font-bold text-primary">{formatCurrency(totals.totalAmount)}</span>
+                  <span className="font-bold text-primary">
+                    {formatCurrency(totals.totalAmount)}
+                  </span>
                 </div>
               </div>
             </div>
