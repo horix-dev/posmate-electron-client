@@ -45,6 +45,7 @@ function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowPr
   const totalStock = getTotalStock(product)
   const salePrice = getSalePrice(product)
   const isVariable = product.product_type === 'variable'
+  const isCombo = product.product_type === 'combo'
 
   // Count variants: use variants array if available, otherwise count unique variant_ids in stocks
   const variantCount =
@@ -56,6 +57,50 @@ function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowPr
             .map((stock) => stock.variant_id)
         ).size
       : 0)
+
+  // Count combo components
+  const componentCount = product.components?.length ?? 0
+
+  // Calculate available combo stock (prefer backend value if available)
+  const availableComboStock = (() => {
+    if (!isCombo) return 0
+    
+    // Use backend-calculated value if available
+    if (product.combo_details?.available_combos !== undefined) {
+      return product.combo_details.available_combos
+    }
+
+    // Fallback to manual calculation
+    if (!product.components || product.components.length === 0) return 0
+
+    let minAvailable = Infinity
+
+    for (const component of product.components) {
+      const componentProduct = component.component_product
+      if (!componentProduct || !component.quantity) continue
+
+      let componentStock = 0
+
+      // Get stock for this component
+      if (component.component_variant_id && componentProduct.stocks) {
+        // If specific variant, get that variant's stock
+        const variantStocks = componentProduct.stocks.filter(
+          (s) => s.variant_id === component.component_variant_id
+        )
+        componentStock = variantStocks.reduce((sum, s) => sum + (s.productStock || 0), 0)
+      } else {
+        // Otherwise get total product stock
+        componentStock =
+          componentProduct.stocks_sum_product_stock ?? componentProduct.productStock ?? 0
+      }
+
+      // Calculate how many combos this component can make
+      const possibleCombos = Math.floor(componentStock / component.quantity)
+      minAvailable = Math.min(minAvailable, possibleCombos)
+    }
+
+    return minAvailable === Infinity ? 0 : minAvailable
+  })()
 
   const handleView = () => onView(product)
   const handleEdit = () => onEdit(product)
@@ -92,6 +137,12 @@ function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowPr
                   {variantCount} variants
                 </Badge>
               )}
+              {isCombo && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 text-xs font-normal">
+                  <Package className="mr-1 h-3 w-3" />
+                  {componentCount} components
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               {product.productCode || `SKU-${product.id}`}
@@ -126,9 +177,18 @@ function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowPr
       {/* Stock */}
       <TableCell>
         <div className="flex items-center gap-2">
-          <span className="font-medium">{totalStock}</span>
-          {product.unit?.unitName && (
-            <span className="text-xs text-muted-foreground">{product.unit.unitName}</span>
+          {isCombo ? (
+            <>
+              <span className="font-medium">{availableComboStock}</span>
+              <span className="text-xs text-muted-foreground">available</span>
+            </>
+          ) : (
+            <>
+              <span className="font-medium">{totalStock}</span>
+              {product.unit?.unitName && (
+                <span className="text-xs text-muted-foreground">{product.unit.unitName}</span>
+              )}
+            </>
           )}
         </div>
       </TableCell>
@@ -137,16 +197,18 @@ function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowPr
       <TableCell>
         <Badge
           variant={
-            stockStatus.status === 'low'
+            stockStatus.status === 'out'
               ? 'destructive'
-              : stockStatus.status === 'out'
-                ? 'destructive'
+              : stockStatus.status === 'low'
+                ? 'outline'
                 : 'success'
           }
           className={
             stockStatus.status === 'low'
-              ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
-              : ''
+              ? 'border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-200'
+              : stockStatus.status === 'out'
+                ? 'border-red-300 bg-red-50 text-red-700'
+                : ''
           }
         >
           {stockStatus.status === 'low' && (

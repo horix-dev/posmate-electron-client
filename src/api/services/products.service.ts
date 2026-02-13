@@ -1,6 +1,6 @@
 import api, { ApiResponse } from '../axios'
 import { API_ENDPOINTS } from '../endpoints'
-import type { Product, CreateProductRequest } from '@/types/api.types'
+import type { Product, CreateProductRequest, ProductComponent } from '@/types/api.types'
 import type { VariableProductPayload } from '@/pages/products/schemas/product.schema'
 import type { BarcodeLookupResponse } from '@/types/variant.types'
 import { variantsService } from './variants.service'
@@ -18,6 +18,11 @@ interface VariableProductResponse {
   success: boolean
   message: string
   data: Product
+}
+
+interface ProductComponentsResponse {
+  message: string
+  data: ProductComponent[]
 }
 
 export const productsService = {
@@ -51,6 +56,14 @@ export const productsService = {
    */
   getById: async (id: number): Promise<ApiResponse<Product>> => {
     const { data } = await api.get<ApiResponse<Product>>(API_ENDPOINTS.PRODUCTS.GET(id))
+    return data
+  },
+
+  /**
+   * Get combo components for a product
+   */
+  getComponents: async (id: number): Promise<ProductComponentsResponse> => {
+    const { data } = await api.get<ProductComponentsResponse>(API_ENDPOINTS.PRODUCTS.COMPONENTS(id))
     return data
   },
 

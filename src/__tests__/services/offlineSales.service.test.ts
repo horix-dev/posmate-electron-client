@@ -83,6 +83,7 @@ const createMockSaleRequest = (overrides: Partial<CreateSaleRequest> = {}): Crea
   note: 'Test sale',
   products: [
     {
+      product_id: 1,
       stock_id: 1,
       product_name: 'Test Product',
       quantities: 2,
@@ -237,6 +238,7 @@ describe('OfflineSalesService', () => {
           paidAmount: 500,
           products: [
             {
+              product_id: 1,
               stock_id: 1,
               product_name: 'Test Product',
               quantities: 1,

@@ -352,15 +352,81 @@ export interface Currency {
 // Import variant types
 import type { ProductVariant, ProductAttribute } from './variant.types'
 
+export interface ComponentBatch {
+  stock_id: number
+  batch_no: string | null
+  quantity: number
+  sale_price: number
+  dealer_price: number
+  purchase_price: number
+  wholesale_price: number
+  expiry_date: string | null
+  mfg_date: string | null
+  days_until_expiry: number | null
+  is_expired: boolean
+}
+
+export interface ComponentStockDetails {
+  total_available: number
+  max_combos_from_this_component: number
+  batches: ComponentBatch[]
+}
+
+export interface ComboComponent {
+  id: number
+  component_product_id: number
+  component_product_name: string
+  component_product_code: string | null
+  component_variant_id: number | null
+  component_variant_name: string | null
+  unit_id: number | null
+  unit_name: string
+  quantity_per_combo: number
+  is_limiting_component: boolean
+  stock_details: ComponentStockDetails
+}
+
+export interface ComboDetails {
+  total_sale_price: number
+  total_dealer_price: number
+  total_purchase_price: number
+  total_wholesale_price: number
+  available_combos: number
+  components: ComboComponent[]
+}
+
+export interface ProductComponent {
+  id?: number
+  combo_product_id?: number
+  component_product_id: number
+  component_variant_id?: number | null
+  unit_id?: number | null
+  quantity: number
+  component_product?: Product
+  component_variant?: ProductVariant
+  unit?: Unit
+  // Extended fields from API response
+  component_product_name?: string
+  component_product_code?: string | null
+  component_variant_name?: string | null
+  unit_name?: string
+  quantity_per_combo?: number
+  is_limiting_component?: boolean
+  stock_details?: ComponentStockDetails
+}
+
 export interface Product {
   id: number
   productName: string
   productCode?: string
   productPurchasePrice?: number
+  productSalePrice?: number // Sale price (stored at product level for all types)
+  productDealerPrice?: number // Dealer price (stored at product level)
+  productWholeSalePrice?: number // Wholesale price (stored at product level)
   productStock?: number
   alert_qty?: number
   // Backend uses 'variant' for legacy batch products (batch/lot tracked by batch_no)
-  product_type: 'simple' | 'variable' | 'variant'
+  product_type: 'simple' | 'variable' | 'variant' | 'combo'
   is_batch_tracked?: boolean // New field: independent batch/lot tracking flag
   productPicture?: string
   stocks_sum_product_stock?: number
@@ -383,6 +449,9 @@ export interface Product {
   attributes?: ProductAttribute[]
   variants_total_stock?: number
   barcode?: string
+  components?: ProductComponent[]
+  // Combo product detailed response (only present for combo products when loaded with components)
+  combo_details?: ComboDetails
 }
 
 export interface Stock {
@@ -421,7 +490,7 @@ export interface CreateProductRequest {
   vat_id?: number
   vat_type?: string
   alert_qty?: number
-  product_type: 'simple' | 'variable' | 'variant'
+  product_type: 'simple' | 'variable' | 'variant' | 'combo'
   productPurchasePrice?: number
   productSalePrice?: number
   productDealerPrice?: number
@@ -711,7 +780,8 @@ export interface CreateSaleRequest {
 }
 
 export interface SaleProductItem {
-  stock_id: number
+  product_id: number // Required for combos (when stock_id is null)
+  stock_id?: number | null // null for combo products
   product_name: string
   quantities: number
   price: number

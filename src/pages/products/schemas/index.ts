@@ -11,4 +11,5 @@ export type {
   VariantInputData,
   VariableProductPayload,
   BatchFormValue,
+  ComboComponentFormValue,
 } from './product.schema'

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react'
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm, useFieldArray, type FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -33,7 +33,7 @@ import {
   formDataToVariableProductPayload,
   productToFormData,
 } from './schemas'
-import type { ProductFormData, VariantInputData, BatchFormValue } from './schemas'
+import type { ProductFormData, VariantInputData, BatchFormValue, ComboComponentFormValue } from './schemas'
 import { VariantManager } from './components/VariantManager'
 import { useProducts, useAttributes, DEFAULT_FILTERS } from './hooks'
 import { CategoryDialog } from '../product-settings/components/categories/CategoryDialog'
@@ -61,6 +61,16 @@ const createEmptyBatchEntry = (overrides?: Partial<BatchFormValue>): BatchFormVa
   ...overrides,
 })
 
+const createEmptyComponentEntry = (
+  overrides?: Partial<ComboComponentFormValue>
+): ComboComponentFormValue => ({
+  component_product_id: '',
+  component_variant_id: '',
+  unit_id: '',
+  quantity: '',
+  ...overrides,
+})
+
 // ============================================
 // Main Component
 // ============================================
@@ -84,7 +94,7 @@ export default function ProductFormPage() {
   const [isUnitDialogOpen, setIsUnitDialogOpen] = useState(false)
 
   // Fetch data
-  const { categories, brands, units, createProduct, updateProduct, refetch } =
+  const { products, categories, brands, units, createProduct, updateProduct, refetch } =
     useProducts(DEFAULT_FILTERS)
   const { attributes, isLoading: attributesLoading } = useAttributes()
 
@@ -97,6 +107,7 @@ export default function ProductFormPage() {
   // Watch product type
   const productType = form.watch('product_type')
   const isVariableProduct = productType === 'variable'
+  const isComboProduct = productType === 'combo'
   const isBatchTracked = form.watch('is_batch_tracked')
 
   const {
@@ -107,6 +118,29 @@ export default function ProductFormPage() {
     control: form.control,
     name: 'batches',
   })
+
+  const {
+    fields: componentFields,
+    append: appendComponent,
+    remove: removeComponent,
+  } = useFieldArray({
+    control: form.control,
+    name: 'components',
+  })
+
+  const watchedComponents = form.watch('components')
+
+  const componentProducts = useMemo(() => {
+    const currentId = id ? Number(id) : null
+    return products.filter(
+      (item) => item.product_type !== 'combo' && (!currentId || item.id !== currentId)
+    )
+  }, [id, products])
+
+  const componentProductMap = useMemo(
+    () => new Map(componentProducts.map((item) => [item.id, item])),
+    [componentProducts]
+  )
 
   const generateBatchNumber = useCallback(() => {
     const now = new Date()
@@ -145,9 +179,25 @@ export default function ProductFormPage() {
     }
   }, [form, isBatchTracked])
 
+  useEffect(() => {
+    if (!isComboProduct) {
+      form.setValue('components', [])
+      return
+    }
+
+    const currentComponents = form.getValues('components')
+    if (!currentComponents || currentComponents.length === 0) {
+      appendComponent(createEmptyComponentEntry())
+    }
+  }, [appendComponent, form, isComboProduct])
+
   const handleAddBatchRow = useCallback(() => {
     appendBatch(createEmptyBatchEntry({ batch_no: generateBatchNumber() }))
   }, [appendBatch, generateBatchNumber])
+
+  const handleAddComponentRow = useCallback(() => {
+    appendComponent(createEmptyComponentEntry())
+  }, [appendComponent])
 
   const handleRemoveBatchRow = useCallback(
     (index: number) => {
@@ -158,6 +208,17 @@ export default function ProductFormPage() {
       removeBatch(index)
     },
     [form, removeBatch]
+  )
+
+  const handleRemoveComponentRow = useCallback(
+    (index: number) => {
+      const currentComponents = form.getValues('components') || []
+      if (currentComponents.length <= 1) {
+        return
+      }
+      removeComponent(index)
+    },
+    [form, removeComponent]
   )
 
   // Fetch product data for edit mode
@@ -201,6 +262,28 @@ export default function ProductFormPage() {
         // Set variants if variable product
         if (formData.variants && formData.variants.length > 0) {
           setVariants(formData.variants)
+        }
+
+        if (productData.product_type === 'combo') {
+          try {
+            const componentsResponse = await productsService.getComponents(productData.id)
+            const mappedComponents = componentsResponse.data.map((component) => ({
+              component_product_id: component.component_product_id.toString(),
+              component_variant_id: component.component_variant_id
+                ? component.component_variant_id.toString()
+                : '',
+              unit_id: component.unit_id ? component.unit_id.toString() : '',
+              quantity: component.quantity.toString(),
+            }))
+
+            form.setValue(
+              'components',
+              mappedComponents.length > 0 ? mappedComponents : [createEmptyComponentEntry()]
+            )
+          } catch (componentError) {
+            console.error('Failed to fetch combo components:', componentError)
+            toast.error('Failed to load combo components')
+          }
         }
 
         // Set image preview if exists
@@ -316,9 +399,19 @@ export default function ProductFormPage() {
           expire_date: batch.expire_date?.trim() || '',
         })) || []
 
+      const normalizedComponents =
+        formValues.components?.map((component) => ({
+          component_product_id: component.component_product_id?.trim() || '',
+          component_variant_id: component.component_variant_id?.trim() || '',
+          unit_id: component.unit_id?.trim() || '',
+          quantity: component.quantity?.trim() || '',
+        })) || []
+
       const data: ProductFormData = {
         ...formValues,
         batches: normalizedBatches,
+        components: normalizedComponents,
+        is_batch_tracked: formValues.product_type === 'combo' ? false : formValues.is_batch_tracked,
       }
 
       // Validate variants for variable products
@@ -372,6 +465,25 @@ export default function ProductFormPage() {
 
         if (invalidBatch) {
           toast.error('Each batch needs a batch number and a quantity greater than zero')
+          return
+        }
+      }
+
+      if (data.product_type === 'combo') {
+        if (!data.components || data.components.length === 0) {
+          toast.error('Add at least one component before saving this combo')
+          return
+        }
+
+        const invalidComponent = data.components.find(
+          (component) =>
+            !component.component_product_id ||
+            !component.quantity ||
+            Number(component.quantity) <= 0
+        )
+
+        if (invalidComponent) {
+          toast.error('Each component needs a product and a quantity greater than zero')
           return
         }
       }
@@ -633,28 +745,56 @@ export default function ProductFormPage() {
                           <div className="flex w-full items-center text-sm text-muted-foreground">
                             <Layers className="mr-2 h-4 w-4" />
                             <span className="mr-2 font-medium text-foreground">Type:</span>
-                            {field.value === 'variable' ? 'Variable Product' : 'Simple Product'}
+                            {field.value === 'variable'
+                              ? 'Variable Product'
+                              : field.value === 'combo'
+                                ? 'Combo Product'
+                                : 'Simple Product'}
                             <span className="ml-2 text-xs">(Cannot be changed)</span>
                           </div>
                         ) : (
-                          <>
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value === 'variable'}
-                                onCheckedChange={(checked) => {
-                                  field.onChange(checked ? 'variable' : 'simple')
-                                }}
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel className="cursor-pointer font-semibold">
-                                Variable Product
-                              </FormLabel>
-                              <FormDescription>
-                                Has variations like Size, Color, etc.
-                              </FormDescription>
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-start space-x-3">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value === 'variable'}
+                                  onCheckedChange={(checked) => {
+                                    field.onChange(checked ? 'variable' : 'simple')
+                                  }}
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel className="cursor-pointer font-semibold">
+                                  Variable Product
+                                </FormLabel>
+                                <FormDescription>
+                                  Has variations like Size, Color, etc.
+                                </FormDescription>
+                              </div>
                             </div>
-                          </>
+                            <div className="flex items-start space-x-3">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value === 'combo'}
+                                  onCheckedChange={(checked) => {
+                                    field.onChange(checked ? 'combo' : 'simple')
+                                    if (checked) {
+                                      form.setValue('is_batch_tracked', false)
+                                      form.setValue('batches', [])
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel className="cursor-pointer font-semibold">
+                                  Combo Product
+                                </FormLabel>
+                                <FormDescription>
+                                  Bundle of existing products sold together
+                                </FormDescription>
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </FormItem>
                     )}
@@ -677,14 +817,20 @@ export default function ProductFormPage() {
                         ) : (
                           <>
                             <FormControl>
-                              <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={isComboProduct}
+                              />
                             </FormControl>
                             <div className="space-y-1 leading-none">
                               <FormLabel className="cursor-pointer font-semibold">
                                 Batch/Lot Tracking
                               </FormLabel>
                               <FormDescription>
-                                Track by batch number with expiry dates (e.g., food, medicine)
+                                {isComboProduct
+                                  ? 'Disabled for combo products'
+                                  : 'Track by batch number with expiry dates (e.g., food, medicine)'}
                               </FormDescription>
                             </div>
                           </>
@@ -819,8 +965,184 @@ export default function ProductFormPage() {
             </div>
           </div>
 
+          {/* Card 3: Combo Components */}
+          {isComboProduct && (
+            <div className="rounded-lg border bg-card p-6">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h3 className="flex items-center gap-2 text-lg font-semibold">
+                  <Layers className="h-5 w-5 text-primary" />
+                  Combo Components
+                </h3>
+                <Button type="button" variant="outline" size="sm" onClick={handleAddComponentRow}>
+                  <Plus className="mr-2 h-4 w-4" /> Add Component
+                </Button>
+              </div>
+              <p className="mb-6 text-sm text-muted-foreground">
+                Add the products that make up this combo and the quantity needed for each.
+              </p>
+
+              {componentFields.length === 0 && (
+                <div className="rounded-md border border-dashed border-muted-foreground/40 p-4 text-sm text-muted-foreground">
+                  No components added yet.
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {componentFields.map((field, index) => {
+                  const selectedProductId = Number(
+                    watchedComponents?.[index]?.component_product_id || 0
+                  )
+                  const selectedProduct = selectedProductId
+                    ? componentProductMap.get(selectedProductId)
+                    : undefined
+                  const variantsList = selectedProduct?.variants ?? []
+
+                  return (
+                    <div key={field.id} className="rounded-lg border p-4">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <FormField
+                          control={form.control}
+                          name={`components.${index}.component_product_id`}
+                          render={({ field: productField }) => (
+                            <FormItem>
+                              <FormLabel>Component Product</FormLabel>
+                              <Select
+                                onValueChange={(value) => {
+                                  productField.onChange(value)
+                                  const selected = componentProductMap.get(Number(value))
+                                  if (selected?.unit_id) {
+                                    form.setValue(
+                                      `components.${index}.unit_id`,
+                                      selected.unit_id.toString()
+                                    )
+                                  }
+                                  if (!selected?.variants || selected.variants.length === 0) {
+                                    form.setValue(`components.${index}.component_variant_id`, '')
+                                  }
+                                }}
+                                value={productField.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select product" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {componentProducts.map((item) => (
+                                    <SelectItem key={item.id} value={item.id.toString()}>
+                                      {item.productName}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`components.${index}.quantity`}
+                          render={({ field: qtyField }) => (
+                            <FormItem>
+                              <FormLabel>Quantity</FormLabel>
+                              <FormControl>
+                                <Input type="number" min="0" step="0.01" placeholder="0" {...qtyField} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="mt-4 grid gap-4 md:grid-cols-3">
+                        <FormField
+                          control={form.control}
+                          name={`components.${index}.component_variant_id`}
+                          render={({ field: variantField }) => (
+                            <FormItem>
+                              <FormLabel>Variant (optional)</FormLabel>
+                              <Select
+                                onValueChange={variantField.onChange}
+                                value={variantField.value}
+                                disabled={variantsList.length === 0}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue
+                                      placeholder={
+                                        variantsList.length === 0
+                                          ? 'No variants'
+                                          : 'Select variant'
+                                      }
+                                    />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {variantsList.map((variant) => (
+                                    <SelectItem key={variant.id} value={variant.id.toString()}>
+                                      {variant.variant_name || variant.sku || `Variant ${variant.id}`}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`components.${index}.unit_id`}
+                          render={({ field: unitField }) => (
+                            <FormItem>
+                              <FormLabel>Unit (optional)</FormLabel>
+                              <Select onValueChange={unitField.onChange} value={unitField.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select unit" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {units.map((unit) => (
+                                    <SelectItem key={unit.id} value={unit.id.toString()}>
+                                      {unit.unitName}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="flex items-end justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveComponentRow(index)}
+                            disabled={componentFields.length === 1}
+                            aria-label="Remove component"
+                            title={
+                              componentFields.length === 1
+                                ? 'At least one component is required'
+                                : 'Remove component'
+                            }
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Card 3: Batch Entries */}
-          {!isVariableProduct && isBatchTracked && (
+          {!isVariableProduct && !isComboProduct && isBatchTracked && (
             <div className="rounded-lg border bg-card p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h3 className="flex items-center gap-2 text-lg font-semibold">
@@ -1126,46 +1448,23 @@ export default function ProductFormPage() {
 
           {/* Card 4: Variations (Variable Product Only) */}
           {isVariableProduct && (
-            <div className="rounded-lg border bg-card p-6">
-              <h3 className="mb-6 flex items-center gap-2 text-lg font-semibold">
-                <Layers className="h-5 w-5 text-primary" />
-                Product Variations
-              </h3>
-              <VariantManager
-                product={product}
-                attributes={attributes}
-                attributesLoading={attributesLoading}
-                variants={variants}
-                onVariantsChange={handleVariantsChange}
-                isEditMode={isEditMode}
-              />
-
-              <Separator className="my-6" />
-
-              <div className="w-full md:w-1/3">
-                <FormField
-                  control={form.control}
-                  name="alert_qty"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Low Stock Alert (Global)</FormLabel>
-                      <FormControl>
-                        <Input type="number" min="0" placeholder="e.g. 5" {...field} />
-                      </FormControl>
-                      <FormDescription>Default alert level if not set per variant.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
+            <VariantManager
+              product={product}
+              attributes={attributes}
+              attributesLoading={attributesLoading}
+              variants={variants}
+              onVariantsChange={handleVariantsChange}
+              isEditMode={isEditMode}
+            />
           )}
 
-          {/* Fixed Footer */}
-          <div className="shadow-up fixed bottom-0 left-0 right-0 z-10 flex items-center justify-end gap-4 border-t bg-background p-4">
-            <Button variant="outline" type="button" onClick={() => navigate('/products')}>
-              Cancel
-            </Button>
+          {/* Submit Button */}
+          <div className="flex items-center justify-between rounded-lg border bg-card p-6">
+            <div className="text-sm text-muted-foreground">
+              {isEditMode
+                ? 'Update the product to save your changes.'
+                : 'All fields are validated before submission.'}
+            </div>
             <Button type="button" disabled={isSubmitting} onClick={handleFormSubmit}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Save className="mr-2 h-4 w-4" />

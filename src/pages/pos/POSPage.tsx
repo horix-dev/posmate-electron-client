@@ -290,6 +290,15 @@ export function POSPage() {
       variant?: ProductVariant | null,
       options?: { skipBatchPrompt?: boolean }
     ) => {
+      // For combo products, skip batch logic and add directly
+      if (product.product_type === 'combo') {
+        if (!stock) {
+          toast.error('No combo information available')
+          return false
+        }
+        return executeAddToCart(product, stock, variant ?? null)
+      }
+
       const batchTracked = isBatchTrackedProduct(product)
       const relevantStocks = getBatchStocks(product, variant ?? null)
 
@@ -620,7 +629,8 @@ export function POSPage() {
       try {
         // Prepare products array for the API (includes variant info for variable products)
         const productsForApi = cartItems.map((item) => ({
-          stock_id: item.stock.id,
+          product_id: item.product.id, // Required for combo identification
+          stock_id: item.product.product_type === 'combo' ? null : item.stock.id, // null for combos
           product_name: item.product.productName,
           quantities: item.quantity,
           price: item.unitPrice,
@@ -824,6 +834,23 @@ export function POSPage() {
 
       if (product && product.product_type === 'simple' && product.stocks?.[0]) {
         handleAddToCart(product, product.stocks[0])
+        return
+      }
+
+      // Check for combo products by code
+      if (product && product.product_type === 'combo' && product.combo_details) {
+        // Create a synthetic stock for the combo
+        const comboStock: Stock = {
+          id: product.id * 10000,
+          product_id: product.id,
+          variant_id: null,
+          productStock: product.combo_details.available_combos,
+          productSalePrice: product.combo_details.total_sale_price,
+          productPurchasePrice: product.combo_details.total_purchase_price,
+          productDealerPrice: product.combo_details.total_dealer_price,
+          productWholeSalePrice: product.combo_details.total_wholesale_price,
+        }
+        handleAddToCart(product, comboStock)
         return
       }
 

@@ -36,6 +36,7 @@ export default function StockAdjustmentsPage() {
     products,
     isLoading: isLoadingProducts,
     refetch: refetchProducts,
+    refreshComboDetails,
   } = useProducts({
     search: '',
     categoryId: '',
@@ -98,13 +99,20 @@ export default function StockAdjustmentsPage() {
         refetch()
         // Refresh products so stock totals in picker are up to date
         await refetchProducts()
+        
+        // Small delay to ensure state update propagates
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        
+        // Refresh all combo details since adjusted product might be a component in any combo
+        // This ensures available_combos is recalculated with updated component stocks
+        await refreshComboDetails()
       } catch (error) {
         console.error('Failed to save adjustment:', error)
         // Error toast handled by the hook; rethrow so dialog stays open
         throw error
       }
     },
-    [user, createAdjustment, refetch, products, refetchProducts]
+    [user, createAdjustment, refetch, products, refetchProducts, refreshComboDetails]
   )
 
   // Handle filter changes
