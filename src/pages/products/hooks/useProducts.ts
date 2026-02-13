@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
-import { productsService, categoriesService, brandsService, unitsService, stocksService } from '@/api/services'
+import {
+  productsService,
+  categoriesService,
+  brandsService,
+  unitsService,
+  stocksService,
+} from '@/api/services'
 import { storage } from '@/lib/storage'
 import type { LocalProduct, LocalCategory } from '@/lib/db/schema'
 import { setCache, getCache, removeCache, CacheKeys } from '@/lib/cache'
@@ -24,9 +30,9 @@ export interface ProductFilters {
 }
 
 export interface StockStatus {
-  status: 'in' | 'low' | 'out'
+  status: 'in' | 'low' | 'out' | 'combo'
   label: string
-  variant: 'default' | 'destructive' | 'warning' | 'success'
+  variant: 'default' | 'destructive' | 'warning' | 'success' | 'secondary'
 }
 
 export interface ProductStats {
@@ -79,6 +85,28 @@ interface UseProductsReturn {
  * Get stock status for a product
  */
 export function getStockStatus(product: Product): StockStatus {
+  // Check if this is a combo product first
+  if (product.is_combo_product) {
+    // Calculate how many complete combos can be made from available components
+    if (product.combo_components && product.combo_components.length > 0) {
+      const possibleCombos = product.combo_components.map((component) => {
+        const componentStock = component.component_product.stocks?.[0]?.productStock ?? 0
+        const requiredQuantity = Number(component.quantity)
+        return requiredQuantity > 0 ? Math.floor(componentStock / requiredQuantity) : 0
+      })
+      const totalStock = Math.min(...possibleCombos)
+
+      if (totalStock <= 0) {
+        return { status: 'out', label: 'Out of Stock', variant: 'destructive' }
+      }
+      // For combos with stock, show as combo product
+      return { status: 'combo', label: 'Combo Product', variant: 'secondary' }
+    }
+
+    // Fallback to combo status if no component data
+    return { status: 'combo', label: 'Combo Product', variant: 'secondary' }
+  }
+
   const totalStock = product.stocks_sum_product_stock ?? product.productStock ?? 0
   const alertQty = product.alert_qty ?? 0
 
@@ -278,7 +306,6 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
         // Sort by ID descending to match API order (newest first)
         convertedProducts.sort((a, b) => b.id - a.id)
         setProducts(convertedProducts)
-
       }
 
       return cachedProducts.length > 0
@@ -418,12 +445,12 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
         const matchesName = product.productName.toLowerCase().includes(query)
         const matchesCode = product.productCode?.toLowerCase().includes(query)
         const matchesProductBarcode = product.barcode?.toLowerCase().includes(query)
-        
+
         // Check variant barcodes for variable products
         const matchesVariantBarcode = product.variants?.some((v) =>
           v.barcode?.toLowerCase().includes(query)
         )
-        
+
         if (!matchesName && !matchesCode && !matchesProductBarcode && !matchesVariantBarcode) {
           return false
         }

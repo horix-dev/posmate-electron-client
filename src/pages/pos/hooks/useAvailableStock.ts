@@ -38,11 +38,21 @@ export function useAvailableStock() {
   const getAvailableStock = useMemo(() => {
     return (product: Product, variantId?: number | null): number => {
       const isVariable = product.product_type === 'variable'
+      const isCombo = product.is_combo_product === true
 
       let totalStock = 0
 
+      // For combo products, calculate how many complete sets can be made
+      if (isCombo && product.combo_components?.length) {
+        const possibleCombos = product.combo_components.map((component) => {
+          const componentStock = component.component_product.stocks?.[0]?.productStock ?? 0
+          const requiredQuantity = Number(component.quantity)
+          return requiredQuantity > 0 ? Math.floor(componentStock / requiredQuantity) : 0
+        })
+        totalStock = Math.min(...possibleCombos)
+      }
       // For variable products with a specific variant
-      if (isVariable && variantId != null && product.variants?.length) {
+      else if (isVariable && variantId != null && product.variants?.length) {
         const variant = product.variants.find((v) => v.id === variantId)
         if (variant) {
           totalStock =

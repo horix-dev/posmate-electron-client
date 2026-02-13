@@ -1,23 +1,36 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { toast } from 'sonner'
 import type { Product, Stock, Party, PaymentType, Vat } from '@/types/api.types'
 import type { ProductVariant } from '@/types/variant.types'
 import { heldCartRepository } from '@/lib/db/repositories'
 import type { HeldCart as DBHeldCart } from '@/lib/db/schema'
 
 export interface CartItem {
-  id: string // Unique ID for cart item (stock_id + timestamp OR variant_id + timestamp)
+  /** Unique identifier for the cart item (e.g., `product.id-stock.id` or `variant-id-timestamp`) */
+  id: string
+  /** The product being added */
   product: Product
+  /** The specific stock/variant selected */
   stock: Stock
+  /** The selected variant, if applicable */
+  variant: ProductVariant | null
+  /** ID of the selected variant */
+  variantId: number | null
+  /** Display name for the variant */
+  variantName: string | null
+  /** Quantity of this item in the cart */
   quantity: number
+  /** The price per unit */
   unitPrice: number
+  /** The discount value for this item */
   discount: number
+  /** The type of discount ('fixed' or 'percentage') */
   discountType: 'fixed' | 'percentage'
+  /** The total price for this line item (quantity * unitPrice - discount) */
   total: number
-  // Variant support
-  variant?: ProductVariant | null
-  variantId?: number | null
-  variantName?: string | null
+  /** If part of a combo, this links to the parent combo product */
+  comboParentId?: number
 }
 
 export interface HeldCart {
@@ -83,7 +96,13 @@ interface CartState {
 }
 
 // Helper to calculate item total
-const calculateItemTotal = (item: Omit<CartItem, 'total'>): number => {
+const calculateItemTotal = (
+  item: Omit<CartItem, 'total'> & {
+    unitPrice: number
+    discount: number
+    discountType: 'fixed' | 'percentage'
+  }
+): number => {
   const subtotal = item.quantity * item.unitPrice
   const discount =
     item.discountType === 'percentage'
@@ -147,35 +166,108 @@ export const useCartStore = create<CartState>()(
       changeAmount: 0,
 
       // Actions
-      addItem: (product: Product, stock: Stock, quantity = 1, variant?: ProductVariant | null) => {
-        const state = get()
+      // ======================================================================
 
-        // For variants, check if same variant exists
-        // For simple products, check if same stock exists
-        const existingItem = state.items.find((item) => {
-          if (variant && item.variantId) {
-            return item.variantId === variant.id
+      addItem: (product, stock, quantity = 1, variant = null) => {
+        // Handle Combo Products
+        if (product.is_combo_product && product.combo_components) {
+          // 1. Check stock for all components first
+          const unavailableComponents = product.combo_components.filter((component) => {
+            const componentStock = component.component_product.stocks?.[0]?.productStock ?? 0
+            const requiredQuantity = Number(component.quantity) * quantity
+            return componentStock < requiredQuantity
+          })
+
+          if (unavailableComponents.length > 0) {
+            const unavailableNames = unavailableComponents
+              .map((c) => c.component_product.productName)
+              .join(', ')
+            toast.error('Cannot add combo to cart.', {
+              description: `Insufficient stock for: ${unavailableNames}.`,
+            })
+            return
           }
-          return !item.variantId && item.stock.id === stock.id
-        })
+
+          // 2. Calculate combo price (with discount if applicable)
+          const originalPrice = product.combo_components.reduce((sum, component) => {
+            const componentStock = component.component_product.stocks?.[0]
+            const price = componentStock?.productSalePrice || 0
+            return sum + price * Number(component.quantity)
+          }, 0)
+
+          let finalPrice = originalPrice
+          if (product.combo_discount_type && product.combo_discount_type !== 'none') {
+            const discount =
+              product.combo_discount_type === 'percentage'
+                ? (originalPrice * (product.combo_discount_value || 0)) / 100
+                : product.combo_discount_value || 0
+            finalPrice = originalPrice - discount
+          }
+
+          // 3. Add combo as a single item to cart
+          const itemId = `combo-${product.id}-${Date.now()}`
+          const existingItem = get().items.find(
+            (item) => item.product.id === product.id && item.comboParentId === undefined
+          )
+
+          if (existingItem) {
+            set((state) => ({
+              items: state.items.map((item) =>
+                item.id === existingItem.id
+                  ? {
+                      ...item,
+                      quantity: item.quantity + quantity,
+                      total: (item.quantity + quantity) * item.unitPrice,
+                    }
+                  : item
+              ),
+            }))
+          } else {
+            const newItem: CartItem = {
+              id: itemId,
+              product: product,
+              stock: stock, // Use the combo's stock info
+              variant: null,
+              variantId: null,
+              variantName: null,
+              quantity: quantity,
+              unitPrice: finalPrice,
+              discount: 0,
+              discountType: 'fixed',
+              total: quantity * finalPrice,
+              // Don't set comboParentId for the combo itself
+            }
+            set((state) => ({ items: [...state.items, newItem] }))
+          }
+
+          get().calculateTotals()
+          toast.success(`${product.productName} added to cart.`)
+          return // Stop execution for combo product
+        }
+
+        // --- Existing logic for Simple/Variable Products ---
+        const existingItem = get().items.find(
+          (item) => item.id === (variant ? `variant-${variant.id}` : stock.id)
+        )
 
         if (existingItem) {
-          // Update quantity and move to end (will appear at top when reversed in UI)
+          const newQuantity = existingItem.quantity + quantity
           const updatedItem = {
             ...existingItem,
-            quantity: existingItem.quantity + quantity,
+            quantity: newQuantity,
             total: calculateItemTotal({
               ...existingItem,
-              quantity: existingItem.quantity + quantity,
+              quantity: newQuantity,
             }),
           }
 
           set({
-            items: [...state.items.filter((item) => item.id !== existingItem.id), updatedItem],
+            items: [...get().items.filter((item) => item.id !== existingItem.id), updatedItem],
           })
         } else {
           // Determine price: variant price > stock price
-          const unitPrice = variant?.effective_price ?? variant?.price ?? stock.productSalePrice
+          const unitPrice =
+            variant?.effective_price ?? variant?.price ?? stock.productSalePrice ?? 0
 
           // Add new item
           const newItem: CartItem = {
@@ -193,7 +285,7 @@ export const useCartStore = create<CartState>()(
             variantName: variant ? getVariantDisplayName(variant) : null,
           }
 
-          set({ items: [...state.items, newItem] })
+          set({ items: [...get().items, newItem] })
         }
 
         get().calculateTotals()
@@ -211,7 +303,7 @@ export const useCartStore = create<CartState>()(
               ? {
                   ...item,
                   quantity,
-                  total: calculateItemTotal({ ...item, quantity }),
+                  total: quantity * item.unitPrice,
                 }
               : item
           ),
@@ -232,7 +324,6 @@ export const useCartStore = create<CartState>()(
               : item
           ),
         })
-
         get().calculateTotals()
       },
 
@@ -249,35 +340,35 @@ export const useCartStore = create<CartState>()(
               : item
           ),
         })
-
         get().calculateTotals()
       },
 
       updateItemStock: (itemId: string, stock: Stock) => {
-        set({
-          items: get().items.map((item) => {
-            if (item.id !== itemId) {
-              return item
-            }
+        const item = get().items.find((i) => i.id === itemId)
+        if (!item) return
 
-            const maxStock = stock.productStock ?? item.stock.productStock ?? item.quantity
-            const adjustedQuantity = Math.min(item.quantity, maxStock)
-            const variantPrice = item.variant?.effective_price ?? item.variant?.price
-            const unitPrice = stock.productSalePrice ?? variantPrice ?? item.unitPrice
-
-            const updatedItem: CartItem = {
-              ...item,
-              stock,
-              quantity: adjustedQuantity,
-              unitPrice,
-            }
-
-            return {
-              ...updatedItem,
-              total: calculateItemTotal(updatedItem),
-            }
-          }),
-        })
+        // If it's a simple product, we can just update the stock
+        if (!item.variant) {
+          const unitPrice = stock.productSalePrice ?? item.unitPrice
+          set({
+            items: get().items.map((i) =>
+              i.id === itemId
+                ? {
+                    ...i,
+                    stock,
+                    unitPrice,
+                    total: calculateItemTotal({ ...i, stock, unitPrice }),
+                  }
+                : i
+            ),
+          })
+        } else {
+          // For variants, the price is tied to the variant, not the top-level stock
+          // We might just update the stock ID if it changes, but price logic is complex
+          set({
+            items: get().items.map((i) => (i.id === itemId ? { ...i, stock } : i)),
+          })
+        }
 
         get().calculateTotals()
       },
@@ -432,33 +523,43 @@ export const useCartStore = create<CartState>()(
       },
 
       calculateTotals: () => {
-        const state = get()
+        set((state) => {
+          const subtotal = state.items.reduce(
+            (sum, item) => sum + item.quantity * item.unitPrice,
+            0
+          )
+          const discountAmount = state.items.reduce((sum, item) => {
+            const itemSubtotal = item.quantity * item.unitPrice
+            if (item.discountType === 'percentage') {
+              return sum + itemSubtotal * (item.discount / 100)
+            }
+            return sum + item.discount * item.quantity
+          }, 0)
 
-        // Calculate subtotal from items
-        const subtotal = state.items.reduce((sum, item) => sum + item.total, 0)
+          const totalAfterItemDiscounts = subtotal - discountAmount
 
-        // Calculate discount amount
-        const discountAmount =
-          state.discountType === 'percentage' ? subtotal * (state.discount / 100) : state.discount
+          const globalDiscountAmount =
+            state.discountType === 'percentage'
+              ? totalAfterItemDiscounts * (state.discount / 100)
+              : state.discount
 
-        // Calculate VAT amount
-        const taxableAmount = subtotal - discountAmount
-        const vatAmount = state.vat ? taxableAmount * (state.vat.rate / 100) : 0
+          const totalAfterGlobalDiscount = totalAfterItemDiscounts - globalDiscountAmount
 
-        // Calculate total
-        const totalAmount = taxableAmount + vatAmount
+          const vatAmount = state.vat ? totalAfterGlobalDiscount * (state.vat.rate / 100) : 0
 
-        // Calculate due/change
-        const dueAmount = Math.max(0, totalAmount - state.paidAmount)
-        const changeAmount = Math.max(0, state.paidAmount - totalAmount)
+          const totalAmount = totalAfterGlobalDiscount + vatAmount
+          const dueAmount = totalAmount - state.paidAmount
+          const changeAmount = state.paidAmount > totalAmount ? state.paidAmount - totalAmount : 0
 
-        set({
-          subtotal,
-          discountAmount,
-          vatAmount,
-          totalAmount,
-          dueAmount,
-          changeAmount,
+          return {
+            ...state,
+            subtotal,
+            discountAmount: discountAmount + globalDiscountAmount,
+            vatAmount,
+            totalAmount,
+            dueAmount,
+            changeAmount,
+          }
         })
       },
     }),

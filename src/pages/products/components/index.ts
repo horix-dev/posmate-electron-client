@@ -8,6 +8,7 @@ export { DeleteProductDialog } from './DeleteProductDialog'
 export { ProductTable } from './ProductTable'
 export { EmptyState, NoResultsState, TableSkeleton } from './ProductStates'
 export { VariantManager } from './VariantManager'
+export { ComboProductSelector } from './ComboProductSelector'
 
 // Types
 export type { ProductRowProps } from './ProductRow'

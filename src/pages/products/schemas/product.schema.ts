@@ -102,6 +102,22 @@ export const productFormSchema = z
 
     is_batch_tracked: z.boolean().default(false),
     batches: z.array(batchEntrySchema).default([]),
+    is_combo_product: z.boolean().default(false),
+    combo_products: z
+      .array(
+        z.object({
+          product_id: z.number(),
+          quantity: z.number().min(1, 'Quantity must be at least 1'),
+          productName: z.string().optional(),
+          productCode: z.string().optional(),
+          productPurchasePrice: z.number().optional(),
+          productSalePrice: z.number().optional(),
+          availableStock: z.number().optional(),
+        })
+      )
+      .default([]),
+    combo_discount_type: z.enum(['none', 'percentage', 'fixed']).default('none'),
+    combo_discount_value: z.number().min(0).default(0),
     productPurchasePrice: z
       .string()
       .regex(/^\d*\.?\d*$/, 'Purchase price must be a valid number')
@@ -122,8 +138,8 @@ export const productFormSchema = z
     description: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    // Skip price and stock validation for batch-tracked products (managed at batch level)
-    if (data.product_type === 'simple' && !data.is_batch_tracked) {
+    // Skip price and stock validation for batch-tracked and combo products (managed separately)
+    if (data.product_type === 'simple' && !data.is_batch_tracked && !data.is_combo_product) {
       if (
         !data.productPurchasePrice ||
         isNaN(Number(data.productPurchasePrice)) ||
@@ -154,6 +170,17 @@ export const productFormSchema = z
         })
       }
     }
+
+    // Combo product validation
+    if (data.is_combo_product) {
+      if (!data.combo_products || data.combo_products.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['combo_products'],
+          message: 'At least one product must be selected for combo products',
+        })
+      }
+    }
   })
 
 export type ProductFormData = z.infer<typeof productFormSchema>
@@ -171,11 +198,15 @@ export const defaultProductFormValues: ProductFormData = {
   alert_qty: '',
   product_type: 'simple',
   is_batch_tracked: false,
+  batches: [],
+  is_combo_product: false,
+  combo_products: [],
+  combo_discount_type: 'none' as const,
+  combo_discount_value: 0,
   productPurchasePrice: '',
   productSalePrice: '',
   productStock: '',
   description: '',
-  batches: [],
 }
 
 /**
@@ -197,6 +228,34 @@ export function productToFormData(product: {
   alert_qty?: number | null
   product_type: 'simple' | 'variable' | 'variant' | 'single'
   is_batch_tracked?: boolean
+  is_combo_product?: boolean
+  combo_products?: Array<{
+    id?: number
+    product_id: number
+    quantity: number
+    productName?: string // Make productName optional to match ComboProductItem
+    productCode?: string
+    productPurchasePrice?: number
+    productSalePrice?: number
+    availableStock?: number
+  }>
+  combo_components?: Array<{
+    id: number
+    component_product_id: number
+    quantity: string | number
+    component_product: {
+      id: number
+      productName: string
+      productCode?: string
+      stocks?: Array<{
+        productStock: number
+        productPurchasePrice: number
+        productSalePrice: number
+      }>
+    }
+  }>
+  combo_discount_type?: 'none' | 'percentage' | 'fixed'
+  combo_discount_value?: number | string
   description?: string | null
   stocks?: Array<{
     productPurchasePrice: number
@@ -249,6 +308,20 @@ export function productToFormData(product: {
         : v.attribute_values?.map((av) => av.id) || [],
     })) || []
 
+  const comboProducts =
+    product.combo_components?.map((component) => {
+      const componentStock = component.component_product.stocks?.[0]
+      return {
+        product_id: component.component_product_id,
+        quantity: Number(component.quantity),
+        productName: component.component_product.productName,
+        productCode: component.component_product.productCode,
+        productPurchasePrice: componentStock?.productPurchasePrice,
+        productSalePrice: componentStock?.productSalePrice,
+        availableStock: componentStock?.productStock,
+      }
+    }) || []
+
   return {
     productName: product.productName,
     productCode: product.productCode || '',
@@ -259,6 +332,13 @@ export function productToFormData(product: {
     alert_qty: product.alert_qty?.toString() || '',
     product_type: normalizedProductType,
     is_batch_tracked: normalizeBoolean(product.is_batch_tracked),
+    is_combo_product: normalizeBoolean(product.is_combo_product),
+    combo_products: comboProducts,
+    combo_discount_type: (product.combo_discount_type as 'none' | 'percentage' | 'fixed') || 'none',
+    combo_discount_value:
+      typeof product.combo_discount_value === 'string'
+        ? parseFloat(product.combo_discount_value)
+        : product.combo_discount_value || 0,
     productPurchasePrice: stock?.productPurchasePrice?.toString() || '',
     productSalePrice: stock?.productSalePrice?.toString() || '',
     productStock: stock?.productStock?.toString() || '',
@@ -319,6 +399,7 @@ export function formDataToFormData(
 
   formData.append('product_type', effectiveProductType)
   formData.append('is_batch_tracked', data.is_batch_tracked ? '1' : '0')
+  formData.append('is_combo_product', data.is_combo_product ? '1' : '0')
 
   const firstBatch = data.batches?.[0]
   const purchasePriceValue = data.productPurchasePrice || firstBatch?.productPurchasePrice
@@ -361,6 +442,23 @@ export function formDataToFormData(
       formData.append('productStock', data.productStock)
     }
   }
+
+  // Handle combo products
+  if (data.is_combo_product && data.combo_products && data.combo_products.length > 0) {
+    data.combo_products.forEach((comboProduct, index) => {
+      formData.append(`combo_products[${index}][product_id]`, comboProduct.product_id.toString())
+      formData.append(`combo_products[${index}][quantity]`, comboProduct.quantity.toString())
+    })
+
+    // Add discount fields
+    if (data.combo_discount_type) {
+      formData.append('combo_discount_type', data.combo_discount_type)
+    }
+    if (data.combo_discount_value) {
+      formData.append('combo_discount_value', data.combo_discount_value.toString())
+    }
+  }
+
   if (imageFile) {
     formData.append('productPicture', imageFile)
   }

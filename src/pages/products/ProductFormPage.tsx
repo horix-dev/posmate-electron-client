@@ -35,6 +35,7 @@ import {
 } from './schemas'
 import type { ProductFormData, VariantInputData, BatchFormValue } from './schemas'
 import { VariantManager } from './components/VariantManager'
+import { ComboProductSelector } from './components/ComboProductSelector'
 import { useProducts, useAttributes, DEFAULT_FILTERS } from './hooks'
 import { CategoryDialog } from '../product-settings/components/categories/CategoryDialog'
 import { BrandDialog } from '../product-settings/components/brands/BrandDialog'
@@ -98,6 +99,10 @@ export default function ProductFormPage() {
   const productType = form.watch('product_type')
   const isVariableProduct = productType === 'variable'
   const isBatchTracked = form.watch('is_batch_tracked')
+  const isComboProduct = form.watch('is_combo_product')
+
+  // Dialog states
+  const [isComboSelectorOpen, setIsComboSelectorOpen] = useState(false)
 
   const {
     fields: batchFields,
@@ -138,6 +143,43 @@ export default function ProductFormPage() {
       }
     }
   }, [appendBatch, form, generateBatchNumber, isBatchTracked, isVariableProduct])
+
+  // Auto-calculate prices for combo products
+  const comboProducts = form.watch('combo_products')
+  const comboDiscountType = form.watch('combo_discount_type')
+  const comboDiscountValue = form.watch('combo_discount_value')
+
+  useEffect(() => {
+    if (isComboProduct && comboProducts && comboProducts.length > 0) {
+      const totalPurchasePrice = comboProducts.reduce(
+        (sum, item) => sum + (item.productPurchasePrice || 0) * item.quantity,
+        0
+      )
+      const totalSalePrice = comboProducts.reduce(
+        (sum, item) => sum + (item.productSalePrice || 0) * item.quantity,
+        0
+      )
+
+      // Apply discount to sale price - ensure discount value is a number
+      const discountValueNum = Number(comboDiscountValue) || 0
+      let finalSalePrice = totalSalePrice
+      if (comboDiscountType === 'percentage' && discountValueNum > 0) {
+        const discountAmount = (totalSalePrice * discountValueNum) / 100
+        finalSalePrice = totalSalePrice - discountAmount
+      } else if (comboDiscountType === 'fixed' && discountValueNum > 0) {
+        finalSalePrice = totalSalePrice - discountValueNum
+      }
+
+      // Ensure price doesn't go below 0
+      finalSalePrice = Math.max(0, finalSalePrice)
+
+      // Update form values with calculated prices
+      form.setValue('productPurchasePrice', totalPurchasePrice.toFixed(2))
+      form.setValue('productSalePrice', finalSalePrice.toFixed(2))
+      // Combo products don't have their own stock
+      form.setValue('productStock', '0')
+    }
+  }, [isComboProduct, comboProducts, comboDiscountType, comboDiscountValue, form])
 
   useEffect(() => {
     if (!isBatchTracked) {
@@ -191,6 +233,10 @@ export default function ProductFormPage() {
           alert_qty: formData.alert_qty,
           product_type: formData.product_type,
           is_batch_tracked: formData.is_batch_tracked,
+          is_combo_product: formData.is_combo_product,
+          combo_products: formData.combo_products,
+          combo_discount_type: formData.combo_discount_type,
+          combo_discount_value: formData.combo_discount_value,
           productPurchasePrice: formData.productPurchasePrice,
           productSalePrice: formData.productSalePrice,
           productStock: formData.productStock,
@@ -692,6 +738,37 @@ export default function ProductFormPage() {
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="is_combo_product"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border bg-muted/20 p-3">
+                        {isEditMode ? (
+                          <div className="flex w-full items-center text-sm text-muted-foreground">
+                            <Package className="mr-2 h-4 w-4" />
+                            <span className="mr-2 font-medium text-foreground">Combo Product:</span>
+                            {field.value ? 'Enabled' : 'Disabled'}
+                            <span className="ml-2 text-xs">(Cannot be changed)</span>
+                          </div>
+                        ) : (
+                          <>
+                            <FormControl>
+                              <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="cursor-pointer font-semibold">
+                                Combo Product
+                              </FormLabel>
+                              <FormDescription>
+                                Collection of multiple products sold as a bundle
+                              </FormDescription>
+                            </div>
+                          </>
+                        )}
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </div>
             </div>
@@ -1018,7 +1095,7 @@ export default function ProductFormPage() {
           )}
 
           {/* Card 3: Pricing & Inventory (Simple Product Only) */}
-          {!isVariableProduct && (
+          {!isVariableProduct && !isComboProduct && (
             <div className="rounded-lg border bg-card p-6">
               <h3 className="mb-6 flex items-center gap-2 text-lg font-semibold">
                 <Package className="h-5 w-5 text-primary" />
@@ -1158,6 +1235,21 @@ export default function ProductFormPage() {
                   )}
                 />
               </div>
+            </div>
+          )}
+
+          {/* Card 5: Combo Products (Combo Product Only) */}
+          {isComboProduct && !isVariableProduct && (
+            <div className="rounded-lg border bg-card p-6">
+              <h3 className="mb-6 flex items-center gap-2 text-lg font-semibold">
+                <Package className="h-5 w-5 text-primary" />
+                Combo Product Items
+              </h3>
+              <ComboProductSelector
+                control={form.control}
+                isOpen={isComboSelectorOpen}
+                onOpenChange={setIsComboSelectorOpen}
+              />
             </div>
           )}
 

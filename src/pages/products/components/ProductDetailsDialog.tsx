@@ -74,20 +74,33 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
   // Don't render if no product
   if (!product) return null
 
+  const isCombo = product.is_combo_product === true
   const stockStatus = getStockStatus(product)
   const handleClose = () => onOpenChange(false)
   const isSimpleTracking = !product.is_batch_tracked
 
+  // Calculate total purchase price for combos
+  const comboPurchasePrice = isCombo
+    ? product.combo_components?.reduce((sum, component) => {
+        const stock = component.component_product.stocks?.[0]
+        const cost = stock?.productPurchasePrice || 0
+        return sum + cost * Number(component.quantity)
+      }, 0) || 0
+    : product.productPurchasePrice || 0
+
   // Calculate total stock
-  // Prioritize actual stock records if available, as they represent the real-time physical inventory
-  const totalStock =
-    product.stocks && product.stocks.length > 0
+  // For combos, stock is based on component availability, which is complex.
+  // For display purposes, we show 0 as it's not a directly stockable item.
+  const totalStock = isCombo
+    ? 0
+    : product.stocks && product.stocks.length > 0
       ? product.stocks.reduce((sum, s) => sum + (Number(s.productStock) || 0), 0)
       : (product.variants_total_stock ?? product.productStock ?? 0)
 
   // Calculate total stock value
-  const totalStockValue =
-    product.stocks && product.stocks.length > 0
+  const totalStockValue = isCombo
+    ? 0 // Stock value is 0 since total stock is 0
+    : product.stocks && product.stocks.length > 0
       ? product.stocks.reduce(
           (sum, s) => sum + (Number(s.productStock) || 0) * (Number(s.productPurchasePrice) || 0),
           0
@@ -175,7 +188,9 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
                         'h-5 px-2 text-[10px]',
                         stockStatus.variant === 'warning' && 'border-yellow-500 text-yellow-600',
                         stockStatus.variant === 'success' &&
-                          'border-0 bg-green-100 text-green-700 hover:bg-green-100'
+                          'border-0 bg-green-100 text-green-700 hover:bg-green-100',
+                        stockStatus.variant === 'secondary' &&
+                          'border-0 bg-blue-100 text-blue-700 hover:bg-blue-100'
                       )}
                     >
                       {stockStatus.label}
@@ -204,8 +219,11 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
         <div className="min-h-0 flex-1">
           <Tabs defaultValue="overview" className="flex h-full flex-col">
             <div className="shrink-0 border-b px-6 pt-2">
-              <TabsList className="grid w-full max-w-[400px] grid-cols-3">
+              <TabsList className="grid w-full max-w-[550px] grid-cols-4">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="combo" disabled={!product.is_combo_product}>
+                  Combo ({product.combo_components?.length || 0})
+                </TabsTrigger>
                 <TabsTrigger value="variants" disabled={product.product_type !== 'variable'}>
                   Variants ({product.variants?.length || 0})
                 </TabsTrigger>
@@ -231,7 +249,7 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
                         <DetailItem label="Alert Quantity" value={product.alert_qty} />
                         <DetailItem
                           label="Purchase Price"
-                          value={formatCurrency(product.productPurchasePrice || 0)}
+                          value={formatCurrency(comboPurchasePrice)}
                         />
                       </div>
                     </div>
@@ -263,6 +281,187 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
                       </div>
                     </div>
                   </div>
+                </TabsContent>
+
+                <TabsContent value="combo" className="mt-0">
+                  {product.is_combo_product &&
+                  product.combo_components &&
+                  product.combo_components.length > 0 ? (
+                    <div className="space-y-4">
+                      {/* Discount Information */}
+                      {product.combo_discount_type && product.combo_discount_type !== 'none' && (
+                        <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                              Discount Applied
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                            >
+                              {product.combo_discount_type === 'percentage'
+                                ? `${product.combo_discount_value}% off`
+                                : `${formatCurrency(product.combo_discount_value || 0)} off`}
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Component Products Table */}
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Product</TableHead>
+                              <TableHead>Code</TableHead>
+                              <TableHead className="text-center">Quantity</TableHead>
+                              <TableHead className="text-right">Unit Price</TableHead>
+                              <TableHead className="text-right">Subtotal</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {product.combo_components.map((component, index) => {
+                              const componentStock = component.component_product.stocks?.[0]
+                              const salePrice = componentStock?.productSalePrice || 0
+                              const quantity = Number(component.quantity)
+                              const subtotal = salePrice * quantity
+
+                              return (
+                                <TableRow key={`${component.component_product_id}-${index}`}>
+                                  <TableCell>
+                                    <div>
+                                      <p className="font-medium">
+                                        {component.component_product.productName}
+                                      </p>
+                                      {componentStock?.productStock !== undefined && (
+                                        <p className="text-xs text-muted-foreground">
+                                          Stock: {componentStock.productStock}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="font-mono text-xs text-muted-foreground">
+                                    {component.component_product.productCode || '-'}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Badge variant="secondary">{quantity}</Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {formatCurrency(salePrice)}
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {formatCurrency(subtotal)}
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      {/* Pricing Summary */}
+                      <div className="grid gap-4 rounded-lg border bg-muted/20 p-4">
+                        <div className="flex items-center justify-between border-b border-dashed border-gray-300/50 pb-2">
+                          <span className="text-sm text-muted-foreground">Total Items</span>
+                          <span className="font-mono font-medium">
+                            {product.combo_components.reduce(
+                              (sum, item) => sum + Number(item.quantity),
+                              0
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-dashed border-gray-300/50 pb-2">
+                          <span className="text-sm text-muted-foreground">Cost Price (Total)</span>
+                          <span className="font-mono font-medium">
+                            {formatCurrency(
+                              product.combo_components.reduce((sum, component) => {
+                                const stock = component.component_product.stocks?.[0]
+                                const cost = stock?.productPurchasePrice || 0
+                                return sum + cost * Number(component.quantity)
+                              }, 0)
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-dashed border-gray-300/50 pb-2">
+                          <span className="text-sm text-muted-foreground">Original Price</span>
+                          <span className="font-mono font-medium">
+                            {formatCurrency(
+                              product.combo_components.reduce((sum, component) => {
+                                const stock = component.component_product.stocks?.[0]
+                                const price = stock?.productSalePrice || 0
+                                return sum + price * Number(component.quantity)
+                              }, 0)
+                            )}
+                          </span>
+                        </div>
+                        {product.combo_discount_type && product.combo_discount_type !== 'none' && (
+                          <>
+                            <div className="flex items-center justify-between border-b border-dashed border-gray-300/50 pb-2">
+                              <span className="text-sm text-green-700 dark:text-green-400">
+                                Discount
+                              </span>
+                              <span className="font-mono font-medium text-green-700 dark:text-green-400">
+                                -
+                                {formatCurrency(
+                                  (() => {
+                                    if (product.combo_discount_type === 'percentage') {
+                                      const originalPrice = product.combo_components.reduce(
+                                        (sum, component) => {
+                                          const stock = component.component_product.stocks?.[0]
+                                          const price = stock?.productSalePrice || 0
+                                          return sum + price * Number(component.quantity)
+                                        },
+                                        0
+                                      )
+                                      return (
+                                        (originalPrice *
+                                          Number(product.combo_discount_value || 0)) /
+                                        100
+                                      )
+                                    }
+                                    return Number(product.combo_discount_value || 0)
+                                  })()
+                                )}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                        <div className="flex items-center justify-between pt-2">
+                          <span className="font-medium">Final Sale Price</span>
+                          <span className="text-xl font-bold text-primary">
+                            {formatCurrency(
+                              (() => {
+                                const originalPrice = product.combo_components.reduce(
+                                  (sum, component) => {
+                                    const stock = component.component_product.stocks?.[0]
+                                    const price = stock?.productSalePrice || 0
+                                    return sum + price * Number(component.quantity)
+                                  },
+                                  0
+                                )
+                                if (
+                                  !product.combo_discount_type ||
+                                  product.combo_discount_type === 'none'
+                                ) {
+                                  return originalPrice
+                                }
+                                const discount =
+                                  product.combo_discount_type === 'percentage'
+                                    ? (originalPrice * Number(product.combo_discount_value || 0)) /
+                                      100
+                                    : Number(product.combo_discount_value || 0)
+                                return Math.max(0, originalPrice - discount)
+                              })()
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex h-32 items-center justify-center rounded-lg border">
+                      <p className="text-sm text-muted-foreground">No combo products configured</p>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="variants" className="mt-0">

@@ -352,6 +352,36 @@ export interface Currency {
 // Import variant types
 import type { ProductVariant, ProductAttribute } from './variant.types'
 
+export interface ComboProductItem {
+  id?: number
+  product_id: number
+  quantity: number
+  productName?: string
+  productCode?: string
+  productPurchasePrice?: number
+  productSalePrice?: number
+  availableStock?: number
+}
+
+export interface ComboComponent {
+  id: number
+  combo_product_id: number
+  component_product_id: number
+  business_id: number
+  quantity: string | number
+  created_at?: string
+  updated_at?: string
+  component_product: {
+    id: number
+    productName: string
+    productCode?: string
+    productSalePrice?: number
+    productPurchasePrice?: number
+    combo_products?: ComboProductItem[]
+    stocks?: Stock[]
+  }
+}
+
 export interface Product {
   id: number
   productName: string
@@ -362,6 +392,11 @@ export interface Product {
   // Backend uses 'variant' for legacy batch products (batch/lot tracked by batch_no)
   product_type: 'simple' | 'variable' | 'variant'
   is_batch_tracked?: boolean // New field: independent batch/lot tracking flag
+  is_combo_product?: boolean // Combo product flag
+  combo_products?: ComboProductItem[] // Collection of products in combo (for form data)
+  combo_components?: ComboComponent[] // Backend structure with nested product details
+  combo_discount_type?: 'none' | 'percentage' | 'fixed' // Discount type for combo
+  combo_discount_value?: number // Discount value
   productPicture?: string
   stocks_sum_product_stock?: number
   category_id?: number

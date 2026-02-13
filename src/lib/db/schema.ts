@@ -175,8 +175,9 @@ export class POSDatabase extends Dexie {
   constructor() {
     super('POSDatabase')
 
-    // Define schema version 1
-    this.version(1).stores({
+    // Define schema version 20 (increased from version 1 to match browser IndexedDB version)
+    // Schema structure remains the same, just version number updated to prevent DatabaseClosedError
+    this.version(20).stores({
       // Master data with indexes for efficient querying
       products:
         '++id, productCode, productName, categoryId, lastSyncedAt, [categoryId+productName]',
@@ -190,7 +191,8 @@ export class POSDatabase extends Dexie {
       heldCarts: '++id, cartId, customerId, createdAt',
 
       // Sync infrastructure
-      syncQueue: '++id, entity, status, createdAt, lastAttemptAt, [status+createdAt]',
+      syncQueue:
+        '++id, entity, status, createdAt, lastAttemptAt, [status+createdAt], idempotencyKey',
       metadata: 'key, updatedAt',
     })
   }

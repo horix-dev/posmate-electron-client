@@ -245,15 +245,18 @@ export function POSPage() {
         return false
       }
 
-      const availableQty = stock.productStock ?? 0
-      const currentQty = getCartQuantity(product.id, variant?.id ?? null)
+      // Skip stock validation for combo products - let the cart handle component validation
+      if (!product.is_combo_product) {
+        const availableQty = stock.productStock ?? 0
+        const currentQty = getCartQuantity(product.id, variant?.id ?? null)
 
-      if (availableQty <= 0 || currentQty >= availableQty) {
-        const itemName = variant ? `${product.productName} (${variant.sku})` : product.productName
-        toast.error(
-          `Stock limit reached for ${itemName}. Available: ${availableQty}. In cart: ${currentQty}.`
-        )
-        return false
+        if (availableQty <= 0 || currentQty >= availableQty) {
+          const itemName = variant ? `${product.productName} (${variant.sku})` : product.productName
+          toast.error(
+            `Stock limit reached for ${itemName}. Available: ${availableQty}. In cart: ${currentQty}.`
+          )
+          return false
+        }
       }
 
       setIsAddingToCart(true)

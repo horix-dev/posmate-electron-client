@@ -137,18 +137,23 @@ function ProductRowComponent({ product, onView, onEdit, onDelete }: ProductRowPr
       <TableCell>
         <Badge
           variant={
-            stockStatus.status === 'low'
-              ? 'destructive'
-              : stockStatus.status === 'out'
+            stockStatus.status === 'combo'
+              ? 'secondary'
+              : stockStatus.status === 'low'
                 ? 'destructive'
-                : 'success'
+                : stockStatus.status === 'out'
+                  ? 'destructive'
+                  : 'success'
           }
           className={
             stockStatus.status === 'low'
               ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
-              : ''
+              : stockStatus.status === 'combo'
+                ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200'
+                : ''
           }
         >
+          {stockStatus.status === 'combo' && <Layers className="mr-1 h-3 w-3" aria-hidden="true" />}
           {stockStatus.status === 'low' && (
             <AlertTriangle className="mr-1 h-3 w-3" aria-hidden="true" />
           )}

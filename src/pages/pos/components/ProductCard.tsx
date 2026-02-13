@@ -34,10 +34,22 @@ export interface ProductCardProps {
 function getStockInfo(product: Product, availableStock?: number) {
   const isVariable = product.product_type === 'variable'
   const isBatchProduct = product.is_batch_tracked || product.product_type === 'variant' // Legacy batch products
+  const isCombo = product.is_combo_product === true
 
-  // For variable products, calculate total stock from all variants
+  // For combo products, calculate how many complete sets can be made
   let totalStock = 0
-  if (isVariable && product.variants?.length) {
+  if (isCombo && product.combo_components) {
+    // Calculate maximum number of combos that can be made from available components
+    const possibleCombos = product.combo_components.map((component) => {
+      const componentStock = component.component_product.stocks?.[0]?.productStock ?? 0
+      const requiredQuantity = Number(component.quantity)
+      // How many combos can be made from this component's stock
+      return requiredQuantity > 0 ? Math.floor(componentStock / requiredQuantity) : 0
+    })
+    // The minimum value determines how many complete combos can be made
+    totalStock = possibleCombos.length > 0 ? Math.min(...possibleCombos) : 0
+  } else if (isVariable && product.variants?.length) {
+    // For variable products, calculate total stock from all variants
     // Calculate from variant stocks
     totalStock = product.variants.reduce((sum, variant) => {
       // Sum up stock from variant's stocks array
@@ -99,6 +111,7 @@ function getStockInfo(product: Product, availableStock?: number) {
     salePrice: priceDisplay,
     isLowStock,
     isOutOfStock,
+    isCombo,
     isVariable,
     isBatchProduct,
     hasPriceRange,
@@ -134,6 +147,7 @@ function ProductCardComponent({
     salePrice,
     isLowStock,
     isOutOfStock,
+    isCombo,
     isVariable,
     isBatchProduct,
     hasPriceRange,
@@ -155,7 +169,7 @@ function ProductCardComponent({
       // If no selector provided, fall back to default stock
     }
 
-    // For simple products, add directly to cart
+    // For simple products and combo products, add directly to cart
     if (stock) {
       onAddToCart(product, stock)
     }
@@ -213,7 +227,16 @@ function ProductCardComponent({
           )}
 
           {/* Badges (grid only) */}
-          {!isList && isVariable && (
+          {!isList && isCombo && (
+            <Badge
+              variant="secondary"
+              className="absolute left-1 top-1 bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-100"
+            >
+              Combo
+            </Badge>
+          )}
+
+          {!isList && isVariable && !isCombo && (
             <Badge
               variant="secondary"
               className="absolute left-1 top-1 bg-primary/90 text-primary-foreground transition-all duration-300"
