@@ -1,7 +1,7 @@
 {
   "name": "posmate-desktop-client",
   "private": true,
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "POSMATE Desktop Client - Point of Sale Application",
   "author": "Horix",
   "type": "module",

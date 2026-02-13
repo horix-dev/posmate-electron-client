@@ -8,6 +8,7 @@
 import type { Sale, Business, Party } from '@/types/api.types'
 import { formatCurrency as formatCurrencyUtil } from '@/hooks/useCurrency'
 import { useUIStore } from '@/stores/ui.store'
+import { getImageUrl } from './utils'
 
 export interface ReceiptData {
   sale: Sale
@@ -218,7 +219,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
   <div class="receipt">
     <!-- Header -->
     <div class="header">
-      ${business?.invoice_logo ? `<img src="${business.invoice_logo}" alt="Logo" class="logo" />` : ''}
+      ${business?.invoice_logo ? `<img src="${getImageUrl(business.invoice_logo)}" alt="Logo" class="logo" />` : ''}
       <div class="business-name">${business?.companyName || 'Horix'}</div>
       <div class="receipt-title">Cash Receipt</div>
       <div class="invoice-number">#${sale.invoiceNumber}</div>
