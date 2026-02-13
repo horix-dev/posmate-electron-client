@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { useCurrency } from '@/hooks'
 import { isCreditPaymentType } from '@/constants/payment-types'
 import { toast } from 'sonner'
+import { Switch } from '@/components/ui/switch'
 import type { PaymentType, Party } from '@/types/api.types'
 
 // ============================================
@@ -37,10 +38,12 @@ export interface PaymentDialogProps {
   customer: Party | null
   /** Loading state */
   isProcessing: boolean
+  /** Print receipt toggle */
+  autoPrintReceipt: boolean
   /** Payment type change callback */
   onPaymentTypeChange: (paymentType: PaymentType) => void
   /** Process payment callback */
-  onProcessPayment: (amountPaid: number) => void
+  onProcessPayment: (amountPaid: number, printReceipt: boolean) => void
 }
 
 // ============================================
@@ -131,12 +134,14 @@ function PaymentDialogComponent({
   selectedPaymentType,
   customer,
   isProcessing,
+  autoPrintReceipt,
   onPaymentTypeChange,
   onProcessPayment,
 }: PaymentDialogProps) {
   const { format: formatCurrency, symbol: currencySymbol } = useCurrency()
   const [amountPaid, setAmountPaid] = useState<string>(String(totalAmount))
   const amountInputRef = useRef<HTMLInputElement>(null)
+  const [printEnabled, setPrintEnabled] = useState<boolean>(autoPrintReceipt)
 
   // Check if selected payment is credit/due
   const isCreditPayment = selectedPaymentType ? isCreditPaymentType(selectedPaymentType) : false
@@ -238,9 +243,9 @@ function PaymentDialogComponent({
   const handleProcessPayment = useCallback(() => {
     if (isValidPayment) {
       // Pass the entered amount for all payment types (including partial credit)
-      onProcessPayment(numericAmount)
+      onProcessPayment(numericAmount, printEnabled)
     }
-  }, [isValidPayment, numericAmount, onProcessPayment])
+  }, [isValidPayment, numericAmount, onProcessPayment, printEnabled])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -465,6 +470,15 @@ function PaymentDialogComponent({
         <Separator />
 
         <DialogFooter className="gap-2 sm:gap-0">
+          {!autoPrintReceipt && (
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+              <Switch checked={printEnabled} onCheckedChange={setPrintEnabled} />
+              <Label htmlFor="print-toggle" className="text-sm">
+                Print Receipt
+              </Label>
+            </div>
+          )}
+
           <Button variant="outline" onClick={onClose} disabled={isProcessing}>
             <X className="mr-2 h-4 w-4" aria-hidden="true" />
             Cancel

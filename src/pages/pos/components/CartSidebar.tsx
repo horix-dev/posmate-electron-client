@@ -160,6 +160,7 @@ const CartHeader = memo(function CartHeader({
 
 interface CartTotalsSectionProps {
   totals: CartTotals
+  totalCost: number
   vatPercentage: number
   discountValue: number
   discountType: 'fixed' | 'percentage'
@@ -168,6 +169,7 @@ interface CartTotalsSectionProps {
 
 const CartTotalsSection = memo(function CartTotalsSection({
   totals,
+  totalCost,
   vatPercentage,
   discountValue,
   discountType,
@@ -177,7 +179,7 @@ const CartTotalsSection = memo(function CartTotalsSection({
   const [open, setOpen] = useState(false)
   const [amountStr, setAmountStr] = useState('')
   const [percentStr, setPercentStr] = useState('')
-
+  console.log('totals => ', totals)
   // Sync local state ONLY when popover opens to prevent overwriting user input while typing
   useEffect(() => {
     if (open) {
@@ -343,9 +345,13 @@ const CartTotalsSection = memo(function CartTotalsSection({
                 ))}
               </div>
 
-              <div className="flex justify-end pt-2">
-                <div className="text-xs text-muted-foreground">
-                  Total:{' '}
+              <div className="space-y-1 pt-2 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span>Total Cost:</span>
+                  <span className="font-semibold text-foreground">{formatCurrency(totalCost)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Total:</span>
                   <span className="font-bold text-primary">{formatCurrency(totals.total)}</span>
                 </div>
               </div>
@@ -405,6 +411,7 @@ const CartItemRow = memo(function CartItemRow({
       ? subtotal * (itemDiscount / 100)
       : itemDiscount * item.quantity
   const lineTotal = Math.max(0, subtotal - discountAmount)
+  const costPrice = item.costPrice ?? null
   const hasDiscount = discountAmount > 0
   const batchOptions = item.batchOptions ?? []
   const canChangeBatch = batchOptions.length > 1 && Boolean(onChangeBatch)
@@ -740,6 +747,19 @@ const CartItemRow = memo(function CartItemRow({
                     <h4 className="font-semibold">Item Discount</h4>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-2 rounded-md bg-muted/30 p-2 text-xs">
+                    <div className="flex flex-col items-center justify-between">
+                      <span className="text-muted-foreground">Cost Price:</span>
+                      <span className="font-medium">
+                        {costPrice != null ? formatCurrency(costPrice) : '—'}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center justify-between">
+                      <span className="text-muted-foreground">Sale Price:</span>
+                      <span className="font-medium">{formatCurrency(item.salePrice)}</span>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor={`amount-${item.id}`} className="text-xs">
@@ -928,6 +948,11 @@ function CartSidebarComponent({
 }: CartSidebarProps) {
   const itemCount = useMemo(() => items.reduce((acc, item) => acc + item.quantity, 0), [items])
 
+  const totalCost = useMemo(
+    () => items.reduce((sum, item) => sum + (item.costPrice ?? 0) * item.quantity, 0),
+    [items]
+  )
+
   // Check if any item has a discount
   const hasAnyDiscount = useMemo(() => items.some((item) => (item.discount ?? 0) > 0), [items])
 
@@ -1013,6 +1038,7 @@ function CartSidebarComponent({
             <Separator className="shrink-0" />
             <CartTotalsSection
               totals={totals}
+              totalCost={totalCost}
               vatPercentage={vatPercentage}
               discountValue={discountValue}
               discountType={discountType}
