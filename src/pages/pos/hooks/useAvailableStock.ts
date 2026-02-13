@@ -34,15 +34,21 @@ export function useAvailableStock() {
   /**
    * Calculate available stock for a product
    * Returns the total stock minus what's currently in the cart
+   * For combo products, uses available_combos from combo_details (or 0 if still loading)
    */
   const getAvailableStock = useMemo(() => {
     return (product: Product, variantId?: number | null): number => {
       const isVariable = product.product_type === 'variable'
+      const isCombo = product.product_type === 'combo'
 
       let totalStock = 0
 
+      // For combo products, use available_combos if loaded, otherwise 0 (will update when loaded)
+      if (isCombo) {
+        totalStock = product.combo_details?.available_combos ?? 0
+      }
       // For variable products with a specific variant
-      if (isVariable && variantId != null && product.variants?.length) {
+      else if (isVariable && variantId != null && product.variants?.length) {
         const variant = product.variants.find((v) => v.id === variantId)
         if (variant) {
           totalStock =

@@ -57,6 +57,7 @@ interface UseProductsReturn {
 
   // Actions
   refetch: () => Promise<void>
+  refreshComboDetails: (comboIds?: number[]) => Promise<void>
   createProduct: (data: FormData | VariableProductPayload, isVariable?: boolean) => Promise<Product>
   updateProduct: (
     id: number,
@@ -76,9 +77,70 @@ interface UseProductsReturn {
 // ============================================
 
 /**
+ * Calculate available combo stock (how many combos can be made based on component availability)
+ */
+function getAvailableComboStock(product: Product): number {
+  if (product.product_type !== 'combo') {
+    return 0
+  }
+
+  // Prefer backend-calculated value if available
+  if (product.combo_details?.available_combos !== undefined) {
+    return product.combo_details.available_combos
+  }
+
+  // Fallback to manual calculation if components are available
+  if (!product.components || product.components.length === 0) {
+    return 0
+  }
+
+  let minAvailable = Infinity
+
+  for (const component of product.components) {
+    const componentProduct = component.component_product
+    if (!componentProduct || !component.quantity) continue
+
+    let componentStock = 0
+
+    // Get stock for this component
+    if (component.component_variant_id && componentProduct.stocks) {
+      // If specific variant, get that variant's stock
+      const variantStocks = componentProduct.stocks.filter(
+        (s) => s.variant_id === component.component_variant_id
+      )
+      componentStock = variantStocks.reduce((sum, s) => sum + (s.productStock || 0), 0)
+    } else {
+      // Otherwise get total product stock
+      componentStock =
+        componentProduct.stocks_sum_product_stock ?? componentProduct.productStock ?? 0
+    }
+
+    // Calculate how many combos this component can make
+    const possibleCombos = Math.floor(componentStock / component.quantity)
+    minAvailable = Math.min(minAvailable, possibleCombos)
+  }
+
+  return minAvailable === Infinity ? 0 : minAvailable
+}
+
+/**
  * Get stock status for a product
  */
 export function getStockStatus(product: Product): StockStatus {
+  // Combo products - check available combo stock
+  if (product.product_type === 'combo') {
+    const availableStock = getAvailableComboStock(product)
+    const alertQty = product.alert_qty ?? 5 // Default alert for combos
+
+    if (availableStock <= 0) {
+      return { status: 'out', label: 'Out of Stock', variant: 'destructive' }
+    }
+    if (availableStock <= alertQty) {
+      return { status: 'low', label: 'Low Stock', variant: 'warning' }
+    }
+    return { status: 'in', label: 'In Stock', variant: 'success' }
+  }
+
   const totalStock = product.stocks_sum_product_stock ?? product.productStock ?? 0
   const alertQty = product.alert_qty ?? 0
 
@@ -102,6 +164,10 @@ export function getTotalStock(product: Product): number {
  * Get sale price for a product
  */
 export function getSalePrice(product: Product): number {
+  // Combo products store sale price at product level, not in stocks
+  if (product.product_type === 'combo') {
+    return product.productSalePrice ?? 0
+  }
   return product.stocks?.[0]?.productSalePrice ?? 0
 }
 
@@ -315,14 +381,60 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
         stocksService.getTotalValue(),
       ])
 
-      setProducts(productsRes.data)
+      let enrichedProducts = productsRes.data
+
+      // For combo products that don't have components, fetch them separately
+      // The list endpoint now returns combo_details, but may not include components
+      const combosNeedingComponents = enrichedProducts.filter(
+        p => p.product_type === 'combo' && (!p.components || p.components.length === 0)
+      )
+      
+      if (combosNeedingComponents.length > 0) {
+        try {
+          console.log(`[useProducts] Fetching components for ${combosNeedingComponents.length} combos`)
+          const componentPromises = combosNeedingComponents.map(combo =>
+            productsService
+              .getComponents(combo.id)
+              .catch((err) => {
+                console.warn(`Failed to load components for combo ${combo.id}:`, err)
+                return null
+              })
+          )
+          const componentResults = await Promise.all(componentPromises)
+
+          // Merge components back into the enriched products
+          enrichedProducts = enrichedProducts.map(product => {
+            if (product.product_type !== 'combo') return product
+            
+            // If already has components, skip
+            if (product.components && product.components.length > 0) return product
+            
+            const idx = combosNeedingComponents.findIndex(c => c.id === product.id)
+            if (idx >= 0) {
+              const result = componentResults[idx]
+              if (result?.data) {
+                return {
+                  ...product,
+                  components: result.data,
+                }
+              }
+            }
+            return product
+          })
+        } catch (err) {
+          console.warn('Failed to load some combo components:', err)
+          // Continue with products even if component loading fails
+        }
+      }
+
+      setProducts(enrichedProducts)
       setTotalStockValue(stockStatsRes.data.total_value)
       setCategories(categoriesRes.data)
       setBrands(brandsRes.data)
       setUnits(unitsRes.data)
 
       // Cache products to local storage for offline use
-      const localProducts: LocalProduct[] = productsRes.data.map((product: Product) => {
+      const localProducts: LocalProduct[] = enrichedProducts.map((product: Product) => {
         const stock: Stock = product.stocks?.[0] || {
           id: 0,
           product_id: product.id,
@@ -646,6 +758,83 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
     setProducts((prev) => prev.filter((p) => p.id !== id))
   }, [])
 
+  /**
+   * Refresh combo details for specific combo products
+   * Call this after stock adjustments to update available_combos
+   * The API now returns combo_details in the list endpoint, so we only refetch specific combos as needed
+   */
+  const refreshComboDetails = useCallback(
+    async (comboIds?: number[]) => {
+      try {
+        // Get current products state to identify combos to refresh
+        const currentProducts = products
+        
+        // Filter combos to refresh
+        const productsToRefresh = currentProducts.filter(
+          (p) =>
+            p.product_type === 'combo' &&
+            (!comboIds || comboIds.includes(p.id))
+        )
+
+        if (productsToRefresh.length === 0) {
+          console.log('[refreshComboDetails] No combos to refresh')
+          return
+        }
+
+        console.log(
+          `[refreshComboDetails] Refreshing ${productsToRefresh.length} combos`,
+          productsToRefresh.map((p) => p.id)
+        )
+
+        // Fetch fresh combo details for each combo (getById returns full product with updated combo_details)
+        const detailPromises = productsToRefresh.map((combo) =>
+          productsService
+            .getById(combo.id)
+            .then((res) => ({ id: combo.id, data: res.data }))
+            .catch((err) => {
+              console.warn(`[refreshComboDetails] Failed to refresh combo ${combo.id}:`, err)
+              return null
+            })
+        )
+        const detailResults = await Promise.all(detailPromises)
+
+        console.log('[refreshComboDetails] Fetched fresh combo details, updating state')
+
+        // Update products with fresh combo details
+        setProducts((currentProducts) =>
+          currentProducts.map((product) => {
+            if (product.product_type !== 'combo') return product
+
+            const detailResult = detailResults.find((r) => r?.id === product.id)
+
+            if (detailResult?.data) {
+              const freshData = detailResult.data
+              const oldAvailable = product.combo_details?.available_combos
+              const newAvailable = freshData.combo_details?.available_combos
+              
+              if (oldAvailable !== newAvailable) {
+                console.log(
+                  `[refreshComboDetails] Combo ${product.id} updated: ${oldAvailable} → ${newAvailable}`
+                )
+              }
+
+              return {
+                ...product,
+                // Keep existing components if not in fresh data, otherwise use fresh components
+                combo_details: freshData.combo_details,
+                components: freshData.components || product.components || [],
+              }
+            }
+            return product
+          })
+        )
+      } catch (err) {
+        console.warn('[refreshComboDetails] Error:', err)
+      }
+    },
+    [products]
+  )
+
   return {
     products,
     categories,
@@ -658,6 +847,7 @@ export function useProducts(filters: ProductFilters): UseProductsReturn {
     filteredProducts,
     stats,
     refetch: fetchData,
+    refreshComboDetails,
     createProduct,
     updateProduct,
     deleteProduct,

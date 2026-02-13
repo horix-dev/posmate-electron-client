@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import {
   productsService,
@@ -68,6 +68,9 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
 
   // Incremental sync hook
   const { performSync } = useIncrementalSync()
+
+  // Track if combo details have been loaded to prevent redundant fetches
+  const comboDetailsLoadedRef = useRef(false)
 
   // Load cached data from local storage (SQLite in Electron, IndexedDB otherwise)
   const loadCachedData = useCallback(async (): Promise<boolean> => {
@@ -142,6 +145,63 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
     }
   }, [])
 
+  // Refresh combo details for combo products (after stock adjustments, etc.)
+  const refreshComboDetails = useCallback(async () => {
+    try {
+      // Get current products to identify combos
+      const currentProducts = products
+      
+      // Filter combos to refresh (all combos, since we want fresh available_combos counts)
+      const combosToRefresh = currentProducts.filter((p) => p.product_type === 'combo')
+
+      if (combosToRefresh.length === 0) {
+        console.log('[POS] No combos to refresh')
+        return
+      }
+
+      console.log(
+        `[POS] Refreshing combo details for ${combosToRefresh.length} combos`,
+        combosToRefresh.map((p) => p.id)
+      )
+
+      // Fetch fresh combo details for each combo (getById returns full product with updated combo_details)
+      const detailPromises = combosToRefresh.map((combo) =>
+        productsService
+          .getById(combo.id)
+          .then((res) => ({ id: combo.id, data: res.data }))
+          .catch((err) => {
+            console.warn(`[POS] Failed to fetch combo ${combo.id}:`, err)
+            return null
+          })
+      )
+      const detailResults = await Promise.all(detailPromises)
+
+      // Update products with fresh combo details
+      setProducts((currentProducts) =>
+        currentProducts.map((product) => {
+          if (product.product_type !== 'combo') return product
+
+          const detailResult = detailResults.find((r) => r?.id === product.id)
+
+          if (detailResult?.data && detailResult.data.combo_details) {
+            console.log(
+              `[POS] Loaded combo details for product ${product.id}: ${detailResult.data.combo_details.available_combos} available`
+            )
+            return {
+              ...product,
+              combo_details: detailResult.data.combo_details,
+              // Keep existing components if not in fresh data
+              components: detailResult.data.components || product.components || [],
+            }
+          }
+          return product
+        })
+      )
+    } catch (err) {
+      console.warn('[POS] Error refreshing combo details:', err)
+    }
+  }, [products])
+
   // Fetch all initial data from API
   const fetchData = useCallback(
     async (showLoadingState = true) => {
@@ -182,7 +242,22 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
           ...new Set(productsRes.data.map((p) => p.category_id)),
         ])
 
-        setProducts(productsRes.data)
+        // Enrich products with calculated stock fields
+        const enrichedProducts = productsRes.data.map((product: Product) => {
+          // Ensure stocks array exists
+          const stocks = product.stocks && product.stocks.length > 0 ? product.stocks : []
+          
+          return {
+            ...product,
+            stocks, // Ensure stocks array is set
+            // Calculate total stock across all stocks (needed for display and filtering)
+            stocks_sum_product_stock: stocks.reduce((sum, s) => sum + (s.productStock ?? 0), 0),
+            // Fallback productStock to first stock or sum
+            productStock: product.productStock ?? stocks[0]?.productStock ?? 0,
+          }
+        })
+
+        setProducts(enrichedProducts)
         setCategories(categoriesRes.data) // ✅ Now flat array, not paginated
         setPaymentTypes(paymentTypesRes.data)
         setVats(vatsRes.data)
@@ -278,6 +353,13 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
         // We have cached data, show it immediately
         setIsLoading(false)
 
+        // Fetch combo details if not already loaded
+        if (!comboDetailsLoadedRef.current) {
+          setTimeout(() => {
+            refreshComboDetails()
+          }, 100)
+        }
+
         // Then refresh from API in background if online
         if (navigator.onLine) {
           fetchData(false) // false = don't show loading state
@@ -291,6 +373,20 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
     initialize()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Empty deps - only run on mount
+
+  // Auto-refresh combo details when products change and combos are missing details
+  useEffect(() => {
+    if (!comboDetailsLoadedRef.current && products.length > 0) {
+      const hasCombosNeedingDetails = products.some(
+        (p) => p.product_type === 'combo' && !p.combo_details
+      )
+
+      if (hasCombosNeedingDetails) {
+        comboDetailsLoadedRef.current = true
+        refreshComboDetails()
+      }
+    }
+  }, [products, refreshComboDetails])
 
   // Poll for fresh data every 30 seconds (Phase 2: Incremental Sync - bandwidth efficient)
   useEffect(() => {
@@ -327,12 +423,22 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
 
     let debugLogged = false
     const filtered = products.filter((product) => {
-      // Only show products with stock
-      const hasStock =
-        (product.stocks_sum_product_stock ?? product.productStock ?? 0) > 0 ||
-        (product.stocks && product.stocks.length > 0)
+      // For combo products, if details are loaded check availability, otherwise show while loading
+      if (product.product_type === 'combo') {
+        // If combo_details loaded, only show if available_combos > 0
+        if (product.combo_details) {
+          const hasAvailableCombos = (product.combo_details.available_combos ?? 0) > 0
+          if (!hasAvailableCombos) return false
+        }
+        // If combo_details not loaded yet, show it (will filter once loaded)
+      } else {
+        // For non-combo products, check regular stock
+        const hasStock =
+          (product.stocks_sum_product_stock ?? product.productStock ?? 0) > 0 ||
+          (product.stocks && product.stocks.length > 0)
 
-      if (!hasStock) return false
+        if (!hasStock) return false
+      }
 
       // Search filter
       if (filters.search) {

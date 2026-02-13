@@ -33,7 +33,31 @@ export interface ProductCardProps {
 
 function getStockInfo(product: Product, availableStock?: number) {
   const isVariable = product.product_type === 'variable'
+  const isCombo = product.product_type === 'combo'
   const isBatchProduct = product.is_batch_tracked || product.product_type === 'variant' // Legacy batch products
+
+  // For combo products, use combo_details if available, otherwise use fallback
+  if (isCombo) {
+    const displayStock = availableStock !== undefined ? availableStock : (product.combo_details?.available_combos ?? 0)
+    const salePrice = product.combo_details?.total_sale_price ?? product.productSalePrice ?? 0
+    const isLowStock = displayStock > 0 && displayStock <= (product.alert_qty ?? 5)
+    const isOutOfStock = displayStock <= 0
+
+    return {
+      stock: null,
+      totalStock: product.combo_details?.available_combos ?? 0,
+      displayStock,
+      salePrice,
+      isLowStock,
+      isOutOfStock,
+      isVariable: false,
+      isBatchProduct: false,
+      hasPriceRange: false,
+      batchInfo: null,
+      variantCount: 0,
+      isCombo: true,
+    }
+  }
 
   // For variable products, calculate total stock from all variants
   let totalStock = 0
@@ -116,6 +140,31 @@ function getStockInfo(product: Product, availableStock?: number) {
 }
 
 // ============================================
+// Helper to create a virtual stock for combo products
+// ============================================
+function createComboStock(product: Product): Stock | null {
+  if (product.product_type !== 'combo') {
+    return null
+  }
+
+  // Create a synthetic stock object for the combo
+  // This allows the cart system to work with combos the same way as simple products
+  // Use combo_details if available, otherwise use product-level prices as fallback
+  const comboDetails = product.combo_details
+  
+  return {
+    id: product.id * 10000, // Use a unique ID based on product ID
+    product_id: product.id,
+    variant_id: null,
+    productStock: comboDetails?.available_combos ?? 0,
+    productSalePrice: comboDetails?.total_sale_price ?? product.productSalePrice ?? 0,
+    productPurchasePrice: comboDetails?.total_purchase_price ?? product.productPurchasePrice ?? 0,
+    productDealerPrice: comboDetails?.total_dealer_price ?? product.productDealerPrice ?? 0,
+    productWholeSalePrice: comboDetails?.total_wholesale_price ?? product.productWholeSalePrice ?? 0,
+  } as Stock
+}
+
+// ============================================
 // Component
 // ============================================
 
@@ -139,6 +188,7 @@ function ProductCardComponent({
     hasPriceRange,
     variantCount,
     batchInfo,
+    isCombo,
   } = getStockInfo(product, availableStock)
   const imageUrl = getImageUrl(product.productPicture)
   const isList = viewMode === 'list'
@@ -155,11 +205,20 @@ function ProductCardComponent({
       // If no selector provided, fall back to default stock
     }
 
+    // For combo products, create a virtual stock object
+    if (isCombo) {
+      const comboStock = createComboStock(product)
+      if (comboStock) {
+        onAddToCart(product, comboStock)
+      }
+      return
+    }
+
     // For simple products, add directly to cart
     if (stock) {
       onAddToCart(product, stock)
     }
-  }, [product, stock, isOutOfStock, isVariable, onAddToCart, onSelectVariant])
+  }, [product, stock, isOutOfStock, isVariable, isCombo, onAddToCart, onSelectVariant])
 
   return (
     <Card

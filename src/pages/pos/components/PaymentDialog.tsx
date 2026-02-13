@@ -287,7 +287,7 @@ function PaymentDialogComponent({
             <div className="space-y-2">
               <Label>Payment Method</Label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {paymentTypes.map((pt) => {
+                {(paymentTypes || []).map((pt) => {
                   const isCreditType = isCreditPaymentType(pt)
                   const isDisabled = isCreditType && isWalkInCustomer
 

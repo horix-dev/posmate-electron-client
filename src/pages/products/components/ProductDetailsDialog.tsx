@@ -21,7 +21,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn, getImageUrl } from '@/lib/utils'
 import { useCurrency } from '@/hooks'
-import type { Product } from '@/types/api.types'
+import type { Product, Stock } from '@/types/api.types'
 import { getStockStatus } from '../hooks'
 
 // ============================================
@@ -77,11 +77,46 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
   const stockStatus = getStockStatus(product)
   const handleClose = () => onOpenChange(false)
   const isSimpleTracking = !product.is_batch_tracked
+  const isCombo = product.product_type === 'combo'
+  const isVariable = product.product_type === 'variable'
 
   // Calculate total stock
-  // Prioritize actual stock records if available, as they represent the real-time physical inventory
-  const totalStock =
-    product.stocks && product.stocks.length > 0
+  // For combo products, prefer combo_details.available_combos if available, otherwise calculate
+  // Otherwise prioritize actual stock records if available, as they represent the real-time physical inventory
+  const totalStock = isCombo
+    ? product.combo_details?.available_combos ??
+      (() => {
+        if (!product.components || product.components.length === 0) return 0
+
+        let minAvailable = Infinity
+
+        for (const component of product.components) {
+          const componentProduct = component.component_product
+          if (!componentProduct || !component.quantity) continue
+
+          let componentStock = 0
+
+          // Get stock for this component
+          if (component.component_variant_id && componentProduct.stocks) {
+            // If specific variant, get that variant's stock
+            const variantStocks = componentProduct.stocks.filter(
+              (s) => s.variant_id === component.component_variant_id
+            )
+            componentStock = variantStocks.reduce((sum, s) => sum + (s.productStock || 0), 0)
+          } else {
+            // Otherwise get total product stock
+            componentStock =
+              componentProduct.stocks_sum_product_stock ?? componentProduct.productStock ?? 0
+          }
+
+          // Calculate how many combos this component can make
+          const possibleCombos = Math.floor(componentStock / component.quantity)
+          minAvailable = Math.min(minAvailable, possibleCombos)
+        }
+
+        return minAvailable === Infinity ? 0 : minAvailable
+      })()
+    : product.stocks && product.stocks.length > 0
       ? product.stocks.reduce((sum, s) => sum + (Number(s.productStock) || 0), 0)
       : (product.variants_total_stock ?? product.productStock ?? 0)
 
@@ -150,48 +185,68 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
                       className={cn(
                         'h-5 px-2',
                         product.product_type === 'variable' &&
-                          'bg-purple-100 text-purple-700 hover:bg-purple-100'
+                          'bg-purple-100 text-purple-700 hover:bg-purple-100',
+                        product.product_type === 'combo' &&
+                          'bg-blue-100 text-blue-700 hover:bg-blue-100'
                       )}
                     >
-                      {product.product_type === 'variable' ? 'Variable' : 'Simple'}
+                      {product.product_type === 'variable'
+                        ? 'Variable'
+                        : product.product_type === 'combo'
+                          ? 'Combo'
+                          : 'Simple'}
                     </Badge>
                     {product.unit && (
                       <Badge variant="outline" className="h-5 px-2 text-muted-foreground">
                         Unit: {product.unit.unitName}
                       </Badge>
                     )}
+                    {isCombo && product.components && (
+                      <Badge variant="outline" className="h-5 px-2 text-muted-foreground">
+                        {product.components.length} Components
+                      </Badge>
+                    )}
                   </div>
                 </div>
 
                 {/* Unified Availability Section */}
-                <div className="ml-4 flex items-stretch overflow-hidden rounded-lg border bg-muted/30">
-                  <div className="flex flex-col items-center justify-center border-r bg-muted/50 px-3 py-1.5">
-                    <span className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Availability
-                    </span>
-                    <Badge
-                      variant={stockStatus.variant === 'warning' ? 'outline' : stockStatus.variant}
-                      className={cn(
-                        'h-5 px-2 text-[10px]',
-                        stockStatus.variant === 'warning' && 'border-yellow-500 text-yellow-600',
-                        stockStatus.variant === 'success' &&
-                          'border-0 bg-green-100 text-green-700 hover:bg-green-100'
-                      )}
-                    >
-                      {stockStatus.label}
-                    </Badge>
-                  </div>
+                {!isCombo && (
+                  <div className="ml-4 flex items-stretch overflow-hidden rounded-lg border bg-muted/30">
+                    <div className="flex flex-col items-center justify-center border-r bg-muted/50 px-3 py-1.5">
+                      <span className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Availability
+                      </span>
+                      <Badge
+                        variant={stockStatus.variant === 'warning' ? 'outline' : stockStatus.variant}
+                        className={cn(
+                          'h-5 px-2 text-[10px]',
+                          stockStatus.variant === 'warning' && 'border-yellow-500 text-yellow-600',
+                          stockStatus.variant === 'success' &&
+                            'border-0 bg-green-100 text-green-700 hover:bg-green-100'
+                        )}
+                      >
+                        {stockStatus.label}
+                      </Badge>
+                    </div>
 
-                  <div className="flex flex-col items-end justify-center bg-background px-4 py-1.5">
-                    <span className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                      Total Stock
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <Box className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xl font-bold tabular-nums">{totalStock}</span>
+                    <div className="flex flex-col items-end justify-center bg-background px-4 py-1.5">
+                      <span className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Total Stock
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <Box className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xl font-bold tabular-nums">{totalStock}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+                {isCombo && (
+                  <div className="ml-4 rounded-lg border bg-blue-50 px-4 py-2">
+                    <span className="text-xs font-medium text-blue-700">
+                      Stock tracked via components
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -204,12 +259,15 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
         <div className="min-h-0 flex-1">
           <Tabs defaultValue="overview" className="flex h-full flex-col">
             <div className="shrink-0 border-b px-6 pt-2">
-              <TabsList className="grid w-full max-w-[400px] grid-cols-3">
+              <TabsList className="grid w-full max-w-[500px] grid-cols-4">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="variants" disabled={product.product_type !== 'variable'}>
+                <TabsTrigger value="components" disabled={!isCombo}>
+                  Components ({product.components?.length || 0})
+                </TabsTrigger>
+                <TabsTrigger value="variants" disabled={!isVariable}>
                   Variants ({product.variants?.length || 0})
                 </TabsTrigger>
-                <TabsTrigger value="batches" disabled={isSimpleTracking}>
+                <TabsTrigger value="batches" disabled={isSimpleTracking || isCombo}>
                   Batches ({product.stocks?.length || 0})
                 </TabsTrigger>
               </TabsList>
@@ -238,31 +296,291 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
 
                     <div className="flex h-full flex-col space-y-4">
                       <h4 className="flex items-center gap-2 font-medium">
-                        <Layers className="h-4 w-4" /> Inventory Status
+                        <Layers className="h-4 w-4" /> {isCombo ? 'Combo Details' : 'Inventory Status'}
                       </h4>
-                      <div className="grid flex-1 grid-cols-1 gap-4 rounded-lg border bg-muted/20 p-4">
-                        <div className="flex items-center justify-between border-b border-dashed border-gray-300/50 py-1 last:border-0">
-                          <span className="text-sm text-muted-foreground">Total Stock</span>
-                          <span className="font-mono font-bold">{totalStock}</span>
+                      {isCombo ? (
+                        <div className="grid flex-1 grid-cols-1 gap-4 rounded-lg border bg-blue-50/50 p-4">
+                          <div className="flex items-center justify-between border-b border-dashed border-blue-300/50 py-1 last:border-0">
+                            <span className="text-sm text-muted-foreground">Sale Price</span>
+                            <span className="font-mono font-bold">
+                              {formatCurrency(
+                                product.combo_details?.total_sale_price ?? product.productSalePrice ?? 0
+                              )}
+                            </span>
+                          </div>
+                          {product.combo_details && (
+                            <>
+                              <div className="flex items-center justify-between border-b border-dashed border-blue-300/50 py-1 last:border-0">
+                                <span className="text-sm text-muted-foreground">Dealer Price</span>
+                                <span className="font-mono font-medium">
+                                  {formatCurrency(product.combo_details.total_dealer_price)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between border-b border-dashed border-blue-300/50 py-1 last:border-0">
+                                <span className="text-sm text-muted-foreground">
+                                  Wholesale Price
+                                </span>
+                                <span className="font-mono font-medium">
+                                  {formatCurrency(product.combo_details.total_wholesale_price)}
+                                </span>
+                              </div>
+                            </>
+                          )}
+                          <div className="flex items-center justify-between border-b border-dashed border-blue-300/50 py-1 last:border-0">
+                            <span className="text-sm text-muted-foreground">Components</span>
+                            <span className="font-mono font-medium">
+                              {product.combo_details?.components.length ??
+                                product.components?.length ??
+                                0}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between border-b border-dashed border-blue-300/50 py-1 last:border-0">
+                            <span className="text-sm text-muted-foreground">Available Stock</span>
+                            <span className="font-mono font-bold">
+                              {product.combo_details?.available_combos ?? totalStock}
+                            </span>
+                          </div>
+                          <div className="rounded-md bg-blue-100/50 p-2 text-xs text-blue-700">
+                            Stock is tracked via component products
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between border-b border-dashed border-gray-300/50 py-1 last:border-0">
-                          <span className="text-sm text-muted-foreground">
-                            Stock Value (Purchase)
-                          </span>
-                          <span className="font-mono font-medium">
-                            {formatCurrency(totalStockValue)}
-                          </span>
+                      ) : (
+                        <div className="grid flex-1 grid-cols-1 gap-4 rounded-lg border bg-muted/20 p-4">
+                          <div className="flex items-center justify-between border-b border-dashed border-gray-300/50 py-1 last:border-0">
+                            <span className="text-sm text-muted-foreground">Total Stock</span>
+                            <span className="font-mono font-bold">{totalStock}</span>
+                          </div>
+                          <div className="flex items-center justify-between border-b border-dashed border-gray-300/50 py-1 last:border-0">
+                            <span className="text-sm text-muted-foreground">
+                              Stock Value (Purchase)
+                            </span>
+                            <span className="font-mono font-medium">
+                              {formatCurrency(totalStockValue)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between border-b border-dashed border-gray-300/50 py-1 last:border-0">
+                            <span className="text-sm text-muted-foreground">Active Variants</span>
+                            <span className="font-mono font-medium">
+                              {product.variants?.filter((v) => v.is_active).length || 0} /{' '}
+                              {product.variants?.length || 0}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between border-b border-dashed border-gray-300/50 py-1 last:border-0">
-                          <span className="text-sm text-muted-foreground">Active Variants</span>
-                          <span className="font-mono font-medium">
-                            {product.variants?.filter((v) => v.is_active).length || 0} /{' '}
-                            {product.variants?.length || 0}
-                          </span>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
+                </TabsContent>
+
+                <TabsContent value="components" className="mt-0">
+                  {/* Use combo_details if available, otherwise fall back to components */}
+                  {((product.combo_details?.components || product.components) &&
+                    (product.combo_details?.components || product.components)!.length > 0) ? (
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Component Product</TableHead>
+                            <TableHead>Variant</TableHead>
+                            <TableHead className="text-right">Quantity</TableHead>
+                            <TableHead>Unit</TableHead>
+                            <TableHead className="text-right">Available Stock</TableHead>
+                            <TableHead className="text-right">Can Make</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(() => {
+                            const components =
+                              product.combo_details?.components || product.components || []
+                            
+                            // Calculate which component(s) actually limit availability
+                            // by finding the minimum max_combos value
+                            let minMaxCombos = Infinity
+                            const comboCapacities: Record<number, number> = {}
+
+                            components.forEach((comp, idx) => {
+                              const quantity =
+                                (comp as any).quantity_per_combo || (comp as any).quantity || 1
+                              let maxCombos = 0
+
+                              if ((comp as any).stock_details) {
+                                maxCombos = (comp as any).stock_details.max_combos_from_this_component
+                              } else {
+                                const compProduct = (comp as any).component_product
+                                if (compProduct) {
+                                  let availableStock = 0
+                                  if (
+                                    (comp as any).component_variant_id &&
+                                    compProduct.stocks
+                                  ) {
+                                    const variantStocks = compProduct.stocks.filter(
+                                      (s: Stock) => s.variant_id === (comp as any).component_variant_id
+                                    )
+                                    availableStock = variantStocks.reduce(
+                                      (sum: number, s: Stock) => sum + (s.productStock || 0),
+                                      0
+                                    )
+                                  } else {
+                                    availableStock =
+                                      compProduct.stocks_sum_product_stock ??
+                                      compProduct.productStock ??
+                                      0
+                                  }
+                                  maxCombos = Math.floor(availableStock / quantity)
+                                }
+                              }
+
+                              comboCapacities[idx] = maxCombos
+                              minMaxCombos = Math.min(minMaxCombos, maxCombos)
+                            })
+
+                            return components.map((component, index) => {
+                              // Use combo_details data if available, otherwise calculate manually
+                              const componentName =
+                                (component as any).component_product_name ||
+                                (component as any).component_product?.productName ||
+                                `Product #${(component as any).component_product_id}`
+                              const componentCode =
+                                (component as any).component_product_code ||
+                                (component as any).component_product?.productCode ||
+                                '-'
+                              const variantName =
+                                (component as any).component_variant_name ||
+                                (component as any).component_variant?.variant_name ||
+                                (component as any).component_variant?.sku ||
+                                null
+                              const unitName =
+                                (component as any).unit_name ||
+                                (component as any).unit?.unitName ||
+                                '-'
+                              const quantity =
+                                (component as any).quantity_per_combo || (component as any).quantity
+
+                              let availableStock = 0
+                              let maxCombos = 0
+                              let hasLowStock = false
+
+                              // Use backend flag if set, otherwise identify locally
+                              const isLimitingByBackend =
+                                (component as any).is_limiting_component || false
+                              const isLimitingLocally =
+                                comboCapacities[index] === minMaxCombos && minMaxCombos > 0
+                              const isLimiting = isLimitingByBackend || isLimitingLocally
+
+                              if ((component as any).stock_details) {
+                                // Use API-provided stock details
+                                availableStock = (component as any).stock_details.total_available
+                                maxCombos =
+                                  (component as any).stock_details.max_combos_from_this_component
+                                hasLowStock = maxCombos < quantity
+                              } else {
+                                // Fallback to manual calculation
+                                const componentProduct = (component as any).component_product
+                                if (componentProduct) {
+                                  if (
+                                    (component as any).component_variant_id &&
+                                    componentProduct.stocks
+                                  ) {
+                                    const variantStocks = componentProduct.stocks.filter(
+                                      (s: Stock) =>
+                                        s.variant_id === (component as any).component_variant_id
+                                    )
+                                    availableStock = variantStocks.reduce(
+                                      (sum: number, s: Stock) => sum + (s.productStock || 0),
+                                      0
+                                    )
+                                  } else {
+                                    availableStock =
+                                      componentProduct.stocks_sum_product_stock ??
+                                      componentProduct.productStock ??
+                                      0
+                                  }
+                                  maxCombos = Math.floor(availableStock / quantity)
+                                  hasLowStock = availableStock < quantity
+                                }
+                              }
+
+                              return (
+                                <TableRow
+                                  key={component.id || index}
+                                  className={cn(
+                                    isLimiting && 'bg-orange-50/50 border-l-4 border-l-orange-400'
+                                  )}
+                                >
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex flex-col">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium">{componentName}</span>
+                                          {isLimiting && (
+                                            <Badge
+                                              variant="outline"
+                                              className="border-orange-300 bg-orange-100 text-orange-700"
+                                            >
+                                              LIMITING
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <span className="text-xs text-muted-foreground">
+                                          {componentCode}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    {variantName ? (
+                                      <span className="text-sm">{variantName}</span>
+                                    ) : (
+                                      <span className="text-sm text-muted-foreground">-</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge variant="secondary" className="font-mono font-normal">
+                                      {quantity}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className="text-sm">{unitName}</span>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        'font-mono font-normal',
+                                        hasLowStock
+                                          ? 'border-red-200 bg-red-50 text-red-700'
+                                          : availableStock > 0
+                                            ? 'border-green-200 bg-green-50 text-green-700'
+                                            : 'border-gray-200 bg-gray-50 text-gray-700'
+                                      )}
+                                    >
+                                      {availableStock}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <span
+                                      className={cn(
+                                        'font-mono font-medium',
+                                        isLimiting ? 'text-orange-700' : 'text-muted-foreground'
+                                      )}
+                                    >
+                                      {maxCombos} combos
+                                    </span>
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })
+                          })()}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed p-8 text-center">
+                      <Package className="mx-auto h-8 w-8 text-muted-foreground/30" />
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        No components found for this combo.
+                      </p>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="variants" className="mt-0">
