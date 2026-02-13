@@ -31,7 +31,21 @@ export const batchEntrySchema = z.object({
   expire_date: z.string().optional().or(z.literal('')),
 })
 
+export const comboComponentSchema = z.object({
+  component_product_id: z.string().trim().min(1, 'Component product is required'),
+  component_variant_id: z.string().optional().or(z.literal('')),
+  unit_id: z.string().optional().or(z.literal('')),
+  quantity: z
+    .string()
+    .trim()
+    .min(1, 'Quantity is required')
+    .refine((val) => decimalRegex.test(val) && Number(val) > 0, {
+      message: 'Quantity must be greater than 0',
+    }),
+})
+
 export type BatchFormValue = z.infer<typeof batchEntrySchema>
+export type ComboComponentFormValue = z.infer<typeof comboComponentSchema>
 
 /**
  * Variant input schema for variable products
@@ -98,10 +112,11 @@ export const productFormSchema = z
       .transform((val) => (val === '' ? undefined : val))
       .pipe(z.string().regex(/^\d*$/, 'Alert quantity must be a positive number').optional()),
 
-    product_type: z.enum(['simple', 'variable']).default('simple'),
+    product_type: z.enum(['simple', 'variable', 'combo']).default('simple'),
 
     is_batch_tracked: z.boolean().default(false),
     batches: z.array(batchEntrySchema).default([]),
+    components: z.array(comboComponentSchema).default([]),
     productPurchasePrice: z
       .string()
       .regex(/^\d*\.?\d*$/, 'Purchase price must be a valid number')
@@ -122,6 +137,26 @@ export const productFormSchema = z
     description: z.string().optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.product_type === 'combo') {
+      // Backend auto-calculates price and stock for combos, so don't require them
+      // Just validate that components exist
+      if (!data.components || data.components.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['components'],
+          message: 'Add at least one component',
+        })
+      }
+
+      if (data.is_batch_tracked) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['is_batch_tracked'],
+          message: 'Combo products cannot use batch tracking',
+        })
+      }
+    }
+
     // Skip price and stock validation for batch-tracked products (managed at batch level)
     if (data.product_type === 'simple' && !data.is_batch_tracked) {
       if (
@@ -176,6 +211,7 @@ export const defaultProductFormValues: ProductFormData = {
   productStock: '',
   description: '',
   batches: [],
+  components: [],
 }
 
 /**
@@ -195,7 +231,7 @@ export function productToFormData(product: {
   brand_id?: number | null
   unit_id?: number | null
   alert_qty?: number | null
-  product_type: 'simple' | 'variable' | 'variant' | 'single'
+  product_type: 'simple' | 'variable' | 'variant' | 'single' | 'combo'
   is_batch_tracked?: boolean
   description?: string | null
   stocks?: Array<{
@@ -225,11 +261,13 @@ export function productToFormData(product: {
   const stock = product.stocks?.[0]
 
   // Backend may send legacy/alias types (e.g. 'single'). Normalize to form schema values.
-  const normalizedProductType: 'simple' | 'variable' =
+  const normalizedProductType: 'simple' | 'variable' | 'combo' =
     product.product_type === 'variable'
       ? 'variable'
-      : // Treat everything else as simple in this form
-        'simple'
+      : product.product_type === 'combo'
+        ? 'combo'
+        : // Treat everything else as simple in this form
+          'simple'
 
   // Convert existing variants to form format
   const variants: VariantInputData[] =
@@ -264,6 +302,7 @@ export function productToFormData(product: {
     productStock: stock?.productStock?.toString() || '',
     variants,
     description: product.description || '',
+    components: [],
     batches:
       product.is_batch_tracked && product.stocks
         ? product.stocks.map((batchStock) => ({
@@ -315,7 +354,8 @@ export function formDataToFormData(
   }
 
   const hasBatchRows = data.is_batch_tracked && data.batches && data.batches.length > 0
-  const effectiveProductType = hasBatchRows ? 'variant' : data.product_type
+  const effectiveProductType =
+    data.product_type === 'combo' ? 'combo' : hasBatchRows ? 'variant' : data.product_type
 
   formData.append('product_type', effectiveProductType)
   formData.append('is_batch_tracked', data.is_batch_tracked ? '1' : '0')
@@ -329,6 +369,25 @@ export function formDataToFormData(
   }
   if (salePriceValue) {
     formData.append('productSalePrice', salePriceValue)
+  }
+
+  if (data.product_type === 'combo' && data.components && data.components.length > 0) {
+    data.components.forEach((component, index) => {
+      formData.append(
+        `components[${index}][component_product_id]`,
+        component.component_product_id
+      )
+      if (component.component_variant_id) {
+        formData.append(
+          `components[${index}][component_variant_id]`,
+          component.component_variant_id
+        )
+      }
+      if (component.unit_id) {
+        formData.append(`components[${index}][unit_id]`, component.unit_id)
+      }
+      formData.append(`components[${index}][quantity]`, component.quantity)
+    })
   }
 
   if (!isEdit) {
@@ -357,7 +416,7 @@ export function formDataToFormData(
           formData.append(`expire_date[${index}]`, batch.expire_date)
         }
       })
-    } else if (data.productStock) {
+    } else if (data.productStock && data.product_type !== 'combo') {
       formData.append('productStock', data.productStock)
     }
   }
