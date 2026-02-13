@@ -21,7 +21,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn, getImageUrl } from '@/lib/utils'
 import { useCurrency } from '@/hooks'
-import type { Product, Stock } from '@/types/api.types'
+import type { Product, Stock, ComboComponent, ProductComponent, ComponentStockDetails, Unit } from '@/types/api.types'
 import { getStockStatus } from '../hooks'
 
 // ============================================
@@ -392,6 +392,11 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
                             const components =
                               product.combo_details?.components || product.components || []
                             
+                            // Helper to safely get component properties (works with both ComboComponent and ProductComponent)
+                            const getComponentProp = (comp: ComboComponent | ProductComponent, prop: string): unknown => {
+                              return (comp as unknown as Record<string, unknown>)[prop]
+                            }
+
                             // Calculate which component(s) actually limit availability
                             // by finding the minimum max_combos value
                             let minMaxCombos = Infinity
@@ -399,21 +404,23 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
 
                             components.forEach((comp, idx) => {
                               const quantity =
-                                (comp as any).quantity_per_combo || (comp as any).quantity || 1
+                                (getComponentProp(comp, 'quantity_per_combo') as number) ||
+                                (getComponentProp(comp, 'quantity') as number) ||
+                                1
                               let maxCombos = 0
 
-                              if ((comp as any).stock_details) {
-                                maxCombos = (comp as any).stock_details.max_combos_from_this_component
+                              const stockDetails = getComponentProp(comp, 'stock_details')
+                              if (stockDetails) {
+                                const details = stockDetails as ComponentStockDetails
+                                maxCombos = details.max_combos_from_this_component
                               } else {
-                                const compProduct = (comp as any).component_product
+                                const compProduct = getComponentProp(comp, 'component_product') as Product | undefined
                                 if (compProduct) {
                                   let availableStock = 0
-                                  if (
-                                    (comp as any).component_variant_id &&
-                                    compProduct.stocks
-                                  ) {
+                                  const variantId = getComponentProp(comp, 'component_variant_id') as number | null
+                                  if (variantId && compProduct.stocks) {
                                     const variantStocks = compProduct.stocks.filter(
-                                      (s: Stock) => s.variant_id === (comp as any).component_variant_id
+                                      (s: Stock) => s.variant_id === variantId
                                     )
                                     availableStock = variantStocks.reduce(
                                       (sum: number, s: Stock) => sum + (s.productStock || 0),
@@ -436,24 +443,25 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
                             return components.map((component, index) => {
                               // Use combo_details data if available, otherwise calculate manually
                               const componentName =
-                                (component as any).component_product_name ||
-                                (component as any).component_product?.productName ||
-                                `Product #${(component as any).component_product_id}`
+                                (getComponentProp(component, 'component_product_name') as string) ||
+                                (getComponentProp(component, 'component_product') as Product)?.productName ||
+                                `Product #${getComponentProp(component, 'component_product_id')}`
                               const componentCode =
-                                (component as any).component_product_code ||
-                                (component as any).component_product?.productCode ||
+                                (getComponentProp(component, 'component_product_code') as string) ||
+                                (getComponentProp(component, 'component_product') as Product)?.productCode ||
                                 '-'
                               const variantName =
-                                (component as any).component_variant_name ||
-                                (component as any).component_variant?.variant_name ||
-                                (component as any).component_variant?.sku ||
+                                (getComponentProp(component, 'component_variant_name') as string | null) ||
+                                ((getComponentProp(component, 'component_variant') as unknown as Record<string, unknown>)?.variant_name as string | null) ||
+                                ((getComponentProp(component, 'component_variant') as unknown as Record<string, unknown>)?.sku as string | null) ||
                                 null
                               const unitName =
-                                (component as any).unit_name ||
-                                (component as any).unit?.unitName ||
+                                (getComponentProp(component, 'unit_name') as string) ||
+                                (getComponentProp(component, 'unit') as Unit)?.unitName ||
                                 '-'
                               const quantity =
-                                (component as any).quantity_per_combo || (component as any).quantity
+                                (getComponentProp(component, 'quantity_per_combo') as number) ||
+                                (getComponentProp(component, 'quantity') as number)
 
                               let availableStock = 0
                               let maxCombos = 0
@@ -461,28 +469,26 @@ function ProductDetailsDialogComponent({ product, open, onOpenChange }: ProductD
 
                               // Use backend flag if set, otherwise identify locally
                               const isLimitingByBackend =
-                                (component as any).is_limiting_component || false
+                                (getComponentProp(component, 'is_limiting_component') as boolean) || false
                               const isLimitingLocally =
                                 comboCapacities[index] === minMaxCombos && minMaxCombos > 0
                               const isLimiting = isLimitingByBackend || isLimitingLocally
 
-                              if ((component as any).stock_details) {
+                              const stockDetails = getComponentProp(component, 'stock_details')
+                              if (stockDetails) {
                                 // Use API-provided stock details
-                                availableStock = (component as any).stock_details.total_available
-                                maxCombos =
-                                  (component as any).stock_details.max_combos_from_this_component
+                                const details = stockDetails as ComponentStockDetails
+                                availableStock = details.total_available
+                                maxCombos = details.max_combos_from_this_component
                                 hasLowStock = maxCombos < quantity
                               } else {
                                 // Fallback to manual calculation
-                                const componentProduct = (component as any).component_product
+                                const componentProduct = getComponentProp(component, 'component_product') as Product | undefined
                                 if (componentProduct) {
-                                  if (
-                                    (component as any).component_variant_id &&
-                                    componentProduct.stocks
-                                  ) {
+                                  const variantId = getComponentProp(component, 'component_variant_id') as number | null
+                                  if (variantId && componentProduct.stocks) {
                                     const variantStocks = componentProduct.stocks.filter(
-                                      (s: Stock) =>
-                                        s.variant_id === (component as any).component_variant_id
+                                      (s: Stock) => s.variant_id === variantId
                                     )
                                     availableStock = variantStocks.reduce(
                                       (sum: number, s: Stock) => sum + (s.productStock || 0),
