@@ -95,9 +95,10 @@ export function generateReceiptHTML(data: ReceiptData): string {
     }
     
     .logo {
-      max-width: 80px;
+      max-width: 110px;
       height: auto;
       margin-bottom: 5px;
+      margin-top: -10px;
     }
     
     .business-name {
