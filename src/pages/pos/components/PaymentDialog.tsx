@@ -470,14 +470,12 @@ function PaymentDialogComponent({
         <Separator />
 
         <DialogFooter className="gap-2 sm:gap-0">
-          {/* {!autoPrintReceipt && ( */}
           <div className="flex items-center space-x-2 text-sm text-muted-foreground">
             <Switch checked={printEnabled} onCheckedChange={setPrintEnabled} />
             <Label htmlFor="print-toggle" className="text-sm">
               Print Receipt
             </Label>
           </div>
-          {/* )} */}
 
           <Button variant="outline" onClick={onClose} disabled={isProcessing}>
             <X className="mr-2 h-4 w-4" aria-hidden="true" />
