@@ -38,6 +38,7 @@ export interface CartItemDisplay {
   productImage?: string | null
   quantity: number
   salePrice: number
+  costPrice?: number | null
   maxStock: number
   // Variant support
   variantId?: number | null

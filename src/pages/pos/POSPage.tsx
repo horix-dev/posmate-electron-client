@@ -609,7 +609,7 @@ export function POSPage() {
   )
 
   const handleProcessPayment = useCallback(
-    async (amountPaid: number) => {
+    async (amountPaid: number, printReceiptEnabled: boolean) => {
       if (!paymentType) {
         toast.error('Please select a payment method')
         return
@@ -661,7 +661,7 @@ export function POSPage() {
 
         // Print receipt if auto-print is enabled (works offline)
         console.log('[POS] autoPrintReceipt setting:', autoPrintReceipt)
-        if (autoPrintReceipt) {
+        if (autoPrintReceipt || printReceiptEnabled) {
           console.log('[POS] Auto-print enabled, generating receipt...')
           console.log('[POS] Business data:', business ? business.companyName : 'NOT LOADED')
           console.log('[POS] Sale data:', result.data.invoiceNumber)
@@ -685,7 +685,7 @@ export function POSPage() {
             toast.error('Failed to print receipt')
           }
         } else {
-          console.log('[POS] Auto-print is disabled in settings')
+          console.log('[POS] Auto-print is disabled in settings') ////////////
         }
 
         clearCart()
@@ -1049,6 +1049,7 @@ export function POSPage() {
           productImage: item.variant?.image || item.product.productPicture,
           quantity: item.quantity,
           salePrice: item.unitPrice,
+          costPrice: item.stock.productPurchasePrice ?? item.product.productPurchasePrice ?? null,
           // Limit quantity to selected stock
           maxStock: item.stock.productStock ?? item.variant?.total_stock ?? item.quantity,
           id: item.id,
@@ -1175,6 +1176,7 @@ export function POSPage() {
         selectedPaymentType={paymentType}
         customer={customer}
         isProcessing={isProcessing}
+        autoPrintReceipt={autoPrintReceipt}
         onPaymentTypeChange={handlePaymentTypeChange}
         onProcessPayment={handleProcessPayment}
       />
