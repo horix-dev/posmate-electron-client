@@ -23,6 +23,18 @@ Barcode scans were being typed into the POS search input, disrupting manual prod
 **Files Modified:**
 - src/pages/pos/components/ProductGrid.tsx
 
+## 2026-02-14 - Fix: Merge identical cart items
+
+**Problem:**
+Scanning the same product repeatedly created duplicate line items instead of incrementing quantity.
+
+**Solution:**
+1.  **Cart Merge Logic:**
+    *   Updated cart item matching to use stable keys (variant id or stock id) rather than the timestamp-based cart item id.
+
+**Files Modified:**
+- src/stores/cart.store.ts
+
 ## 2024-07-26 - Fix: Combo Product Edit Form
 
 **Problem:**

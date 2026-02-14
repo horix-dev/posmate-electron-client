@@ -246,9 +246,12 @@ export const useCartStore = create<CartState>()(
         }
 
         // --- Existing logic for Simple/Variable Products ---
-        const existingItem = get().items.find(
-          (item) => item.id === (variant ? `variant-${variant.id}` : stock.id)
-        )
+        const existingItem = get().items.find((item) => {
+          if (variant) {
+            return item.variantId === variant.id
+          }
+          return !item.variantId && item.stock.id === stock.id
+        })
 
         if (existingItem) {
           const newQuantity = existingItem.quantity + quantity
