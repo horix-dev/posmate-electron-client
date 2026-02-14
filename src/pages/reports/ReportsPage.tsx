@@ -1,5 +1,16 @@
 import { useMemo, useState } from 'react'
-import { ShoppingCart, CircleDollarSign, Wallet, AlertCircle, Package, Undo2, Calendar } from 'lucide-react'
+import {
+  ShoppingCart,
+  CircleDollarSign,
+  Wallet,
+  AlertCircle,
+  Package,
+  Undo2,
+  Calendar,
+  DollarSign,
+  Info,
+  ArrowRight,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -11,7 +22,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSalesReport } from './hooks/useSalesReport'
 import { usePurchasesReport } from './hooks/usePurchasesReport'
@@ -21,6 +39,8 @@ import { useCurrency } from '@/hooks'
 import type { TransactionReportParams } from '@/api/services/reports.service'
 import type { ReportPeriod } from '@/types/api.types'
 import { useDebounce } from '@/hooks/useDebounce'
+import { Link } from 'react-router-dom'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -32,13 +52,13 @@ interface SalesReportRow {
   sale_date?: string
   totalAmount?: number
   total_amount?: number
-  
+
   // Old fields (backward compatibility)
   paidAmount?: number
   paid_amount?: number
   dueAmount?: number
   due_amount?: number
-  
+
   // New fields (due collection tracking)
   total_paid_amount?: number
   remaining_due_amount?: number
@@ -47,7 +67,7 @@ interface SalesReportRow {
   due_collections_total?: number
   due_collections_count?: number
   is_fully_paid?: boolean
-  
+
   paymentType?: string
   payment_type?: { name?: string }
   party?: { name?: string }
@@ -228,6 +248,32 @@ export function ReportsPage() {
         </div>
       </div>
 
+      {/* Sales Totals Report Info Banner */}
+      <Alert className="border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950">
+        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <AlertTitle className="text-blue-900 dark:text-blue-100">
+          Looking for Cost, Sale Price, and Profit Analysis?
+        </AlertTitle>
+        <AlertDescription className="mt-2 text-blue-800 dark:text-blue-200">
+          <div className="flex flex-col gap-2">
+            <p>
+              View detailed product-level cost analysis, total sale prices, and profit margins in
+              the <strong>Sales Totals Report</strong>.
+            </p>
+            <Link to="/reports/sales-totals">
+              <Button
+                size="sm"
+                className="mt-2 gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
+              >
+                <DollarSign className="h-4 w-4" />
+                Go to Sales Totals Report
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </AlertDescription>
+      </Alert>
+
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-2">
           <Label>Period</Label>
@@ -282,7 +328,9 @@ export function ReportsPage() {
         </div>
 
         {!salesQuery.isOnline && (
-          <p className="text-sm text-muted-foreground">Offline: showing cached data when available</p>
+          <p className="text-sm text-muted-foreground">
+            Offline: showing cached data when available
+          </p>
         )}
       </div>
 
@@ -303,7 +351,7 @@ export function ReportsPage() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                       Total Sales
                     </CardTitle>
@@ -314,7 +362,7 @@ export function ReportsPage() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
                       Total Amount
                     </CardTitle>
@@ -325,7 +373,7 @@ export function ReportsPage() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <Wallet className="h-4 w-4 text-muted-foreground" />
                       Total Paid
                     </CardTitle>
@@ -336,7 +384,7 @@ export function ReportsPage() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <AlertCircle className="h-4 w-4 text-muted-foreground" />
                       Total Due
                     </CardTitle>
@@ -383,19 +431,22 @@ export function ReportsPage() {
                       salesRows.map((row) => {
                         // Calculate payment details with fallback logic
                         const totalAmount = row.totalAmount ?? row.total_amount ?? 0
-                        const initialPaid = row.initial_paidAmount ?? row.paidAmount ?? row.paid_amount ?? 0
+                        const initialPaid =
+                          row.initial_paidAmount ?? row.paidAmount ?? row.paid_amount ?? 0
                         const currentDue = row.dueAmount ?? row.due_amount ?? 0
-                        
+
                         // Calculate collections: original due minus current due
                         const originalDue = totalAmount - initialPaid
-                        const collectionsTotal = row.due_collections_total ?? (originalDue - currentDue)
+                        const collectionsTotal =
+                          row.due_collections_total ?? originalDue - currentDue
                         const hasDueCollections = collectionsTotal > 0
-                        const collectionsCount = row.due_collections_count ?? (hasDueCollections ? 1 : 0)
-                        
+                        const collectionsCount =
+                          row.due_collections_count ?? (hasDueCollections ? 1 : 0)
+
                         // Calculate total paid: initial + collections
-                        const totalPaid = row.total_paid_amount ?? (initialPaid + collectionsTotal)
+                        const totalPaid = row.total_paid_amount ?? initialPaid + collectionsTotal
                         const remainingDue = row.remaining_due_amount ?? currentDue
-                        
+
                         return (
                           <TableRow key={row.id}>
                             <TableCell className="font-medium">
@@ -408,14 +459,15 @@ export function ReportsPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex flex-col items-end gap-0.5">
-                                <span className="text-green-600 dark:text-green-400 font-semibold">
+                                <span className="font-semibold text-green-600 dark:text-green-400">
                                   {totalPaid.toLocaleString()}
                                 </span>
                                 {hasDueCollections && (
-                                  <div className="flex flex-col items-end text-xs text-muted-foreground space-y-0.5 mt-1 pl-2 border-l-2 border-muted">
+                                  <div className="mt-1 flex flex-col items-end space-y-0.5 border-l-2 border-muted pl-2 text-xs text-muted-foreground">
                                     <span>Initial: {initialPaid.toLocaleString()}</span>
                                     <span className="text-green-600 dark:text-green-400">
-                                      +Collections: {collectionsTotal.toLocaleString()} ({collectionsCount})
+                                      +Collections: {collectionsTotal.toLocaleString()} (
+                                      {collectionsCount})
                                     </span>
                                   </div>
                                 )}
@@ -423,14 +475,16 @@ export function ReportsPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               {remainingDue > 0 ? (
-                                <span className="text-orange-600 dark:text-orange-400 font-medium">
+                                <span className="font-medium text-orange-600 dark:text-orange-400">
                                   {remainingDue.toLocaleString()}
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}
                             </TableCell>
-                            <TableCell>{row.payment_type?.name ?? row.paymentType ?? '-'}</TableCell>
+                            <TableCell>
+                              {row.payment_type?.name ?? row.paymentType ?? '-'}
+                            </TableCell>
                           </TableRow>
                         )
                       })
@@ -451,7 +505,7 @@ export function ReportsPage() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <Package className="h-4 w-4 text-muted-foreground" />
                       Total Purchases
                     </CardTitle>
@@ -462,7 +516,7 @@ export function ReportsPage() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
                       Total Amount
                     </CardTitle>
@@ -473,7 +527,7 @@ export function ReportsPage() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <Wallet className="h-4 w-4 text-muted-foreground" />
                       Total Paid
                     </CardTitle>
@@ -484,7 +538,7 @@ export function ReportsPage() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <AlertCircle className="h-4 w-4 text-muted-foreground" />
                       Total Due
                     </CardTitle>
@@ -564,7 +618,7 @@ export function ReportsPage() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <Undo2 className="h-4 w-4 text-muted-foreground" />
                       Total Returns
                     </CardTitle>
@@ -575,7 +629,7 @@ export function ReportsPage() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
                       Return Amount
                     </CardTitle>
@@ -586,7 +640,7 @@ export function ReportsPage() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <Undo2 className="h-4 w-4 text-muted-foreground" />
                       Return Quantity
                     </CardTitle>
@@ -597,7 +651,7 @@ export function ReportsPage() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       Period
                     </CardTitle>
@@ -647,7 +701,9 @@ export function ReportsPage() {
                           <TableCell>{toDateOnly(row.saleDate)}</TableCell>
                           <TableCell>{toDateOnly(row.returnDate)}</TableCell>
                           <TableCell>{row.party}</TableCell>
-                          <TableCell className="text-right">{Number(row.returnQty ?? 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-right">
+                            {Number(row.returnQty ?? 0).toLocaleString()}
+                          </TableCell>
                           <TableCell className="text-right">
                             {formatCurrency(row.returnAmount ?? 0)}
                           </TableCell>
@@ -670,7 +726,7 @@ export function ReportsPage() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <Undo2 className="h-4 w-4 text-muted-foreground" />
                       Total Returns
                     </CardTitle>
@@ -681,7 +737,7 @@ export function ReportsPage() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
                       Return Amount
                     </CardTitle>
@@ -692,18 +748,20 @@ export function ReportsPage() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <Undo2 className="h-4 w-4 text-muted-foreground" />
                       Return Quantity
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-2xl font-semibold">
-                    {(purchaseReturnsQuery.data?.summary?.total_return_quantity ?? 0).toLocaleString()}
+                    {(
+                      purchaseReturnsQuery.data?.summary?.total_return_quantity ?? 0
+                    ).toLocaleString()}
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       Period
                     </CardTitle>
@@ -753,7 +811,9 @@ export function ReportsPage() {
                           <TableCell>{toDateOnly(row.purchaseDate)}</TableCell>
                           <TableCell>{toDateOnly(row.returnDate)}</TableCell>
                           <TableCell>{row.party}</TableCell>
-                          <TableCell className="text-right">{Number(row.returnQty ?? 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-right">
+                            {Number(row.returnQty ?? 0).toLocaleString()}
+                          </TableCell>
                           <TableCell className="text-right">
                             {formatCurrency(row.returnAmount ?? 0)}
                           </TableCell>

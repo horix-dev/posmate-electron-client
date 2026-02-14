@@ -19,6 +19,7 @@ import {
   ClipboardList,
   PackageMinus,
   Plus,
+  DollarSign,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -93,7 +94,15 @@ const secondaryNavItems: NavItem[] = [
   // { title: 'Warehouses', href: '/warehouses', icon: Warehouse },
   { title: 'Product Settings', href: '/product-settings', icon: Tags },
   { title: 'Stock Adjustments', href: '/inventory/stock-adjustments', icon: ClipboardList },
-  { title: 'Reports', href: '/reports', icon: BarChart3 },
+  {
+    title: 'Reports',
+    href: '/reports',
+    icon: BarChart3,
+    children: [
+      { title: 'All Reports', href: '/reports', icon: BarChart3 },
+      { title: 'Sales Totals', href: '/reports/sales-totals', icon: DollarSign },
+    ],
+  },
 ]
 
 export function Sidebar() {

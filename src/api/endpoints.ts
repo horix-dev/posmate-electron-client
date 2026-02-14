@@ -241,6 +241,7 @@ export const API_ENDPOINTS = {
   REPORTS: {
     SALES: '/reports/sales',
     SALES_SUMMARY: '/reports/sales/summary',
+    SALES_TOTALS: '/reports/sales/totals',
     PURCHASES: '/reports/purchases',
     PURCHASES_SUMMARY: '/reports/purchases/summary',
     SALE_RETURNS: '/reports/sale-returns',

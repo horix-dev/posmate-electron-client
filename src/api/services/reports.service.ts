@@ -4,6 +4,7 @@ import type {
   ReportPeriod,
   SalesReportData,
   SalesSummaryData,
+  SalesTotalsData,
   PurchasesReportData,
   PurchasesSummaryData,
   SaleReturnsReportData,
@@ -32,34 +33,62 @@ export interface TransactionSummaryParams {
 }
 
 export const reportsService = {
-  getSalesReport: async (params?: TransactionReportParams): Promise<ApiResponse<SalesReportData>> => {
-    const { data } = await api.get<ApiResponse<SalesReportData>>(API_ENDPOINTS.REPORTS.SALES, { params })
+  getSalesReport: async (
+    params?: TransactionReportParams
+  ): Promise<ApiResponse<SalesReportData>> => {
+    const { data } = await api.get<ApiResponse<SalesReportData>>(API_ENDPOINTS.REPORTS.SALES, {
+      params,
+    })
     return data
   },
 
-  getSalesSummary: async (params?: TransactionSummaryParams): Promise<ApiResponse<SalesSummaryData>> => {
-    const { data } = await api.get<ApiResponse<SalesSummaryData>>(API_ENDPOINTS.REPORTS.SALES_SUMMARY, { params })
+  getSalesSummary: async (
+    params?: TransactionSummaryParams
+  ): Promise<ApiResponse<SalesSummaryData>> => {
+    const { data } = await api.get<ApiResponse<SalesSummaryData>>(
+      API_ENDPOINTS.REPORTS.SALES_SUMMARY,
+      { params }
+    )
+    return data
+  },
+
+  getSalesTotals: async (
+    params?: TransactionSummaryParams
+  ): Promise<ApiResponse<SalesTotalsData>> => {
+    const { data } = await api.get<ApiResponse<SalesTotalsData>>(
+      API_ENDPOINTS.REPORTS.SALES_TOTALS,
+      { params }
+    )
     return data
   },
 
   getPurchasesReport: async (
     params?: TransactionReportParams
   ): Promise<ApiResponse<PurchasesReportData>> => {
-    const { data } = await api.get<ApiResponse<PurchasesReportData>>(API_ENDPOINTS.REPORTS.PURCHASES, { params })
+    const { data } = await api.get<ApiResponse<PurchasesReportData>>(
+      API_ENDPOINTS.REPORTS.PURCHASES,
+      { params }
+    )
     return data
   },
 
   getPurchasesSummary: async (
     params?: TransactionSummaryParams
   ): Promise<ApiResponse<PurchasesSummaryData>> => {
-    const { data } = await api.get<ApiResponse<PurchasesSummaryData>>(API_ENDPOINTS.REPORTS.PURCHASES_SUMMARY, { params })
+    const { data } = await api.get<ApiResponse<PurchasesSummaryData>>(
+      API_ENDPOINTS.REPORTS.PURCHASES_SUMMARY,
+      { params }
+    )
     return data
   },
 
   getSaleReturnsReport: async (
     params?: TransactionReportParams
   ): Promise<ApiResponse<SaleReturnsReportData>> => {
-    const { data } = await api.get<ApiResponse<SaleReturnsReportData>>(API_ENDPOINTS.REPORTS.SALE_RETURNS, { params })
+    const { data } = await api.get<ApiResponse<SaleReturnsReportData>>(
+      API_ENDPOINTS.REPORTS.SALE_RETURNS,
+      { params }
+    )
     return data
   },
 

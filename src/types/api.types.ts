@@ -113,6 +113,50 @@ export interface SalesSummaryData {
   period: ReportPeriodRange
 }
 
+// Sales Totals Report Types
+export interface SalesTotalsProduct {
+  product_id: number
+  product_name: string
+  product_type: 'single' | 'variant' | 'combo'
+  variant_id: number | null
+  variant_name: string | null
+  batch_no: string | null
+  mfg_date: string | null
+  expire_date: string | null
+  total_quantity: number
+  total_cost: number
+  total_sale_price: number
+  total_profit: number
+  sales_count: number
+}
+
+export interface SalesTotalsSummary {
+  total_cost: number
+  total_sale_price: number
+  total_profit: number
+  profit_margin: number
+  total_transactions: number
+  total_items_sold: number
+}
+
+export interface SalesTotalsByType {
+  count: number
+  total_quantity: number
+  total_sale_price: number
+  total_profit: number
+}
+
+export interface SalesTotalsData {
+  period: ReportPeriodRange
+  totals: SalesTotalsSummary
+  products: SalesTotalsProduct[]
+  summary_by_type: {
+    single?: SalesTotalsByType
+    variant?: SalesTotalsByType
+    combo?: SalesTotalsByType
+  }
+}
+
 export interface PurchasesReportSummary {
   total_purchases: number
   total_amount: number

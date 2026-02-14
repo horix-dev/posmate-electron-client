@@ -1,4 +1,113 @@
 
+## 2026-02-14 - Feature: Sales Totals Export (Excel & CSV)
+
+**Feature:**
+Added Excel and CSV export functionality to the Sales Totals Report with full filter support.
+
+**Implementation:**
+1. **Export Buttons:**
+   - Added "Export Excel" and "Export CSV" buttons in the report header
+   - Buttons are disabled when exporting, loading, or no data available
+   - Shows "Exporting..." state during download
+
+2. **Export Handler:**
+   - Fetches data from backend export endpoints
+   - Supports all report filters (period, custom dates, branch, party, payment type)
+   - Automatically downloads file with timestamped filename
+   - Shows success/error toast notifications
+
+3. **API Integration:**
+   - Excel endpoint: `/api/v1/reports/sales/totals/export-excel`
+   - CSV endpoint: `/api/v1/reports/sales/totals/export-csv`
+   - Uses Bearer token authentication from auth store
+   - Handles Content-Disposition filename from backend
+
+4. **User Experience:**
+   - Export buttons positioned next to offline mode badge
+   - Disabled state shown with proper visual feedback
+   - Loading state prevents multiple simultaneous exports
+   - Success confirmation via toast message
+
+**Files Modified:**
+- src/pages/reports/SalesTotalsPage.tsx
+
+**Technical Details:**
+- Uses fetch API for file download
+- Creates blob URL for browser download
+- Cleans up blob URL after download
+- Respects current filter state when exporting
+- Handles authentication token from Zustand store
+
+## 2026-02-14 - Enhancement: Sales Totals Report Navigation & Debugging
+
+**Enhancement:**
+Added navigation helper and debugging to improve Sales Totals Report discoverability and troubleshooting.
+
+**Changes:**
+1. **Navigation Banner:**
+   - Added prominent info banner on the main Reports page
+   - Guides users to the Sales Totals Report with clear call-to-action button
+   - Explains that cost, sale price, and profit analysis are available in Sales Totals
+
+2. **Debug Logging:**
+   - Added console logging to SalesTotalsPage for troubleshooting
+   - Logs data, total_cost, total_sale_price, and total_profit when data loads
+   - Helps identify API response issues
+
+3. **Documentation:**
+   - Created SALES_TOTALS_GUIDE.md with step-by-step access instructions
+   - Includes debugging steps and common issues troubleshooting
+
+**Files Modified:**
+- src/pages/reports/ReportsPage.tsx (added navigation banner)
+- src/pages/reports/SalesTotalsPage.tsx (added debug logging)
+
+**Files Created:**
+- SALES_TOTALS_GUIDE.md (user guide)
+
+## 2026-02-14 - Feature: Sales Totals Report
+
+**Feature:**
+Added a comprehensive Sales Totals Report under the Reports section in the sidebar, providing detailed breakdown of sales by product with cost, profit, and margins.
+
+**Implementation:**
+1. **API Integration:**
+   - Added SalesTotalsData, SalesTotalsProduct, SalesTotalsSummary, and SalesTotalsByType type definitions to api.types.ts
+   - Added SALES_TOTALS endpoint to API_ENDPOINTS.REPORTS
+   - Created getSalesTotals service method in reports.service.ts
+
+2. **Data Layer:**
+   - Created useSalesTotalsReport hook with offline support and caching (15-minute TTL)
+   - Follows existing pattern with online/offline fallback behavior
+
+3. **UI Components:**
+   - Created SalesTotalsPage with comprehensive report view
+   - Features include:
+     * Summary cards showing total sale price, cost, profit, and items sold
+     * Profit margin percentage display
+     * Summary breakdown by product type (single, variant, combo)
+     * Detailed product table with batch/lot tracking information
+     * Filter options: predefined periods or custom date ranges
+     * Offline mode indicator
+
+4. **Routing and Navigation:**
+   - Added /reports/sales-totals route with lazy loading
+   - Updated sidebar Reports section to include submenu with:
+     * All Reports (existing reports page)
+     * Sales Totals (new report)
+   - Reports section now expands to show children
+
+**Files Created:**
+- src/pages/reports/SalesTotalsPage.tsx
+- src/pages/reports/hooks/useSalesTotalsReport.ts
+
+**Files Modified:**
+- src/types/api.types.ts
+- src/api/endpoints.ts
+- src/api/services/reports.service.ts
+- src/routes/index.tsx
+- src/components/layout/Sidebar.tsx
+
 ## 2026-02-14 - Fix: Prevent scan-triggered payment popup
 
 **Problem:**
