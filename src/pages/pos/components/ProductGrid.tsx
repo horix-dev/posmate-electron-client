@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, useRef, useEffect } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { Search, Package, Grid3X3, List, Loader2, Check, ChevronsUpDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -154,16 +154,6 @@ const SearchBar = memo(function SearchBar({
   onSearchChange,
   onViewModeChange,
 }: SearchBarProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    // Auto-focus on mount with a small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-      inputRef.current?.focus()
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [])
-
   return (
     <div className="flex items-center gap-2">
       <div className="relative flex-1">
@@ -172,15 +162,12 @@ const SearchBar = memo(function SearchBar({
           aria-hidden="true"
         />
         <Input
-          ref={inputRef}
           type="search"
           placeholder="Search products or scan barcode..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          data-barcode-scan="true"
           className="pl-9"
           aria-label="Search products"
-          autoFocus
         />
       </div>
       <div className="flex items-center rounded-lg border bg-muted p-1">
