@@ -1,4 +1,28 @@
 
+## 2026-02-14 - Fix: Prevent scan-triggered payment popup
+
+**Problem:**
+Barcode scanners sometimes sent a trailing space, which triggered the payment popup because the POS shortcut for pay is mapped to the spacebar.
+
+**Solution:**
+1.  **Scanner Key Suppression:**
+    *   Updated the barcode scanner hook to stop propagation for rapid scanner keystrokes after the first character, preventing POS shortcuts from firing during scans.
+
+**Files Modified:**
+- src/pages/pos/hooks/useBarcodeScanner.ts
+
+## 2026-02-14 - Change: Stop barcode scans filling search
+
+**Problem:**
+Barcode scans were being typed into the POS search input, disrupting manual product searches.
+
+**Solution:**
+1.  **Search Input Behavior:**
+    *   Removed the barcode-scan allowance and auto-focus from the POS search field so scans no longer populate the search query.
+
+**Files Modified:**
+- src/pages/pos/components/ProductGrid.tsx
+
 ## 2024-07-26 - Fix: Combo Product Edit Form
 
 **Problem:**

@@ -77,7 +77,7 @@ export function useBarcodeScanner({
       }
 
       // If it's Enter key
-      if (event.key === 'Enter') {
+      if (event.key === 'Enter' || event.key === ' ') {
         if (buffer.length >= minLength) {
           event.preventDefault()
           event.stopPropagation() // Stop propagation to prevent triggering other Enter handlers
@@ -92,6 +92,10 @@ export function useBarcodeScanner({
 
       // If time between keys is short, it's likely a scanner
       if (timeDiff < maxDelay || buffer.length === 0) {
+        if (timeDiff < maxDelay && buffer.length > 0) {
+          event.preventDefault()
+          event.stopPropagation()
+        }
         setBuffer((prev) => prev + event.key)
         setIsScanning(true)
 
