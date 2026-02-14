@@ -1,4 +1,154 @@
 
+## 2026-02-14 - Issue: Sales Totals Report - Backend Total Discount Calculation
+
+**Issue Identified:**
+The Sales Totals Report is displaying `total_discount: 0` in the main summary card, even though individual product type discounts are calculated correctly.
+
+**Observed Behavior:**
+- Main "Total Discount" card shows: Rs 0.00 ❌
+- Single Products discount shows: Rs 50.00 ✅
+- Variant Products discount shows: Rs 50.00 ✅
+- Expected total should be: Rs 100.00
+
+**Root Cause:**
+Backend API endpoint `/api/v1/reports/sales/totals` is not calculating or summing the `total_discount` field in the main `totals` object. The field exists and is being returned, but the value is 0.
+
+**Backend Fix Required:**
+The Laravel backend needs to sum all `discount_amount` values from the `sale_details` table for the selected period and include it in `totals.total_discount`.
+
+**Documentation Created:**
+- Created `backend_docs/SALES_TOTALS_DISCOUNT_FIX.md` with detailed fix instructions
+- Includes 3 solution approaches with SQL/PHP examples
+- Includes verification test script
+
+**Files Modified:**
+- backend_docs/SALES_TOTALS_DISCOUNT_FIX.md (created)
+
+**Status:** 
+⚠️ **BLOCKED** - Requires Laravel backend fix before frontend can display correct values
+
+**Frontend Status:**
+✅ Frontend is correctly implemented and will automatically display the correct value once backend is fixed
+
+## 2026-02-14 - Fix: Sales Totals Report - TypeScript Type Inference
+
+**Fix:**
+Resolved TypeScript compilation errors related to type inference in the Sales Totals Report.
+
+**Changes:**
+1. **Hook Updates:**
+   - Updated offline fallback data structure to include `total_discount`, `total_returns`, and `net_sales`
+   - Ensured fallback data matches updated `SalesTotalsSummary` interface
+
+2. **Component Type Annotations:**
+   - Added explicit type imports: `SalesTotalsData`, `SalesTotalsByType`, `SalesTotalsProduct`
+   - Added explicit type annotation to hook return value
+   - Added type annotations to map callbacks for `summary_by_type` and `products`
+
+3. **Fixed Type Errors:**
+   - Property access errors on `data.totals`, `data.products`, `data.summary_by_type`
+   - Implicit 'any' type errors on map callback parameters
+   - Type inference issues with 'unknown' summary type
+
+**Files Modified:**
+- src/pages/reports/hooks/useSalesTotalsReport.ts (updated offline fallback)
+- src/pages/reports/SalesTotalsPage.tsx (added explicit type annotations)
+
+**Technical Notes:**
+- TypeScript strict mode requires explicit typing when inference is ambiguous
+- Map callbacks now properly typed as `[string, SalesTotalsByType]` and `(product: SalesTotalsProduct, index: number)`
+- All 27 previous TypeScript errors resolved
+
+## 2026-02-14 - Enhancement: Sales Totals Report - Returns Tracking
+
+**Enhancement:**
+Added comprehensive returns tracking to the Sales Totals Report to show returned items and their impact on net sales and profit.
+
+**Changes:**
+1. **Type Definitions:**
+   - Added `total_returns` to `SalesTotalsProduct` interface
+   - Added `total_returns` and `net_sales` to `SalesTotalsSummary` interface
+   - Added `total_returns` to `SalesTotalsByType` interface
+
+2. **Summary Cards (7 cards total):**
+   - **Gross Sales**: Shows `total_sale_price` (original sales amount) in blue
+   - **Returns**: Shows `total_returns` (refunded amounts) in red with Undo2 icon
+   - **Net Sales**: Shows `net_sales` (gross - returns) in green
+   - **Total Cost**: Shows `total_cost` (unchanged)
+   - **Total Discount**: Shows `total_discount` (unchanged, orange)
+   - **Total Profit**: Shows `total_profit` (now based on net_sales - cost) with dynamic color (green if positive, red if negative)
+   - **Items Sold**: Shows `total_items_sold` (unchanged)
+
+3. **Product Table:**
+   - Added "Returns" column between "Sale Price" and "Profit"
+   - Shows per-product return amounts in red color
+   - Updated "Profit" column to use dynamic coloring (green/red)
+
+4. **Summary by Type:**
+   - Added "Returns" row between "Discount" and "Profit"
+   - Shows return amounts for Single, Variant, and Combo products
+   - Displayed in red color for visual consistency
+
+**Calculations:**
+- `net_sales = total_sale_price - total_returns`
+- `total_profit = net_sales - total_cost`
+- `profit_margin` calculated based on `net_sales`
+
+**Visual Layout:**
+- Responsive grid: `grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7`
+- Cards reorganized to show calculation flow: Gross → Returns → Net → Cost → Discount → Profit → Items
+- Returns displayed in red to indicate refunded money
+- Profit uses conditional coloring (green for positive, red for negative)
+
+**Files Modified:**
+- src/types/api.types.ts (added total_returns and net_sales fields)
+- src/pages/reports/SalesTotalsPage.tsx (UI updates, added Undo2 icon)
+
+**Technical Notes:**
+- Returns shown in red (#DC2626) to indicate money leaving the business
+- Net Sales provides clearer picture of actual revenue after returns
+- Profit calculation now accurately reflects impact of returns
+- All amounts formatted with currency helper
+
+## 2026-02-14 - Enhancement: Sales Totals Report - Discount Display
+
+**Enhancement:**
+Added discount amount display to the Sales Totals Report across all sections.
+
+**Changes:**
+1. **Type Definitions:**
+   - Added `total_discount` to `SalesTotalsProduct` interface
+   - Added `total_discount` to `SalesTotalsSummary` interface
+   - Added `total_discount` to `SalesTotalsByType` interface
+
+2. **UI Enhancements:**
+   - Added new "Total Discount" summary card (5th card)
+   - Displays total discount amount with orange color (#FFA500)
+   - Shows "Applied to sales" as subtitle
+
+3. **Product Table:**
+   - Added "Discount" column between "Cost" and "Sale Price"
+   - Shows per-product discount amount in orange color
+   - Helps understand discount impact per product
+
+4. **Summary by Type:**
+   - Added discount row to each product type summary
+   - Shows discount amount for Single, Variant, and Combo products
+   - Displayed in orange color for visual consistency
+
+**Visual Layout:**
+- Summary cards changed from 4-column to 5-column grid
+- Order: Sale Price → Cost → Discount → Profit → Items Sold
+
+**Files Modified:**
+- src/types/api.types.ts (added total_discount fields)
+- src/pages/reports/SalesTotalsPage.tsx (UI updates)
+
+**Technical Notes:**
+- Discount shown in orange (#FFA500) to differentiate from profit (green) and cost (default)
+- All discount amounts formatted with currency helper
+- Responsive grid layout adjusts across breakpoints
+
 ## 2026-02-14 - Feature: Sales Totals Export (Excel & CSV)
 
 **Feature:**

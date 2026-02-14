@@ -8,6 +8,7 @@ import {
   Calendar,
   FileSpreadsheet,
   FileText,
+  Undo2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,7 +32,12 @@ import {
 import { useSalesTotalsReport } from './hooks/useSalesTotalsReport'
 import { useCurrency } from '@/hooks'
 import type { TransactionSummaryParams } from '@/api/services/reports.service'
-import type { ReportPeriod } from '@/types/api.types'
+import type {
+  ReportPeriod,
+  SalesTotalsData,
+  SalesTotalsByType,
+  SalesTotalsProduct,
+} from '@/types/api.types'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/stores'
 import { toast } from 'sonner'
@@ -40,7 +46,6 @@ const periodOptions: { value: ReportPeriod; label: string }[] = [
   { value: 'today', label: 'Today' },
   { value: 'yesterday', label: 'Yesterday' },
   { value: 'last_7_days', label: 'Last 7 Days' },
-  { value: 'last_30_days', label: 'Last 30 Days' },
   { value: 'current_month', label: 'Current Month' },
   { value: 'last_month', label: 'Last Month' },
   { value: 'current_year', label: 'Current Year' },
@@ -74,7 +79,12 @@ export default function SalesTotalsPage() {
     return p
   }, [period, fromDate, toDate, branchId, useCustomDates])
 
-  const { data, isLoading, isError, isOnline } = useSalesTotalsReport(params)
+  const { data, isLoading, isError, isOnline } = useSalesTotalsReport(params) as {
+    data: SalesTotalsData | undefined
+    isLoading: boolean
+    isError: boolean
+    isOnline: boolean
+  }
 
   // Debug: Log data when it changes
   useEffect(() => {
@@ -82,7 +92,11 @@ export default function SalesTotalsPage() {
       console.log('Sales Totals Data:', data)
       console.log('Total Cost:', data.totals.total_cost)
       console.log('Total Sale Price:', data.totals.total_sale_price)
+      console.log('Total Discount:', data.totals.total_discount)
+      console.log('Total Returns:', data.totals.total_returns)
+      console.log('Net Sales:', data.totals.net_sales)
       console.log('Total Profit:', data.totals.total_profit)
+      console.log('Summary by Type:', data.summary_by_type)
     }
   }, [data])
 
@@ -303,19 +317,45 @@ export default function SalesTotalsPage() {
       {/* Summary Cards */}
       {data && (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Sale Price</CardTitle>
+                <CardTitle className="text-sm font-medium">Gross Sales</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-blue-600">
                   {formatCurrency(data.totals.total_sale_price)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {data.totals.total_transactions} transactions
                 </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Returns</CardTitle>
+                <Undo2 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {formatCurrency(data.totals.total_returns)}
+                </div>
+                <p className="text-xs text-muted-foreground">Refunded to customers</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Net Sales</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {formatCurrency(data.totals.net_sales)}
+                </div>
+                <p className="text-xs text-muted-foreground">After returns</p>
               </CardContent>
             </Card>
 
@@ -334,11 +374,28 @@ export default function SalesTotalsPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Discount</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">
+                  {formatCurrency(data.totals.total_discount)}
+                </div>
+                <p className="text-xs text-muted-foreground">Applied to sales</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Profit</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">
+                <div
+                  className={`text-2xl font-bold ${
+                    data.totals.total_profit >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}
+                >
                   {formatCurrency(data.totals.total_profit)}
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -372,35 +429,49 @@ export default function SalesTotalsPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-3">
-                  {Object.entries(data.summary_by_type).map(([type, summary]) => (
-                    <div
-                      key={type}
-                      className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm"
-                    >
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-sm font-medium capitalize">{type} Products</span>
-                        <Badge variant={getProductTypeBadgeVariant(type)}>{summary.count}</Badge>
+                  {Object.entries(data.summary_by_type).map(
+                    ([type, summary]: [string, SalesTotalsByType]) => (
+                      <div
+                        key={type}
+                        className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm"
+                      >
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-sm font-medium capitalize">{type} Products</span>
+                          <Badge variant={getProductTypeBadgeVariant(type)}>{summary.count}</Badge>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Quantity:</span>
+                            <span className="font-medium">{summary.total_quantity}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Sales:</span>
+                            <span className="font-medium">
+                              {formatCurrency(summary.total_sale_price)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Discount:</span>
+                            <span className="font-medium text-orange-600">
+                              {formatCurrency(summary.total_discount)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Returns:</span>
+                            <span className="font-medium text-red-600">
+                              {formatCurrency(summary.total_returns)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Profit:</span>
+                            <span className="font-medium text-green-600">
+                              {formatCurrency(summary.total_profit)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Quantity:</span>
-                          <span className="font-medium">{summary.total_quantity}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Sales:</span>
-                          <span className="font-medium">
-                            {formatCurrency(summary.total_sale_price)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Profit:</span>
-                          <span className="font-medium text-green-600">
-                            {formatCurrency(summary.total_profit)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -438,13 +509,15 @@ export default function SalesTotalsPage() {
                         <TableHead>Batch</TableHead>
                         <TableHead className="text-right">Qty</TableHead>
                         <TableHead className="text-right">Cost</TableHead>
+                        <TableHead className="text-right">Discount</TableHead>
                         <TableHead className="text-right">Sale Price</TableHead>
+                        <TableHead className="text-right">Returns</TableHead>
                         <TableHead className="text-right">Profit</TableHead>
                         <TableHead className="text-right">Sales Count</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.products.map((product, index) => (
+                      {data.products.map((product: SalesTotalsProduct, index: number) => (
                         <TableRow key={index}>
                           <TableCell className="font-medium">{product.product_name}</TableCell>
                           <TableCell>
@@ -473,10 +546,20 @@ export default function SalesTotalsPage() {
                           <TableCell className="text-right">
                             {formatCurrency(product.total_cost)}
                           </TableCell>
+                          <TableCell className="text-right text-orange-600">
+                            {formatCurrency(product.total_discount)}
+                          </TableCell>
                           <TableCell className="text-right">
                             {formatCurrency(product.total_sale_price)}
                           </TableCell>
-                          <TableCell className="text-right text-green-600">
+                          <TableCell className="text-right text-red-600">
+                            {formatCurrency(product.total_returns)}
+                          </TableCell>
+                          <TableCell
+                            className={`text-right ${
+                              product.total_profit >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}
+                          >
                             {formatCurrency(product.total_profit)}
                           </TableCell>
                           <TableCell className="text-right">{product.sales_count}</TableCell>

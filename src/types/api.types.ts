@@ -125,14 +125,19 @@ export interface SalesTotalsProduct {
   expire_date: string | null
   total_quantity: number
   total_cost: number
+  total_discount: number
   total_sale_price: number
+  total_returns: number
   total_profit: number
   sales_count: number
 }
 
 export interface SalesTotalsSummary {
   total_cost: number
+  total_discount: number
   total_sale_price: number
+  total_returns: number
+  net_sales: number
   total_profit: number
   profit_margin: number
   total_transactions: number
@@ -142,7 +147,9 @@ export interface SalesTotalsSummary {
 export interface SalesTotalsByType {
   count: number
   total_quantity: number
+  total_discount: number
   total_sale_price: number
+  total_returns: number
   total_profit: number
 }
 
