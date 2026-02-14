@@ -3,6 +3,7 @@ import { useFieldArray, useWatch, Controller, type Control } from 'react-hook-fo
 import { Plus, Search, X, Package, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useCurrency } from '@/hooks'
 import {
   Table,
   TableBody,
@@ -48,6 +49,7 @@ interface ComboProductSelectorProps {
 export function ComboProductSelector({ control, isOpen, onOpenChange }: ComboProductSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const debouncedSearch = useDebounce(searchTerm, 300)
+  const { symbol: currencySymbol } = useCurrency()
 
   const {
     fields: comboProducts,
@@ -171,7 +173,7 @@ export function ComboProductSelector({ control, isOpen, onOpenChange }: ComboPro
                     <SelectContent>
                       <SelectItem value="none">No Discount</SelectItem>
                       <SelectItem value="percentage">Percentage (%)</SelectItem>
-                      <SelectItem value="fixed">Fixed Amount (₹)</SelectItem>
+                      <SelectItem value="fixed">Fixed Amount ({currencySymbol})</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -180,7 +182,7 @@ export function ComboProductSelector({ control, isOpen, onOpenChange }: ComboPro
             {discountType !== 'none' && (
               <div className="space-y-2">
                 <label className="text-sm text-muted-foreground">
-                  Discount Value {discountType === 'percentage' ? '(%)' : '(₹)'}
+                  Discount Value {discountType === 'percentage' ? '(%)' : `(${currencySymbol})`}
                 </label>
                 <Controller
                   control={control}
@@ -210,19 +212,27 @@ export function ComboProductSelector({ control, isOpen, onOpenChange }: ComboPro
           </div>
           <div className="rounded-lg bg-muted p-3">
             <div className="text-sm text-muted-foreground">Cost Price</div>
-            <div className="text-lg font-semibold">₹{safeTotalPurchasePrice.toFixed(2)}</div>
+            <div className="text-lg font-semibold">
+              {currencySymbol}
+              {safeTotalPurchasePrice.toFixed(2)}
+            </div>
           </div>
           <div className="rounded-lg bg-muted p-3">
             <div className="text-sm text-muted-foreground">Original Price</div>
-            <div className="text-lg font-semibold">₹{safeTotalSalePrice.toFixed(2)}</div>
+            <div className="text-lg font-semibold">
+              {currencySymbol}
+              {safeTotalSalePrice.toFixed(2)}
+            </div>
           </div>
           <div className="rounded-lg bg-primary/10 p-3">
             <div className="text-sm text-muted-foreground">Final Price</div>
             <div className="text-lg font-semibold text-primary">
-              ₹{finalSalePrice.toFixed(2)}
+              {currencySymbol}
+              {finalSalePrice.toFixed(2)}
               {safeDiscountAmount > 0 && (
                 <span className="ml-2 text-xs text-green-600">
-                  (-₹{safeDiscountAmount.toFixed(2)})
+                  (-{currencySymbol}
+                  {safeDiscountAmount.toFixed(2)})
                 </span>
               )}
             </div>
@@ -271,9 +281,13 @@ export function ComboProductSelector({ control, isOpen, onOpenChange }: ComboPro
                         className="h-8 w-20"
                       />
                     </TableCell>
-                    <TableCell>₹{(item.productSalePrice || 0).toFixed(2)}</TableCell>
                     <TableCell>
-                      ₹{((item.productSalePrice || 0) * item.quantity).toFixed(2)}
+                      {currencySymbol}
+                      {(item.productSalePrice || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      {currencySymbol}
+                      {((item.productSalePrice || 0) * item.quantity).toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <Button
@@ -382,7 +396,8 @@ export function ComboProductSelector({ control, isOpen, onOpenChange }: ComboPro
                                       {variant.sku}
                                     </Badge>
                                   )}
-                                  Stock: {variantStock} • Sale Price: ₹{variantPrice.toFixed(2)}
+                                  Stock: {variantStock} • Sale Price: {currencySymbol}
+                                  {variantPrice.toFixed(2)}
                                 </div>
                               </div>
                               <Button
@@ -415,7 +430,7 @@ export function ComboProductSelector({ control, isOpen, onOpenChange }: ComboPro
                                 {product.productCode}
                               </Badge>
                             )}
-                            Stock: {getTotalStock(product)} • Sale Price: ₹
+                            Stock: {getTotalStock(product)} • Sale Price: {currencySymbol}
                             {getSalePrice(product).toFixed(2)}
                           </div>
                         </div>
