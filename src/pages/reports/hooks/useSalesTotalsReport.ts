@@ -43,6 +43,7 @@ export function useSalesTotalsReport(params: TransactionSummaryParams) {
         period: { from: params.from_date ?? '', to: params.to_date ?? '' },
         totals: {
           total_cost: 0,
+          gross_sales: 0,
           total_discount: 0,
           total_sale_price: 0,
           total_returns: 0,

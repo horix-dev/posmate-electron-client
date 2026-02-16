@@ -133,6 +133,7 @@ export interface SalesTotalsProduct {
 }
 
 export interface SalesTotalsSummary {
+  gross_sales: number
   total_cost: number
   total_discount: number
   total_sale_price: number
@@ -1123,6 +1124,8 @@ export interface DashboardData {
   total_sales: number
   total_expense: number
   total_income: number
+  total_discount: number
+  net_sales: number
   total_items: number
   total_categories: number
   stock_value: number

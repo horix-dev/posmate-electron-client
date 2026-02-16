@@ -202,62 +202,70 @@ export default function SalesTotalsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-3 sm:space-y-6 sm:p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Sales Totals Report</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Sales Totals Report</h1>
+          <p className="text-xs text-muted-foreground sm:text-sm">
             Comprehensive breakdown of sales by product with cost, profit, and margins
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {!isOnline && (
-            <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
+            <Badge variant="outline" className="w-fit bg-yellow-50 text-yellow-700">
               Offline Mode
             </Badge>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleExport('excel')}
-            disabled={isExporting || isLoading || !data}
-            className="gap-2"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            {isExporting ? 'Exporting...' : 'Export Excel'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleExport('csv')}
-            disabled={isExporting || isLoading || !data}
-            className="gap-2"
-          >
-            <FileText className="h-4 w-4" />
-            {isExporting ? 'Exporting...' : 'Export CSV'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExport('excel')}
+              disabled={isExporting || isLoading || !data}
+              className="gap-1 text-xs sm:gap-2 sm:text-sm"
+            >
+              <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">
+                {isExporting ? 'Exporting...' : 'Export Excel'}
+              </span>
+              <span className="sm:hidden">Excel</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExport('csv')}
+              disabled={isExporting || isLoading || !data}
+              className="gap-1 text-xs sm:gap-2 sm:text-sm"
+            >
+              <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">
+                {isExporting ? 'Exporting...' : 'Export CSV'}
+              </span>
+              <span className="sm:hidden">CSV</span>
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Calendar className="h-4 w-4" />
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
             Filters
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
             {/* Period or Custom Date Toggle */}
             <div className="space-y-2">
-              <Label>Date Range Type</Label>
+              <Label className="text-xs sm:text-sm">Date Range Type</Label>
               <Select
                 value={useCustomDates ? 'custom' : 'period'}
                 onValueChange={(value) => setUseCustomDates(value === 'custom')}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-8 text-xs sm:h-10 sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -270,9 +278,9 @@ export default function SalesTotalsPage() {
             {/* Period Selection */}
             {!useCustomDates && (
               <div className="space-y-2">
-                <Label>Period</Label>
+                <Label className="text-xs sm:text-sm">Period</Label>
                 <Select value={period} onValueChange={(v) => setPeriod(v as ReportPeriod)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs sm:h-10 sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -290,23 +298,33 @@ export default function SalesTotalsPage() {
             {useCustomDates && (
               <>
                 <div className="space-y-2">
-                  <Label>From Date</Label>
+                  <Label className="text-xs sm:text-sm">From Date</Label>
                   <Input
                     type="date"
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
+                    className="h-8 text-xs sm:h-10 sm:text-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>To Date</Label>
-                  <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                  <Label className="text-xs sm:text-sm">To Date</Label>
+                  <Input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="h-8 text-xs sm:h-10 sm:text-sm"
+                  />
                 </div>
               </>
             )}
 
             {/* Actions */}
-            <div className="flex items-end">
-              <Button variant="outline" onClick={handleClearFilters} className="w-full">
+            <div className="flex items-end sm:col-span-1 lg:col-span-1">
+              <Button
+                variant="outline"
+                onClick={handleClearFilters}
+                className="h-8 w-full text-xs sm:h-10 sm:text-sm"
+              >
                 Clear Filters
               </Button>
             </div>
@@ -317,14 +335,40 @@ export default function SalesTotalsPage() {
       {/* Summary Cards */}
       {data && (
         <>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-            <Card>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
+            <Card className="transition-shadow hover:shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Gross Sales</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs font-medium sm:text-sm">Total Sales</CardTitle>
+                <DollarSign className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-lg font-bold text-purple-600 sm:text-xl md:text-2xl">
+                  {formatCurrency(data.totals.gross_sales)}
+                </div>
+                <p className="text-xs text-muted-foreground">Before adjustments</p>
+              </CardContent>
+            </Card>
+
+            <Card className="transition-shadow hover:shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-medium sm:text-sm">Total Discount</CardTitle>
+                <DollarSign className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-bold text-orange-600 sm:text-xl md:text-2xl">
+                  {formatCurrency(data.totals.total_discount)}
+                </div>
+                <p className="text-xs text-muted-foreground">Applied to sales</p>
+              </CardContent>
+            </Card>
+
+            <Card className="transition-shadow hover:shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-medium sm:text-sm">Gross Sales</CardTitle>
+                <DollarSign className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-bold text-blue-600 sm:text-xl md:text-2xl">
                   {formatCurrency(data.totals.total_sale_price)}
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -333,66 +377,55 @@ export default function SalesTotalsPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="transition-shadow hover:shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Returns</CardTitle>
-                <Undo2 className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs font-medium sm:text-sm">Returns</CardTitle>
+                <Undo2 className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-600">
+                <div className="text-lg font-bold text-red-600 sm:text-xl md:text-2xl">
                   {formatCurrency(data.totals.total_returns)}
                 </div>
                 <p className="text-xs text-muted-foreground">Refunded to customers</p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="transition-shadow hover:shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Net Sales</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs font-medium sm:text-sm">Net Sales</CardTitle>
+                <DollarSign className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-lg font-bold text-green-600 sm:text-xl md:text-2xl">
                   {formatCurrency(data.totals.net_sales)}
                 </div>
                 <p className="text-xs text-muted-foreground">After returns</p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="transition-shadow hover:shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
-                <Package className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs font-medium sm:text-sm">Total Cost</CardTitle>
+                <Package className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(data.totals.total_cost)}</div>
+                <div className="text-lg font-bold sm:text-xl md:text-2xl">
+                  {formatCurrency(data.totals.total_cost)}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {data.totals.total_items_sold} items sold
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="transition-shadow hover:shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Discount</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-orange-600">
-                  {formatCurrency(data.totals.total_discount)}
-                </div>
-                <p className="text-xs text-muted-foreground">Applied to sales</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Profit</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs font-medium sm:text-sm">Total Profit</CardTitle>
+                <TrendingUp className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
               </CardHeader>
               <CardContent>
                 <div
-                  className={`text-2xl font-bold ${
+                  className={`text-lg font-bold sm:text-xl md:text-2xl ${
                     data.totals.total_profit >= 0 ? 'text-green-600' : 'text-red-600'
                   }`}
                 >
@@ -404,13 +437,15 @@ export default function SalesTotalsPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="transition-shadow hover:shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Items Sold</CardTitle>
-                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs font-medium sm:text-sm">Items Sold</CardTitle>
+                <ShoppingCart className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{data.totals.total_items_sold}</div>
+                <div className="text-lg font-bold sm:text-xl md:text-2xl">
+                  {data.totals.total_items_sold}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {data.products.length} unique products
                 </p>

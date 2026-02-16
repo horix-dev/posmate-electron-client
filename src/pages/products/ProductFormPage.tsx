@@ -390,18 +390,24 @@ export default function ProductFormPage() {
           )
           return
         }
-        // Block if any variant has stock = 0 or cost price/price missing/zero
-        const invalidVariants = variants.filter(
-          (v) =>
-            v.initial_stock === 0 ||
-            v.initial_stock === undefined ||
-            v.cost_price === undefined ||
-            v.cost_price <= 0 ||
-            v.price === undefined ||
-            v.price <= 0
-        )
+        // Block if any variant has invalid prices (and stock for new products)
+        const invalidVariants = variants.filter((v) => {
+          // Always validate prices
+          const hasInvalidPrice =
+            v.cost_price === undefined || v.cost_price <= 0 || v.price === undefined || v.price <= 0
+
+          // Only validate stock for new products (create mode)
+          const hasInvalidStock =
+            !isEditMode && (v.initial_stock === 0 || v.initial_stock === undefined)
+
+          return hasInvalidPrice || hasInvalidStock
+        })
+
         if (invalidVariants.length > 0) {
-          toast.error('All variants must have stock > 0, cost price > 0, and sale price > 0')
+          const errorMessage = isEditMode
+            ? 'All variants must have cost price > 0 and sale price > 0'
+            : 'All variants must have stock > 0, cost price > 0, and sale price > 0'
+          toast.error(errorMessage)
           return
         }
       }
