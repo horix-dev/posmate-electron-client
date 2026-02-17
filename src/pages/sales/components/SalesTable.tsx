@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Eye, MoreHorizontal, Trash2, CloudOff, Cloud } from 'lucide-react'
+import { Eye, MoreHorizontal, CloudOff, Cloud } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
@@ -152,7 +152,7 @@ interface SaleRowProps {
   onDelete: (sale: Sale) => void
 }
 
-const SaleRow = memo(function SaleRow({ sale, onView, onReturn, onDelete }: SaleRowProps) {
+const SaleRow = memo(function SaleRow({ sale, onView, onReturn }: SaleRowProps) {
   const { format: formatCurrencyAmount } = useCurrency()
   const paymentBadge = getPaymentStatusBadge(sale)
   const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
@@ -323,13 +323,6 @@ const SaleRow = memo(function SaleRow({ sale, onView, onReturn, onDelete }: Sale
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
               </svg>
               Return
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => onDelete(sale)}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
