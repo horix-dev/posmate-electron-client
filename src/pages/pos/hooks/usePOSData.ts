@@ -40,7 +40,7 @@ export interface UsePOSDataReturn {
   error: Error | null
 
   // Actions
-  refetch: () => Promise<void>
+  refetch: (showLoadingState?: boolean) => Promise<void>
 }
 
 // ============================================

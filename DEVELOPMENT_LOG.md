@@ -1,4 +1,92 @@
 
+## 2026-02-18 - Enhancement: POS - Partial Loading State for Product Refresh
+
+**Problem Description:**
+After completing a sale, when products were refreshed to show updated stock, the entire POS page displayed a full-screen loader. This interrupted the cashier's workflow and made the interface feel unresponsive, even though only the product grid needed to reload.
+
+**User Request:**
+"it's load total page is it possible loader here only" - User wanted the loader to appear only on the product grid section, not block the entire page.
+
+**Solution Implemented:**
+1. **Added `isProductsLoading` state** - Destructured from usePOSData hook (was already available)
+2. **Changed refetch to partial loading** - Pass `false` to `refetch()` to use `isProductsLoading` instead of `isLoading`
+3. **Updated ProductGrid loading state** - Now checks both `isLoading` OR `isProductsLoading`
+
+**Changes Made:**
+```typescript
+// 1. Added isProductsLoading to destructuring
+const { products, categories, paymentTypes, isLoading, isProductsLoading, filteredProducts, refetch } = usePOSData(filters)
+
+// 2. Use partial loading for refresh after sale
+await refetch(false) // false = only show loader on product grid, not full page
+
+// 3. ProductGrid shows loader during both full and partial loading
+<ProductGrid isLoading={isLoading || isProductsLoading} ... />
+```
+
+**Behavior:**
+- **Initial page load**: Full page loader (better UX for first load)
+- **After sale completion**: Only product grid shows loader (cart sidebar, header remain accessible)
+- **Automatic refresh (30s polling)**: Only product grid shows loader
+- **Coming back online**: Only product grid shows loader
+
+**User Experience Improvement:**
+- ✅ Cashier can still see cart total and customer info during refresh
+- ✅ No full-screen blocking - feels more responsive
+- ✅ Clear visual feedback that products are updating
+- ✅ Faster perceived performance
+
+**Files Modified:**
+- [src/pages/pos/POSPage.tsx](src/pages/pos/POSPage.tsx#L136): Added isProductsLoading to destructuring
+- [src/pages/pos/POSPage.tsx](src/pages/pos/POSPage.tsx#L713): Changed refetch() to refetch(false)
+- [src/pages/pos/POSPage.tsx](src/pages/pos/POSPage.tsx#L1152): Updated ProductGrid isLoading prop
+
+## 2026-02-18 - Fix: POS - Product Stock Not Updating After Sale Completion
+
+**Problem Description:**
+After completing a sale successfully, products in the POS grid were still showing the old stock values. For example, "Test 201" showed "Stock: 12 (1 in cart)" before sale, but after selling all 12 units and completing the transaction, the product grid still displayed "Stock: 12" instead of "Stock: 0".
+
+**Root Cause:**
+The `handleProcessPayment` function in POSPage.tsx was not refreshing the product data after a successful sale. Products are cached locally (SQLite/IndexedDB) and only automatically refreshed:
+- On page mount
+- When coming back online
+- Every 30 seconds via polling
+
+This meant after a sale, the backend correctly deducted stock, but the frontend UI continued showing stale cached data until the next automatic refresh.
+
+**Solution Implemented:**
+1. **Added `refetch` to usePOSData hook destructuring** - Now included in the returned values from the hook
+2. **Call refetch after successful sale** - Added `await refetch()` after `closeDialog('payment')` when online
+3. **Added refetch to dependency array** - Included in `handleProcessPayment` useCallback dependencies
+
+**Changes Made:**
+```typescript
+// Before: Missing refetch in destructuring
+const { products, categories, paymentTypes, isLoading, filteredProducts } = usePOSData(filters)
+
+// After: Added refetch
+const { products, categories, paymentTypes, isLoading, filteredProducts, refetch } = usePOSData(filters)
+
+// Added after clearing cart and closing payment dialog:
+if (!result.isOffline) {
+  try {
+    await refetch()
+  } catch (error) {
+    console.warn('[POS] Failed to refresh products after sale:', error)
+  }
+}
+```
+
+**Behavior:**
+- **Online sales**: Stock updates immediately after sale completion (fresh data from API)
+- **Offline sales**: Stock remains cached until device comes online and syncs
+- **Error handling**: Refreshing is optional - sale still succeeds even if refresh fails
+
+**Files Modified:**
+- [src/pages/pos/POSPage.tsx](src/pages/pos/POSPage.tsx#L136): Added refetch to usePOSData destructuring
+- [src/pages/pos/POSPage.tsx](src/pages/pos/POSPage.tsx#L710-L716): Added refetch call after successful sale
+- [src/pages/pos/POSPage.tsx](src/pages/pos/POSPage.tsx#L738): Added refetch to dependency array
+
 ## 2026-02-17 - Fix: Dashboard - Total Sales Now Shows Gross Sales (Before Discounts)
 
 **Problem Description:**
