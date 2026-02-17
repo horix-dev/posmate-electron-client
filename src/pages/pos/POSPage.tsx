@@ -133,7 +133,15 @@ export function POSPage() {
   // ----------------------------------------
   // Data Fetching
   // ----------------------------------------
-  const { products, categories, paymentTypes, isLoading, filteredProducts } = usePOSData(filters)
+  const {
+    products,
+    categories,
+    paymentTypes,
+    isLoading,
+    isProductsLoading,
+    filteredProducts,
+    refetch,
+  } = usePOSData(filters)
 
   // Clear cache on mount to ensure fresh data (only when online)
   useEffect(() => {
@@ -694,6 +702,15 @@ export function POSPage() {
         clearCart()
         closeDialog('payment')
 
+        // Refresh products to show updated stock values
+        if (!result.isOffline) {
+          try {
+            await refetch(false) // false = only show loader on product grid, not full page
+          } catch (error) {
+            console.warn('[POS] Failed to refresh products after sale:', error)
+          }
+        }
+
         // Get new invoice number (only when online)
         if (!result.isOffline) {
           try {
@@ -728,6 +745,7 @@ export function POSPage() {
       clearCart,
       closeDialog,
       setInvoiceNumber,
+      refetch,
     ]
   )
 
@@ -1139,7 +1157,7 @@ export function POSPage() {
               categories={categories}
               selectedCategoryId={filters.categoryId}
               searchQuery={filters.search}
-              isLoading={isLoading}
+              isLoading={isLoading || isProductsLoading}
               viewMode={viewMode}
               onCategoryChange={handleCategoryChange}
               onSearchChange={handleSearchChange}
