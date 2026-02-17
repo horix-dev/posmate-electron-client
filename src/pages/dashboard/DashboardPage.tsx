@@ -27,7 +27,15 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SaleDetailsDialog } from '@/components/shared'
 import { StatCard } from '@/components/common/StatCard'
-import { dashboardService, stocksListService, stocksService, partiesService, salesService } from '@/api/services'
+import {
+  dashboardService,
+  stocksListService,
+  stocksService,
+  partiesService,
+  salesService,
+  reportsService,
+} from '@/api/services'
+import type { TransactionSummaryParams } from '@/api/services/reports.service'
 import { useSyncStore } from '@/stores'
 import { useCurrency } from '@/hooks'
 import { getCache, setCache, CacheKeys } from '@/lib/cache'
@@ -51,6 +59,7 @@ import type {
   Party,
   Sale,
   SaleDetail,
+  ReportPeriod,
 } from '@/types/api.types'
 
 const DASHBOARD_DURATION_LABELS: Record<DashboardDuration, string> = {
@@ -463,16 +472,47 @@ export function DashboardPage() {
       }
 
       try {
-        const [summaryRes, dashboardRes] = await Promise.all([
+        // Prepare parameters for sales totals API
+        const salesTotalsParams: TransactionSummaryParams = {}
+        if (duration !== 'custom_date') {
+          // Map DashboardDuration to ReportPeriod
+          const periodMap: Record<Exclude<DashboardDuration, 'custom_date'>, ReportPeriod> = {
+            today: 'today',
+            yesterday: 'yesterday',
+            last_seven_days: 'last_7_days',
+            last_thirty_days: 'last_30_days',
+            current_month: 'current_month',
+            last_month: 'last_month',
+            current_year: 'current_year',
+          }
+          salesTotalsParams.period = periodMap[duration]
+        } else if (fromDate && toDate) {
+          salesTotalsParams.from_date = format(fromDate, 'yyyy-MM-dd')
+          salesTotalsParams.to_date = format(toDate, 'yyyy-MM-dd')
+        }
+
+        const [summaryRes, dashboardRes, salesTotalsRes] = await Promise.all([
           dashboardService.getSummary(),
           dashboardService.getDashboard(
             duration,
             fromDate ? format(fromDate, 'yyyy-MM-dd') : undefined,
             toDate ? format(toDate, 'yyyy-MM-dd') : undefined
           ),
+          reportsService.getSalesTotals(salesTotalsParams),
         ])
 
         let dashboardDataResult = dashboardRes.data
+
+        // Integrate sales totals data for more accurate statistics
+        const salesTotals = salesTotalsRes.data.totals
+        dashboardDataResult = {
+          ...dashboardDataResult,
+          total_sales: salesTotals.gross_sales, // Total Sales (before discount)
+          total_discount: salesTotals.total_discount,
+          total_return_amount: salesTotals.total_returns,
+          net_sales: salesTotals.net_sales, // Net Sales (after discount and returns)
+          total_profit: salesTotals.total_profit,
+        }
 
         // Always use stocks total value API for stock_value
         try {
@@ -520,15 +560,17 @@ export function DashboardPage() {
           console.warn('Failed to calculate total due:', err)
         }
 
-        // Calculate net profit: Total Sales - Total Returns - Total Expenses
-        // This ensures returns are factored in correctly
-        const calculatedNetProfit =
-          (dashboardDataResult?.total_sales || 0) -
-          (dashboardDataResult?.total_return_amount || 0) -
-          (dashboardDataResult?.total_expense || 0)
-        dashboardDataResult = {
-          ...dashboardDataResult,
-          total_profit: calculatedNetProfit,
+        // Note: Sales totals from reports API are already integrated above
+        // Keep this as a fallback calculation if needed
+        if (!dashboardDataResult.total_profit) {
+          const calculatedNetProfit =
+            (dashboardDataResult?.total_sales || 0) -
+            (dashboardDataResult?.total_return_amount || 0) -
+            (dashboardDataResult?.total_expense || 0)
+          dashboardDataResult = {
+            ...dashboardDataResult,
+            total_profit: calculatedNetProfit,
+          }
         }
 
         setSummary(summaryRes.data)
@@ -733,25 +775,25 @@ export function DashboardPage() {
             loading={loading}
           />
           <StatCard
-            title="Total Returns"
-            value={formatCurrency(dashboardData?.total_return_amount || 0)}
-            icon={TrendingDown}
+            title="Total Discount"
+            value={formatCurrency(dashboardData?.total_discount || 0)}
+            icon={DollarSign}
             iconContainerClassName="bg-orange-500/10 text-orange-500 ring-1 ring-orange-500/20"
             iconClassName="text-orange-500"
             loading={loading}
           />
           <StatCard
-            title="Net Total"
-            value={formatCurrency(dashboardData?.total_profit || 0)}
-            icon={TrendingUp}
-            iconContainerClassName="bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20"
-            iconClassName="text-blue-500"
+            title="Total Returns"
+            value={formatCurrency(dashboardData?.total_return_amount || 0)}
+            icon={TrendingDown}
+            iconContainerClassName="bg-red-500/10 text-red-500 ring-1 ring-red-500/20"
+            iconClassName="text-red-500"
             loading={loading}
           />
           <StatCard
-            title="Total Income"
-            value={formatCurrency(dashboardData?.total_income || 0)}
-            icon={DollarSign}
+            title="Net Total"
+            value={formatCurrency(dashboardData?.net_sales || 0)}
+            icon={TrendingUp}
             iconContainerClassName="bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20"
             iconClassName="text-emerald-500"
             loading={loading}

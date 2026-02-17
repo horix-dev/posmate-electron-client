@@ -412,35 +412,39 @@ export function formDataToFormData(
     formData.append('productSalePrice', salePriceValue)
   }
 
-  if (!isEdit) {
-    if (hasBatchRows) {
-      formData.append('inventory_tracking_mode', 'batch')
-      data.batches.forEach((batch, index) => {
-        formData.append(`batch_no[${index}]`, batch.batch_no)
-        formData.append(`productStock[${index}]`, batch.productStock)
+  if (hasBatchRows) {
+    formData.append('inventory_tracking_mode', 'batch')
+    data.batches.forEach((batch, index) => {
+      formData.append(`batch_no[${index}]`, batch.batch_no)
 
-        if (batch.productPurchasePrice) {
-          formData.append(`productPurchasePrice[${index}]`, batch.productPurchasePrice)
-        }
-        if (batch.productSalePrice) {
-          formData.append(`productSalePrice[${index}]`, batch.productSalePrice)
-        }
-        if (batch.productWholeSalePrice) {
-          formData.append(`productWholeSalePrice[${index}]`, batch.productWholeSalePrice)
-        }
-        if (batch.productDealerPrice) {
-          formData.append(`productDealerPrice[${index}]`, batch.productDealerPrice)
-        }
-        if (batch.mfg_date) {
-          formData.append(`mfg_date[${index}]`, batch.mfg_date)
-        }
-        if (batch.expire_date) {
-          formData.append(`expire_date[${index}]`, batch.expire_date)
-        }
-      })
-    } else if (data.productStock) {
-      formData.append('productStock', data.productStock)
-    }
+      // Only include stock data for new products, not edits
+      if (!isEdit) {
+        formData.append(`productStock[${index}]`, batch.productStock)
+      }
+
+      // Always include price and date data (for both new and edit)
+      if (batch.productPurchasePrice) {
+        formData.append(`productPurchasePrice[${index}]`, batch.productPurchasePrice)
+      }
+      if (batch.productSalePrice) {
+        formData.append(`productSalePrice[${index}]`, batch.productSalePrice)
+      }
+      if (batch.productWholeSalePrice) {
+        formData.append(`productWholeSalePrice[${index}]`, batch.productWholeSalePrice)
+      }
+      if (batch.productDealerPrice) {
+        formData.append(`productDealerPrice[${index}]`, batch.productDealerPrice)
+      }
+      if (batch.mfg_date) {
+        formData.append(`mfg_date[${index}]`, batch.mfg_date)
+      }
+      if (batch.expire_date) {
+        formData.append(`expire_date[${index}]`, batch.expire_date)
+      }
+    })
+  } else if (!isEdit && data.productStock) {
+    // Only include simple product stock for new products
+    formData.append('productStock', data.productStock)
   }
 
   // Handle combo products
