@@ -868,6 +868,8 @@ export interface PurchaseDetail {
     id: number
     productName: string
     productCode?: string
+    product_name?: string
+    product_code?: string
     productPicture?: string
     image?: string
     product_type?: string
@@ -985,6 +987,8 @@ export interface PurchaseReturnDetail {
     id: number
     productName: string
     productCode?: string
+    product_name?: string
+    product_code?: string
   }
   batch_no?: string
 }

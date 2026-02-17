@@ -103,11 +103,22 @@ export function PurchaseReturnDetailsDialog({ purchaseReturn, open, onOpenChange
                 </TableHeader>
                 <TableBody>
                   {purchaseReturn.details && purchaseReturn.details.length > 0 ? (
-                    purchaseReturn.details.map((detail) => (
+                    purchaseReturn.details.map((detail) => {
+                      const productName =
+                        detail.product?.productName ||
+                        detail.product?.product_name ||
+                        `Product #${detail.purchase_detail_id}`
+                      const productCode =
+                        detail.product?.productCode || detail.product?.product_code
+
+                      return (
                       <TableRow key={detail.id}>
                         <TableCell>
                           <div className="flex flex-col">
-                            <p className="font-medium">{detail.product?.productName || `Product #${detail.purchase_detail_id}`}</p>
+                            <p className="font-medium">{productName}</p>
+                            {productCode && (
+                              <p className="text-xs text-muted-foreground">{productCode}</p>
+                            )}
                             {detail.batch_no && <p className="text-xs text-muted-foreground">Batch: {detail.batch_no}</p>}
                           </div>
                         </TableCell>
@@ -115,7 +126,8 @@ export function PurchaseReturnDetailsDialog({ purchaseReturn, open, onOpenChange
                         <TableCell className="text-right">{formatCurrency((detail.return_amount || 0) / (detail.return_qty || 1))}</TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(detail.return_amount || 0)}</TableCell>
                       </TableRow>
-                    ))
+                      )
+                    })
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center text-muted-foreground">No products information available</TableCell>

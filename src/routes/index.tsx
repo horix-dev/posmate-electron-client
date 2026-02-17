@@ -159,6 +159,14 @@ const router = routerCreator([
         ),
       },
       {
+        path: 'purchases/:id/edit',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <NewPurchasePage />
+          </Suspense>
+        ),
+      },
+      {
         path: 'customers',
         element: (
           <Suspense fallback={<PageLoader />}>

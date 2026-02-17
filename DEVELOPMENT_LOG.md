@@ -1,5 +1,47 @@
 
+## 2026-02-17 - Enhancement: Purchases - Add Edit Action and Page
+
+**User Request:**
+Add an Edit button in the purchases table and provide an edit purchase page.
+
+**Changes Implemented:**
+- Added edit action in purchases table to navigate to edit route
+- Reused New Purchase page to support edit mode with prefilled data and update API
+- Added edit route for purchases
+
+**Files Modified:**
+- [src/pages/purchases/PurchasesPage.tsx](src/pages/purchases/PurchasesPage.tsx)
+- [src/pages/purchases/NewPurchasePage.tsx](src/pages/purchases/NewPurchasePage.tsx)
+- [src/routes/index.tsx](src/routes/index.tsx)
+
+## 2026-02-17 - Enhancement: Purchases - Confirm Creation When Balance Due
+
+**User Request:**
+Show a confirmation prompt when creating a purchase with due balance or unpaid status.
+
+**Changes Implemented:**
+- Added a due-payment confirmation dialog before submitting new purchases when balance due is greater than zero
+- Shows due amount and status (Unpaid/Partially paid)
+
+**Files Modified:**
+- [src/pages/purchases/NewPurchasePage.tsx](src/pages/purchases/NewPurchasePage.tsx)
+
 ## 2026-02-17 - Fix: Dashboard - Total Sales Now Shows Gross Sales (Before Discounts)
+
+## 2026-02-17 - Enhancement: Purchases - Show Product Name and Code in Details Table
+
+**User Request:**
+Show product code under the product name in the Purchase Details table.
+
+**Changes Implemented:**
+- Updated purchase products tables to show product name with fallback to `product_name`
+- Display product code using `productCode` with fallback to `product_code`
+
+**Files Modified:**
+- [src/pages/purchases/components/PurchaseDetailsDialog.tsx](src/pages/purchases/components/PurchaseDetailsDialog.tsx)
+- [src/pages/purchases/components/PurchaseReturnDialog.tsx](src/pages/purchases/components/PurchaseReturnDialog.tsx)
+- [src/pages/purchases/components/PurchaseReturnDetailsDialog.tsx](src/pages/purchases/components/PurchaseReturnDetailsDialog.tsx)
+- [src/types/api.types.ts](src/types/api.types.ts)
 
 **Problem Description:**
 Dashboard was showing Total Sales = Net Total (both Rs 26,830), which didn't match the Sales Totals Report flow:

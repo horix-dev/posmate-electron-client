@@ -118,6 +118,14 @@ export function PurchasesPage() {
     setIsReturnDialogOpen(true)
   }, [])
 
+  // Navigate to edit purchase page
+  const handleEdit = useCallback(
+    (purchase: Purchase) => {
+      navigate(`/purchases/${purchase.id}/edit`)
+    },
+    [navigate]
+  )
+
   // Open delete confirmation dialog
   const handleDeleteClick = useCallback((purchase: Purchase) => {
     setDeletePurchaseState(purchase)
@@ -226,6 +234,7 @@ export function PurchasesPage() {
             isLoading={isLoading}
             onView={handleView}
             onReturn={handleReturn}
+            onEdit={handleEdit}
             onDelete={handleDeleteClick}
             onClearFilters={handleClearFilters}
             currentPage={currentPage}

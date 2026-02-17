@@ -60,13 +60,21 @@ interface ProductRowProps {
 const ProductRow = memo(function ProductRow({ detail, index }: ProductRowProps) {
   const { format: formatCurrency } = useCurrency()
   const subtotal = detail.quantities * detail.productPurchasePrice
+  const productName =
+    detail.product?.productName ||
+    detail.product?.product_name ||
+    `Product #${detail.product_id}`
+  const productCode = detail.product?.productCode || detail.product?.product_code
 
   return (
     <TableRow>
       <TableCell className="text-center text-muted-foreground">{index + 1}</TableCell>
       <TableCell>
         <div className="flex flex-col">
-          <span className="font-medium">Product #{detail.product_id}</span>
+          <span className="font-medium">{productName}</span>
+          {productCode && (
+            <span className="text-xs text-muted-foreground">{productCode}</span>
+          )}
           {detail.mfg_date && (
             <span className="text-xs text-muted-foreground">
               Mfg: {formatPurchaseDate(detail.mfg_date)}

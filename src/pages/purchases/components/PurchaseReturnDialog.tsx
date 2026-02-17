@@ -170,6 +170,13 @@ export function PurchaseReturnDialog({ purchase, open, onOpenChange, onSuccess }
                       const maxQty = detail.quantities
                       const qty = returnQuantities[detail.id] ?? 0
                       const returnAmount = qty * detail.productPurchasePrice
+                      const productName =
+                        detail.product?.productName ||
+                        detail.product?.product_name ||
+                        `Product #${detail.product_id}`
+                      const productCode =
+                        detail.product?.productCode || detail.product?.product_code
+
                       return (
                         <TableRow key={detail.id}>
                           <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
@@ -179,8 +186,8 @@ export function PurchaseReturnDialog({ purchase, open, onOpenChange, onSuccess }
                                 {getImageUrl(detail.product?.image) ? (
                                 <img
                                   src={getImageUrl(detail.product?.image)!}
-                                  alt={detail.product?.productName}
-                                    className="h-full w-full rounded object-cover"
+                                  alt={productName}
+                                  className="h-full w-full rounded object-cover"
                                 />
                                 ) : (
                                   <svg className="h-6 w-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -189,9 +196,9 @@ export function PurchaseReturnDialog({ purchase, open, onOpenChange, onSuccess }
                                 )}
                               </div>
                               <div className="flex flex-col">
-                                <span className="font-medium">{detail.product?.productName || `Product #${detail.product_id}`}</span>
-                                {detail.product?.productCode && (
-                                  <span className="text-xs text-muted-foreground">Code: {detail.product.productCode}</span>
+                                <span className="font-medium">{productName}</span>
+                                {productCode && (
+                                  <span className="text-xs text-muted-foreground">{productCode}</span>
                                 )}
                                 {detail.mfg_date && (
                                   <span className="text-xs text-muted-foreground">Mfg: {formatPurchaseDate(detail.mfg_date)}</span>

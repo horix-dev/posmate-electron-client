@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -13,11 +13,22 @@ import {
   ChevronsUpDown,
   ArrowLeft,
   Image as ImageIcon,
+  AlertTriangle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Table,
   TableBody,
@@ -115,7 +126,13 @@ type PurchaseFormValues = z.infer<typeof purchaseFormSchema>
 
 export function NewPurchasePage() {
   const navigate = useNavigate()
+  const { id } = useParams()
+  const purchaseId = id ? Number(id) : null
+  const isEditMode = Number.isFinite(purchaseId) && purchaseId !== null
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDueConfirmOpen, setIsDueConfirmOpen] = useState(false)
+  const [pendingPurchase, setPendingPurchase] = useState<PurchaseFormValues | null>(null)
+  const [isLoadingPurchase, setIsLoadingPurchase] = useState(false)
   const [suppliers, setSuppliers] = useState<Party[]>([])
   const [vats, setVats] = useState<Vat[]>([])
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([])
@@ -228,9 +245,11 @@ export function NewPurchasePage() {
         setPaymentTypes(types)
 
         // Set default payment type to Cash if available
-        const cashType = types.find((pt: PaymentType) => pt.name.toLowerCase() === 'cash')
-        if (cashType) {
-          form.setValue('payment_type_id', cashType.id)
+        if (!isEditMode) {
+          const cashType = types.find((pt: PaymentType) => pt.name.toLowerCase() === 'cash')
+          if (cashType) {
+            form.setValue('payment_type_id', cashType.id)
+          }
         }
 
         // Fetch products (for variant support)
@@ -251,19 +270,80 @@ export function NewPurchasePage() {
     fetchData()
 
     // Generate invoice number
-    const generateInvoice = async () => {
-      try {
-        const invoiceNumber = await purchasesService.getNextInvoiceNumber()
-        if (invoiceNumber) {
-          form.setValue('invoiceNumber', invoiceNumber)
+    if (!isEditMode) {
+      const generateInvoice = async () => {
+        try {
+          const invoiceNumber = await purchasesService.getNextInvoiceNumber()
+          if (invoiceNumber) {
+            form.setValue('invoiceNumber', invoiceNumber)
+          }
+        } catch {
+          // Use default format
+          form.setValue('invoiceNumber', `PUR-${Date.now()}`)
         }
-      } catch {
-        // Use default format
-        form.setValue('invoiceNumber', `PUR-${Date.now()}`)
+      }
+      generateInvoice()
+    }
+  }, [form, isEditMode])
+
+  useEffect(() => {
+    if (!isEditMode || !purchaseId) return
+
+    const loadPurchase = async () => {
+      setIsLoadingPurchase(true)
+      try {
+        const response = await purchasesService.getById(purchaseId)
+        const purchase = response.data
+        const products = (purchase.details ?? []).map((detail) => ({
+          product_id: detail.product_id,
+          product_name: detail.product?.productName || detail.product?.product_name,
+          variant_id: detail.variant_id ?? undefined,
+          batch_no: detail.stock?.batch_no || '',
+          quantities: detail.quantities,
+          productPurchasePrice: detail.productPurchasePrice,
+          productSalePrice: detail.productSalePrice,
+          productDealerPrice: detail.productDealerPrice,
+          productWholeSalePrice: detail.productWholeSalePrice,
+          profit_percent: detail.profit_percent,
+          mfg_date: detail.mfg_date || '',
+          expire_date: detail.expire_date || '',
+        }))
+
+        form.reset({
+          party_id: purchase.party?.id ?? 0,
+          invoiceNumber: purchase.invoiceNumber ?? '',
+          purchaseDate: purchase.purchaseDate ?? format(new Date(), 'yyyy-MM-dd'),
+          payment_type_id: purchase.payment_type?.id,
+          vat_id: purchase.vat?.id,
+          vat_amount: purchase.vat_amount ?? 0,
+          totalAmount: purchase.totalAmount ?? 0,
+          discountAmount: purchase.discountAmount ?? 0,
+          discount_percent: purchase.discount_percent ?? 0,
+          discount_type: (purchase.discount_type as 'fixed' | 'percentage') ?? 'fixed',
+          shipping_charge: purchase.shipping_charge ?? 0,
+          paidAmount: purchase.paidAmount ?? 0,
+          dueAmount: purchase.dueAmount ?? 0,
+          products,
+        })
+
+        if (!purchase.payment_type?.id) {
+          const cashType = paymentTypes.find(
+            (type: PaymentType) => type.name.toLowerCase() === 'cash'
+          )
+          if (cashType) {
+            form.setValue('payment_type_id', cashType.id)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load purchase:', error)
+        toast.error('Failed to load purchase details')
+      } finally {
+        setIsLoadingPurchase(false)
       }
     }
-    generateInvoice()
-  }, [form])
+
+    loadPurchase()
+  }, [form, isEditMode, paymentTypes, purchaseId])
 
   // Add product
   const handleAddProduct = useCallback(
@@ -360,11 +440,15 @@ export function NewPurchasePage() {
     }
   }
 
-  // Submit
-  const onSubmit = async (values: PurchaseFormValues) => {
+  const createPurchase = async (values: PurchaseFormValues) => {
     setIsSubmitting(true)
     try {
-      await purchasesService.create(buildCreatePurchaseRequest(values))
+      const payload = buildCreatePurchaseRequest(values)
+      if (isEditMode && purchaseId) {
+        await purchasesService.update(purchaseId, payload)
+      } else {
+        await purchasesService.create(payload)
+      }
 
       // Invalidate product cache since stock levels have changed
       try {
@@ -373,7 +457,7 @@ export function NewPurchasePage() {
         console.warn('Failed to clear product cache:', err)
       }
 
-      toast.success('Purchase created successfully')
+      toast.success(isEditMode ? 'Purchase updated successfully' : 'Purchase created successfully')
       navigate('/purchases')
     } catch (error) {
       console.error('Failed to create purchase:', error)
@@ -381,6 +465,34 @@ export function NewPurchasePage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Submit
+  const onSubmit = async (values: PurchaseFormValues) => {
+    const submitVatPercent = vats.find((vat) => vat.id === values.vat_id)?.rate || 0
+    const submitTotals = calculatePurchaseTotals(values.products, {
+      discountAmount: values.discountAmount ?? 0,
+      discountPercent: values.discount_percent ?? 0,
+      discountType: values.discount_type ?? 'fixed',
+      vatPercent: submitVatPercent,
+      shippingCharge: values.shipping_charge ?? 0,
+      paidAmount: values.paidAmount ?? 0,
+    })
+
+    if (submitTotals.dueAmount > 0) {
+      setPendingPurchase(values)
+      setIsDueConfirmOpen(true)
+      return
+    }
+
+    await createPurchase(values)
+  }
+
+  const handleDueConfirm = async () => {
+    if (!pendingPurchase) return
+    setIsDueConfirmOpen(false)
+    await createPurchase(pendingPurchase)
+    setPendingPurchase(null)
   }
 
   const selectedSupplier = suppliers.find((s) => s.id === form.watch('party_id'))
@@ -396,6 +508,16 @@ export function NewPurchasePage() {
       shippingCharge: watchShipping,
       paidAmount: watchPaid,
     })
+  const pendingTotals = pendingPurchase
+    ? calculatePurchaseTotals(pendingPurchase.products, {
+        discountAmount: pendingPurchase.discountAmount ?? 0,
+        discountPercent: pendingPurchase.discount_percent ?? 0,
+        discountType: pendingPurchase.discount_type ?? 'fixed',
+        vatPercent: vats.find((vat) => vat.id === pendingPurchase.vat_id)?.rate || 0,
+        shippingCharge: pendingPurchase.shipping_charge ?? 0,
+        paidAmount: pendingPurchase.paidAmount ?? 0,
+      })
+    : null
 
   return (
     <div className="space-y-6 pb-24">
@@ -413,9 +535,11 @@ export function NewPurchasePage() {
           <div>
             <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
               <Package className="h-7 w-7" />
-              New Purchase
+              {isEditMode ? 'Edit Purchase' : 'New Purchase'}
             </h1>
-            <p className="text-muted-foreground">Create a new purchase order</p>
+            <p className="text-muted-foreground">
+              {isEditMode ? 'Update the purchase details' : 'Create a new purchase order'}
+            </p>
           </div>
         </div>
       </header>
@@ -1210,18 +1334,18 @@ export function NewPurchasePage() {
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting || fields.length === 0}
+              disabled={isSubmitting || isLoadingPurchase || fields.length === 0}
               className="min-w-[150px]"
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  {isEditMode ? 'Updating...' : 'Creating...'}
                 </>
               ) : (
                 <>
                   <Plus className="mr-2 h-4 w-4" />
-                  Create Purchase
+                  {isEditMode ? 'Update Purchase' : 'Create Purchase'}
                 </>
               )}
             </Button>
@@ -1242,6 +1366,59 @@ export function NewPurchasePage() {
         product={selectedProductForBulk}
         onAdd={handleBulkAdd}
       />
+
+      <AlertDialog open={isDueConfirmOpen} onOpenChange={setIsDueConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              {isEditMode ? 'Confirm Due Update' : 'Confirm Due Purchase'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingTotals ? (
+                <span>
+                  This purchase will be created with a balance due of{' '}
+                  <span className="font-semibold">
+                    {formatCurrency(pendingTotals.dueAmount)}
+                  </span>
+                  .
+                  <br />
+                  <span className="mt-2 inline-block">
+                    Status:{' '}
+                    {pendingTotals.dueAmount >= pendingTotals.totalAmount
+                      ? 'Unpaid'
+                      : 'Partially paid'}
+                  </span>
+                </span>
+              ) : (
+                isEditMode
+                  ? 'This purchase will be updated with an outstanding balance.'
+                  : 'This purchase will be created with an outstanding balance.'
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault()
+                handleDueConfirm()
+              }}
+              disabled={isSubmitting}
+              className="bg-amber-600 text-white hover:bg-amber-700"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {isEditMode ? 'Updating...' : 'Creating...'}
+                </>
+              ) : (
+                isEditMode ? 'Update with Due' : 'Create with Due'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
