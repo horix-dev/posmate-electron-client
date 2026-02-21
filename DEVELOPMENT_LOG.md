@@ -1,3 +1,29 @@
+## 2026-02-22 - Enhancement: Purchase Batch Selection (Existing vs New)
+
+**Problem:**
+The purchase form only created new batches, even when the user wanted to add stock to an existing batch with the same pricing. This forced duplicate batch creation and allowed price edits for existing batches.
+
+**Solution:**
+1. **Batch Mode Selection:**
+   * Added a per-line batch mode selector (New batch vs Existing batch) in purchase forms.
+   * Existing batch selection locks batch number and pricing fields.
+
+2. **Batch Lookup Integration:**
+   * Added product/variant batch list API helpers and endpoints.
+   * Batch options are fetched on demand and can auto-select the suggested batch.
+
+3. **Payload Support:**
+   * Purchase request builder now supports `stock_id` when selecting an existing batch.
+   * Validation prevents submitting Existing batch lines without a batch selection.
+
+**Files Modified:**
+- src/api/endpoints.ts
+- src/api/services/products.service.ts
+- src/types/api.types.ts
+- src/pages/purchases/NewPurchasePage.tsx
+- src/pages/purchases/components/NewPurchaseDialog.tsx
+- src/pages/purchases/utils/purchaseCalculations.ts
+
 ## 2026-02-21 - Enhancement: Barcode Scanner Device Detection
 
 **User Request:**

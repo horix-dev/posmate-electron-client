@@ -33,6 +33,7 @@ export const API_ENDPOINTS = {
     CREATE: '/products',
     UPDATE: (id: number) => `/products/${id}`,
     DELETE: (id: number) => `/products/${id}`,
+    BATCHES: (id: number) => `/products/${id}/batches`,
     // Unified search (products, variants, batches)
     SEARCH: '/products/search',
     QUICK_BARCODE: (barcode: string) => `/products/quick-barcode/${barcode}`,
@@ -304,6 +305,7 @@ export const API_ENDPOINTS = {
     UPDATE: (id: number) => `/variants/${id}`,
     DELETE: (id: number) => `/variants/${id}`,
     UPDATE_STOCK: (id: number) => `/variants/${id}/stock`,
+    BATCHES: (id: number) => `/variants/${id}/batches`,
     // Bulk operations
     BULK_UPDATE: (productId: number) => `/products/${productId}/variants/bulk`,
     // Utility endpoints

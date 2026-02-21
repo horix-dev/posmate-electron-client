@@ -498,6 +498,27 @@ export interface Stock {
   variant_name?: string
 }
 
+export interface BatchListItem extends Stock {
+  available_quantity?: number
+  is_selected?: boolean
+  selection_reason?: string
+  is_expired?: boolean
+  days_until_expiry?: number
+  warehouse?: {
+    id: number
+    name: string
+  }
+}
+
+export interface BatchListResponse {
+  success?: boolean
+  message?: string
+  product_id?: number
+  variant_id?: number
+  batch_selection_strategy?: string
+  batches: BatchListItem[]
+}
+
 export interface CreateProductRequest {
   productName: string
   productCode?: string
@@ -1006,6 +1027,7 @@ export interface CreatePurchaseRequest {
 export interface PurchaseProductItem {
   product_id: number
   variant_id?: number // For variable products - identifies which variant is being purchased
+  stock_id?: number
   batch_no?: string
   quantities: number
   productPurchasePrice: number

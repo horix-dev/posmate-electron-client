@@ -72,6 +72,7 @@ export interface PurchaseFormLikeValues {
   products: Array<{
     product_id: number
     variant_id?: number
+    stock_id?: number
     batch_no?: string
     quantities: number
     productPurchasePrice: number
@@ -111,6 +112,7 @@ export function buildCreatePurchaseRequest(values: PurchaseFormLikeValues): Crea
     products: values.products.map((p) => ({
       product_id: p.product_id,
       variant_id: p.variant_id,
+      stock_id: p.stock_id,
       batch_no: p.batch_no?.trim() ? p.batch_no : undefined,
       quantities: p.quantities,
       productPurchasePrice: p.productPurchasePrice,

@@ -79,7 +79,7 @@ import { VariantBulkEntryDialog, type VariantEntry } from './components/VariantB
 import { ProductLookup } from '@/components/shared/ProductLookup'
 import { useCurrency } from '@/hooks'
 import { calculatePurchaseTotals, buildCreatePurchaseRequest } from './utils/purchaseCalculations'
-import type { Product, Party, PaymentType, Vat } from '@/types/api.types'
+import type { Product, Party, PaymentType, Vat, BatchListItem } from '@/types/api.types'
 import type { ProductVariant } from '@/types/variant.types'
 
 // ============================================
@@ -90,6 +90,8 @@ const purchaseProductSchema = z.object({
   product_id: z.number().min(1, 'Product is required'),
   product_name: z.string().optional(), // For display
   variant_id: z.number().optional(),
+  stock_id: z.number().optional(),
+  batch_mode: z.enum(['new', 'existing']).optional(),
   batch_no: z.string().optional(),
   quantities: z.number().min(1, 'Quantity must be at least 1'),
   productPurchasePrice: z.number().min(0, 'Cost price must be positive'),
@@ -139,6 +141,8 @@ export function NewPurchasePage() {
   const [isLoadingData, setIsLoadingData] = useState(false)
   const [supplierOpen, setSupplierOpen] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
+  const [batchOptions, setBatchOptions] = useState<Record<string, BatchListItem[]>>({})
+  const [batchLoading, setBatchLoading] = useState<Record<string, boolean>>({})
 
   // Bulk Variant Entry State
   const [isBulkOpen, setIsBulkOpen] = useState(false)
@@ -175,6 +179,146 @@ export function NewPurchasePage() {
     control: form.control,
     name: 'products',
   })
+
+  const generateBatchNumber = useCallback(() => {
+    const now = new Date()
+    const datePart = `${now.getFullYear().toString().slice(-2)}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+    const randomSegment = Math.random().toString(36).slice(2, 8).toUpperCase()
+    return `LOT-${datePart}-${randomSegment}`
+  }, [])
+
+  const isBatchProduct = useCallback((product?: Product) => {
+    return Boolean(product?.is_batch_tracked || product?.product_type === 'variant')
+  }, [])
+
+  const normalizeBatchList = useCallback(
+    (response: BatchListItem[] | { batches?: BatchListItem[] } | null) => {
+      if (!response) return []
+      if (Array.isArray(response)) return response
+      if (Array.isArray(response.batches)) return response.batches
+      return []
+    },
+    []
+  )
+
+  const loadBatchesForLine = useCallback(
+    async (lineKey: string, productId: number, variantId?: number) => {
+      setBatchLoading((prev) => ({ ...prev, [lineKey]: true }))
+      try {
+        const response = variantId
+          ? await productsService.getVariantBatches(variantId)
+          : await productsService.getBatches(productId)
+        const batches = normalizeBatchList(response)
+        setBatchOptions((prev) => ({ ...prev, [lineKey]: batches }))
+        return batches
+      } catch (error) {
+        console.error('Failed to load batches:', error)
+        toast.error('Failed to load batches for this product')
+        setBatchOptions((prev) => ({ ...prev, [lineKey]: [] }))
+        return []
+      } finally {
+        setBatchLoading((prev) => ({ ...prev, [lineKey]: false }))
+      }
+    },
+    [normalizeBatchList]
+  )
+
+  const applyBatchSelection = useCallback(
+    (index: number, batch: BatchListItem) => {
+      form.setValue(`products.${index}.stock_id`, batch.id, {
+        shouldValidate: true,
+        shouldDirty: true,
+      })
+      form.setValue(`products.${index}.batch_no`, batch.batch_no || '', {
+        shouldValidate: false,
+        shouldDirty: true,
+      })
+      form.setValue(`products.${index}.productPurchasePrice`, batch.productPurchasePrice ?? 0, {
+        shouldValidate: false,
+        shouldDirty: true,
+      })
+      form.setValue(`products.${index}.productSalePrice`, batch.productSalePrice ?? 0, {
+        shouldValidate: false,
+        shouldDirty: true,
+      })
+      form.setValue(`products.${index}.productDealerPrice`, batch.productDealerPrice, {
+        shouldValidate: false,
+        shouldDirty: true,
+      })
+      form.setValue(`products.${index}.productWholeSalePrice`, batch.productWholeSalePrice, {
+        shouldValidate: false,
+        shouldDirty: true,
+      })
+      form.setValue(`products.${index}.profit_percent`, batch.profit_percent, {
+        shouldValidate: false,
+        shouldDirty: true,
+      })
+      form.setValue(`products.${index}.mfg_date`, batch.mfg_date || '', {
+        shouldValidate: false,
+        shouldDirty: true,
+      })
+      form.setValue(`products.${index}.expire_date`, batch.expire_date || '', {
+        shouldValidate: false,
+        shouldDirty: true,
+      })
+    },
+    [form]
+  )
+
+  const handleBatchModeChange = useCallback(
+    async (
+      index: number,
+      lineKey: string,
+      mode: 'new' | 'existing',
+      product: Product | undefined,
+      variant: ProductVariant | undefined
+    ) => {
+      form.setValue(`products.${index}.batch_mode`, mode, {
+        shouldValidate: true,
+        shouldDirty: true,
+      })
+      form.setValue(`products.${index}.stock_id`, undefined, {
+        shouldValidate: false,
+        shouldDirty: true,
+      })
+
+      if (mode === 'new') {
+        if (isBatchProduct(product)) {
+          const currentBatch = form.getValues(`products.${index}.batch_no`)
+          if (!currentBatch) {
+            form.setValue(`products.${index}.batch_no`, generateBatchNumber(), {
+              shouldValidate: false,
+              shouldDirty: true,
+            })
+          }
+        }
+        return
+      }
+
+      if (!product) return
+
+      const batches = await loadBatchesForLine(
+        lineKey,
+        product.id,
+        variant?.id ?? form.getValues(`products.${index}.variant_id`)
+      )
+
+      if (batches.length === 0) {
+        toast.warning('No existing batches found. Create a new batch instead.')
+        return
+      }
+
+      const preferredBatch =
+        batches.find((batch) => batch.is_selected) ??
+        batches.find((batch) => batch.is_expired === false) ??
+        batches[0]
+
+      if (preferredBatch) {
+        applyBatchSelection(index, preferredBatch)
+      }
+    },
+    [applyBatchSelection, form, generateBatchNumber, isBatchProduct, loadBatchesForLine]
+  )
 
   // Watch for calculations
   const watchProducts = form.watch('products')
@@ -298,6 +442,8 @@ export function NewPurchasePage() {
           product_id: detail.product_id,
           product_name: detail.product?.productName || detail.product?.product_name,
           variant_id: detail.variant_id ?? undefined,
+          stock_id: detail.stock_id ?? detail.stock?.id,
+          batch_mode: (detail.stock_id ? 'existing' : 'new') as 'existing' | 'new',
           batch_no: detail.stock?.batch_no || '',
           quantities: detail.quantities,
           productPurchasePrice: detail.productPurchasePrice,
@@ -358,12 +504,16 @@ export function NewPurchasePage() {
       // If specific variant selected (from search)
       if (variant) {
         const variantStock = variant.stocks?.[0]
+        const batchTracked = isBatchProduct(product)
+        const nextBatchNo = batchTracked ? generateBatchNumber() : ''
 
         append({
           product_id: product.id,
           product_name: product.productName,
           variant_id: variant.id,
-          batch_no: variantStock?.batch_no || '',
+          stock_id: undefined,
+          batch_mode: batchTracked ? 'new' : undefined,
+          batch_no: variantStock?.batch_no || nextBatchNo,
           quantities: 1,
           productPurchasePrice:
             variantStock?.productPurchasePrice ?? product.productPurchasePrice ?? 0,
@@ -379,12 +529,16 @@ export function NewPurchasePage() {
 
       // Get default pricing from first stock if available
       const firstStock = product.stocks?.[0]
+      const batchTracked = isBatchProduct(product)
+      const nextBatchNo = batchTracked ? generateBatchNumber() : ''
 
       append({
         product_id: product.id,
         product_name: product.productName,
         variant_id: undefined,
-        batch_no: '',
+        stock_id: undefined,
+        batch_mode: batchTracked ? 'new' : undefined,
+        batch_no: nextBatchNo,
         quantities: 1,
         productPurchasePrice: firstStock?.productPurchasePrice ?? 0,
         productSalePrice: firstStock?.productSalePrice ?? 0,
@@ -395,7 +549,7 @@ export function NewPurchasePage() {
         expire_date: '',
       })
     },
-    [append]
+    [append, generateBatchNumber, isBatchProduct]
   )
 
   const handleBulkAdd = (entries: VariantEntry[]) => {
@@ -406,6 +560,8 @@ export function NewPurchasePage() {
         product_id: selectedProductForBulk.id,
         product_name: selectedProductForBulk.productName,
         variant_id: entry.variant_id,
+        stock_id: undefined,
+        batch_mode: 'new',
         batch_no: entry.batch_no,
         quantities: entry.quantity,
         productPurchasePrice: entry.purchase_price,
@@ -443,6 +599,14 @@ export function NewPurchasePage() {
   const createPurchase = async (values: PurchaseFormValues) => {
     setIsSubmitting(true)
     try {
+      const missingExistingBatch = values.products.find(
+        (product) => product.batch_mode === 'existing' && !product.stock_id
+      )
+      if (missingExistingBatch) {
+        toast.error('Select a batch for items marked as Existing batch.')
+        return
+      }
+
       const payload = buildCreatePurchaseRequest(values)
       if (isEditMode && purchaseId) {
         await purchasesService.update(purchaseId, payload)
@@ -723,6 +887,16 @@ export function NewPurchasePage() {
                         const product = products.find((p) => p.id === field.product_id)
                         const variant = product?.variants?.find((v) => v.id === field.variant_id)
                         const imageSrc = variant?.image || product?.productPicture
+                        const batchTracked = isBatchProduct(product)
+                        const batchMode =
+                          (form.watch(`products.${index}.batch_mode`) as
+                            | 'new'
+                            | 'existing'
+                            | undefined) ?? (batchTracked ? 'new' : undefined)
+                        const isExistingBatch = batchTracked && batchMode === 'existing'
+                        const lineKey = field.id
+                        const lineBatches = batchOptions[lineKey] ?? []
+                        const isLineLoading = batchLoading[lineKey] ?? false
 
                         return (
                           <TableRow key={field.id} className="border-b align-middle">
@@ -827,22 +1001,121 @@ export function NewPurchasePage() {
 
                             {/* Batch No */}
                             <TableCell className="align-middle">
-                              {!product?.is_batch_tracked ? (
+                              {!batchTracked ? (
                                 <span className="text-xs text-muted-foreground">N/A</span>
                               ) : (
-                                <FormField
-                                  control={form.control}
-                                  name={`products.${index}.batch_no`}
-                                  render={({ field }) => (
-                                    <Input {...field} placeholder="Batch" className="h-7 text-xs" />
+                                <div className="space-y-1">
+                                  <FormField
+                                    control={form.control}
+                                    name={`products.${index}.batch_mode`}
+                                    render={({ field: modeField }) => (
+                                      <Select
+                                        value={modeField.value ?? batchMode}
+                                        onValueChange={(value: 'new' | 'existing') =>
+                                          handleBatchModeChange(
+                                            index,
+                                            lineKey,
+                                            value,
+                                            product,
+                                            variant
+                                          )
+                                        }
+                                      >
+                                        <SelectTrigger className="h-7 text-xs">
+                                          <SelectValue placeholder="Batch mode" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="new">New batch</SelectItem>
+                                          <SelectItem value="existing">Existing batch</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    )}
+                                  />
+
+                                  {batchMode === 'existing' ? (
+                                    <FormField
+                                      control={form.control}
+                                      name={`products.${index}.stock_id`}
+                                      render={({ field: stockField }) => (
+                                        <Select
+                                          value={stockField.value?.toString()}
+                                          onValueChange={(value) => {
+                                            const selected = lineBatches.find(
+                                              (batch) => batch.id === Number(value)
+                                            )
+                                            if (selected) {
+                                              applyBatchSelection(index, selected)
+                                            }
+                                            stockField.onChange(Number(value))
+                                          }}
+                                          disabled={isLineLoading}
+                                        >
+                                          <SelectTrigger className="h-7 text-xs">
+                                            <SelectValue
+                                              placeholder={
+                                                isLineLoading
+                                                  ? 'Loading batches...'
+                                                  : 'Select batch'
+                                              }
+                                            />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {lineBatches.map((batch) => {
+                                              const qty =
+                                                batch.available_quantity ?? batch.productStock ?? 0
+                                              const label = batch.batch_no
+                                                ? `${batch.batch_no} • Qty ${qty}`
+                                                : `Batch #${batch.id} • Qty ${qty}`
+                                              return (
+                                                <SelectItem
+                                                  key={batch.id}
+                                                  value={batch.id.toString()}
+                                                >
+                                                  {label}
+                                                </SelectItem>
+                                              )
+                                            })}
+                                          </SelectContent>
+                                        </Select>
+                                      )}
+                                    />
+                                  ) : (
+                                    <div className="flex items-center gap-2">
+                                      <FormField
+                                        control={form.control}
+                                        name={`products.${index}.batch_no`}
+                                        render={({ field }) => (
+                                          <Input
+                                            {...field}
+                                            placeholder="Batch"
+                                            className="h-7 text-xs"
+                                          />
+                                        )}
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 px-2 text-[10px]"
+                                        onClick={() =>
+                                          form.setValue(
+                                            `products.${index}.batch_no`,
+                                            generateBatchNumber(),
+                                            { shouldDirty: true }
+                                          )
+                                        }
+                                      >
+                                        Generate
+                                      </Button>
+                                    </div>
                                   )}
-                                />
+                                </div>
                               )}
                             </TableCell>
 
                             {/* Dates */}
                             <TableCell className="align-middle">
-                              {!product?.is_batch_tracked ? (
+                              {!batchTracked ? (
                                 <div className="space-y-1 text-[10px] text-muted-foreground">
                                   <div>
                                     <span className="mr-1 text-[9px]">Exp:</span>
@@ -855,80 +1128,113 @@ export function NewPurchasePage() {
                                 </div>
                               ) : (
                                 <div className="space-y-1">
-                                  <FormField
-                                    control={form.control}
-                                    name={`products.${index}.expire_date`}
-                                    render={({ field }) => (
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <Button
-                                            variant="outline"
-                                            className={cn(
-                                              'h-7 w-full justify-start pl-2 pr-1 text-left text-[10px] font-normal',
-                                              !field.value && 'text-muted-foreground'
-                                            )}
-                                          >
-                                            <span className="mr-1 text-[9px]">Exp:</span>
-                                            {field.value
-                                              ? format(new Date(field.value), 'dd/MM')
-                                              : ''}
-                                            <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                          <Calendar
-                                            mode="single"
-                                            selected={
-                                              field.value ? new Date(field.value) : undefined
-                                            }
-                                            onSelect={(date: Date | undefined) =>
-                                              field.onChange(date ? format(date, 'yyyy-MM-dd') : '')
-                                            }
-                                            disabled={(date) => date < new Date('1900-01-01')}
-                                            initialFocus
-                                          />
-                                        </PopoverContent>
-                                      </Popover>
-                                    )}
-                                  />
-                                  <FormField
-                                    control={form.control}
-                                    name={`products.${index}.mfg_date`}
-                                    render={({ field }) => (
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <Button
-                                            variant="outline"
-                                            className={cn(
-                                              'h-7 w-full justify-start pl-2 pr-1 text-left text-[10px] font-normal',
-                                              !field.value && 'text-muted-foreground'
-                                            )}
-                                          >
-                                            <span className="mr-1 text-[9px]">Mfg:</span>
-                                            {field.value
-                                              ? format(new Date(field.value), 'dd/MM')
-                                              : ''}
-                                            <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                          <Calendar
-                                            mode="single"
-                                            selected={
-                                              field.value ? new Date(field.value) : undefined
-                                            }
-                                            onSelect={(date: Date | undefined) =>
-                                              field.onChange(date ? format(date, 'yyyy-MM-dd') : '')
-                                            }
-                                            disabled={(date) =>
-                                              date > new Date() || date < new Date('1900-01-01')
-                                            }
-                                            initialFocus
-                                          />
-                                        </PopoverContent>
-                                      </Popover>
-                                    )}
-                                  />
+                                  {isExistingBatch ? (
+                                    <div className="space-y-1 text-[10px] text-muted-foreground">
+                                      <div>
+                                        <span className="mr-1 text-[9px]">Exp:</span>
+                                        {form.watch(`products.${index}.expire_date`)
+                                          ? format(
+                                              new Date(
+                                                form.watch(`products.${index}.expire_date`) || ''
+                                              ),
+                                              'dd/MM'
+                                            )
+                                          : 'N/A'}
+                                      </div>
+                                      <div>
+                                        <span className="mr-1 text-[9px]">Mfg:</span>
+                                        {form.watch(`products.${index}.mfg_date`)
+                                          ? format(
+                                              new Date(
+                                                form.watch(`products.${index}.mfg_date`) || ''
+                                              ),
+                                              'dd/MM'
+                                            )
+                                          : 'N/A'}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <FormField
+                                        control={form.control}
+                                        name={`products.${index}.expire_date`}
+                                        render={({ field }) => (
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <Button
+                                                variant="outline"
+                                                className={cn(
+                                                  'h-7 w-full justify-start pl-2 pr-1 text-left text-[10px] font-normal',
+                                                  !field.value && 'text-muted-foreground'
+                                                )}
+                                              >
+                                                <span className="mr-1 text-[9px]">Exp:</span>
+                                                {field.value
+                                                  ? format(new Date(field.value), 'dd/MM')
+                                                  : ''}
+                                                <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
+                                              </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                              <Calendar
+                                                mode="single"
+                                                selected={
+                                                  field.value ? new Date(field.value) : undefined
+                                                }
+                                                onSelect={(date: Date | undefined) =>
+                                                  field.onChange(
+                                                    date ? format(date, 'yyyy-MM-dd') : ''
+                                                  )
+                                                }
+                                                disabled={(date) => date < new Date('1900-01-01')}
+                                                initialFocus
+                                              />
+                                            </PopoverContent>
+                                          </Popover>
+                                        )}
+                                      />
+                                      <FormField
+                                        control={form.control}
+                                        name={`products.${index}.mfg_date`}
+                                        render={({ field }) => (
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <Button
+                                                variant="outline"
+                                                className={cn(
+                                                  'h-7 w-full justify-start pl-2 pr-1 text-left text-[10px] font-normal',
+                                                  !field.value && 'text-muted-foreground'
+                                                )}
+                                              >
+                                                <span className="mr-1 text-[9px]">Mfg:</span>
+                                                {field.value
+                                                  ? format(new Date(field.value), 'dd/MM')
+                                                  : ''}
+                                                <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
+                                              </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                              <Calendar
+                                                mode="single"
+                                                selected={
+                                                  field.value ? new Date(field.value) : undefined
+                                                }
+                                                onSelect={(date: Date | undefined) =>
+                                                  field.onChange(
+                                                    date ? format(date, 'yyyy-MM-dd') : ''
+                                                  )
+                                                }
+                                                disabled={(date) =>
+                                                  date > new Date() || date < new Date('1900-01-01')
+                                                }
+                                                initialFocus
+                                              />
+                                            </PopoverContent>
+                                          </Popover>
+                                        )}
+                                      />
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </TableCell>
@@ -972,9 +1278,13 @@ export function NewPurchasePage() {
                                           type="number"
                                           min={0}
                                           step="0.01"
-                                          className="h-7 pl-8 text-right"
+                                          className={cn(
+                                            'h-7 pl-8 text-right',
+                                            isExistingBatch && 'bg-muted/50'
+                                          )}
                                           {...field}
                                           onChange={(e) => field.onChange(Number(e.target.value))}
+                                          readOnly={isExistingBatch}
                                         />
                                       </div>
                                     </FormControl>
@@ -1000,9 +1310,13 @@ export function NewPurchasePage() {
                                             type="number"
                                             min={0}
                                             step="0.01"
-                                            className="h-8 pl-8 text-right"
+                                            className={cn(
+                                              'h-8 pl-8 text-right',
+                                              isExistingBatch && 'bg-muted/50'
+                                            )}
                                             {...field}
                                             onChange={(e) => field.onChange(Number(e.target.value))}
+                                            readOnly={isExistingBatch}
                                           />
                                         </div>
                                       </FormControl>
@@ -1378,9 +1692,7 @@ export function NewPurchasePage() {
               {pendingTotals ? (
                 <span>
                   This purchase will be created with a balance due of{' '}
-                  <span className="font-semibold">
-                    {formatCurrency(pendingTotals.dueAmount)}
-                  </span>
+                  <span className="font-semibold">{formatCurrency(pendingTotals.dueAmount)}</span>
                   .
                   <br />
                   <span className="mt-2 inline-block">
@@ -1390,10 +1702,10 @@ export function NewPurchasePage() {
                       : 'Partially paid'}
                   </span>
                 </span>
+              ) : isEditMode ? (
+                'This purchase will be updated with an outstanding balance.'
               ) : (
-                isEditMode
-                  ? 'This purchase will be updated with an outstanding balance.'
-                  : 'This purchase will be created with an outstanding balance.'
+                'This purchase will be created with an outstanding balance.'
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1412,8 +1724,10 @@ export function NewPurchasePage() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {isEditMode ? 'Updating...' : 'Creating...'}
                 </>
+              ) : isEditMode ? (
+                'Update with Due'
               ) : (
-                isEditMode ? 'Update with Due' : 'Create with Due'
+                'Create with Due'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

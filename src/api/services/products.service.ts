@@ -1,6 +1,6 @@
 import api, { ApiResponse } from '../axios'
 import { API_ENDPOINTS } from '../endpoints'
-import type { Product, CreateProductRequest } from '@/types/api.types'
+import type { Product, CreateProductRequest, BatchListResponse } from '@/types/api.types'
 import type { VariableProductPayload } from '@/pages/products/schemas/product.schema'
 import type { BarcodeLookupResponse } from '@/types/variant.types'
 import { variantsService } from './variants.service'
@@ -51,6 +51,22 @@ export const productsService = {
    */
   getById: async (id: number): Promise<ApiResponse<Product>> => {
     const { data } = await api.get<ApiResponse<Product>>(API_ENDPOINTS.PRODUCTS.GET(id))
+    return data
+  },
+
+  /**
+   * Get batches for a simple/batch-tracked product
+   */
+  getBatches: async (productId: number): Promise<BatchListResponse> => {
+    const { data } = await api.get<BatchListResponse>(API_ENDPOINTS.PRODUCTS.BATCHES(productId))
+    return data
+  },
+
+  /**
+   * Get batches for a variant (variable products)
+   */
+  getVariantBatches: async (variantId: number): Promise<BatchListResponse> => {
+    const { data } = await api.get<BatchListResponse>(API_ENDPOINTS.VARIANTS.BATCHES(variantId))
     return data
   },
 
