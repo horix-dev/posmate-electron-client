@@ -10,6 +10,7 @@ export { ShortcutsHelpDialog } from './ShortcutsHelpDialog'
 export { VariantSelectionDialog } from './VariantSelectionDialog'
 export { SmartTender } from './SmartTender'
 export { BatchSelectionDialog } from '@/components/shared'
+export { DeviceDetectionDebug } from './DeviceDetectionDebug'
 
 // Types
 export type { ProductCardProps } from './ProductCard'
@@ -22,3 +23,4 @@ export type { CustomerSelectDialogProps } from './CustomerSelectDialog'
 export type { ShortcutsHelpDialogProps } from './ShortcutsHelpDialog'
 export type { VariantSelectionDialogProps } from './VariantSelectionDialog'
 export type { SmartTenderProps } from './SmartTender'
+export type { DeviceDetectionDebugProps } from './DeviceDetectionDebug'

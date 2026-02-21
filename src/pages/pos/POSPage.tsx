@@ -201,10 +201,19 @@ export function POSPage() {
     fetchInvoiceNumber()
   }, [invoiceNumber, setInvoiceNumber])
 
+  // Load held carts on mount
+  useEffect(() => {
+    setHeldCarts(getHeldCarts())
+  }, [])
+
   // ----------------------------------------
   // Dialog Handlers
   // ----------------------------------------
   const openDialog = useCallback((dialog: keyof DialogState) => {
+    // Refresh held carts when opening the dialog to show latest data
+    if (dialog === 'heldCarts') {
+      setHeldCarts(getHeldCarts())
+    }
     setDialogs((prev) => ({ ...prev, [dialog]: true }))
   }, [])
 
