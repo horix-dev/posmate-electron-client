@@ -17,7 +17,8 @@ import { useCurrency } from '@/hooks'
 import { isCreditPaymentType } from '@/constants/payment-types'
 import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
-import type { PaymentType, Party } from '@/types/api.types'
+import { loyaltyService } from '@/api/services/loyalty.service'
+import type { PaymentType, Party, LoyaltySettings } from '@/types/api.types'
 
 // ============================================
 // Types
@@ -36,12 +37,20 @@ export interface PaymentDialogProps {
   selectedPaymentType: PaymentType | null
   /** Selected customer (null for walk-in) */
   customer: Party | null
+  /** Customer loyalty points */
+  loyaltyPoints?: number
+  /** Customer loyalty card code */
+  loyaltyCardCode?: string | null
+  /** Redeem points to apply on sale */
+  loyaltyRedeemPoints: number
   /** Loading state */
   isProcessing: boolean
   /** Print receipt toggle */
   autoPrintReceipt: boolean
   /** Payment type change callback */
   onPaymentTypeChange: (paymentType: PaymentType) => void
+  /** Loyalty redeem points change callback */
+  onLoyaltyRedeemPointsChange: (points: number) => void
   /** Process payment callback */
   onProcessPayment: (amountPaid: number, printReceipt: boolean) => void
 }
@@ -133,15 +142,20 @@ function PaymentDialogComponent({
   paymentTypes,
   selectedPaymentType,
   customer,
+  loyaltyPoints = 0,
+  loyaltyCardCode = null,
+  loyaltyRedeemPoints,
   isProcessing,
   autoPrintReceipt,
   onPaymentTypeChange,
+  onLoyaltyRedeemPointsChange,
   onProcessPayment,
 }: PaymentDialogProps) {
   const { format: formatCurrency, symbol: currencySymbol } = useCurrency()
   const [amountPaid, setAmountPaid] = useState<string>(String(totalAmount))
   const amountInputRef = useRef<HTMLInputElement>(null)
   const [printEnabled, setPrintEnabled] = useState<boolean>(autoPrintReceipt)
+  const [loyaltySettings, setLoyaltySettings] = useState<LoyaltySettings | null>(null)
 
   // Check if selected payment is credit/due
   const isCreditPayment = selectedPaymentType ? isCreditPaymentType(selectedPaymentType) : false
@@ -149,10 +163,40 @@ function PaymentDialogComponent({
   // Check if customer is walk-in (null customer)
   const isWalkInCustomer = customer === null
 
-  // Reset amount and set default payment type when dialog opens
+  // Calculate estimated redeem amount based on points and settings
+  const estimatedRedeemAmount = useMemo(() => {
+    if (!loyaltyRedeemPoints || loyaltyRedeemPoints <= 0 || !loyaltySettings?.redeem_enabled) {
+      return 0
+    }
+
+    // Basic conversion: points * point_value
+    const baseRedeemAmount = loyaltyRedeemPoints * (loyaltySettings.point_value || 1)
+
+    // Apply max_redeem_percent_of_bill constraint
+    const maxAllowedByPercent = (totalAmount * (loyaltySettings.max_redeem_percent_of_bill || 100)) / 100
+
+    // Return the minimum of calculated amount and max allowed
+    return Math.min(baseRedeemAmount, maxAllowedByPercent, totalAmount)
+  }, [loyaltyRedeemPoints, loyaltySettings, totalAmount])
+
+  // Effective total after loyalty redemption
+  const effectiveTotalAmount = useMemo(() => {
+    return Math.max(0, totalAmount - estimatedRedeemAmount)
+  }, [totalAmount, estimatedRedeemAmount])
+
+  // Load loyalty settings when dialog opens
   useEffect(() => {
     if (open) {
-      setAmountPaid(String(totalAmount))
+      loyaltyService.getSettings()
+        .then((response) => setLoyaltySettings(response.data))
+        .catch(() => setLoyaltySettings(null))
+    }
+  }, [open])
+
+  // Reset amount and set default payment type when dialog opens or effective total changes
+  useEffect(() => {
+    if (open) {
+      setAmountPaid(String(effectiveTotalAmount))
 
       // Set default payment type to Cash if none selected
       if (!selectedPaymentType && paymentTypes.length > 0) {
@@ -168,7 +212,7 @@ function PaymentDialogComponent({
         amountInputRef.current?.select()
       }, 100)
     }
-  }, [open, totalAmount, selectedPaymentType, paymentTypes, onPaymentTypeChange])
+  }, [open, effectiveTotalAmount, selectedPaymentType, paymentTypes, onPaymentTypeChange])
 
   // Reset amount to 0 when credit/due payment type is selected
   useEffect(() => {
@@ -180,13 +224,13 @@ function PaymentDialogComponent({
   const numericAmount = useMemo(() => parseFloat(amountPaid) || 0, [amountPaid])
 
   const changeAmount = useMemo(
-    () => Math.max(0, numericAmount - totalAmount),
-    [numericAmount, totalAmount]
+    () => Math.max(0, numericAmount - effectiveTotalAmount),
+    [numericAmount, effectiveTotalAmount]
   )
 
   const dueAmount = useMemo(
-    () => Math.max(0, totalAmount - numericAmount),
-    [totalAmount, numericAmount]
+    () => Math.max(0, effectiveTotalAmount - numericAmount),
+    [effectiveTotalAmount, numericAmount]
   )
 
   const newCustomerDue = useMemo(
@@ -202,22 +246,22 @@ function PaymentDialogComponent({
   const isValidPayment = useMemo(() => {
     if (!selectedPaymentType) return false
 
-    // For credit/due payment, allow 0 to totalAmount
+    // For credit/due payment, allow 0 to effectiveTotalAmount
     if (isCreditPayment) {
       // Must have a customer for credit payment
       if (!customer) return false
-      // Amount must be between 0 and total
-      if (numericAmount < 0 || numericAmount > totalAmount) return false
+      // Amount must be between 0 and effective total
+      if (numericAmount < 0 || numericAmount > effectiveTotalAmount) return false
       // Cannot exceed credit limit
       if (exceedsCreditLimit) return false
       return true
     }
 
-    // For actual payments, must pay at least the total amount
-    return numericAmount >= totalAmount
+    // For actual payments, must pay at least the effective total amount
+    return numericAmount >= effectiveTotalAmount
   }, [
     numericAmount,
-    totalAmount,
+    effectiveTotalAmount,
     selectedPaymentType,
     isCreditPayment,
     customer,
@@ -237,8 +281,8 @@ function PaymentDialogComponent({
   }, [])
 
   const handleExactAmount = useCallback(() => {
-    setAmountPaid(String(totalAmount))
-  }, [totalAmount])
+    setAmountPaid(String(effectiveTotalAmount))
+  }, [effectiveTotalAmount])
 
   const handleProcessPayment = useCallback(() => {
     if (isValidPayment) {
@@ -246,6 +290,21 @@ function PaymentDialogComponent({
       onProcessPayment(numericAmount, printEnabled)
     }
   }, [isValidPayment, numericAmount, onProcessPayment, printEnabled])
+
+  const handleLoyaltyRedeemChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = Number(e.target.value || 0)
+      if (!Number.isFinite(value)) {
+        onLoyaltyRedeemPointsChange(0)
+        return
+      }
+
+      const normalized = Math.max(0, Math.floor(value))
+      const maxPoints = Math.max(0, Math.floor(loyaltyPoints || 0))
+      onLoyaltyRedeemPointsChange(Math.min(normalized, maxPoints))
+    },
+    [loyaltyPoints, onLoyaltyRedeemPointsChange]
+  )
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -278,9 +337,32 @@ function PaymentDialogComponent({
           {/* Left Column */}
           <div className="space-y-6">
             {/* Amount Summary */}
-            <div className="rounded-lg bg-muted p-4 text-center">
-              <p className="text-sm text-muted-foreground">Amount Due</p>
-              <p className="text-3xl font-bold text-primary">{formatCurrency(totalAmount)}</p>
+            <div className="rounded-lg bg-muted p-4">
+              {estimatedRedeemAmount > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Original Total</span>
+                    <span className="font-medium">{formatCurrency(totalAmount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-purple-600 dark:text-purple-400">Loyalty Discount</span>
+                    <span className="font-medium text-purple-600 dark:text-purple-400">
+                      -{formatCurrency(estimatedRedeemAmount)}
+                    </span>
+                  </div>
+                  <div className="border-t pt-2">
+                    <p className="text-center text-sm text-muted-foreground">Amount to Pay</p>
+                    <p className="text-center text-3xl font-bold text-primary">
+                      {formatCurrency(effectiveTotalAmount)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">Amount Due</p>
+                  <p className="text-3xl font-bold text-primary">{formatCurrency(totalAmount)}</p>
+                </div>
+              )}
             </div>
 
             {/* Payment Types */}
@@ -336,6 +418,53 @@ function PaymentDialogComponent({
                       </div>
                     </>
                   ) : null}
+                </div>
+              </div>
+            )}
+
+            {customer && (
+              <div className="space-y-3 rounded-lg border border-purple-200 bg-purple-50 p-3 dark:border-purple-800 dark:bg-purple-950">
+                <div>
+                  <p className="text-xs font-medium text-purple-900 dark:text-purple-100">
+                    Loyalty
+                  </p>
+                  <div className="mt-1 space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-purple-700 dark:text-purple-300">Card:</span>
+                      <span className="font-medium text-purple-900 dark:text-purple-100">
+                        {loyaltyCardCode || 'Not assigned'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-700 dark:text-purple-300">Available Points:</span>
+                      <span className="font-semibold text-purple-900 dark:text-purple-100">
+                        {Math.max(0, Math.floor(loyaltyPoints || 0))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="loyalty-redeem-points">Redeem Points</Label>
+                  <Input
+                    id="loyalty-redeem-points"
+                    type="number"
+                    min={0}
+                    max={Math.max(0, Math.floor(loyaltyPoints || 0))}
+                    step={1}
+                    value={loyaltyRedeemPoints}
+                    onChange={handleLoyaltyRedeemChange}
+                    disabled={Math.max(0, Math.floor(loyaltyPoints || 0)) <= 0}
+                  />
+                  {estimatedRedeemAmount > 0 ? (
+                    <p className="text-xs font-semibold text-purple-700 dark:text-purple-300">
+                      Estimated discount: {formatCurrency(estimatedRedeemAmount)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-purple-700 dark:text-purple-300">
+                      Enter points to redeem for discount
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -447,7 +576,7 @@ function PaymentDialogComponent({
             )}
 
             {/* Change Calculation - Hidden for credit/due payment */}
-            {!isCreditPayment && numericAmount >= totalAmount && (
+            {!isCreditPayment && numericAmount >= effectiveTotalAmount && (
               <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center dark:border-green-800 dark:bg-green-950">
                 <p className="text-sm text-green-700 dark:text-green-300">Change</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">
@@ -457,10 +586,10 @@ function PaymentDialogComponent({
             )}
 
             {/* Insufficient Amount Warning - Hidden for credit/due payment */}
-            {!isCreditPayment && numericAmount < totalAmount && numericAmount > 0 && (
+            {!isCreditPayment && numericAmount < effectiveTotalAmount && numericAmount > 0 && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-center">
                 <p className="text-sm text-destructive">
-                  Insufficient amount. Need {formatCurrency(totalAmount - numericAmount)} more.
+                  Insufficient amount. Need {formatCurrency(effectiveTotalAmount - numericAmount)} more.
                 </p>
               </div>
             )}

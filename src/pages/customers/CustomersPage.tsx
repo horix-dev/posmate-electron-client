@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, Search, Filter, MoreHorizontal, Pencil, Trash2, WifiOff } from 'lucide-react'
+import { Plus, Search, Filter, MoreHorizontal, Pencil, Trash2, WifiOff, Ticket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
@@ -16,12 +16,15 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useCustomers } from './hooks/useCustomers'
 import { CustomerFormDialog, type CustomerFormData } from './components/CustomerFormDialog'
+import { CustomerLoyaltyDialog } from './components/CustomerLoyaltyDialog'
 import type { CreatePartyRequest, Party } from '@/types/api.types'
 
 export function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<Party | null>(null)
+  const [selectedLoyaltyCustomer, setSelectedLoyaltyCustomer] = useState<Party | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [showLoyaltyDialog, setShowLoyaltyDialog] = useState(false)
 
   const debouncedSearch = useDebounce(searchQuery, 300)
 
@@ -35,6 +38,7 @@ export function CustomersPage() {
     isCreating,
     isUpdating,
     searchCustomers,
+    refetch,
   } = useCustomers()
 
   const filteredCustomers = useMemo(() => {
@@ -54,6 +58,11 @@ export function CustomersPage() {
 
   const handleDelete = async (customer: Party) => {
     await deleteCustomer(customer.id)
+  }
+
+  const handleOpenLoyalty = (customer: Party) => {
+    setSelectedLoyaltyCustomer(customer)
+    setShowLoyaltyDialog(true)
   }
 
   const handleSave = async (data: CustomerFormData) => {
@@ -209,23 +218,32 @@ export function CustomersPage() {
                       </div>
 
                       <div className="flex items-center justify-between gap-4 pl-14 sm:justify-end sm:pl-0">
-                        {customer.opening_balance !== undefined && (
-                          <div className="text-right">
-                            <div className="text-xs text-muted-foreground">Balance</div>
-                            <div
-                              className={cn(
-                                'font-medium',
-                                (customer.opening_balance || 0) > 0
-                                  ? 'text-red-600 dark:text-red-400'
-                                  : 'text-green-600 dark:text-green-400'
-                              )}
-                            >
-                              {/* Assuming currency formatting is handled globally or we just show number */}
-                              {/* TODO: Format currency properly */}
-                              {Number(customer.opening_balance).toFixed(2)}
+                        <div className="flex items-center gap-4">
+                          {customer.due !== undefined && (
+                            <div className="text-right">
+                              <div className="text-xs text-muted-foreground">Balance</div>
+                              <div
+                                className={cn(
+                                  'font-medium',
+                                  (customer.due || 0) > 0
+                                    ? 'text-red-600 dark:text-red-400'
+                                    : 'text-green-600 dark:text-green-400'
+                                )}
+                              >
+                                {Number(customer.due).toFixed(2)}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+
+                          {customer.loyalty_points !== undefined && (
+                            <div className="text-right">
+                              <div className="text-xs text-muted-foreground">Loyalty Points</div>
+                              <div className="font-medium text-purple-600 dark:text-purple-400">
+                                {Math.floor(customer.loyalty_points || 0)}
+                              </div>
+                            </div>
+                          )}
+                        </div>
 
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -242,6 +260,10 @@ export function CustomersPage() {
                             <DropdownMenuItem onClick={() => handleEdit(customer)}>
                               <Pencil className="mr-2 h-4 w-4" />
                               Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenLoyalty(customer)}>
+                              <Ticket className="mr-2 h-4 w-4" />
+                              Loyalty
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleDelete(customer)}
@@ -285,6 +307,15 @@ export function CustomersPage() {
         initialData={selectedCustomer}
         onSave={handleSave}
         isSaving={isCreating || isUpdating}
+      />
+
+      <CustomerLoyaltyDialog
+        open={showLoyaltyDialog}
+        onOpenChange={setShowLoyaltyDialog}
+        customer={selectedLoyaltyCustomer}
+        onCustomerRefresh={async () => {
+          await refetch()
+        }}
       />
     </div>
   )

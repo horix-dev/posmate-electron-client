@@ -101,6 +101,7 @@ export function useCustomers() {
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
     searchCustomers,
+    refetch: customersQuery.refetch,
   }
 }
 

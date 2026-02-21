@@ -114,6 +114,22 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
   const paymentBreakdown = formatPaymentBreakdown(sale)
   const synced = isSaleSynced(sale as Sale & { isOffline?: boolean })
   const showPaymentBreakdown = hasNewPaymentFields(sale) && paymentBreakdown.dueCollections > 0
+  const metaLoyalty =
+    sale.meta && typeof sale.meta === 'object' && 'loyalty' in sale.meta
+      ? (sale.meta as Record<string, unknown>).loyalty
+      : null
+  const fallbackLoyalty =
+    metaLoyalty && typeof metaLoyalty === 'object'
+      ? (metaLoyalty as {
+          party_id?: number | null
+          card_code?: string | null
+          earned_points?: number
+          redeemed_points?: number
+          redeem_amount?: number
+          balance_after?: number | null
+        })
+      : null
+  const loyaltySummary = sale.loyalty ?? fallbackLoyalty
 
   const handlePrintReceipt = async () => {
     if (isPrinting) return
@@ -390,13 +406,21 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
                     <span>{formatCurrencyAmount(sale.vat_amount ?? 0)}</span>
                   </div>
                 )}
+                {loyaltySummary && (loyaltySummary.redeem_amount ?? 0) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Loyalty Redemption ({loyaltySummary.redeemed_points ?? 0} pts)</span>
+                    <span className="text-purple-600">
+                      -{formatCurrencyAmount(loyaltySummary.redeem_amount ?? 0)}
+                    </span>
+                  </div>
+                )}
               </>
             )
           })()}
           <Separator />
           <div className="flex justify-between text-lg font-medium">
             <span>Total</span>
-            <span>{formatCurrencyAmount(sale.totalAmount ?? 0)}</span>
+            <span>{formatCurrencyAmount((sale.totalAmount ?? 0) - (loyaltySummary?.redeem_amount ?? 0))}</span>
           </div>
 
           {/* Payment Breakdown Section */}
@@ -566,6 +590,37 @@ function SaleDetailsDialogComponent({ sale, open, onOpenChange }: SaleDetailsDia
             </div>
           )}
         </div>
+
+        {loyaltySummary && (
+          <>
+            <Separator className="my-4" />
+            <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
+              <h5 className="text-sm font-medium">Loyalty Summary</h5>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Card</span>
+                  <span>{loyaltySummary.card_code || sale.party?.loyalty_card_code || '-'}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Earned</span>
+                  <span className="text-green-600">+{loyaltySummary.earned_points ?? 0}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Redeemed</span>
+                  <span className="text-orange-600">-{loyaltySummary.redeemed_points ?? 0}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Redeem Amount</span>
+                  <span>{formatCurrencyAmount(loyaltySummary.redeem_amount ?? 0)}</span>
+                </div>
+                <div className="col-span-2 flex justify-between gap-2 font-medium">
+                  <span>Balance After</span>
+                  <span>{loyaltySummary.balance_after ?? '-'}</span>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Note */}
         {sale.note && (

@@ -265,6 +265,16 @@ export const API_ENDPOINTS = {
     BUSINESS: '/business-settings',
   },
 
+  // Loyalty
+  LOYALTY: {
+    LOOKUP_CUSTOMER: '/loyalty/customers/lookup',
+    QUICK_CARD: (cardCode: string) => `/loyalty/quick-card/${cardCode}`,
+    ASSIGN_CARD: (partyId: number) => `/loyalty/customers/${partyId}/assign-card`,
+    TRANSACTIONS: (partyId: number) => `/loyalty/customers/${partyId}/transactions`,
+    ADJUST: (partyId: number) => `/loyalty/customers/${partyId}/adjust`,
+    SETTINGS: '/loyalty/settings',
+  },
+
   // Bulk Upload
   BULK_UPLOAD: '/bulk-upload',
 

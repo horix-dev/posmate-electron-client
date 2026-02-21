@@ -653,6 +653,9 @@ export interface Party {
   opening_balance: number
   opening_balance_type: 'due' | 'advance'
   image?: string
+  loyalty_points?: number
+  loyalty_card_code?: string | null
+  loyalty_tier?: string | null
   version: number
   created_at: string
   updated_at: string
@@ -668,7 +671,94 @@ export interface CreatePartyRequest {
   credit_limit?: number
   opening_balance?: number
   opening_balance_type: 'due' | 'advance'
+  loyalty_card_code?: string
+  loyalty_tier?: string
   image?: File
+}
+
+export interface LoyaltySummary {
+  party_id: number | null
+  card_code: string | null
+  earned_points: number
+  redeemed_points: number
+  redeem_amount: number
+  balance_after: number | null
+}
+
+export interface LoyaltyCustomer {
+  id: number
+  name: string
+  phone: string | null
+  type: string
+  loyalty_points: number
+  loyalty_card_code: string | null
+  loyalty_tier: string | null
+}
+
+export interface LoyaltyTransaction {
+  id: number
+  business_id: number
+  party_id: number
+  sale_id: number | null
+  sale_return_id: number | null
+  type: 'earn' | 'redeem' | 'reverse' | 'adjustment'
+  points: number
+  balance_before: number
+  balance_after: number
+  reference_type: string | null
+  reference_id: number | null
+  reason: string | null
+  metadata: Record<string, unknown> | null
+  created_by: number | null
+  client_reference: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface LoyaltyTransactionsResponse {
+  message: string
+  data: LoyaltyTransaction[]
+  pagination: {
+    total: number
+    per_page: number
+    current_page: number
+    last_page: number
+    from: number | null
+    to: number | null
+  }
+}
+
+export interface LoyaltySettings {
+  enabled: boolean
+  earn_mode: 'amount_based' | 'percentage_based'
+  earn_value: number
+  minimum_sale_amount: number
+  exclude_due_sales: boolean
+  exclude_discounted_amount: boolean
+  redeem_enabled: boolean
+  redeem_mode: 'points_to_currency' | 'percentage_cap'
+  point_value: number
+  min_points_to_redeem: number
+  max_redeem_percent_of_bill: number
+  allow_partial_redeem: boolean
+  rounding_rule: 'floor' | 'round' | 'ceil'
+  expiry_enabled: boolean
+  expiry_days: number | null
+  meta?: Record<string, unknown> | null
+}
+
+export interface LoyaltyLookupParams {
+  phone?: string
+  card_code?: string
+}
+
+export interface LoyaltyAssignCardRequest {
+  card_code?: string
+}
+
+export interface LoyaltyAdjustmentRequest {
+  points: number
+  reason?: string
 }
 
 // ============================================
@@ -742,6 +832,8 @@ export interface Sale {
   invoice_url?: string // URL for viewing/printing invoice
   user?: User
   party?: Party
+  loyalty?: LoyaltySummary
+  meta?: Record<string, unknown> | null
   details?: SaleDetail[]
   vat?: Vat
   payment_type?: PaymentType
@@ -794,6 +886,9 @@ export interface CreateSaleRequest {
   rounding_option?: RoundingOption
   note?: string
   customer_phone?: string
+  loyalty_card_code?: string
+  loyalty_redeem_points?: number
+  loyalty_redeem_amount?: number
   image?: File
 }
 

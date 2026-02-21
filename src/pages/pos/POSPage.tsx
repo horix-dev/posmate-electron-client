@@ -10,6 +10,7 @@ import { salesService } from '@/api/services/sales.service'
 import { offlineSalesService } from '@/api/services/offlineSales.service'
 import { partiesService } from '@/api/services/parties.service'
 import { productsService } from '@/api/services/products.service'
+import { loyaltyService } from '@/api/services/loyalty.service'
 import { getApiErrorMessage } from '@/api/axios'
 import { printReceipt } from '@/lib/receipt-generator'
 import { useBusinessStore } from '@/stores/business.store'
@@ -129,6 +130,8 @@ export function POSPage() {
   const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
   const [isClearingCache, setIsClearingCache] = useState(true)
+  const [loyaltyRedeemPoints, setLoyaltyRedeemPoints] = useState(0)
+  const [isLoyaltyLookupLoading, setIsLoyaltyLookupLoading] = useState(false)
 
   // ----------------------------------------
   // Data Fetching
@@ -563,11 +566,59 @@ export function POSPage() {
   const handleSelectCustomer = useCallback(
     (selectedCustomer: Customer | null) => {
       setCustomer(selectedCustomer)
+      setLoyaltyRedeemPoints(0)
       if (selectedCustomer) {
         toast.success(`Customer: ${selectedCustomer.name}`)
       }
     },
     [setCustomer]
+  )
+
+  const handleManualLoyaltyLookup = useCallback(
+    async (input: { phone?: string; card_code?: string }) => {
+      if (!isOnline) {
+        toast.error('Loyalty lookup requires an internet connection')
+        return
+      }
+
+      setIsLoyaltyLookupLoading(true)
+      try {
+        const response = await loyaltyService.lookupCustomer(input)
+        const loyaltyCustomer = response.data
+        const allCustomers = await partiesService.getCustomers()
+        const matchedCustomer = allCustomers.find((item) => item.id === loyaltyCustomer.id)
+
+        if (matchedCustomer) {
+          handleSelectCustomer(matchedCustomer)
+          return
+        }
+
+        const fallbackCustomer: Customer = {
+          id: loyaltyCustomer.id,
+          business_id: 0,
+          name: loyaltyCustomer.name,
+          phone: loyaltyCustomer.phone ?? undefined,
+          type: 'Retailer',
+          due: 0,
+          wallet: 0,
+          opening_balance: 0,
+          opening_balance_type: 'due',
+          version: 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          loyalty_points: loyaltyCustomer.loyalty_points,
+          loyalty_card_code: loyaltyCustomer.loyalty_card_code,
+          loyalty_tier: loyaltyCustomer.loyalty_tier,
+        }
+
+        handleSelectCustomer(fallbackCustomer)
+      } catch (error) {
+        toast.error(getApiErrorMessage(error) || 'Customer not found')
+      } finally {
+        setIsLoyaltyLookupLoading(false)
+      }
+    },
+    [handleSelectCustomer, isOnline]
   )
 
   // ----------------------------------------
@@ -649,6 +700,9 @@ export function POSPage() {
           products: productsForApi, // Send as array, not string
           invoiceNumber: invoiceNumber || undefined,
           party_id: customer?.id,
+          customer_phone: customer?.phone,
+          loyalty_card_code: customer?.loyalty_card_code || undefined,
+          loyalty_redeem_points: loyaltyRedeemPoints > 0 ? loyaltyRedeemPoints : undefined,
           payment_type_id: paymentType.id,
           vat_id: vat?.id,
           vat_amount: vatAmount,
@@ -668,6 +722,25 @@ export function POSPage() {
           toast.success('Sale saved offline - will sync when online')
         } else {
           toast.success('Sale completed successfully!')
+
+          const loyaltySummary = result.data?.loyalty
+          if (loyaltySummary) {
+            const earned = loyaltySummary.earned_points || 0
+            const redeemed = loyaltySummary.redeemed_points || 0
+            const balanceAfter = loyaltySummary.balance_after
+
+            if (earned > 0 || redeemed > 0 || balanceAfter !== null) {
+              const summaryParts = [
+                earned > 0 ? `+${earned} earned` : null,
+                redeemed > 0 ? `-${redeemed} redeemed` : null,
+                balanceAfter !== null ? `Balance: ${balanceAfter}` : null,
+              ].filter(Boolean)
+
+              if (summaryParts.length > 0) {
+                toast.info(`Loyalty updated · ${summaryParts.join(' · ')}`)
+              }
+            }
+          }
         }
 
         // Print receipt if auto-print is enabled (works offline)
@@ -700,6 +773,7 @@ export function POSPage() {
         }
 
         clearCart()
+        setLoyaltyRedeemPoints(0)
         closeDialog('payment')
 
         // Refresh products to show updated stock values
@@ -735,6 +809,7 @@ export function POSPage() {
       paymentType,
       invoiceNumber,
       customer,
+      loyaltyRedeemPoints,
       vat,
       cartItems,
       discountAmount,
@@ -761,6 +836,54 @@ export function POSPage() {
       }
 
       const normalizedBarcode = barcode.toLowerCase()
+
+      // Loyalty quick-card scan flow
+      if (normalizedBarcode.startsWith('lp-')) {
+        if (!isOnline) {
+          toast.error('Cannot lookup loyalty card while offline')
+          return
+        }
+
+        try {
+          const loyaltyResponse = await loyaltyService.quickCardLookup(barcode)
+          const loyaltyCustomer = loyaltyResponse.data
+
+          const allCustomers = await partiesService.getCustomers()
+          const matchedCustomer = allCustomers.find((item) => item.id === loyaltyCustomer.id)
+
+          if (matchedCustomer) {
+            setCustomer(matchedCustomer)
+            setLoyaltyRedeemPoints(0)
+            toast.success(`Loyalty customer selected: ${matchedCustomer.name}`)
+          } else {
+            const fallbackCustomer: Customer = {
+              id: loyaltyCustomer.id,
+              business_id: 0,
+              name: loyaltyCustomer.name,
+              phone: loyaltyCustomer.phone ?? undefined,
+              type: 'Retailer',
+              due: 0,
+              wallet: 0,
+              opening_balance: 0,
+              opening_balance_type: 'due',
+              version: 1,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              loyalty_points: loyaltyCustomer.loyalty_points,
+              loyalty_card_code: loyaltyCustomer.loyalty_card_code,
+              loyalty_tier: loyaltyCustomer.loyalty_tier,
+            }
+            setCustomer(fallbackCustomer)
+            setLoyaltyRedeemPoints(0)
+            toast.success(`Loyalty customer selected: ${loyaltyCustomer.name}`)
+          }
+
+          return
+        } catch (error) {
+          toast.error(getApiErrorMessage(error) || 'Customer not found')
+          return
+        }
+      }
 
       // Step 1: Check local storage FIRST (instant)
       try {
@@ -920,7 +1043,7 @@ export function POSPage() {
 
       // Don't await - let it resolve in background
     },
-    [products, handleAddToCart, isOnline, isAddingToCart]
+    [products, handleAddToCart, isOnline, isAddingToCart, setCustomer]
   )
 
   useBarcodeScanner({ onScan: handleBarcodeScan, enabled: !dialogs.payment })
@@ -1196,9 +1319,13 @@ export function POSPage() {
         paymentTypes={paymentTypes}
         selectedPaymentType={paymentType}
         customer={customer}
+        loyaltyPoints={customer?.loyalty_points ?? 0}
+        loyaltyCardCode={customer?.loyalty_card_code ?? null}
+        loyaltyRedeemPoints={loyaltyRedeemPoints}
         isProcessing={isProcessing}
         autoPrintReceipt={autoPrintReceipt}
         onPaymentTypeChange={handlePaymentTypeChange}
+        onLoyaltyRedeemPointsChange={setLoyaltyRedeemPoints}
         onProcessPayment={handleProcessPayment}
       />
 
@@ -1216,7 +1343,9 @@ export function POSPage() {
         customers={customers}
         selectedCustomer={customer}
         isLoading={customersLoading}
+        isLoyaltyLookupLoading={isLoyaltyLookupLoading}
         onSelect={handleSelectCustomer}
+        onLoyaltyLookup={handleManualLoyaltyLookup}
       />
 
       <ShortcutsHelpDialog open={dialogs.shortcuts} onClose={() => closeDialog('shortcuts')} />

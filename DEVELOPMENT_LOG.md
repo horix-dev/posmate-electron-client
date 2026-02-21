@@ -1,3 +1,308 @@
+## 2026-02-18 - Fix: Sale Detail Loyalty Redemption Display
+
+**User Request:**
+"redeemed sales not showing in detail in sales it is paying actual product amount"
+
+**Problem:**
+Sale detail dialogs displayed the full product total (`sale.totalAmount`) without reflecting the loyalty redemption discount. When customers viewed completed sales with loyalty redemptions, they saw the original price instead of the discounted amount they actually paid. This caused confusion and made it difficult to verify that the loyalty discount was applied.
+
+**Changes Implemented:**
+- **Added loyalty redemption line item** in sale summary sections:
+  - Displays "Loyalty Redemption (X pts)" with the discount amount
+  - Styled in purple text consistent with loyalty UI theme
+  - Only shown when `loyaltySummary.redeem_amount > 0`
+- **Updated total calculation** to subtract loyalty redemption:
+  - Changed from: `formatCurrencyAmount(sale.totalAmount ?? 0)`
+  - Changed to: `formatCurrencyAmount((sale.totalAmount ?? 0) - (loyaltySummary?.redeem_amount ?? 0))`
+- **Enhanced summary transparency** by showing complete breakdown:
+  - Subtotal (original product amounts)
+  - Product-level discounts (if any)
+  - Cart discount (if any)
+  - **Loyalty Redemption (if redeemed)** ← NEW
+  - VAT (if applicable)
+  - **Total (adjusted for all discounts)**
+
+**Implementation Details:**
+- Applied to both sale detail dialog variants:
+  - `src/components/shared/SaleDetailsDialog.tsx` (reusable component)
+  - `src/pages/sales/components/SaleDetailsDialog.tsx` (sales-specific version)
+- Used existing `loyaltySummary` extraction from `sale.loyalty` or `sale.meta.loyalty`
+- Conditional rendering prevents empty loyalty section for non-redeemed sales
+- Consistent formatting with other discount line items
+
+**UX Improvements:**
+- Customers see accurate final amount matching what they paid
+- Clear visibility of loyalty benefits in transaction history
+- Sales staff can verify loyalty redemptions were processed correctly
+- Comprehensive breakdown aids in reconciliation and reporting
+
+**Files Modified:**
+- [src/components/shared/SaleDetailsDialog.tsx](src/components/shared/SaleDetailsDialog.tsx)
+- [src/pages/sales/components/SaleDetailsDialog.tsx](src/pages/sales/components/SaleDetailsDialog.tsx)
+
+## 2026-02-18 - Enhancement: POS Loyalty Redemption Amount Calculation
+
+**User Request:**
+When entering redeem points, calculate and display the redemption discount amount and adjust the payment total in POS.
+
+**Problem:**
+The POS payment dialog accepted redeem points input but didn't show the customer how much discount they would get or adjust the payment amount accordingly. This created confusion about the actual amount to pay.
+
+**Changes Implemented:**
+- **Load loyalty settings** on payment dialog open to get redemption rules (point_value, max_redeem_percent_of_bill).
+- **Calculate estimated redeem amount** client-side based on:
+  - Points entered × point value
+  - Constrained by max_redeem_percent_of_bill setting
+  - Cannot exceed total amount
+- **Compute effective total amount** = original total - redemption discount.
+- **Updated amount summary UI** to show:
+  - Original total
+  - Loyalty discount (in purple)
+  - Final amount to pay (highlighted)
+- **Updated loyalty section** to display estimated discount amount instead of generic message.
+- **Adjusted all payment calculations** to use effective total:
+  - Change amount calculation
+  - Due amount for credit payments
+  - Payment validation
+  - "Exact Amount" button now sets effective total
+  - Insufficient amount warnings
+- **Auto-update payment amount** when redeem points change to show correct amount due.
+
+**UX Improvements:**
+- Customer sees immediate feedback on redemption value
+- Cashier knows exact amount to collect after loyalty discount
+- Payment amount automatically adjusts when points are entered
+- Clear breakdown of original vs. discounted price
+- Consistent validation based on actual amount to pay
+
+**Technical Details:**
+- Redemption calculation: `min(points × point_value, totalAmount × max_redeem_percent / 100, totalAmount)`
+- Settings loaded once per dialog open for performance
+- Falls back to original total if settings unavailable or redemption disabled
+
+**Files Modified:**
+- [src/pages/pos/components/PaymentDialog.tsx](src/pages/pos/components/PaymentDialog.tsx)
+
+## 2026-02-18 - Fix: Loyalty Modal Layout and Scrolling
+
+**User Request:**
+Fix layout issue in loyalty modal.
+
+**Problem:**
+The loyalty dialog had overflow and scrolling issues when content exceeded viewport height, especially with the admin adjustment section visible for shop-owners.
+
+**Changes Implemented:**
+- Changed dialog max-width from `max-w-3xl` to `max-w-4xl` for better space utilization.
+- Added proper scrolling container (`ScrollArea`) for the main content area.
+- Adjusted dialog to use flexbox layout (`flex flex-col`) for better height management.
+- Reduced transaction list height from 360px to 300px to fit better within scrollable container.
+- Set max-height calculation based on viewport: `max-h-[calc(90vh-180px)]` for content area.
+- Added margin-top to DialogFooter for proper spacing.
+
+**Files Modified:**
+- [src/pages/customers/components/CustomerLoyaltyDialog.tsx](src/pages/customers/components/CustomerLoyaltyDialog.tsx)
+
+## 2026-02-18 - Enhancement: Customer Table Balance and Loyalty Points Display
+
+**User Request:**
+Show due as balance and show loyalty points in customer table.
+
+**Changes Implemented:**
+- Changed customer table balance column to display `due` (current outstanding balance) instead of `opening_balance`.
+- Added loyalty points display column in the customer table showing current loyalty points balance.
+- Loyalty points displayed in purple color for visual distinction from monetary balance.
+- Both columns shown side by side with appropriate labels and color coding:
+  - Balance: red for amounts due, green for credits/zero
+  - Loyalty Points: purple theme color
+
+**Files Modified:**
+- [src/pages/customers/CustomersPage.tsx](src/pages/customers/CustomersPage.tsx)
+
+## 2026-02-18 - Phase 4 Continued: Loyalty History Summary Metrics
+
+**User Request:**
+Start/continue Phase 4.
+
+**Changes Implemented:**
+- Added transaction summary metrics in the Customer Loyalty dialog based on the active filtered list:
+   - Total transactions
+   - Earned points
+   - Redeemed points
+   - Net points
+- Improved empty-state messaging in transaction history to reflect the active transaction filter (e.g., redeem/earn/adjustment).
+- Kept existing server pagination behavior while applying client-side filter summary/empty-state UX.
+
+**Files Modified:**
+- [src/pages/customers/components/CustomerLoyaltyDialog.tsx](src/pages/customers/components/CustomerLoyaltyDialog.tsx)
+
+
+## 2026-02-18 - Phase 3 Continued + Phase 4 Started: Guardrails and Transaction Filters
+
+**User Request:**
+Continue Phase 3 and start Phase 4.
+
+**Changes Implemented:**
+- **Phase 3 continuation (settings guardrails):**
+   - Converted Settings tabs to controlled state for safer tab transitions.
+   - Added unsaved-change confirmation when leaving Loyalty tab with pending edits.
+   - Added browser/page leave (`beforeunload`) warning when unsaved loyalty changes exist.
+- **Phase 4 start (loyalty history UX):**
+   - Added client-side transaction type filter chips in customer loyalty history:
+      - `All`, `earn`, `redeem`, `reverse`, `adjustment`
+   - Applied filter to rendered transaction list while preserving server pagination.
+
+**Files Modified:**
+- [src/pages/settings/SettingsPage.tsx](src/pages/settings/SettingsPage.tsx)
+- [src/pages/customers/components/CustomerLoyaltyDialog.tsx](src/pages/customers/components/CustomerLoyaltyDialog.tsx)
+
+## 2026-02-18 - Phase 3 Started: Loyalty Settings UX Polish
+
+**User Request:**
+Start Phase 3.
+
+**Changes Implemented:**
+- Added dirty-state tracking for loyalty settings edits against the last loaded/saved baseline.
+- Added loyalty settings toolbar actions:
+   - Reload from server
+   - Reset unsaved changes
+- Added unsaved changes status indicator in the loyalty settings tab.
+- Refined save behavior:
+   - Save disabled when there are no changes
+   - Save remains disabled when local validation is invalid
+- Preserved baseline snapshot after successful load/save operations.
+
+**Files Modified:**
+- [src/pages/settings/SettingsPage.tsx](src/pages/settings/SettingsPage.tsx)
+
+## 2026-02-18 - Phase 2 Completed: Loyalty Settings Validation UX
+
+**User Request:**
+Finish Phase 2.
+
+**Changes Implemented:**
+- Completed loyalty settings validation UX requirements:
+   - Added local field validation rules for loyalty settings form.
+   - Disabled Save button when local form state is invalid.
+   - Mapped backend `422` validation errors (`errors` object) to field-level UI messages.
+   - Preserved user-friendly toast feedback with first validation message.
+- Added inline per-field error display for key loyalty settings fields:
+   - earn mode/value
+   - minimum sale amount
+   - redeem mode
+   - point value
+   - min points to redeem
+   - max redeem percent of bill
+   - rounding rule
+   - expiry days
+
+**Files Modified:**
+- [src/pages/settings/SettingsPage.tsx](src/pages/settings/SettingsPage.tsx)
+
+## 2026-02-18 - Phase 2: Loyalty Settings UI (Get/Update + Role Gating)
+
+**User Request:**
+Continue with the next step and implement loyalty settings.
+
+**Changes Implemented:**
+- Added a dedicated **Loyalty** tab to the main Settings page.
+- Integrated loyalty settings fetch/update using `loyaltyService`:
+   - Loads settings on page mount.
+   - Saves full settings payload via update endpoint.
+- Implemented grouped settings UI sections:
+   - General
+   - Earn Rules
+   - Redeem Rules
+   - Expiry
+- Added local validation guardrails:
+   - `max_redeem_percent_of_bill` must be between 0 and 100
+   - `expiry_days` must be greater than 0 when expiry is enabled
+- Added role-based edit gating:
+   - Only `shop-owner` can modify and save loyalty settings
+   - Other roles can view but cannot edit
+
+**Files Modified:**
+- [src/pages/settings/SettingsPage.tsx](src/pages/settings/SettingsPage.tsx)
+
+## 2026-02-18 - Next Step: Sale Detail Loyalty Summary Panel
+
+**User Request:**
+Continue with the next implementation step.
+
+**Changes Implemented:**
+- Added loyalty summary display in sale detail dialogs to show post-sale loyalty data.
+- Supports both response shapes for compatibility:
+   - `sale.loyalty`
+   - `sale.meta.loyalty` fallback
+- Displays:
+   - Card code
+   - Earned points
+   - Redeemed points
+   - Redeem amount
+   - Balance after transaction
+
+**Files Modified:**
+- [src/components/shared/SaleDetailsDialog.tsx](src/components/shared/SaleDetailsDialog.tsx)
+- [src/pages/sales/components/SaleDetailsDialog.tsx](src/pages/sales/components/SaleDetailsDialog.tsx)
+
+## 2026-02-18 - Phase 1 Continued + Phase 2 Started: POS Manual Lookup and Customer Loyalty Panel
+
+**User Request:**
+Continue Phase 1 and start Phase 2 of loyalty frontend implementation.
+
+**Changes Implemented:**
+- **Phase 1 completion work (POS):**
+   - Added manual loyalty lookup in POS customer selection dialog (lookup by phone or card code).
+   - Wired manual lookup to loyalty API and customer attach flow.
+- **Phase 2 start (Customer loyalty management):**
+   - Added customer loyalty dialog from Customers list actions.
+   - Added loyalty card actions:
+      - Assign card (optional manual code)
+      - Regenerate card
+   - Added loyalty transaction history with pagination controls.
+   - Added admin-only (shop-owner) manual adjustment flow with required reason.
+- Added typed `LoyaltyTransactionsResponse` model for backend pagination payload.
+- Exposed `refetch` from `useCustomers` hook for post-action customer refresh.
+
+**Files Modified:**
+- [src/pages/pos/components/CustomerSelectDialog.tsx](src/pages/pos/components/CustomerSelectDialog.tsx)
+- [src/pages/pos/POSPage.tsx](src/pages/pos/POSPage.tsx)
+- [src/pages/customers/CustomersPage.tsx](src/pages/customers/CustomersPage.tsx)
+- [src/pages/customers/hooks/useCustomers.ts](src/pages/customers/hooks/useCustomers.ts)
+- [src/api/services/loyalty.service.ts](src/api/services/loyalty.service.ts)
+- [src/types/api.types.ts](src/types/api.types.ts)
+
+**Files Created:**
+- [src/pages/customers/components/CustomerLoyaltyDialog.tsx](src/pages/customers/components/CustomerLoyaltyDialog.tsx)
+
+## 2026-02-18 - Phase 1: Loyalty POS Integration (Lookup + Redeem + Sale Payload)
+
+**User Request:**
+Start Phase 1 of loyalty frontend implementation.
+
+**Changes Implemented:**
+- Added loyalty API endpoint mappings for lookup, quick-card, assign-card, transactions, adjustment, and settings.
+- Added `loyaltyService` for loyalty API operations in the frontend service layer.
+- Extended core API types with loyalty models:
+   - `LoyaltySummary`, `LoyaltyCustomer`, `LoyaltyTransaction`, `LoyaltySettings`
+   - `LoyaltyLookupParams`, `LoyaltyAssignCardRequest`, `LoyaltyAdjustmentRequest`
+   - Added loyalty fields to `Party`, `CreatePartyRequest`, `Sale`, and `CreateSaleRequest`.
+- Integrated loyalty redeem support into POS checkout:
+   - Added redeem points input to payment dialog with validation against available points.
+   - Wired loyalty fields into sale payload (`customer_phone`, `loyalty_card_code`, `loyalty_redeem_points`).
+   - Added post-sale loyalty summary toast from server response.
+- Integrated quick loyalty card scanner flow in POS:
+   - Detects loyalty card scans (e.g., `LP-...` format).
+   - Resolves customer via loyalty quick-card API and attaches customer to cart.
+
+**Files Modified:**
+- [src/api/endpoints.ts](src/api/endpoints.ts)
+- [src/api/services/index.ts](src/api/services/index.ts)
+- [src/types/api.types.ts](src/types/api.types.ts)
+- [src/pages/pos/POSPage.tsx](src/pages/pos/POSPage.tsx)
+- [src/pages/pos/components/PaymentDialog.tsx](src/pages/pos/components/PaymentDialog.tsx)
+
+**Files Created:**
+- [src/api/services/loyalty.service.ts](src/api/services/loyalty.service.ts)
 
 ## 2026-02-17 - Enhancement: Purchases - Add Edit Action and Page
 

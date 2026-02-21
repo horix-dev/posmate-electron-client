@@ -1,5 +1,5 @@
 import { memo, useState, useCallback, useMemo } from 'react'
-import { Search, User, UserPlus, Check, X, Loader2 } from 'lucide-react'
+import { Search, User, UserPlus, Check, X, Loader2, CreditCard } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -28,8 +28,12 @@ export interface CustomerSelectDialogProps {
   selectedCustomer: Party | null
   /** Loading state */
   isLoading: boolean
+  /** Loyalty lookup loading state */
+  isLoyaltyLookupLoading?: boolean
   /** Customer selection callback */
   onSelect: (customer: Party | null) => void
+  /** Loyalty lookup callback */
+  onLoyaltyLookup?: (input: { phone?: string; card_code?: string }) => Promise<void>
 }
 
 // ============================================
@@ -123,9 +127,13 @@ function CustomerSelectDialogComponent({
   customers,
   selectedCustomer,
   isLoading,
+  isLoyaltyLookupLoading = false,
   onSelect,
+  onLoyaltyLookup,
 }: CustomerSelectDialogProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [phoneLookup, setPhoneLookup] = useState('')
+  const [cardLookup, setCardLookup] = useState('')
 
   const filteredCustomers = useMemo(() => {
     if (!searchQuery.trim()) return customers
@@ -154,6 +162,18 @@ function CustomerSelectDialogComponent({
     []
   )
 
+  const handleLookupByPhone = useCallback(async () => {
+    const phone = phoneLookup.trim()
+    if (!phone || !onLoyaltyLookup) return
+    await onLoyaltyLookup({ phone })
+  }, [onLoyaltyLookup, phoneLookup])
+
+  const handleLookupByCard = useCallback(async () => {
+    const card_code = cardLookup.trim()
+    if (!card_code || !onLoyaltyLookup) return
+    await onLoyaltyLookup({ card_code })
+  }, [onLoyaltyLookup, cardLookup])
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
@@ -169,6 +189,51 @@ function CustomerSelectDialogComponent({
             Choose a customer or continue as walk-in
           </DialogDescription>
         </DialogHeader>
+
+        {onLoyaltyLookup && (
+          <div className="space-y-2 rounded-lg border border-purple-200 bg-purple-50 p-3 dark:border-purple-800 dark:bg-purple-950">
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-purple-700 dark:text-purple-300" />
+              <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                Loyalty Lookup
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+              <Input
+                type="search"
+                placeholder="Lookup by phone"
+                value={phoneLookup}
+                onChange={(e) => setPhoneLookup(e.target.value)}
+              />
+              <Button
+                variant="outline"
+                onClick={handleLookupByPhone}
+                disabled={isLoyaltyLookupLoading || !phoneLookup.trim()}
+              >
+                {isLoyaltyLookupLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Find Phone
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+              <Input
+                type="search"
+                placeholder="Lookup by loyalty card"
+                value={cardLookup}
+                onChange={(e) => setCardLookup(e.target.value)}
+              />
+              <Button
+                variant="outline"
+                onClick={handleLookupByCard}
+                disabled={isLoyaltyLookupLoading || !cardLookup.trim()}
+              >
+                {isLoyaltyLookupLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Find Card
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Search */}
         <div className="relative">
