@@ -763,8 +763,10 @@ export interface LoyaltySettings {
   max_redeem_percent_of_bill: number
   allow_partial_redeem: boolean
   rounding_rule: 'floor' | 'round' | 'ceil'
+  max_loyalty_points: number | null
   expiry_enabled: boolean
   expiry_days: number | null
+  expire_on_date: string | null
   meta?: Record<string, unknown> | null
 }
 

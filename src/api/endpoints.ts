@@ -94,6 +94,7 @@ export const API_ENDPOINTS = {
     CREATE: '/parties',
     UPDATE: (id: number) => `/parties/${id}`,
     DELETE: (id: number) => `/parties/${id}`,
+    SEARCH: '/parties/search',
   },
 
   // Sales

@@ -18,7 +18,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { storage } from '@/lib/storage'
 import { useQueryClient } from '@tanstack/react-query'
 import { clearAllCache } from '@/lib/cache/clearCache'
-import type { Product, Stock, PaymentType, Party as Customer } from '@/types/api.types'
+import type { Product, Stock, PaymentType, Party as Customer, CreatePartyRequest } from '@/types/api.types'
 import type { ProductVariant } from '@/types/variant.types'
 import type { LocalProduct } from '@/lib/db/schema'
 
@@ -34,6 +34,7 @@ import {
   BatchSelectionDialog,
   SmartTender,
 } from './components'
+import { CustomerFormDialog, type CustomerFormData } from '@/pages/customers/components/CustomerFormDialog'
 
 // Hooks
 import { usePOSData, type POSFilters } from './hooks/usePOSData'
@@ -132,6 +133,8 @@ export function POSPage() {
   const [isClearingCache, setIsClearingCache] = useState(true)
   const [loyaltyRedeemPoints, setLoyaltyRedeemPoints] = useState(0)
   const [isLoyaltyLookupLoading, setIsLoyaltyLookupLoading] = useState(false)
+  const [showAddCustomerDialog, setShowAddCustomerDialog] = useState(false)
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false)
 
   // ----------------------------------------
   // Data Fetching
@@ -628,6 +631,40 @@ export function POSPage() {
       }
     },
     [handleSelectCustomer, isOnline]
+  )
+
+  const handleAddCustomer = useCallback(() => {
+    setShowAddCustomerDialog(true)
+  }, [])
+
+  const handleSaveCustomer = useCallback(
+    async (data: CustomerFormData) => {
+      setIsCreatingCustomer(true)
+      try {
+        const payload: CreatePartyRequest = {
+          name: data.name,
+          type: data.type,
+          phone: data.phone || undefined,
+          email: data.email || undefined,
+          address: data.address || undefined,
+          credit_limit: data.credit_limit || undefined,
+          opening_balance: data.opening_balance || 0,
+          opening_balance_type: data.opening_balance_type,
+          image: data.image,
+        }
+
+        const response = await partiesService.create(payload)
+        const newCustomer = response.data
+        handleSelectCustomer(newCustomer)
+        toast.success('Customer created and selected!')
+        setShowAddCustomerDialog(false)
+      } catch (error) {
+        toast.error(getApiErrorMessage(error) || 'Failed to create customer')
+      } finally {
+        setIsCreatingCustomer(false)
+      }
+    },
+    [handleSelectCustomer]
   )
 
   // ----------------------------------------
@@ -1355,6 +1392,15 @@ export function POSPage() {
         isLoyaltyLookupLoading={isLoyaltyLookupLoading}
         onSelect={handleSelectCustomer}
         onLoyaltyLookup={handleManualLoyaltyLookup}
+        onAddCustomer={handleAddCustomer}
+      />
+
+      <CustomerFormDialog
+        open={showAddCustomerDialog}
+        onOpenChange={setShowAddCustomerDialog}
+        initialData={null}
+        onSave={handleSaveCustomer}
+        isSaving={isCreatingCustomer}
       />
 
       <ShortcutsHelpDialog open={dialogs.shortcuts} onClose={() => closeDialog('shortcuts')} />

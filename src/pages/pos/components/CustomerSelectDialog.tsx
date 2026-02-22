@@ -34,6 +34,8 @@ export interface CustomerSelectDialogProps {
   onSelect: (customer: Party | null) => void
   /** Loyalty lookup callback */
   onLoyaltyLookup?: (input: { phone?: string; card_code?: string }) => Promise<void>
+  /** Add new customer callback */
+  onAddCustomer?: () => void
 }
 
 // ============================================
@@ -130,10 +132,10 @@ function CustomerSelectDialogComponent({
   isLoyaltyLookupLoading = false,
   onSelect,
   onLoyaltyLookup,
+  onAddCustomer,
 }: CustomerSelectDialogProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [phoneLookup, setPhoneLookup] = useState('')
-  const [cardLookup, setCardLookup] = useState('')
+  const [loyaltySearch, setLoyaltySearch] = useState('')
 
   const filteredCustomers = useMemo(() => {
     if (!searchQuery.trim()) return customers
@@ -162,17 +164,18 @@ function CustomerSelectDialogComponent({
     []
   )
 
-  const handleLookupByPhone = useCallback(async () => {
-    const phone = phoneLookup.trim()
-    if (!phone || !onLoyaltyLookup) return
-    await onLoyaltyLookup({ phone })
-  }, [onLoyaltyLookup, phoneLookup])
+  const handleLoyaltyLookup = useCallback(async () => {
+    const input = loyaltySearch.trim()
+    if (!input || !onLoyaltyLookup) return
 
-  const handleLookupByCard = useCallback(async () => {
-    const card_code = cardLookup.trim()
-    if (!card_code || !onLoyaltyLookup) return
-    await onLoyaltyLookup({ card_code })
-  }, [onLoyaltyLookup, cardLookup])
+    // Try to detect if it's a phone or card code
+    // If it's mostly numeric, treat as phone; otherwise treat as card code
+    const isPhone = /^\d+$/.test(input.replace(/[\s\-\+\(\)]/g, ''))
+
+    await onLoyaltyLookup(
+      isPhone ? { phone: input } : { card_code: input }
+    )
+  }, [onLoyaltyLookup, loyaltySearch])
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -202,34 +205,17 @@ function CustomerSelectDialogComponent({
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
               <Input
                 type="search"
-                placeholder="Lookup by phone"
-                value={phoneLookup}
-                onChange={(e) => setPhoneLookup(e.target.value)}
+                placeholder="Phone or loyalty card code"
+                value={loyaltySearch}
+                onChange={(e) => setLoyaltySearch(e.target.value)}
               />
               <Button
                 variant="outline"
-                onClick={handleLookupByPhone}
-                disabled={isLoyaltyLookupLoading || !phoneLookup.trim()}
+                onClick={handleLoyaltyLookup}
+                disabled={isLoyaltyLookupLoading || !loyaltySearch.trim()}
               >
                 {isLoyaltyLookupLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Find Phone
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
-              <Input
-                type="search"
-                placeholder="Lookup by loyalty card"
-                value={cardLookup}
-                onChange={(e) => setCardLookup(e.target.value)}
-              />
-              <Button
-                variant="outline"
-                onClick={handleLookupByCard}
-                disabled={isLoyaltyLookupLoading || !cardLookup.trim()}
-              >
-                {isLoyaltyLookupLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Find Card
+                Find
               </Button>
             </div>
           </div>
@@ -288,7 +274,21 @@ function CustomerSelectDialogComponent({
         </ScrollArea>
 
         {/* Footer */}
-        <div className="flex justify-end pt-2">
+        <div className="flex items-center justify-between gap-2 pt-2">
+          <div>
+            {onAddCustomer && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  onAddCustomer()
+                  onClose()
+                }}
+              >
+                <UserPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+                Add New Customer
+              </Button>
+            )}
+          </div>
           <Button variant="outline" onClick={onClose}>
             <X className="mr-2 h-4 w-4" aria-hidden="true" />
             Cancel

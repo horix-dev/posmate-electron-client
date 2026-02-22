@@ -73,6 +73,16 @@ export const partiesService = {
     const { data } = await api.get<ApiResponse<Party[]>>(API_ENDPOINTS.PARTIES.LIST)
     return data.data.filter((p) => p.type === 'Supplier')
   },
+
+  /**
+   * Search parties by query parameter
+   */
+  search: async (query: string): Promise<Party[]> => {
+    const { data } = await api.get<ApiResponse<Party[]>>(API_ENDPOINTS.PARTIES.SEARCH, {
+      params: { search: query },
+    })
+    return data.data
+  },
 }
 
 // Helper to build FormData for party

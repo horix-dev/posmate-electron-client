@@ -54,8 +54,10 @@ const DEFAULT_LOYALTY_SETTINGS: LoyaltySettings = {
   max_redeem_percent_of_bill: 100,
   allow_partial_redeem: true,
   rounding_rule: 'floor',
+  max_loyalty_points: null,
   expiry_enabled: false,
   expiry_days: null,
+  expire_on_date: null,
   meta: null,
 }
 
@@ -64,6 +66,7 @@ function normalizeLoyaltySettings(settings: LoyaltySettings): LoyaltySettings {
     ...settings,
     meta: settings.meta ?? null,
     expiry_days: settings.expiry_enabled ? settings.expiry_days ?? 30 : null,
+    expire_on_date: settings.expiry_enabled ? settings.expire_on_date : null,
   }
 }
 
@@ -321,8 +324,16 @@ export function SettingsPage() {
       errors.max_redeem_percent_of_bill = ['Max redeem percent must be between 0 and 100.']
     }
 
+    if (loyaltySettings.max_loyalty_points !== null && loyaltySettings.max_loyalty_points < 0) {
+      errors.max_loyalty_points = ['Max loyalty points must be 0 or greater.']
+    }
+
     if (loyaltySettings.expiry_enabled && (!loyaltySettings.expiry_days || loyaltySettings.expiry_days <= 0)) {
       errors.expiry_days = ['Expiry days must be greater than 0 when expiry is enabled.']
+    }
+
+    if (loyaltySettings.expiry_enabled && !loyaltySettings.expire_on_date) {
+      errors.expire_on_date = ['Expiry date is required when expiry is enabled.']
     }
 
     return errors
@@ -961,6 +972,33 @@ export function SettingsPage() {
                           </p>
                         )}
                       </div>
+
+                      <div className="space-y-2">
+                        <Label>Maximum Loyalty Points (Optional)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={loyaltySettings.max_loyalty_points ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            setLoyaltySettings((prev) => ({
+                              ...prev,
+                              max_loyalty_points: value === '' ? null : Math.max(0, Number(value) || 0),
+                            }))
+                            clearLoyaltyFieldError('max_loyalty_points')
+                          }}
+                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                          placeholder="Leave empty for no limit"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          When reached, customers will stop earning additional loyalty points
+                        </p>
+                        {getLoyaltyFieldError('max_loyalty_points') && (
+                          <p className="text-xs text-destructive">
+                            {getLoyaltyFieldError('max_loyalty_points')}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -972,11 +1010,15 @@ export function SettingsPage() {
                         checked={loyaltySettings.expiry_enabled}
                         disabled={!canEditLoyaltySettings || isLoyaltySaving}
                         onCheckedChange={(checked) =>
-                          setLoyaltySettings((prev) => ({
-                            ...prev,
-                            expiry_enabled: checked,
-                            expiry_days: checked ? prev.expiry_days ?? 30 : null,
-                          }))
+                          setLoyaltySettings((prev) => {
+                            const today = new Date().toISOString().split('T')[0]
+                            return {
+                              ...prev,
+                              expiry_enabled: checked,
+                              expiry_days: checked ? prev.expiry_days ?? 30 : null,
+                              expire_on_date: checked ? prev.expire_on_date ?? today : null,
+                            }
+                          })
                         }
                       />
                     </div>
@@ -998,6 +1040,29 @@ export function SettingsPage() {
                       />
                       {getLoyaltyFieldError('expiry_days') && (
                         <p className="text-xs text-destructive">{getLoyaltyFieldError('expiry_days')}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Expiry Date</Label>
+                      <Input
+                        type="date"
+                        value={loyaltySettings.expire_on_date ?? ''}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          setLoyaltySettings((prev) => ({
+                            ...prev,
+                            expire_on_date: value || null,
+                          }))
+                          clearLoyaltyFieldError('expire_on_date')
+                        }}
+                        disabled={!loyaltySettings.expiry_enabled || !canEditLoyaltySettings || isLoyaltySaving}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        On this date, all customers' loyalty points will be set to 0
+                      </p>
+                      {getLoyaltyFieldError('expire_on_date') && (
+                        <p className="text-xs text-destructive">{getLoyaltyFieldError('expire_on_date')}</p>
                       )}
                     </div>
                   </div>

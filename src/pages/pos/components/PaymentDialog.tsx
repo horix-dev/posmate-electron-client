@@ -385,10 +385,7 @@ function PaymentDialogComponent({
                 })}
               </div>
             </div>
-          </div>
 
-          {/* Right Column */}
-          <div className="space-y-6">
             {/* Customer Info - Show for registered customers */}
             {customer && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950">
@@ -421,6 +418,10 @@ function PaymentDialogComponent({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-6">
 
             {customer && (
               <div className="space-y-3 rounded-lg border border-purple-200 bg-purple-50 p-3 dark:border-purple-800 dark:bg-purple-950">

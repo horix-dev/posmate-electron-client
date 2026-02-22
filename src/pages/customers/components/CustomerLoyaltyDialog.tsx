@@ -237,14 +237,14 @@ export function CustomerLoyaltyDialog({
                   {isAssigningCard ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Assign Card
                 </Button>
-                <Button
+                {/* <Button
                   variant="outline"
                   onClick={() => handleAssignCard(true)}
                   disabled={isAssigningCard}
                 >
                   <RefreshCcw className="mr-2 h-4 w-4" />
                   Regenerate Card
-                </Button>
+                </Button> */}
               </div>
 
               {isShopOwner && (

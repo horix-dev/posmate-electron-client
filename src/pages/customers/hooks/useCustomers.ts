@@ -85,7 +85,13 @@ export function useCustomers() {
     const q = query.trim().toLowerCase()
     if (!q) return customers
     return customers.filter((s) => {
-      return [s.name, s.email, s.phone, s.address].some((field) => (field || '').toString().toLowerCase().includes(q))
+      return [
+        s.name,
+        s.email,
+        s.phone,
+        s.address,
+        s.loyalty_card_code,
+      ].some((field) => (field || '').toString().toLowerCase().includes(q))
     })
   }
 
