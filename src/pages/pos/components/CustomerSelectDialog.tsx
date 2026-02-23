@@ -69,18 +69,12 @@ const CustomerItem = memo(function CustomerItem({
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{customer.name}</p>
-        {customer.phone && (
-          <p className="text-sm text-muted-foreground">{customer.phone}</p>
-        )}
+        {customer.phone && <p className="text-sm text-muted-foreground">{customer.phone}</p>}
         {customer.email && (
-          <p className="truncate text-xs text-muted-foreground">
-            {customer.email}
-          </p>
+          <p className="truncate text-xs text-muted-foreground">{customer.email}</p>
         )}
       </div>
-      {isSelected && (
-        <Check className="h-5 w-5 text-primary" aria-hidden="true" />
-      )}
+      {isSelected && <Check className="h-5 w-5 text-primary" aria-hidden="true" />}
     </button>
   )
 })
@@ -90,10 +84,7 @@ interface WalkInButtonProps {
   onClick: () => void
 }
 
-const WalkInButton = memo(function WalkInButton({
-  isSelected,
-  onClick,
-}: WalkInButtonProps) {
+const WalkInButton = memo(function WalkInButton({ isSelected, onClick }: WalkInButtonProps) {
   return (
     <button
       type="button"
@@ -112,9 +103,7 @@ const WalkInButton = memo(function WalkInButton({
         <p className="font-medium">Walk-in Customer</p>
         <p className="text-sm text-muted-foreground">No customer selected</p>
       </div>
-      {isSelected && (
-        <Check className="h-5 w-5 text-primary" aria-hidden="true" />
-      )}
+      {isSelected && <Check className="h-5 w-5 text-primary" aria-hidden="true" />}
     </button>
   )
 })
@@ -157,12 +146,9 @@ function CustomerSelectDialogComponent({
     [onSelect, onClose]
   )
 
-  const handleSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchQuery(e.target.value)
-    },
-    []
-  )
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value)
+  }, [])
 
   const handleLoyaltyLookup = useCallback(async () => {
     const input = loyaltySearch.trim()
@@ -170,19 +156,14 @@ function CustomerSelectDialogComponent({
 
     // Try to detect if it's a phone or card code
     // If it's mostly numeric, treat as phone; otherwise treat as card code
-    const isPhone = /^\d+$/.test(input.replace(/[\s\-\+\(\)]/g, ''))
+    const isPhone = /^\d+$/.test(input.replace(/[\s\-+()]/g, ''))
 
-    await onLoyaltyLookup(
-      isPhone ? { phone: input } : { card_code: input }
-    )
+    await onLoyaltyLookup(isPhone ? { phone: input } : { card_code: input })
   }, [onLoyaltyLookup, loyaltySearch])
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent
-        className="max-w-md"
-        aria-describedby="customer-select-description"
-      >
+      <DialogContent className="max-w-md" aria-describedby="customer-select-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" aria-hidden="true" />
@@ -241,10 +222,7 @@ function CustomerSelectDialogComponent({
         <ScrollArea className="max-h-[50vh]">
           <div className="space-y-2 pr-4">
             {/* Walk-in Option */}
-            <WalkInButton
-              isSelected={!selectedCustomer}
-              onClick={() => handleSelect(null)}
-            />
+            <WalkInButton isSelected={!selectedCustomer} onClick={() => handleSelect(null)} />
 
             {/* Customer Items */}
             {isLoading ? (
