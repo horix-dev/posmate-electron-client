@@ -113,7 +113,7 @@ export function CollectDueDialog({
     if (open) {
       setIsLoadingPaymentTypes(true)
       paymentTypesService
-        .getAll()
+        .getAll({ status: true })
         .then((response) => {
           setPaymentTypes(response.data || [])
           // Set default to first payment type if available
@@ -173,9 +173,7 @@ export function CollectDueDialog({
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Collect Due</DialogTitle>
-          <DialogDescription>
-            Record a due collection payment for {party?.name}
-          </DialogDescription>
+          <DialogDescription>Record a due collection payment for {party?.name}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
@@ -199,7 +197,8 @@ export function CollectDueDialog({
               <SelectContent>
                 {invoices.map((invoice) => (
                   <SelectItem key={invoice.id} value={invoice.id.toString()}>
-                    {invoice.invoiceNumber} - Due: {currencySymbol}{invoice.dueAmount.toFixed(2)}
+                    {invoice.invoiceNumber} - Due: {currencySymbol}
+                    {invoice.dueAmount.toFixed(2)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -220,7 +219,7 @@ export function CollectDueDialog({
                   onChange={(e) => setPaymentDate(e.target.value)}
                   className="h-10 pr-10"
                 />
-                <Calendar className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <Calendar className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               </div>
             </div>
 
@@ -229,13 +228,15 @@ export function CollectDueDialog({
               <Label htmlFor="payment-type" className="text-base font-semibold">
                 Payment Type
               </Label>
-              <Select 
-                value={paymentType} 
+              <Select
+                value={paymentType}
                 onValueChange={setPaymentType}
                 disabled={isLoadingPaymentTypes}
               >
                 <SelectTrigger className="h-10">
-                  <SelectValue placeholder={isLoadingPaymentTypes ? "Loading..." : "Select payment type"} />
+                  <SelectValue
+                    placeholder={isLoadingPaymentTypes ? 'Loading...' : 'Select payment type'}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {paymentTypes.map((pt) => (
@@ -328,16 +329,11 @@ export function CollectDueDialog({
               variant="outline"
               size="lg"
               onClick={handleReset}
-              className="border-red-200 text-red-600 hover:bg-red-50 flex-1"
+              className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
             >
               Reset
             </Button>
-            <Button
-              size="lg"
-              onClick={handleSave}
-              disabled={isLoading}
-              className="flex-1"
-            >
+            <Button size="lg" onClick={handleSave} disabled={isLoading} className="flex-1">
               Save
             </Button>
           </div>

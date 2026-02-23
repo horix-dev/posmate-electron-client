@@ -85,7 +85,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null })
         try {
           const response = await authService.login({ email, password })
-          const { token, is_setup, currency } = response.data
+          const { token, is_setup, currency, business } = response.data
 
           // Store token securely
           setAuthToken(token)
@@ -98,6 +98,18 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             isOfflineMode: false,
           })
+
+          // If login response included business data (contains loyalty flag), set it immediately
+          if (business) {
+            set({ business })
+            try {
+              const { useBusinessStore } = await import('./business.store')
+              useBusinessStore.getState().setBusiness(business)
+            } catch (err) {
+              // Non-fatal: business store update failed
+              console.warn('[AuthStore] Failed to update business store from login response', err)
+            }
+          }
 
           // Fetch user profile after login
           await get().fetchProfile()

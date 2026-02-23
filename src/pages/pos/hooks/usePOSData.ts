@@ -170,7 +170,7 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
         const [productsRes, categoriesRes, paymentTypesRes, vatsRes] = await Promise.all([
           productsService.getAll(10000), // Get up to 10,000 products (supports large catalogs)
           categoriesService.getList({ limit: 1000, status: true }), // ✅ Use getList for flat array
-          paymentTypesService.getAll(),
+          paymentTypesService.getAll({ status: true }), // ✅ Get only active payment types
           vatsService.getAll({ status: 'active' }),
         ])
 

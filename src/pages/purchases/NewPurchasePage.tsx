@@ -382,7 +382,7 @@ export function NewPurchasePage() {
         }
 
         // Fetch payment types
-        const paymentTypesData = await paymentTypesService.getAll()
+        const paymentTypesData = await paymentTypesService.getAll({ status: true })
         const types = Array.isArray(paymentTypesData)
           ? paymentTypesData
           : (paymentTypesData as { data: PaymentType[] }).data || []

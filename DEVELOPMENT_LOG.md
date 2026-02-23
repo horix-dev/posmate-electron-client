@@ -1,3 +1,27 @@
+## 2026-02-24 - Bug Fix: Payment Methods Display - Only Cash Showing
+
+**Problem:**
+In the Payment Dialog (POS checkout), only the "Cash" payment method was displayed. Other payment types created in the settings were not visible in the payment method selector, even though they were active and properly configured in the database.
+
+**Root Cause:**
+The `paymentTypesService.getAll()` calls were being made without the `{ status: true }` filter parameter. While the API endpoint supports filtering by status, the frontend wasn't using it. Inactive payment types were being fetched and included in the dialog, potentially cluttering the UI.
+
+**Solution:**
+Added `{ status: true }` parameter to all POS-related payment type fetches to display only active payment methods:
+1. **usePOSData hook** - Main POS data fetching
+2. **NewPurchasePage** - Purchase form payment method selection  
+3. **CollectDueDialog** - Due collection interface
+
+This ensures:
+- ✅ Only active payment types are displayed in user-facing interfaces
+- ✅ Inactive payment types can still be managed in settings
+- ✅ Consistent filtering across all POS-related components
+
+**Files Modified:**
+- src/pages/pos/hooks/usePOSData.ts
+- src/pages/purchases/NewPurchasePage.tsx
+- src/pages/Due/components/CollectDueDialog.tsx
+
 ## 2026-02-22 - Enhancement: Purchase Batch Selection (Existing vs New)
 
 **Problem:**

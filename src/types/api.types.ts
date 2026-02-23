@@ -298,6 +298,7 @@ export interface LoginResponse {
   is_setup: boolean
   token: string
   currency: Currency | null
+  business?: Business | null
 }
 
 export interface SignUpRequest {
@@ -353,6 +354,7 @@ export interface Business {
   branch_count?: number
   addons?: BusinessAddons
   gratitude_message?: string
+  loyalty_enabled?: boolean
 }
 
 export interface BusinessAddons {

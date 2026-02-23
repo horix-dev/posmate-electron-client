@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/select'
 import { useUIStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth.store'
+import { useBusinessStore } from '@/stores'
 import { useAppUpdater } from '@/hooks/useAppUpdater'
 import { useQueryClient } from '@tanstack/react-query'
 import { CurrencySettings, BusinessSettingsForm } from './components'
@@ -65,7 +66,7 @@ function normalizeLoyaltySettings(settings: LoyaltySettings): LoyaltySettings {
   return {
     ...settings,
     meta: settings.meta ?? null,
-    expiry_days: settings.expiry_enabled ? settings.expiry_days ?? 30 : null,
+    expiry_days: settings.expiry_enabled ? (settings.expiry_days ?? 30) : null,
     expire_on_date: settings.expiry_enabled ? settings.expire_on_date : null,
   }
 }
@@ -86,6 +87,7 @@ type PrinterInfo = {
 
 export function SettingsPage() {
   const user = useAuthStore((state) => state.user)
+  const business = useBusinessStore((state) => state.business)
   const {
     theme,
     setTheme,
@@ -272,22 +274,19 @@ export function SettingsPage() {
     }
   }, [])
 
-  const handleLoyaltyNumberChange = useCallback(
-    (field: keyof LoyaltySettings, value: string) => {
-      const parsed = value === '' ? 0 : Number(value)
-      setLoyaltySettings((prev) => ({
-        ...prev,
-        [field]: Number.isFinite(parsed) ? parsed : 0,
-      }))
-      setLoyaltyFieldErrors((prev) => {
-        if (!prev[field]) return prev
-        const next = { ...prev }
-        delete next[field]
-        return next
-      })
-    },
-    []
-  )
+  const handleLoyaltyNumberChange = useCallback((field: keyof LoyaltySettings, value: string) => {
+    const parsed = value === '' ? 0 : Number(value)
+    setLoyaltySettings((prev) => ({
+      ...prev,
+      [field]: Number.isFinite(parsed) ? parsed : 0,
+    }))
+    setLoyaltyFieldErrors((prev) => {
+      if (!prev[field]) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }, [])
 
   const clearLoyaltyFieldError = useCallback((field: keyof LoyaltySettings | string) => {
     setLoyaltyFieldErrors((prev) => {
@@ -328,7 +327,10 @@ export function SettingsPage() {
       errors.max_loyalty_points = ['Max loyalty points must be 0 or greater.']
     }
 
-    if (loyaltySettings.expiry_enabled && (!loyaltySettings.expiry_days || loyaltySettings.expiry_days <= 0)) {
+    if (
+      loyaltySettings.expiry_enabled &&
+      (!loyaltySettings.expiry_days || loyaltySettings.expiry_days <= 0)
+    ) {
       errors.expiry_days = ['Expiry days must be greater than 0 when expiry is enabled.']
     }
 
@@ -379,8 +381,9 @@ export function SettingsPage() {
       console.error('Failed to save loyalty settings:', error)
 
       if (axios.isAxiosError(error)) {
-        const apiErrors = (error.response?.data as { errors?: Record<string, string[]> } | undefined)
-          ?.errors
+        const apiErrors = (
+          error.response?.data as { errors?: Record<string, string[]> } | undefined
+        )?.errors
 
         if (apiErrors && Object.keys(apiErrors).length > 0) {
           setLoyaltyFieldErrors(apiErrors)
@@ -503,7 +506,7 @@ export function SettingsPage() {
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="business">Business</TabsTrigger>
-          <TabsTrigger value="loyalty">Loyalty</TabsTrigger>
+          {business?.loyalty_enabled && <TabsTrigger value="loyalty">Loyalty</TabsTrigger>}
           <TabsTrigger value="payment-types">
             <Tag className="mr-1 h-3 w-3" />
             Payment Types
@@ -700,392 +703,433 @@ export function SettingsPage() {
           <BusinessSettingsForm />
         </TabsContent>
 
-        <TabsContent value="loyalty" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Loyalty Settings</CardTitle>
-              <CardDescription>
-                Configure loyalty earning and redemption rules for POS sales.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {!canEditLoyaltySettings && (
-                <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950 dark:text-yellow-200">
-                  You do not have permission to edit loyalty settings.
-                </div>
-              )}
-
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
-                <div className="text-sm">
-                  {isLoyaltyDirty ? (
-                    <span className="font-medium text-amber-600">You have unsaved changes.</span>
-                  ) : (
-                    <span className="text-muted-foreground">Settings are up to date.</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={loadLoyaltySettings}
-                    disabled={isLoyaltyLoading || isLoyaltySaving}
-                  >
-                    Reload
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleResetLoyaltySettings}
-                    disabled={!isLoyaltyDirty || isLoyaltyLoading || isLoyaltySaving}
-                  >
-                    Reset Changes
-                  </Button>
-                </div>
-              </div>
-
-              {isLoyaltyLoading ? (
-                <div className="text-sm text-muted-foreground">Loading loyalty settings...</div>
-              ) : (
-                <>
-                  <div className="space-y-4 rounded-lg border p-4">
-                    <h4 className="font-medium">General</h4>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label>Loyalty Enabled</Label>
-                        <p className="text-sm text-muted-foreground">Enable loyalty features in POS</p>
-                      </div>
-                      <Switch
-                        checked={loyaltySettings.enabled}
-                        disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                        onCheckedChange={(checked) =>
-                          setLoyaltySettings((prev) => ({ ...prev, enabled: checked }))
-                        }
-                      />
-                    </div>
+        {business?.loyalty_enabled && (
+          <TabsContent value="loyalty" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Loyalty Settings</CardTitle>
+                <CardDescription>
+                  Configure loyalty earning and redemption rules for POS sales.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {!canEditLoyaltySettings && (
+                  <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950 dark:text-yellow-200">
+                    You do not have permission to edit loyalty settings.
                   </div>
+                )}
 
-                  <div className="space-y-4 rounded-lg border p-4">
-                    <h4 className="font-medium">Earn Rules</h4>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Earn Mode</Label>
-                        <Select
-                          value={loyaltySettings.earn_mode}
-                          onValueChange={(value: 'amount_based' | 'percentage_based') =>
-                            setLoyaltySettings((prev) => ({ ...prev, earn_mode: value }))
-                          }
-                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="amount_based">Amount Based</SelectItem>
-                            <SelectItem value="percentage_based">Percentage Based</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {getLoyaltyFieldError('earn_mode') && (
-                          <p className="text-xs text-destructive">{getLoyaltyFieldError('earn_mode')}</p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Earn Value</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={loyaltySettings.earn_value}
-                          onChange={(e) => handleLoyaltyNumberChange('earn_value', e.target.value)}
-                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                        />
-                        {getLoyaltyFieldError('earn_value') && (
-                          <p className="text-xs text-destructive">{getLoyaltyFieldError('earn_value')}</p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Minimum Sale Amount</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={loyaltySettings.minimum_sale_amount}
-                          onChange={(e) =>
-                            handleLoyaltyNumberChange('minimum_sale_amount', e.target.value)
-                          }
-                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                        />
-                        {getLoyaltyFieldError('minimum_sale_amount') && (
-                          <p className="text-xs text-destructive">
-                            {getLoyaltyFieldError('minimum_sale_amount')}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="flex items-center justify-between rounded-md border p-3">
-                        <Label>Exclude Due Sales</Label>
-                        <Switch
-                          checked={loyaltySettings.exclude_due_sales}
-                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                          onCheckedChange={(checked) =>
-                            setLoyaltySettings((prev) => ({ ...prev, exclude_due_sales: checked }))
-                          }
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between rounded-md border p-3">
-                        <Label>Exclude Discounted Amount</Label>
-                        <Switch
-                          checked={loyaltySettings.exclude_discounted_amount}
-                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                          onCheckedChange={(checked) =>
-                            setLoyaltySettings((prev) => ({ ...prev, exclude_discounted_amount: checked }))
-                          }
-                        />
-                      </div>
-                    </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
+                  <div className="text-sm">
+                    {isLoyaltyDirty ? (
+                      <span className="font-medium text-amber-600">You have unsaved changes.</span>
+                    ) : (
+                      <span className="text-muted-foreground">Settings are up to date.</span>
+                    )}
                   </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadLoyaltySettings}
+                      disabled={isLoyaltyLoading || isLoyaltySaving}
+                    >
+                      Reload
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResetLoyaltySettings}
+                      disabled={!isLoyaltyDirty || isLoyaltyLoading || isLoyaltySaving}
+                    >
+                      Reset Changes
+                    </Button>
+                  </div>
+                </div>
 
-                  <div className="space-y-4 rounded-lg border p-4">
-                    <h4 className="font-medium">Redeem Rules</h4>
-
-                    <div className="flex items-center justify-between rounded-md border p-3">
-                      <Label>Redeem Enabled</Label>
-                      <Switch
-                        checked={loyaltySettings.redeem_enabled}
-                        disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                        onCheckedChange={(checked) =>
-                          setLoyaltySettings((prev) => ({ ...prev, redeem_enabled: checked }))
-                        }
-                      />
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Redeem Mode</Label>
-                        <Select
-                          value={loyaltySettings.redeem_mode}
-                          onValueChange={(value: 'points_to_currency' | 'percentage_cap') =>
-                            setLoyaltySettings((prev) => ({ ...prev, redeem_mode: value }))
-                          }
-                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="points_to_currency">Points to Currency</SelectItem>
-                            <SelectItem value="percentage_cap">Percentage Cap</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {getLoyaltyFieldError('redeem_mode') && (
-                          <p className="text-xs text-destructive">{getLoyaltyFieldError('redeem_mode')}</p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Point Value</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={loyaltySettings.point_value}
-                          onChange={(e) => handleLoyaltyNumberChange('point_value', e.target.value)}
-                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                        />
-                        {getLoyaltyFieldError('point_value') && (
-                          <p className="text-xs text-destructive">{getLoyaltyFieldError('point_value')}</p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Min Points to Redeem</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={loyaltySettings.min_points_to_redeem}
-                          onChange={(e) =>
-                            handleLoyaltyNumberChange('min_points_to_redeem', e.target.value)
-                          }
-                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                        />
-                        {getLoyaltyFieldError('min_points_to_redeem') && (
-                          <p className="text-xs text-destructive">
-                            {getLoyaltyFieldError('min_points_to_redeem')}
+                {isLoyaltyLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading loyalty settings...</div>
+                ) : (
+                  <>
+                    <div className="space-y-4 rounded-lg border p-4">
+                      <h4 className="font-medium">General</h4>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Loyalty Enabled</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Enable loyalty features in POS
                           </p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Max Redeem % of Bill</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={loyaltySettings.max_redeem_percent_of_bill}
-                          onChange={(e) =>
-                            handleLoyaltyNumberChange('max_redeem_percent_of_bill', e.target.value)
-                          }
-                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                        />
-                        {getLoyaltyFieldError('max_redeem_percent_of_bill') && (
-                          <p className="text-xs text-destructive">
-                            {getLoyaltyFieldError('max_redeem_percent_of_bill')}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="flex items-center justify-between rounded-md border p-3">
-                        <Label>Allow Partial Redeem</Label>
+                        </div>
                         <Switch
-                          checked={loyaltySettings.allow_partial_redeem}
+                          checked={loyaltySettings.enabled}
                           disabled={!canEditLoyaltySettings || isLoyaltySaving}
                           onCheckedChange={(checked) =>
-                            setLoyaltySettings((prev) => ({ ...prev, allow_partial_redeem: checked }))
+                            setLoyaltySettings((prev) => ({ ...prev, enabled: checked }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 rounded-lg border p-4">
+                      <h4 className="font-medium">Earn Rules</h4>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Earn Mode</Label>
+                          <Select
+                            value={loyaltySettings.earn_mode}
+                            onValueChange={(value: 'amount_based' | 'percentage_based') =>
+                              setLoyaltySettings((prev) => ({ ...prev, earn_mode: value }))
+                            }
+                            disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="amount_based">Amount Based</SelectItem>
+                              <SelectItem value="percentage_based">Percentage Based</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {getLoyaltyFieldError('earn_mode') && (
+                            <p className="text-xs text-destructive">
+                              {getLoyaltyFieldError('earn_mode')}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Earn Value</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={loyaltySettings.earn_value}
+                            onChange={(e) =>
+                              handleLoyaltyNumberChange('earn_value', e.target.value)
+                            }
+                            disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                          />
+                          {getLoyaltyFieldError('earn_value') && (
+                            <p className="text-xs text-destructive">
+                              {getLoyaltyFieldError('earn_value')}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Minimum Sale Amount</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={loyaltySettings.minimum_sale_amount}
+                            onChange={(e) =>
+                              handleLoyaltyNumberChange('minimum_sale_amount', e.target.value)
+                            }
+                            disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                          />
+                          {getLoyaltyFieldError('minimum_sale_amount') && (
+                            <p className="text-xs text-destructive">
+                              {getLoyaltyFieldError('minimum_sale_amount')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="flex items-center justify-between rounded-md border p-3">
+                          <Label>Exclude Due Sales</Label>
+                          <Switch
+                            checked={loyaltySettings.exclude_due_sales}
+                            disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                            onCheckedChange={(checked) =>
+                              setLoyaltySettings((prev) => ({
+                                ...prev,
+                                exclude_due_sales: checked,
+                              }))
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-md border p-3">
+                          <Label>Exclude Discounted Amount</Label>
+                          <Switch
+                            checked={loyaltySettings.exclude_discounted_amount}
+                            disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                            onCheckedChange={(checked) =>
+                              setLoyaltySettings((prev) => ({
+                                ...prev,
+                                exclude_discounted_amount: checked,
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 rounded-lg border p-4">
+                      <h4 className="font-medium">Redeem Rules</h4>
+
+                      <div className="flex items-center justify-between rounded-md border p-3">
+                        <Label>Redeem Enabled</Label>
+                        <Switch
+                          checked={loyaltySettings.redeem_enabled}
+                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                          onCheckedChange={(checked) =>
+                            setLoyaltySettings((prev) => ({ ...prev, redeem_enabled: checked }))
                           }
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label>Rounding Rule</Label>
-                        <Select
-                          value={loyaltySettings.rounding_rule}
-                          onValueChange={(value: 'floor' | 'round' | 'ceil') =>
-                            setLoyaltySettings((prev) => ({ ...prev, rounding_rule: value }))
-                          }
-                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="floor">Floor</SelectItem>
-                            <SelectItem value="round">Round</SelectItem>
-                            <SelectItem value="ceil">Ceil</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {getLoyaltyFieldError('rounding_rule') && (
-                          <p className="text-xs text-destructive">
-                            {getLoyaltyFieldError('rounding_rule')}
-                          </p>
-                        )}
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Redeem Mode</Label>
+                          <Select
+                            value={loyaltySettings.redeem_mode}
+                            onValueChange={(value: 'points_to_currency' | 'percentage_cap') =>
+                              setLoyaltySettings((prev) => ({ ...prev, redeem_mode: value }))
+                            }
+                            disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="points_to_currency">Points to Currency</SelectItem>
+                              <SelectItem value="percentage_cap">Percentage Cap</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {getLoyaltyFieldError('redeem_mode') && (
+                            <p className="text-xs text-destructive">
+                              {getLoyaltyFieldError('redeem_mode')}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Point Value</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={loyaltySettings.point_value}
+                            onChange={(e) =>
+                              handleLoyaltyNumberChange('point_value', e.target.value)
+                            }
+                            disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                          />
+                          {getLoyaltyFieldError('point_value') && (
+                            <p className="text-xs text-destructive">
+                              {getLoyaltyFieldError('point_value')}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Min Points to Redeem</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={loyaltySettings.min_points_to_redeem}
+                            onChange={(e) =>
+                              handleLoyaltyNumberChange('min_points_to_redeem', e.target.value)
+                            }
+                            disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                          />
+                          {getLoyaltyFieldError('min_points_to_redeem') && (
+                            <p className="text-xs text-destructive">
+                              {getLoyaltyFieldError('min_points_to_redeem')}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Max Redeem % of Bill</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={loyaltySettings.max_redeem_percent_of_bill}
+                            onChange={(e) =>
+                              handleLoyaltyNumberChange(
+                                'max_redeem_percent_of_bill',
+                                e.target.value
+                              )
+                            }
+                            disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                          />
+                          {getLoyaltyFieldError('max_redeem_percent_of_bill') && (
+                            <p className="text-xs text-destructive">
+                              {getLoyaltyFieldError('max_redeem_percent_of_bill')}
+                            </p>
+                          )}
+                        </div>
                       </div>
 
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="flex items-center justify-between rounded-md border p-3">
+                          <Label>Allow Partial Redeem</Label>
+                          <Switch
+                            checked={loyaltySettings.allow_partial_redeem}
+                            disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                            onCheckedChange={(checked) =>
+                              setLoyaltySettings((prev) => ({
+                                ...prev,
+                                allow_partial_redeem: checked,
+                              }))
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Rounding Rule</Label>
+                          <Select
+                            value={loyaltySettings.rounding_rule}
+                            onValueChange={(value: 'floor' | 'round' | 'ceil') =>
+                              setLoyaltySettings((prev) => ({ ...prev, rounding_rule: value }))
+                            }
+                            disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="floor">Floor</SelectItem>
+                              <SelectItem value="round">Round</SelectItem>
+                              <SelectItem value="ceil">Ceil</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {getLoyaltyFieldError('rounding_rule') && (
+                            <p className="text-xs text-destructive">
+                              {getLoyaltyFieldError('rounding_rule')}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Maximum Loyalty Points (Optional)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={loyaltySettings.max_loyalty_points ?? ''}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              setLoyaltySettings((prev) => ({
+                                ...prev,
+                                max_loyalty_points:
+                                  value === '' ? null : Math.max(0, Number(value) || 0),
+                              }))
+                              clearLoyaltyFieldError('max_loyalty_points')
+                            }}
+                            disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                            placeholder="Leave empty for no limit"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            When reached, customers will stop earning additional loyalty points
+                          </p>
+                          {getLoyaltyFieldError('max_loyalty_points') && (
+                            <p className="text-xs text-destructive">
+                              {getLoyaltyFieldError('max_loyalty_points')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 rounded-lg border p-4">
+                      <h4 className="font-medium">Expiry</h4>
+                      <div className="flex items-center justify-between rounded-md border p-3">
+                        <Label>Expiry Enabled</Label>
+                        <Switch
+                          checked={loyaltySettings.expiry_enabled}
+                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
+                          onCheckedChange={(checked) =>
+                            setLoyaltySettings((prev) => {
+                              const today = new Date().toISOString().split('T')[0]
+                              return {
+                                ...prev,
+                                expiry_enabled: checked,
+                                expiry_days: checked ? (prev.expiry_days ?? 30) : null,
+                                expire_on_date: checked ? (prev.expire_on_date ?? today) : null,
+                              }
+                            })
+                          }
+                        />
+                      </div>
                       <div className="space-y-2">
-                        <Label>Maximum Loyalty Points (Optional)</Label>
+                        <Label>Expiry Days</Label>
                         <Input
                           type="number"
-                          min={0}
-                          value={loyaltySettings.max_loyalty_points ?? ''}
+                          min={1}
+                          value={loyaltySettings.expiry_days ?? ''}
                           onChange={(e) => {
                             const value = e.target.value
                             setLoyaltySettings((prev) => ({
                               ...prev,
-                              max_loyalty_points: value === '' ? null : Math.max(0, Number(value) || 0),
+                              expiry_days: value === '' ? null : Math.max(1, Number(value) || 1),
                             }))
-                            clearLoyaltyFieldError('max_loyalty_points')
+                            clearLoyaltyFieldError('expiry_days')
                           }}
-                          disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                          placeholder="Leave empty for no limit"
+                          disabled={
+                            !loyaltySettings.expiry_enabled ||
+                            !canEditLoyaltySettings ||
+                            isLoyaltySaving
+                          }
+                        />
+                        {getLoyaltyFieldError('expiry_days') && (
+                          <p className="text-xs text-destructive">
+                            {getLoyaltyFieldError('expiry_days')}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Expiry Date</Label>
+                        <Input
+                          type="date"
+                          value={loyaltySettings.expire_on_date ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            setLoyaltySettings((prev) => ({
+                              ...prev,
+                              expire_on_date: value || null,
+                            }))
+                            clearLoyaltyFieldError('expire_on_date')
+                          }}
+                          disabled={
+                            !loyaltySettings.expiry_enabled ||
+                            !canEditLoyaltySettings ||
+                            isLoyaltySaving
+                          }
                         />
                         <p className="text-xs text-muted-foreground">
-                          When reached, customers will stop earning additional loyalty points
+                          On this date, all customers' loyalty points will be set to 0
                         </p>
-                        {getLoyaltyFieldError('max_loyalty_points') && (
+                        {getLoyaltyFieldError('expire_on_date') && (
                           <p className="text-xs text-destructive">
-                            {getLoyaltyFieldError('max_loyalty_points')}
+                            {getLoyaltyFieldError('expire_on_date')}
                           </p>
                         )}
                       </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-4 rounded-lg border p-4">
-                    <h4 className="font-medium">Expiry</h4>
-                    <div className="flex items-center justify-between rounded-md border p-3">
-                      <Label>Expiry Enabled</Label>
-                      <Switch
-                        checked={loyaltySettings.expiry_enabled}
-                        disabled={!canEditLoyaltySettings || isLoyaltySaving}
-                        onCheckedChange={(checked) =>
-                          setLoyaltySettings((prev) => {
-                            const today = new Date().toISOString().split('T')[0]
-                            return {
-                              ...prev,
-                              expiry_enabled: checked,
-                              expiry_days: checked ? prev.expiry_days ?? 30 : null,
-                              expire_on_date: checked ? prev.expire_on_date ?? today : null,
-                            }
-                          })
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleSaveLoyaltySettings}
+                        disabled={
+                          !canEditLoyaltySettings ||
+                          isLoyaltySaving ||
+                          isLoyaltyLoading ||
+                          isLoyaltyFormInvalid ||
+                          !isLoyaltyDirty
                         }
-                      />
+                      >
+                        {isLoyaltySaving ? 'Saving...' : 'Save Loyalty Settings'}
+                      </Button>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Expiry Days</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={loyaltySettings.expiry_days ?? ''}
-                        onChange={(e) => {
-                          const value = e.target.value
-                          setLoyaltySettings((prev) => ({
-                            ...prev,
-                            expiry_days: value === '' ? null : Math.max(1, Number(value) || 1),
-                          }))
-                          clearLoyaltyFieldError('expiry_days')
-                        }}
-                        disabled={!loyaltySettings.expiry_enabled || !canEditLoyaltySettings || isLoyaltySaving}
-                      />
-                      {getLoyaltyFieldError('expiry_days') && (
-                        <p className="text-xs text-destructive">{getLoyaltyFieldError('expiry_days')}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Expiry Date</Label>
-                      <Input
-                        type="date"
-                        value={loyaltySettings.expire_on_date ?? ''}
-                        onChange={(e) => {
-                          const value = e.target.value
-                          setLoyaltySettings((prev) => ({
-                            ...prev,
-                            expire_on_date: value || null,
-                          }))
-                          clearLoyaltyFieldError('expire_on_date')
-                        }}
-                        disabled={!loyaltySettings.expiry_enabled || !canEditLoyaltySettings || isLoyaltySaving}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        On this date, all customers' loyalty points will be set to 0
-                      </p>
-                      {getLoyaltyFieldError('expire_on_date') && (
-                        <p className="text-xs text-destructive">{getLoyaltyFieldError('expire_on_date')}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={handleSaveLoyaltySettings}
-                      disabled={
-                        !canEditLoyaltySettings ||
-                        isLoyaltySaving ||
-                        isLoyaltyLoading ||
-                        isLoyaltyFormInvalid ||
-                        !isLoyaltyDirty
-                      }
-                    >
-                      {isLoyaltySaving ? 'Saving...' : 'Save Loyalty Settings'}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         <TabsContent value="payment-types" className="space-y-4">
           <Card>
