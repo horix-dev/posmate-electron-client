@@ -153,7 +153,10 @@ function PaymentDialogComponent({
 }: PaymentDialogProps) {
   const { format: formatCurrency, symbol: currencySymbol } = useCurrency()
   const [amountPaid, setAmountPaid] = useState<string>(String(totalAmount))
+  const [redeemPointsInput, setRedeemPointsInput] = useState<number>(loyaltyRedeemPoints)
   const amountInputRef = useRef<HTMLInputElement>(null)
+  const redeemSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isEditingRedeemRef = useRef(false)
   const [printEnabled, setPrintEnabled] = useState<boolean>(autoPrintReceipt)
   const [loyaltySettings, setLoyaltySettings] = useState<LoyaltySettings | null>(null)
 
@@ -163,21 +166,26 @@ function PaymentDialogComponent({
   // Check if customer is walk-in (null customer)
   const isWalkInCustomer = customer === null
 
+  const maxRedeemAmountByPercent = useMemo(() => {
+    if (!loyaltySettings?.redeem_enabled) return 0
+
+    const maxPercent = loyaltySettings.max_redeem_percent_of_bill ?? 100
+    const maxAllowedByPercent = (totalAmount * maxPercent) / 100
+    return Math.min(maxAllowedByPercent, totalAmount)
+  }, [loyaltySettings, totalAmount])
+
   // Calculate estimated redeem amount based on points and settings
   const estimatedRedeemAmount = useMemo(() => {
-    if (!loyaltyRedeemPoints || loyaltyRedeemPoints <= 0 || !loyaltySettings?.redeem_enabled) {
+    if (!redeemPointsInput || redeemPointsInput <= 0 || !loyaltySettings?.redeem_enabled) {
       return 0
     }
 
     // Basic conversion: points * point_value
-    const baseRedeemAmount = loyaltyRedeemPoints * (loyaltySettings.point_value || 1)
-
-    // Apply max_redeem_percent_of_bill constraint
-    const maxAllowedByPercent = (totalAmount * (loyaltySettings.max_redeem_percent_of_bill || 100)) / 100
+    const baseRedeemAmount = redeemPointsInput * (loyaltySettings.point_value || 1)
 
     // Return the minimum of calculated amount and max allowed
-    return Math.min(baseRedeemAmount, maxAllowedByPercent, totalAmount)
-  }, [loyaltyRedeemPoints, loyaltySettings, totalAmount])
+    return Math.min(baseRedeemAmount, maxRedeemAmountByPercent, totalAmount)
+  }, [redeemPointsInput, loyaltySettings, maxRedeemAmountByPercent, totalAmount])
 
   // Effective total after loyalty redemption
   const effectiveTotalAmount = useMemo(() => {
@@ -187,7 +195,8 @@ function PaymentDialogComponent({
   // Load loyalty settings when dialog opens
   useEffect(() => {
     if (open) {
-      loyaltyService.getSettings()
+      loyaltyService
+        .getSettings()
         .then((response) => setLoyaltySettings(response.data))
         .catch(() => setLoyaltySettings(null))
     }
@@ -205,14 +214,36 @@ function PaymentDialogComponent({
           onPaymentTypeChange(cashPayment)
         }
       }
-
-      // Auto-focus amount input after a short delay
-      setTimeout(() => {
-        amountInputRef.current?.focus()
-        amountInputRef.current?.select()
-      }, 100)
     }
   }, [open, effectiveTotalAmount, selectedPaymentType, paymentTypes, onPaymentTypeChange])
+
+  useEffect(() => {
+    if (!open) return
+
+    if (!isEditingRedeemRef.current) {
+      setRedeemPointsInput(loyaltyRedeemPoints)
+    }
+  }, [open, loyaltyRedeemPoints])
+
+  // Auto-focus amount input only when dialog opens
+  useEffect(() => {
+    if (!open) return
+
+    const focusTimer = setTimeout(() => {
+      amountInputRef.current?.focus()
+      amountInputRef.current?.select()
+    }, 100)
+
+    return () => clearTimeout(focusTimer)
+  }, [open])
+
+  useEffect(() => {
+    return () => {
+      if (redeemSyncTimerRef.current) {
+        clearTimeout(redeemSyncTimerRef.current)
+      }
+    }
+  }, [])
 
   // Reset amount to 0 when credit/due payment type is selected
   useEffect(() => {
@@ -295,16 +326,42 @@ function PaymentDialogComponent({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = Number(e.target.value || 0)
       if (!Number.isFinite(value)) {
+        setRedeemPointsInput(0)
         onLoyaltyRedeemPointsChange(0)
         return
       }
 
       const normalized = Math.max(0, Math.floor(value))
       const maxPoints = Math.max(0, Math.floor(loyaltyPoints || 0))
-      onLoyaltyRedeemPointsChange(Math.min(normalized, maxPoints))
+      const nextValue = Math.min(normalized, maxPoints)
+
+      setRedeemPointsInput(nextValue)
+
+      if (redeemSyncTimerRef.current) {
+        clearTimeout(redeemSyncTimerRef.current)
+      }
+
+      redeemSyncTimerRef.current = setTimeout(() => {
+        onLoyaltyRedeemPointsChange(nextValue)
+      }, 120)
     },
     [loyaltyPoints, onLoyaltyRedeemPointsChange]
   )
+
+  const handleRedeemFocus = useCallback(() => {
+    isEditingRedeemRef.current = true
+  }, [])
+
+  const handleRedeemBlur = useCallback(() => {
+    isEditingRedeemRef.current = false
+
+    if (redeemSyncTimerRef.current) {
+      clearTimeout(redeemSyncTimerRef.current)
+      redeemSyncTimerRef.current = null
+    }
+
+    onLoyaltyRedeemPointsChange(redeemPointsInput)
+  }, [onLoyaltyRedeemPointsChange, redeemPointsInput])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -422,7 +479,6 @@ function PaymentDialogComponent({
 
           {/* Right Column */}
           <div className="space-y-6">
-
             {customer && (
               <div className="space-y-3 rounded-lg border border-purple-200 bg-purple-50 p-3 dark:border-purple-800 dark:bg-purple-950">
                 <div>
@@ -437,7 +493,9 @@ function PaymentDialogComponent({
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-purple-700 dark:text-purple-300">Available Points:</span>
+                      <span className="text-purple-700 dark:text-purple-300">
+                        Available Points:
+                      </span>
                       <span className="font-semibold text-purple-900 dark:text-purple-100">
                         {Math.max(0, Math.floor(loyaltyPoints || 0))}
                       </span>
@@ -453,10 +511,17 @@ function PaymentDialogComponent({
                     min={0}
                     max={Math.max(0, Math.floor(loyaltyPoints || 0))}
                     step={1}
-                    value={loyaltyRedeemPoints}
+                    value={redeemPointsInput}
                     onChange={handleLoyaltyRedeemChange}
+                    onFocus={handleRedeemFocus}
+                    onBlur={handleRedeemBlur}
                     disabled={Math.max(0, Math.floor(loyaltyPoints || 0)) <= 0}
                   />
+                  {loyaltySettings?.redeem_enabled && maxRedeemAmountByPercent > 0 && (
+                    <p className="text-xs text-purple-700 dark:text-purple-300">
+                      Max redeem by bill: {formatCurrency(maxRedeemAmountByPercent)}
+                    </p>
+                  )}
                   {estimatedRedeemAmount > 0 ? (
                     <p className="text-xs font-semibold text-purple-700 dark:text-purple-300">
                       Estimated discount: {formatCurrency(estimatedRedeemAmount)}
@@ -590,7 +655,8 @@ function PaymentDialogComponent({
             {!isCreditPayment && numericAmount < effectiveTotalAmount && numericAmount > 0 && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-center">
                 <p className="text-sm text-destructive">
-                  Insufficient amount. Need {formatCurrency(effectiveTotalAmount - numericAmount)} more.
+                  Insufficient amount. Need {formatCurrency(effectiveTotalAmount - numericAmount)}{' '}
+                  more.
                 </p>
               </div>
             )}

@@ -22,6 +22,42 @@ This ensures:
 - src/pages/purchases/NewPurchasePage.tsx
 - src/pages/Due/components/CollectDueDialog.tsx
 
+## 2026-02-24 - Bug Fix: Redeem Amount Input Focus Jump
+
+**Problem:**
+Typing in the loyalty redeem amount field on the POS payment screen caused the cursor to jump to the Amount Received input, interrupting entry.
+
+**Root Cause:**
+The payment dialog auto-focused the Amount Received input on every effective total change. Redeem points updates recalculate the effective total, triggering a focus shift.
+
+**Solution:**
+Moved the auto-focus logic to run only when the dialog opens, while still syncing the amount value when the effective total changes.
+
+**Files Modified:**
+- src/pages/pos/components/PaymentDialog.tsx
+
+## 2026-02-24 - Enhancement: Show Max Redeem Amount
+
+**Problem:**
+The payment dialog did not display the maximum redeemable amount based on the bill percentage cap, making it unclear how much discount could be applied.
+
+**Solution:**
+Added a helper to calculate the max redeemable amount from the bill percentage cap and displayed it in the loyalty redeem section.
+
+**Files Modified:**
+- src/pages/pos/components/PaymentDialog.tsx
+
+## 2026-02-24 - UX: Redeem Discount Updates Without Lag
+
+**Problem:**
+The loyalty discount label appeared to update slowly while typing redeem points because each keystroke re-rendered the parent POS page.
+
+**Solution:**
+Introduced a local redeem points input state in the payment dialog and debounced syncing to the parent, keeping the discount calculation responsive while preserving the final value on blur.
+
+**Files Modified:**
+- src/pages/pos/components/PaymentDialog.tsx
+
 ## 2026-02-22 - Enhancement: Purchase Batch Selection (Existing vs New)
 
 **Problem:**
