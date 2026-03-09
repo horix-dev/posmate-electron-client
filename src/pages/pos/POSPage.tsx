@@ -18,7 +18,13 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { storage } from '@/lib/storage'
 import { useQueryClient } from '@tanstack/react-query'
 import { clearAllCache } from '@/lib/cache/clearCache'
-import type { Product, Stock, PaymentType, Party as Customer, CreatePartyRequest } from '@/types/api.types'
+import type {
+  Product,
+  Stock,
+  PaymentType,
+  Party as Customer,
+  CreatePartyRequest,
+} from '@/types/api.types'
 import type { ProductVariant } from '@/types/variant.types'
 import type { LocalProduct } from '@/lib/db/schema'
 
@@ -34,7 +40,10 @@ import {
   BatchSelectionDialog,
   SmartTender,
 } from './components'
-import { CustomerFormDialog, type CustomerFormData } from '@/pages/customers/components/CustomerFormDialog'
+import {
+  CustomerFormDialog,
+  type CustomerFormData,
+} from '@/pages/customers/components/CustomerFormDialog'
 
 // Hooks
 import { usePOSData, type POSFilters } from './hooks/usePOSData'
@@ -325,12 +334,31 @@ export function POSPage() {
           return false
         }
 
-        if (relevantStocks.length > 1) {
+        const inStockBatches = relevantStocks.filter(
+          (batchStock) => (batchStock.productStock ?? 0) > 0
+        )
+
+        if (inStockBatches.length === 0) {
+          toast.error('All batches are out of stock for this product')
+          return false
+        }
+
+        // Auto-select when only one batch has stock, even if multiple batch records exist.
+        if (inStockBatches.length === 1) {
+          stock = inStockBatches[0]
+        }
+
+        if (inStockBatches.length > 1) {
+          const selectedStockId = stock?.id ?? null
+          const isCurrentStockSelectable =
+            selectedStockId !== null &&
+            inStockBatches.some((batchStock) => Number(batchStock.id) === Number(selectedStockId))
+
           setBatchDialogState({
             product,
-            stocks: relevantStocks,
+            stocks: inStockBatches,
             variant: variant ?? null,
-            defaultStockId: stock?.id ?? null,
+            defaultStockId: isCurrentStockSelectable ? (stock?.id ?? null) : null,
             mode: 'add',
           })
           setIsBatchDialogOpen(true)
@@ -338,7 +366,7 @@ export function POSPage() {
         }
 
         if (!stock) {
-          stock = relevantStocks[0]
+          stock = inStockBatches[0]
         }
       }
 

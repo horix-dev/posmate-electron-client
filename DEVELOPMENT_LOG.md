@@ -1,3 +1,18 @@
+## 2026-03-09 - Fix: POS Batch Auto-Selection For In-Stock Batches
+
+**Problem:**
+Batch-tracked products in POS were showing the batch selection dialog whenever multiple batch records existed, even when only one batch had available stock. This added an unnecessary extra step. Also, when all batches were out of stock, the dialog could still open instead of stopping immediately.
+
+**Solution:**
+Updated `POSPage` add-to-cart batch logic to use only in-stock batches for decision making:
+1. If no batch records exist: show existing "No batch records" error.
+2. If all batches are out of stock: stop and show a clear "All batches are out of stock" message.
+3. If exactly one in-stock batch exists: auto-select it and add directly to cart (no modal).
+4. Show batch selection dialog only when more than one in-stock batch is available.
+
+**Files Modified:**
+- src/pages/pos/POSPage.tsx
+
 ## 2026-02-24 - Bug Fix: Payment Methods Display - Only Cash Showing
 
 **Problem:**
