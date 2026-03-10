@@ -173,7 +173,8 @@ function PaymentDialogComponent({
     const baseRedeemAmount = loyaltyRedeemPoints * (loyaltySettings.point_value || 1)
 
     // Apply max_redeem_percent_of_bill constraint
-    const maxAllowedByPercent = (totalAmount * (loyaltySettings.max_redeem_percent_of_bill || 100)) / 100
+    const maxAllowedByPercent =
+      (totalAmount * (loyaltySettings.max_redeem_percent_of_bill || 100)) / 100
 
     // Return the minimum of calculated amount and max allowed
     return Math.min(baseRedeemAmount, maxAllowedByPercent, totalAmount)
@@ -187,7 +188,8 @@ function PaymentDialogComponent({
   // Load loyalty settings when dialog opens
   useEffect(() => {
     if (open) {
-      loyaltyService.getSettings()
+      loyaltyService
+        .getSettings()
         .then((response) => setLoyaltySettings(response.data))
         .catch(() => setLoyaltySettings(null))
     }
@@ -288,8 +290,9 @@ function PaymentDialogComponent({
     if (isValidPayment) {
       // Pass the entered amount for all payment types (including partial credit)
       onProcessPayment(numericAmount, printEnabled)
+      setPrintEnabled(autoPrintReceipt) // Reset print toggle to default after processing
     }
-  }, [isValidPayment, numericAmount, onProcessPayment, printEnabled])
+  }, [isValidPayment, numericAmount, onProcessPayment, printEnabled, autoPrintReceipt])
 
   const handleLoyaltyRedeemChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -422,7 +425,6 @@ function PaymentDialogComponent({
 
           {/* Right Column */}
           <div className="space-y-6">
-
             {customer && (
               <div className="space-y-3 rounded-lg border border-purple-200 bg-purple-50 p-3 dark:border-purple-800 dark:bg-purple-950">
                 <div>
@@ -437,7 +439,9 @@ function PaymentDialogComponent({
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-purple-700 dark:text-purple-300">Available Points:</span>
+                      <span className="text-purple-700 dark:text-purple-300">
+                        Available Points:
+                      </span>
                       <span className="font-semibold text-purple-900 dark:text-purple-100">
                         {Math.max(0, Math.floor(loyaltyPoints || 0))}
                       </span>
@@ -590,7 +594,8 @@ function PaymentDialogComponent({
             {!isCreditPayment && numericAmount < effectiveTotalAmount && numericAmount > 0 && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-center">
                 <p className="text-sm text-destructive">
-                  Insufficient amount. Need {formatCurrency(effectiveTotalAmount - numericAmount)} more.
+                  Insufficient amount. Need {formatCurrency(effectiveTotalAmount - numericAmount)}{' '}
+                  more.
                 </p>
               </div>
             )}
