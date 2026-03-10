@@ -418,12 +418,18 @@ export default function ProductFormPage() {
           return
         }
 
-        const invalidBatch = data.batches.find(
-          (batch) => !batch.batch_no || !batch.productStock || Number(batch.productStock) <= 0
+        const invalidBatch = data.batches.find((batch) =>
+          isEditMode
+            ? !batch.batch_no
+            : !batch.batch_no || !batch.productStock || Number(batch.productStock) <= 0
         )
 
         if (invalidBatch) {
-          toast.error('Each batch needs a batch number and a quantity greater than zero')
+          toast.error(
+            isEditMode
+              ? 'Each batch needs a batch number'
+              : 'Each batch needs a batch number and a quantity greater than zero'
+          )
           return
         }
       }

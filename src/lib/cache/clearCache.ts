@@ -62,63 +62,66 @@ export async function clearAllCache(
     }
   }
 
-  // 2. Clear localStorage cache
+  // 2. Clear ALL localStorage (full wipe)
   if (opts.localStorage) {
     try {
-      const keysToRemove: string[] = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key && (key.startsWith('cache:') || key.startsWith('pos_'))) {
-          keysToRemove.push(key)
-        }
-      }
-      keysToRemove.forEach((key) => localStorage.removeItem(key))
+      const count = localStorage.length
+      localStorage.clear()
       results.push({
-        layer: `LocalStorage Cache (${keysToRemove.length} items)`,
+        layer: `LocalStorage (${count} entries)`,
         status: 'success',
       })
     } catch (error) {
       results.push({
-        layer: 'LocalStorage Cache',
+        layer: 'LocalStorage',
         status: 'error',
         error: error instanceof Error ? error.message : 'Unknown error',
       })
     }
   }
 
-  // 3. Clear persistent storage (IndexedDB/SQLite)
+  // 3. Clear persistent storage (SQLite / IndexedDB)
   if (opts.persistentStorage) {
     try {
-      // Clear products
-      const products = await storage.products.getAll()
-      await Promise.all(products.map((p) => storage.products.delete(p.id)))
+      // Use clear() on each repository for an efficient, complete wipe
+      await Promise.all([
+        storage.products.clear(),
+        storage.categories.clear(),
+        storage.parties.clear(),
+        storage.sales.clear(),
+        storage.syncQueue.clear(),
+      ])
 
-      // Clear categories
-      const categories = await storage.categories.getAll()
-      await Promise.all(categories.map((c) => storage.categories.delete(c.id)))
-
-      // Clear offline sales
-      const offlineSales = await storage.sales.getOfflineSales()
-      await Promise.all(offlineSales.map((sale) => storage.sales.delete(sale.id)))
-
-      // Clear sync queue
-      const queueItems = await storage.syncQueue.getAll()
-      await Promise.all(
-        queueItems
-          .filter((item) => item.id !== undefined)
-          .map((item) => storage.syncQueue.delete(item.id!))
-      )
-
-      results.push({
-        layer: `Persistent Storage (${products.length + categories.length + offlineSales.length + queueItems.length} records)`,
-        status: 'success',
-      })
+      results.push({ layer: 'Persistent Storage (all tables)', status: 'success' })
     } catch (error) {
       results.push({
         layer: 'Persistent Storage',
         status: 'error',
         error: error instanceof Error ? error.message : 'Unknown error',
       })
+    }
+
+    // Also delete all IndexedDB databases (belt-and-suspenders for browsers / dev mode)
+    try {
+      if (typeof indexedDB !== 'undefined' && indexedDB.databases) {
+        const dbs = await indexedDB.databases()
+        await Promise.all(
+          dbs
+            .filter((d) => d.name)
+            .map(
+              (d) =>
+                new Promise<void>((resolve) => {
+                  const req = indexedDB.deleteDatabase(d.name!)
+                  req.onsuccess = () => resolve()
+                  req.onerror = () => resolve() // ignore errors
+                  req.onblocked = () => resolve()
+                })
+            )
+        )
+        results.push({ layer: 'IndexedDB Databases', status: 'success' })
+      }
+    } catch {
+      // Non-critical — IndexedDB may already be empty or not supported
     }
   }
 
@@ -139,6 +142,7 @@ export async function clearAllCache(
   // 5. Clear sync state
   if (opts.syncState) {
     try {
+      // localStorage may already be cleared above; these are no-ops if so
       localStorage.removeItem('last_server_timestamp')
       localStorage.removeItem('sync_token')
       syncApiService.clearLastServerTimestamp()
