@@ -62,13 +62,23 @@ export async function clearAllCache(
     }
   }
 
-  // 2. Clear ALL localStorage (full wipe)
+  // 2. Clear ALL localStorage except critical system keys
   if (opts.localStorage) {
     try {
-      const count = localStorage.length
-      localStorage.clear()
+      // These keys must survive a cache wipe — wiping them breaks
+      // the DB migration guard (DatabaseClosedError) and device identity
+      const PRESERVE_KEYS = new Set(['sqlite_migration_complete', 'device_id', 'device_registered'])
+
+      const keysToRemove: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && !PRESERVE_KEYS.has(key)) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach((key) => localStorage.removeItem(key))
       results.push({
-        layer: `LocalStorage (${count} entries)`,
+        layer: `LocalStorage (${keysToRemove.length} entries cleared)`,
         status: 'success',
       })
     } catch (error) {
@@ -99,29 +109,6 @@ export async function clearAllCache(
         status: 'error',
         error: error instanceof Error ? error.message : 'Unknown error',
       })
-    }
-
-    // Also delete all IndexedDB databases (belt-and-suspenders for browsers / dev mode)
-    try {
-      if (typeof indexedDB !== 'undefined' && indexedDB.databases) {
-        const dbs = await indexedDB.databases()
-        await Promise.all(
-          dbs
-            .filter((d) => d.name)
-            .map(
-              (d) =>
-                new Promise<void>((resolve) => {
-                  const req = indexedDB.deleteDatabase(d.name!)
-                  req.onsuccess = () => resolve()
-                  req.onerror = () => resolve() // ignore errors
-                  req.onblocked = () => resolve()
-                })
-            )
-        )
-        results.push({ layer: 'IndexedDB Databases', status: 'success' })
-      }
-    } catch {
-      // Non-critical — IndexedDB may already be empty or not supported
     }
   }
 

@@ -41,6 +41,9 @@ export interface UsePOSDataReturn {
 
   // Actions
   refetch: (showLoadingState?: boolean) => Promise<void>
+  decrementStock: (
+    soldItems: Array<{ productId: number; stockId: number; quantity: number }>
+  ) => Promise<void>
 }
 
 // ============================================
@@ -381,6 +384,63 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
     return filtered
   }, [products, filters])
 
+  const decrementStock = useCallback(
+    async (soldItems: Array<{ productId: number; stockId: number; quantity: number }>) => {
+      // 1. Update in-memory state immediately so the UI reflects new quantities
+      setProducts((prev) =>
+        prev.map((product) => {
+          const soldItem = soldItems.find((item) => item.productId === product.id)
+          if (!soldItem) return product
+
+          const updatedStocks = (product.stocks || []).map((stock) => {
+            if (stock.id !== soldItem.stockId) return stock
+            return { ...stock, productStock: Math.max(0, stock.productStock - soldItem.quantity) }
+          })
+
+          const newTotal = updatedStocks.reduce((sum, s) => sum + (s.productStock || 0), 0)
+          const updatedStock =
+            updatedStocks.find((s) => s.id === soldItem.stockId) ?? product.stocks?.[0]
+
+          return {
+            ...product,
+            stocks: updatedStocks,
+            stocks_sum_product_stock: newTotal,
+            productStock: newTotal,
+            stock: updatedStock,
+          }
+        })
+      )
+
+      // 2. Persist updated quantities to local storage (SQLite / IndexedDB)
+      try {
+        await Promise.all(
+          soldItems.map(async ({ productId, stockId, quantity }) => {
+            const localProduct = await storage.products.getById(productId)
+            if (!localProduct) return
+
+            const updatedStocks = (localProduct.stocks || []).map((stock) => {
+              if (stock.id !== stockId) return stock
+              return { ...stock, productStock: Math.max(0, stock.productStock - quantity) }
+            })
+
+            const newTotal = updatedStocks.reduce((sum, s) => sum + (s.productStock || 0), 0)
+            const updatedStock = updatedStocks.find((s) => s.id === stockId) ?? localProduct.stock
+
+            await storage.products.update(productId, {
+              stocks: updatedStocks,
+              stocks_sum_product_stock: newTotal,
+              productStock: newTotal,
+              stock: updatedStock,
+            } as Partial<typeof localProduct>)
+          })
+        )
+      } catch (error) {
+        console.warn('[usePOSData] Failed to persist stock after sale:', error)
+      }
+    },
+    []
+  )
+
   return {
     products,
     categories,
@@ -392,6 +452,7 @@ export function usePOSData(filters: POSFilters): UsePOSDataReturn {
     isOffline,
     error,
     refetch: fetchData,
+    decrementStock,
   }
 }
 

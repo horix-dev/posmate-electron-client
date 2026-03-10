@@ -47,7 +47,7 @@ export function BarcodePreview({ barcodes, paperSetting }: BarcodePreviewProps) 
                   padding: '2px',
                 }}
               >
-                <CardContent className="relative flex h-full flex-col items-center justify-start gap-0.5 overflow-hidden p-1 text-center">
+                <CardContent className="relative flex h-full flex-col items-center justify-start gap-0.5 overflow-hidden p-1 text-center text-black">
                   {/* Business Name */}
                   {barcode.show_product_name && barcode.product_name && (
                     <div

@@ -16,8 +16,6 @@ import { printReceipt } from '@/lib/receipt-generator'
 import { useBusinessStore } from '@/stores/business.store'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { storage } from '@/lib/storage'
-import { useQueryClient } from '@tanstack/react-query'
-import { clearAllCache } from '@/lib/cache/clearCache'
 import type {
   Product,
   Stock,
@@ -80,7 +78,6 @@ export function POSPage() {
   // ----------------------------------------
   // Store & Data
   // ----------------------------------------
-  const queryClient = useQueryClient()
   const autoPrintReceipt = useUIStore((state) => state.autoPrintReceipt)
   const smartTenderEnabled = useUIStore((state) => state.smartTenderEnabled)
   const business = useBusinessStore((state) => state.business)
@@ -139,7 +136,6 @@ export function POSPage() {
   const [showSmartTender, setShowSmartTender] = useState(false)
   const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
-  const [isClearingCache, setIsClearingCache] = useState(true)
   const [loyaltyRedeemPoints, setLoyaltyRedeemPoints] = useState(0)
   const [isLoyaltyLookupLoading, setIsLoyaltyLookupLoading] = useState(false)
   const [showAddCustomerDialog, setShowAddCustomerDialog] = useState(false)
@@ -156,39 +152,8 @@ export function POSPage() {
     isProductsLoading,
     filteredProducts,
     refetch,
+    decrementStock,
   } = usePOSData(filters)
-
-  // Clear cache on mount to ensure fresh data (only when online)
-  useEffect(() => {
-    const clearCacheOnMount = async () => {
-      // Skip cache clearing if offline - use cached data instead
-      if (!navigator.onLine) {
-        console.log('[POS] Offline mode detected - using cached data')
-        setIsClearingCache(false)
-        return
-      }
-
-      try {
-        console.log('[POS] Online - clearing cache on mount...')
-        await clearAllCache(queryClient, {
-          reactQuery: true,
-          localStorage: true,
-          persistentStorage: true,
-          images: false, // Keep images cached for performance
-          syncState: false, // Keep sync state
-        })
-        console.log('[POS] Cache cleared successfully')
-        // usePOSData hook will automatically fetch fresh data since cache is empty
-      } catch (error) {
-        console.warn('[POS] Failed to clear cache:', error)
-        toast.error('Failed to clear cache. Please refresh the page.')
-      } finally {
-        setIsClearingCache(false)
-      }
-    }
-
-    clearCacheOnMount()
-  }, [queryClient])
 
   // Fetch business data on mount
   useEffect(() => {
@@ -791,6 +756,15 @@ export function POSPage() {
         // Create sale (works offline)
         const result = await offlineSalesService.create(saleData)
 
+        // Immediately decrement stock in local storage + in-memory state
+        // (works for both online and offline sales)
+        const soldItems = cartItems.map((item) => ({
+          productId: item.product.id,
+          stockId: item.stock.id,
+          quantity: item.quantity,
+        }))
+        await decrementStock(soldItems)
+
         // Success
         if (result.isOffline) {
           toast.success('Sale saved offline - will sync when online')
@@ -850,13 +824,11 @@ export function POSPage() {
         setLoyaltyRedeemPoints(0)
         closeDialog('payment')
 
-        // Refresh products to show updated stock values
+        // Fire-and-forget background refresh (online only) to sync authoritative server data
         if (!result.isOffline) {
-          try {
-            await refetch(false) // false = only show loader on product grid, not full page
-          } catch (error) {
-            console.warn('[POS] Failed to refresh products after sale:', error)
-          }
+          refetch(false).catch((error) => {
+            console.warn('[POS] Background product refresh failed:', error)
+          })
         }
 
         // Get new invoice number (only when online)
@@ -895,6 +867,7 @@ export function POSPage() {
       closeDialog,
       setInvoiceNumber,
       refetch,
+      decrementStock,
     ]
   )
 
@@ -1292,15 +1265,13 @@ export function POSPage() {
   // Render
   // ----------------------------------------
 
-  // Show full-screen loader during cache clearing or initial product load
-  if (isClearingCache || isLoading) {
+  // Show full-screen loader during initial product load
+  if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center bg-muted/30">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-lg font-medium text-muted-foreground">
-            {isClearingCache ? 'Preparing POS...' : 'Loading products...'}
-          </p>
+          <p className="text-lg font-medium text-muted-foreground">Loading products...</p>
         </div>
       </div>
     )

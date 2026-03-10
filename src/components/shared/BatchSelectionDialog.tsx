@@ -12,13 +12,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useCurrency } from '@/hooks'
 import { cn } from '@/lib/utils'
-import type { Product, Stock } from '@/types/api.types'
+import type { Product, Stock, BatchListItem } from '@/types/api.types'
 import type { ProductVariant } from '@/types/variant.types'
 
 export interface BatchSelectionDialogProps {
   open: boolean
   product: Product | null
-  stocks: Stock[]
+  stocks: BatchListItem[]
   variant?: ProductVariant | null
   defaultStockId?: number | null
   onSelect: (stock: Stock) => void
@@ -44,7 +44,13 @@ function BatchSelectionDialogComponent({
   const { format: formatCurrency } = useCurrency()
 
   const sortedStocks = useMemo(() => {
-    return [...stocks].sort((a, b) => (b.productStock ?? 0) - (a.productStock ?? 0))
+    return [...stocks]
+      .filter((s) => (s.available_quantity ?? s.productStock ?? 0) > 0)
+      .sort(
+        (a, b) =>
+          (b.available_quantity ?? b.productStock ?? 0) -
+          (a.available_quantity ?? a.productStock ?? 0)
+      )
   }, [stocks])
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -83,7 +89,7 @@ function BatchSelectionDialogComponent({
           ) : (
             <div className="space-y-3">
               {sortedStocks.map((stock) => {
-                const quantity = stock.productStock ?? 0
+                const quantity = stock.available_quantity ?? stock.productStock ?? 0
                 const price = stock.productSalePrice ?? 0
                 const isOutOfStock = quantity <= 0
                 const expiry = formatDate(stock.expire_date)

@@ -17,6 +17,8 @@ import { type LabelPayload } from '@/api/services/print-labels.service'
 import { productsService } from '@/api/services/products.service'
 import { useCurrency } from '@/hooks/useCurrency'
 import { useBusinessStore, useUIStore } from '@/stores'
+import { BatchSelectionDialog } from '@/components/shared/BatchSelectionDialog'
+import type { Product, Stock } from '@/types/api.types'
 
 import { LabelConfiguration } from './LabelConfiguration'
 import { SelectedProductsTable } from './SelectedProductsTable'
@@ -33,6 +35,7 @@ type ProductOption = {
   productStock?: number
   isVariant?: boolean
   variantId?: number
+  isBatchTracked?: boolean
 }
 
 interface SelectedProduct extends BarcodeBatchItem {
@@ -80,6 +83,12 @@ export function PrintLabelsPage() {
   const [selectedOptionValue, setSelectedOptionValue] = useState<string>('')
   const [productSearch, setProductSearch] = useState('')
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
+
+  // Batch selection dialog
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false)
+  const [batchDialogStocks, setBatchDialogStocks] = useState<Stock[]>([])
+  const [batchDialogProduct, setBatchDialogProduct] = useState<Product | null>(null)
+  const [pendingBatchOption, setPendingBatchOption] = useState<ProductOption | null>(null)
 
   // Label configuration
   const [showBusinessName, setShowBusinessName] = useState(true)
@@ -192,7 +201,9 @@ export function PrintLabelsPage() {
         productStock: stock !== undefined ? Number(stock) : undefined,
       }
 
-      options.push(baseOption)
+      const isBatchTracked = product.is_batch_tracked === true || product.product_type === 'variant'
+
+      options.push({ ...baseOption, isBatchTracked: isBatchTracked || undefined })
 
       if (Array.isArray(product.variants)) {
         product.variants.forEach((v: unknown) => {
@@ -860,6 +871,27 @@ export function PrintLabelsPage() {
                                           setSelectedOptionValue(p.optionValue)
                                           setProductPopoverOpen(false)
 
+                                          if (p.isBatchTracked) {
+                                            try {
+                                              const batchResp = await productsService.getBatches(
+                                                p.id
+                                              )
+                                              const detailResp = await productsService.getById(p.id)
+                                              const productDetail = ((
+                                                detailResp as unknown as Record<string, unknown>
+                                              ).data ?? null) as Product | null
+                                              setBatchDialogStocks(batchResp.batches ?? [])
+                                              setBatchDialogProduct(productDetail)
+                                              setPendingBatchOption(p)
+                                              setBatchDialogOpen(true)
+                                            } catch (err) {
+                                              console.error('Failed to fetch batches:', err)
+                                              toast.error('Failed to load batch information')
+                                              setSelectedOptionValue('')
+                                            }
+                                            return
+                                          }
+
                                           if (p.isVariant && p.variantId) {
                                             handleAddProduct({
                                               product_id: p.variantId,
@@ -954,6 +986,11 @@ export function PrintLabelsPage() {
                                             <span>Price: {displayPrice ?? '-'}</span>
                                             <span>Stock: {p.productStock ?? 0}</span>
                                           </div>
+                                          {p.isBatchTracked && (
+                                            <div className="mt-0.5 text-xs text-blue-500">
+                                              Batch tracked &mdash; select batch in next step
+                                            </div>
+                                          )}
                                         </div>
                                       </CommandItem>
                                     )
@@ -1136,6 +1173,38 @@ export function PrintLabelsPage() {
           )}
         </CardContent>
       </Card>
+
+      <BatchSelectionDialog
+        open={batchDialogOpen}
+        product={batchDialogProduct}
+        stocks={batchDialogStocks}
+        onSelect={(stock) => {
+          if (!pendingBatchOption) return
+          handleAddProduct({
+            product_id: pendingBatchOption.id,
+            product_name: pendingBatchOption.productName,
+            product_code: pendingBatchOption.productCode,
+            barcode: pendingBatchOption.barcode,
+            unit_price: stock.productSalePrice ?? pendingBatchOption.productSalePrice ?? 0,
+            stock: stock.productStock ?? 0,
+            quantity: 1,
+            batch_id: stock.id,
+            packing_date: stock.mfg_date ?? null,
+          })
+          setBatchDialogOpen(false)
+          setPendingBatchOption(null)
+          setBatchDialogProduct(null)
+          setSelectedOptionValue('')
+          setProductSearch('')
+        }}
+        onClose={() => {
+          setBatchDialogOpen(false)
+          setPendingBatchOption(null)
+          setBatchDialogProduct(null)
+          setSelectedOptionValue('')
+          setProductSearch('')
+        }}
+      />
     </div>
   )
 }
