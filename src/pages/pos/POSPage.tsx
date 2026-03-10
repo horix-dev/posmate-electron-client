@@ -819,7 +819,7 @@ export function POSPage() {
 
         // Print receipt if auto-print is enabled (works offline)
         console.log('[POS] autoPrintReceipt setting:', autoPrintReceipt)
-        if (autoPrintReceipt || printReceiptEnabled) {
+        if (printReceiptEnabled) {
           console.log('[POS] Auto-print enabled, generating receipt...')
           console.log('[POS] Business data:', business ? business.companyName : 'NOT LOADED')
           console.log('[POS] Sale data:', result.data.invoiceNumber)
