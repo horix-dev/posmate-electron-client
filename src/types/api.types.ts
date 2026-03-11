@@ -330,9 +330,55 @@ export interface User {
   business_id?: number
   branch_id?: number
   active_branch_id?: number
-  visibility?: string
+  /** May arrive as a JSON string (legacy) or a parsed object — use usePermissions() to read it */
+  visibility?: StaffVisibility | string
   image?: string
   is_verified?: number
+}
+
+// ============================================
+// Staff Types
+// ============================================
+
+export interface VisibilityModule {
+  view?: '0' | '1'
+  create?: '0' | '1'
+  delete?: '0' | '1'
+}
+
+export interface StaffVisibility {
+  sales?: VisibilityModule
+  products?: VisibilityModule
+  parties?: VisibilityModule
+  purchases?: VisibilityModule
+  reports?: VisibilityModule
+  stock_adjustments?: VisibilityModule
+}
+
+export interface StaffMember {
+  id: number
+  name: string
+  email: string
+  role: 'staff'
+  business_id: number
+  branch_id?: number
+  active_branch_id?: number | null
+  /** May arrive as a JSON string from the API — use parseStaffVisibility() to read it */
+  visibility?: StaffVisibility | string
+  created_at: string
+  updated_at: string
+  branch?: {
+    id: number
+    name: string
+  }
+}
+
+export interface CreateStaffRequest {
+  name: string
+  email: string
+  password?: string
+  visibility?: StaffVisibility
+  branch_id?: number
 }
 
 // ============================================

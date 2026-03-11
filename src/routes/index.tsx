@@ -7,6 +7,7 @@ import { AppShell } from '@/components/layout'
 // Route guards
 import { ProtectedRoute } from './ProtectedRoute'
 import { PublicRoute } from './PublicRoute'
+import { PermissionRoute } from './PermissionRoute'
 
 // Lazy load pages for better performance
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'))
@@ -24,6 +25,7 @@ const FinancePage = lazy(() => import('@/pages/finance/FinancePage'))
 const DuePage = lazy(() => import('@/pages/Due/DuePage'))
 const CustomersPage = lazy(() => import('@/pages/customers/CustomersPage'))
 const SuppliersPage = lazy(() => import('@/pages/suppliers/SuppliersPage'))
+const StaffPage = lazy(() => import('@/pages/staff/StaffPage'))
 const ProductSettingsPage = lazy(() => import('@/pages/product-settings/ProductSettingsPage'))
 const WarehousesPage = lazy(() => import('@/pages/warehouses/WarehousesPage'))
 const StocksPage = lazy(() => import('@/pages/stocks/StocksPage'))
@@ -113,73 +115,101 @@ const router = routerCreator([
       {
         path: 'products',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <ProductsPage />
-          </Suspense>
+          <PermissionRoute module="products" action="view">
+            <Suspense fallback={<PageLoader />}>
+              <ProductsPage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {
         path: 'products/create',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <ProductFormPage />
-          </Suspense>
+          <PermissionRoute module="products" action="create">
+            <Suspense fallback={<PageLoader />}>
+              <ProductFormPage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {
         path: 'products/:id/edit',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <ProductFormPage />
-          </Suspense>
+          <PermissionRoute module="products" action="create">
+            <Suspense fallback={<PageLoader />}>
+              <ProductFormPage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {
         path: 'sales',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <SalesPage />
-          </Suspense>
+          <PermissionRoute module="sales" action="view">
+            <Suspense fallback={<PageLoader />}>
+              <SalesPage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {
         path: 'purchases',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <PurchasesPage />
-          </Suspense>
+          <PermissionRoute module="purchases" action="view">
+            <Suspense fallback={<PageLoader />}>
+              <PurchasesPage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {
         path: 'purchases/new',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <NewPurchasePage />
-          </Suspense>
+          <PermissionRoute module="purchases" action="create">
+            <Suspense fallback={<PageLoader />}>
+              <NewPurchasePage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {
         path: 'purchases/:id/edit',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <NewPurchasePage />
-          </Suspense>
+          <PermissionRoute module="purchases" action="create">
+            <Suspense fallback={<PageLoader />}>
+              <NewPurchasePage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {
         path: 'customers',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <CustomersPage />
-          </Suspense>
+          <PermissionRoute module="parties" action="view">
+            <Suspense fallback={<PageLoader />}>
+              <CustomersPage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {
         path: 'suppliers',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <SuppliersPage />
-          </Suspense>
+          <PermissionRoute module="parties" action="view">
+            <Suspense fallback={<PageLoader />}>
+              <SuppliersPage />
+            </Suspense>
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: 'staff',
+        element: (
+          <PermissionRoute ownerOnly>
+            <Suspense fallback={<PageLoader />}>
+              <StaffPage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {
@@ -201,9 +231,11 @@ const router = routerCreator([
       {
         path: 'product-settings',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <ProductSettingsPage />
-          </Suspense>
+          <PermissionRoute ownerOnly>
+            <Suspense fallback={<PageLoader />}>
+              <ProductSettingsPage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {
@@ -225,25 +257,31 @@ const router = routerCreator([
       {
         path: 'inventory/stock-adjustments',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <StockAdjustmentsPage />
-          </Suspense>
+          <PermissionRoute module="stock_adjustments" action="view">
+            <Suspense fallback={<PageLoader />}>
+              <StockAdjustmentsPage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {
         path: 'reports',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <ReportsPage />
-          </Suspense>
+          <PermissionRoute module="reports" action="view">
+            <Suspense fallback={<PageLoader />}>
+              <ReportsPage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {
         path: 'reports/sales-totals',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <SalesTotalsPage />
-          </Suspense>
+          <PermissionRoute module="reports" action="view">
+            <Suspense fallback={<PageLoader />}>
+              <SalesTotalsPage />
+            </Suspense>
+          </PermissionRoute>
         ),
       },
       {

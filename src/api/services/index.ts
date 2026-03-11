@@ -13,6 +13,7 @@ export {
   paymentTypesService,
 } from './inventory.service'
 export { partiesService } from './parties.service'
+export { staffService } from './staff.service'
 export { productsService } from './products.service'
 export { purchasesService } from './purchases.service'
 export { reportsService } from './reports.service'

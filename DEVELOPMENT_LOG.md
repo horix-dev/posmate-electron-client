@@ -1,3 +1,31 @@
+## 2026-03-11 - Feature: Staff Management Integration
+
+**Feature:**
+Integrated the Staff API (`/api/v1/users`) to allow creating, editing, and deleting staff members with granular module permissions.
+
+**Solution:**
+Implemented a full feature module following the same pattern as Customers/Suppliers:
+- `StaffMember`, `CreateStaffRequest`, `StaffVisibility`, `VisibilityModule` types added to `api.types.ts`
+- `staff.service.ts` — API service (getAll, create, update, delete) using `API_ENDPOINTS.USERS`
+- `src/pages/staff/schemas/staff.schema.ts` — Zod validation schema for staff form
+- `src/pages/staff/hooks/useStaff.ts` — TanStack Query hook with caching and offline fallback
+- `src/pages/staff/components/StaffFormDialog.tsx` — Dialog with name/email/password fields and a permissions matrix (per-module checkbox grid)
+- `src/pages/staff/StaffPage.tsx` — Full list page with search, add/edit/delete actions
+- Route `/staff` added to the router
+- "Staff" added as a child of "Parties" in the sidebar nav
+
+**Files Modified/Created:**
+- src/types/api.types.ts
+- src/api/services/staff.service.ts (created)
+- src/api/services/index.ts
+- src/pages/staff/schemas/staff.schema.ts (created)
+- src/pages/staff/schemas/index.ts (created)
+- src/pages/staff/hooks/useStaff.ts (created)
+- src/pages/staff/components/StaffFormDialog.tsx (created)
+- src/pages/staff/StaffPage.tsx (created)
+- src/routes/index.tsx
+- src/components/layout/Sidebar.tsx
+
 ## 2026-03-09 - Fix: POS Batch Auto-Selection For In-Stock Batches
 
 **Problem:**

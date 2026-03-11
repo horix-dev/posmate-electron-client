@@ -20,6 +20,7 @@ import {
   PackageMinus,
   Plus,
   DollarSign,
+  UserCog,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -29,6 +30,8 @@ import { useUIStore, useBusinessStore } from '@/stores'
 import { cn } from '@/lib/utils'
 import { SyncStatusIndicator } from '@/components/common/SyncStatusIndicator'
 import { SyncQueuePanel } from '@/components/common/SyncQueuePanel'
+import { usePermissions } from '@/hooks/usePermissions'
+import type { StaffVisibility } from '@/types/api.types'
 
 interface NavItem {
   title: string
@@ -36,12 +39,20 @@ interface NavItem {
   icon: React.ElementType
   badge?: number
   children?: SubNavItem[]
+  /** If set, user must have view access to this module */
+  permission?: keyof StaffVisibility
+  /** If true, only visible to shop-owners */
+  ownerOnly?: boolean
 }
 
 interface SubNavItem {
   title: string
   href: string
   icon: React.ElementType
+  /** If set, user must have view access to this module */
+  permission?: keyof StaffVisibility
+  /** If true, only visible to shop-owners */
+  ownerOnly?: boolean
 }
 
 const mainNavItems: NavItem[] = [
@@ -51,28 +62,46 @@ const mainNavItems: NavItem[] = [
     title: 'Products',
     href: '/products',
     icon: Package,
+    permission: 'products',
     children: [
-      { title: 'Add Product', href: '/products/create', icon: Plus },
-      { title: 'All Products', href: '/products', icon: Package },
+      { title: 'Add Product', href: '/products/create', icon: Plus, permission: 'products' },
+      { title: 'All Products', href: '/products', icon: Package, permission: 'products' },
     ],
   },
   {
     title: 'Sales',
     href: '/sales',
     icon: Receipt,
+    permission: 'sales',
     children: [
-      { title: 'All Sales', href: '/sales?tab=sales', icon: Receipt },
-      { title: 'Sales Returns', href: '/sales?tab=returns', icon: PackageMinus },
+      { title: 'All Sales', href: '/sales?tab=sales', icon: Receipt, permission: 'sales' },
+      {
+        title: 'Sales Returns',
+        href: '/sales?tab=returns',
+        icon: PackageMinus,
+        permission: 'sales',
+      },
     ],
   },
   {
     title: 'Purchases',
     href: '/purchases',
     icon: Truck,
+    permission: 'purchases',
     children: [
-      { title: 'Add Purchase', href: '/purchases/new', icon: Plus },
-      { title: 'All Purchases', href: '/purchases?tab=purchases', icon: Package },
-      { title: 'Purchase Returns', href: '/purchases?tab=returns', icon: PackageMinus },
+      { title: 'Add Purchase', href: '/purchases/new', icon: Plus, permission: 'purchases' },
+      {
+        title: 'All Purchases',
+        href: '/purchases?tab=purchases',
+        icon: Package,
+        permission: 'purchases',
+      },
+      {
+        title: 'Purchase Returns',
+        href: '/purchases?tab=returns',
+        icon: PackageMinus,
+        permission: 'purchases',
+      },
     ],
   },
   { title: 'Due', href: '/due', icon: Wallet },
@@ -80,9 +109,11 @@ const mainNavItems: NavItem[] = [
     title: 'Parties',
     href: '/customers',
     icon: Users,
+    permission: 'parties',
     children: [
-      { title: 'Customers', href: '/customers', icon: UserCheck },
-      { title: 'Suppliers', href: '/suppliers', icon: Building2 },
+      { title: 'Customers', href: '/customers', icon: UserCheck, permission: 'parties' },
+      { title: 'Suppliers', href: '/suppliers', icon: Building2, permission: 'parties' },
+      { title: 'Staff', href: '/staff', icon: UserCog, ownerOnly: true },
     ],
   },
 ]
@@ -92,15 +123,26 @@ const secondaryNavItems: NavItem[] = [
   { title: 'Stocks', href: '/stocks', icon: Package },
   // { title: 'Invoices', href: '/invoices', icon: FileText },
   // { title: 'Warehouses', href: '/warehouses', icon: Warehouse },
-  { title: 'Product Settings', href: '/product-settings', icon: Tags },
-  { title: 'Stock Adjustments', href: '/inventory/stock-adjustments', icon: ClipboardList },
+  { title: 'Product Settings', href: '/product-settings', icon: Tags, ownerOnly: true },
+  {
+    title: 'Stock Adjustments',
+    href: '/inventory/stock-adjustments',
+    icon: ClipboardList,
+    permission: 'stock_adjustments',
+  },
   {
     title: 'Reports',
     href: '/reports',
     icon: BarChart3,
+    permission: 'reports',
     children: [
-      { title: 'All Reports', href: '/reports', icon: BarChart3 },
-      { title: 'Sales Totals', href: '/reports/sales-totals', icon: DollarSign },
+      { title: 'All Reports', href: '/reports', icon: BarChart3, permission: 'reports' },
+      {
+        title: 'Sales Totals',
+        href: '/reports/sales-totals',
+        icon: DollarSign,
+        permission: 'reports',
+      },
     ],
   },
 ]
@@ -111,6 +153,13 @@ export function Sidebar() {
   const business = useBusinessStore((state) => state.business)
   const [syncPanelOpen, setSyncPanelOpen] = useState(false)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
+  const { canAccess, isOwner } = usePermissions()
+
+  const isItemVisible = (item: NavItem | SubNavItem): boolean => {
+    if (item.ownerOnly && !isOwner) return false
+    if (item.permission && !canAccess(item.permission)) return false
+    return true
+  }
 
   const isCollapsed = sidebarState === 'collapsed'
 
@@ -183,7 +232,7 @@ export function Sidebar() {
         {/* Sub-menu items */}
         {!isCollapsed && hasChildren && isExpanded && (
           <div className="ml-8 mt-0.5 flex flex-col gap-0.5">
-            {item.children?.map((child) => {
+            {item.children?.filter(isItemVisible).map((child) => {
               const SubIcon = child.icon
               const childPath = child.href.split('?')[0]
               const childSearch = child.href.split('?')[1]
@@ -244,7 +293,7 @@ export function Sidebar() {
             </div>
             {hasChildren && (
               <div className="ml-2 flex flex-col gap-1 border-l-2 border-sidebar-border pl-2">
-                {item.children?.map((child) => (
+                {item.children?.filter(isItemVisible).map((child) => (
                   <Link
                     key={child.href}
                     to={child.href}
@@ -290,7 +339,7 @@ export function Sidebar() {
             thumbClassName="bg-sidebar-foreground/15 hover:bg-sidebar-foreground/25"
           >
             <nav className="flex flex-col gap-1">
-              {mainNavItems.map((item) => (
+              {mainNavItems.filter(isItemVisible).map((item) => (
                 <NavLink key={item.href} item={item} />
               ))}
             </nav>
@@ -298,7 +347,7 @@ export function Sidebar() {
             <Separator className="my-4" />
 
             <nav className="flex flex-col gap-1">
-              {secondaryNavItems.map((item) => (
+              {secondaryNavItems.filter(isItemVisible).map((item) => (
                 <NavLink key={item.href} item={item} />
               ))}
             </nav>

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { useStockAdjustment } from '@/hooks/useStockAdjustment'
 import { useProducts } from '@/pages/products/hooks/useProducts'
 import { useAuthStore } from '@/stores/auth.store'
+import { usePermissions } from '@/hooks/usePermissions'
 import { toast } from 'sonner'
 import type { StockAdjustmentFilters, StockAdjustment } from '@/types/stockAdjustment.types'
 import type { StockAdjustmentFormData } from './schemas'
@@ -26,6 +27,7 @@ import {
 
 export default function StockAdjustmentsPage() {
   const user = useAuthStore((state) => state.user)
+  const { can } = usePermissions()
   const [formDialogOpen, setFormDialogOpen] = useState(false)
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false)
   const [selectedAdjustment, setSelectedAdjustment] = useState<StockAdjustment | null>(null)
@@ -162,6 +164,7 @@ export default function StockAdjustmentsPage() {
               setFormDialogOpen(true)
               void refetchProducts()
             }}
+            disabled={!can('stock_adjustments', 'create')}
           >
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
             New Adjustment
